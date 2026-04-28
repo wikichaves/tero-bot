@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Acme Rentals — Admin
 
-## Getting Started
+Panel de administración interno: dashboard de check-ins/check-outs, gestión de
+usuarios y reservas, e (próximamente) integración con WhatsApp para huéspedes
+y personal de limpieza/mantenimiento.
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Next.js 16 (App Router) + TypeScript
+- Tailwind v4 + shadcn/ui
+- Supabase (Auth + Postgres + RLS)
+- Hosting: Vercel → `admin.example.com`
+
+## Setup local
+
+1. Instalar dependencias:
+   ```bash
+   npm install
+   ```
+2. Crear proyecto en [supabase.com](https://supabase.com) y, en el SQL editor,
+   ejecutar `supabase/schema.sql`.
+3. Copiar `.env.example` a `.env.local` y completar con las keys del proyecto
+   Supabase (Project Settings → API).
+4. Crear el primer admin desde el dashboard de Supabase
+   (Authentication → Users → Add user) y, en la tabla `profiles`, setear
+   `role = 'admin'` para ese usuario.
+5. Levantar dev server:
+   ```bash
+   npm run dev
+   ```
+
+## Roles
+
+- **admin**: gestiona usuarios, propiedades, reservas y tareas.
+- **gestor**: gestiona reservas y tareas. No crea usuarios.
+- **limpieza** / **mantenimiento**: ven y actualizan sus tareas; reportan
+  problemas/insumos vía WhatsApp.
+
+## Estructura
+
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+src/
+  app/
+    login/         # autenticación (email + password)
+    dashboard/     # vista protegida con check-ins/check-outs
+  lib/
+    supabase/      # clients (server / browser / middleware)
+    types.ts
+  components/ui/   # shadcn
+supabase/
+  schema.sql       # tablas, enums, triggers y políticas RLS
+```
