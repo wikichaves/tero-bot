@@ -1,12 +1,12 @@
-import { requireProfile } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { SiteHeader } from "@/components/site-header";
 
-export default async function DashboardLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const profile = await requireProfile();
+  const profile = await requireRole(["admin"]);
   return (
     <div className="flex flex-1 flex-col">
       <SiteHeader profile={profile} />
