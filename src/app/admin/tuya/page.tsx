@@ -105,10 +105,21 @@ export default async function TuyaPage() {
               )}
             </dl>
           ) : (
-            <p className="text-muted-foreground">
-              No se encontró ninguna cuenta linkeada. Linkeá una en
-              <em> Devices → Link App Account</em> en el cloud project de Tuya.
-            </p>
+            <div className="text-muted-foreground space-y-2">
+              <p>
+                No se encontró ninguna cuenta linkeada vía los endpoints
+                automáticos de Tuya. Probablemente la API de "list users" no
+                está disponible en tu plan o cambió de path.
+              </p>
+              <p>
+                <strong>Workaround:</strong> agregá tu UID a las env vars como{" "}
+                <code>TUYA_USER_UID</code> (lo ves en Tuya →{" "}
+                <em>Devices → Link App Account</em>, columna UID — algo como{" "}
+                <code>az159097966553O5Zk</code>) y reiniciá el dev server o
+                hacé redeploy en Vercel. Con eso saltamos el discovery y
+                listamos los devices directo.
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>

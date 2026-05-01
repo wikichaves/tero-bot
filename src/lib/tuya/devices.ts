@@ -33,26 +33,50 @@ export type TuyaAppUser = {
   create_time?: number;
 };
 
-const DEFAULT_SCHEMAS = ["smartlife", "tuyaSmart"];
+const SCHEMAS = ["smartlife", "tuyaSmart", "SmartLife"];
 
 /**
- * List app users (UIDs) linked to the Cloud Project. Tries the common app
- * "schemas" until one returns at least one user.
+ * List app users (UIDs) linked to the Cloud Project. Tuya exposes several
+ * endpoints depending on the auth product and they've changed over time —
+ * we try the newer ones first and fall back to the older /apps/{schema}/users
+ * shape. If TUYA_USER_UID is set in env, we short-circuit and use it directly,
+ * which lets you skip user-discovery altogether.
  */
 export async function listAppUsers(): Promise<TuyaAppUser[]> {
-  for (const schema of DEFAULT_SCHEMAS) {
+  const fallbackUid = process.env.TUYA_USER_UID?.trim();
+  if (fallbackUid) {
+    return [{ uid: fallbackUid, username: "(from TUYA_USER_UID env)" }];
+  }
+
+  // 1. Newer Cloud-Project-scoped endpoint (works with most current setups)
+  try {
+    const r = await tuyaFetch<
+      | TuyaAppUser[]
+      | { list?: TuyaAppUser[]; users?: TuyaAppUser[] }
+    >("GET", "/v1.0/iot-01/associated-users/users", {
+      query: { page_no: 1, page_size: 50 },
+    });
+    const users = Array.isArray(r) ? r : (r?.list ?? r?.users ?? []);
+    if (users.length > 0) return users;
+  } catch {
+    /* fall through */
+  }
+
+  // 2. Older schema-based endpoints (smartlife / tuyaSmart)
+  for (const schema of SCHEMAS) {
     try {
-      const result = await tuyaFetch<TuyaAppUser[] | { list: TuyaAppUser[] }>(
-        "GET",
-        `/v1.0/apps/${schema}/users`,
-        { query: { page_no: 1, page_size: 50 } },
-      );
-      const users = Array.isArray(result) ? result : (result?.list ?? []);
+      const r = await tuyaFetch<
+        TuyaAppUser[] | { list?: TuyaAppUser[]; users?: TuyaAppUser[] }
+      >("GET", `/v1.0/apps/${schema}/users`, {
+        query: { page_no: 1, page_size: 50 },
+      });
+      const users = Array.isArray(r) ? r : (r?.list ?? r?.users ?? []);
       if (users.length > 0) return users;
     } catch {
-      // try next schema
+      /* try next schema */
     }
   }
+
   return [];
 }
 
