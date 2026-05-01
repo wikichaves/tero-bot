@@ -228,7 +228,7 @@ Yo armo los borradores en código + JSON; vos los pegás en Meta Business Suite 
 ### Fase 3 — webhook + producción
 
 Una vez aprobados los templates:
-1. Configurar el webhook URL en Meta apuntando a `https://example-admin.vercel.app/api/whatsapp/webhook`
+1. Configurar el webhook URL en Kapso apuntando a `https://admin.example.com/api/whatsapp`
 2. Suscribirse al campo `messages`
 3. Probar con un mensaje real
 4. Fin del setup

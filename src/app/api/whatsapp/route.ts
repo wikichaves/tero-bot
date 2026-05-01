@@ -11,7 +11,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
  * once the Kapso webhook URL is repointed to this app.
  *
  * Configure on Kapso side: set webhook URL to
- *   https://example-admin.vercel.app/api/whatsapp
+ *   https://admin.example.com/api/whatsapp
  * with secret == KAPSO_WEBHOOK_SECRET env var.
  */
 
