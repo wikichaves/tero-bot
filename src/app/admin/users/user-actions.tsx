@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -51,12 +52,14 @@ export function UserActions({
         <MoreHorizontal className="h-4 w-4" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Cambiar rol</DropdownMenuLabel>
-        {ROLES.filter((r) => r !== profile.role).map((r) => (
-          <DropdownMenuItem key={r} onClick={() => changeRole(r)}>
-            {r}
-          </DropdownMenuItem>
-        ))}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Cambiar rol</DropdownMenuLabel>
+          {ROLES.filter((r) => r !== profile.role).map((r) => (
+            <DropdownMenuItem key={r} onClick={() => changeRole(r)}>
+              {r}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
         {!isSelf && (
           <>
             <DropdownMenuSeparator />
