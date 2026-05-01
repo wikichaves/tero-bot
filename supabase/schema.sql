@@ -172,3 +172,66 @@ create policy tasks_update on public.tasks
 drop policy if exists tasks_delete on public.tasks;
 create policy tasks_delete on public.tasks
   for delete using (public.current_role() = 'admin');
+
+-- ────────────────────────────────────────────────────────────────────────
+-- WhatsApp persistence (added 2026-05-01). The webhook at /api/whatsapp
+-- writes here using the service-role client (bypasses RLS); reading is
+-- restricted to admin/gestor.
+
+create table if not exists public.whatsapp_conversations (
+  id uuid primary key default gen_random_uuid(),
+  phone_number text not null unique,
+  display_name text,
+  audience text not null default 'unknown'
+    check (audience in ('guest', 'staff', 'unknown')),
+  profile_id uuid references public.profiles(id) on delete set null,
+  last_message_at timestamptz,
+  last_message_text text,
+  last_message_direction text
+    check (last_message_direction in ('inbound', 'outbound')),
+  unread_count int not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists whatsapp_conversations_last_message_idx
+  on public.whatsapp_conversations(last_message_at desc nulls last);
+
+create table if not exists public.whatsapp_messages (
+  id uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references public.whatsapp_conversations(id)
+    on delete cascade,
+  external_id text unique,
+  direction text not null check (direction in ('inbound', 'outbound')),
+  type text not null default 'text',
+  body text,
+  media_url text,
+  template_name text,
+  status text,
+  raw jsonb,
+  sent_at timestamptz not null default now()
+);
+
+create index if not exists whatsapp_messages_conversation_idx
+  on public.whatsapp_messages(conversation_id, sent_at desc);
+
+alter table public.whatsapp_conversations enable row level security;
+alter table public.whatsapp_messages enable row level security;
+
+drop policy if exists whatsapp_conversations_read on public.whatsapp_conversations;
+create policy whatsapp_conversations_read on public.whatsapp_conversations
+  for select using (public.current_role() in ('admin', 'gestor'));
+
+drop policy if exists whatsapp_conversations_write on public.whatsapp_conversations;
+create policy whatsapp_conversations_write on public.whatsapp_conversations
+  for all using (public.current_role() in ('admin', 'gestor'))
+  with check (public.current_role() in ('admin', 'gestor'));
+
+drop policy if exists whatsapp_messages_read on public.whatsapp_messages;
+create policy whatsapp_messages_read on public.whatsapp_messages
+  for select using (public.current_role() in ('admin', 'gestor'));
+
+drop policy if exists whatsapp_messages_write on public.whatsapp_messages;
+create policy whatsapp_messages_write on public.whatsapp_messages
+  for all using (public.current_role() in ('admin', 'gestor'))
+  with check (public.current_role() in ('admin', 'gestor'));

@@ -1,26 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import {
+  persistMessage,
+  sendKapsoText,
+  upsertConversation,
+} from "@/lib/whatsapp";
 
 /**
  * Webhook receiver for Kapso (BSP wrapper around Meta WhatsApp Cloud API).
  *
- * Migrated from example (public site) on 2026-05-01 — the public
- * site shouldn't host server-side integrations. From here we'll evolve this
- * into a proper inbox + outbound messaging from the admin panel; for now it
- * preserves the existing auto-reply behavior to avoid breaking production
- * once the Kapso webhook URL is repointed to this app.
- *
  * Configure on Kapso side: set webhook URL to
  *   https://admin.example.com/api/whatsapp
  * with secret == KAPSO_WEBHOOK_SECRET env var.
+ *
+ * Behavior:
+ *   1. Verify HMAC-SHA256 signature.
+ *   2. For each event in the batch: upsert the conversation, persist the
+ *      message (idempotent by external_id), record outbound delivery status.
+ *   3. For inbound text messages: auto-reply (legacy behavior preserved
+ *      while we build the inbox; will be replaced/disabled later).
+ *   4. Always 200 if signature valid (so Kapso doesn't retry endlessly).
  */
 
 const REPLY_TEXT = "Hola, como andás? Que te gustaría saber?";
 
-/**
- * HMAC-SHA256 over the raw body, using the Kapso webhook secret.
- * timingSafeEqual to avoid timing attacks.
- */
 function verifySignature(
   rawBody: string,
   signature: string,
@@ -38,63 +41,126 @@ function verifySignature(
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/**
- * Send a text message via the Kapso API.
- * Doesn't throw — errors are logged and swallowed so the webhook always 200s.
- */
-async function sendKapsoText(
-  phoneNumberId: string,
-  to: string,
-  text: string,
-): Promise<void> {
-  const apiKey = process.env.KAPSO_API_KEY;
-  if (!apiKey) {
-    console.warn("[kapso reply] KAPSO_API_KEY not set — skipping send");
-    return;
-  }
+type KapsoTextContent = { body?: string };
 
-  const url = `https://api.kapso.ai/meta/whatsapp/v24.0/${phoneNumberId}/messages`;
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "X-API-Key": apiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to,
-        type: "text",
-        text: { body: text },
-      }),
-    });
-    const responseText = await res.text();
-    if (!res.ok) {
-      console.error("[kapso reply] failed", {
-        status: res.status,
-        body: responseText,
-      });
-      return;
-    }
-    console.log("[kapso reply] sent", { to, status: res.status });
-  } catch (err) {
-    console.error("[kapso reply] error", err);
-  }
-}
+type KapsoMessage = {
+  id?: string;
+  from?: string;
+  to?: string;
+  type?: string;
+  text?: KapsoTextContent;
+  image?: { link?: string; caption?: string };
+  audio?: { link?: string };
+  video?: { link?: string };
+  timestamp?: string | number;
+  kapso?: { direction?: "inbound" | "outbound" };
+};
 
-type KapsoMessageEvent = {
-  message?: {
-    from?: string;
-    type?: string;
-    kapso?: { direction?: string };
-  };
+type KapsoStatus = {
+  id?: string;
+  status?: string; // sent | delivered | read | failed
+  recipient_id?: string;
+};
+
+type KapsoContact = {
+  wa_id?: string;
+  profile?: { name?: string };
+};
+
+type KapsoEvent = {
+  message?: KapsoMessage;
+  status?: KapsoStatus;
+  contacts?: KapsoContact[];
   phone_number_id?: string;
 };
 
 type KapsoWebhookBody = {
   type?: string;
-  data?: KapsoMessageEvent[];
+  data?: KapsoEvent[];
 };
+
+function extractBody(message: KapsoMessage): string | null {
+  if (message.type === "text") return message.text?.body ?? null;
+  if (message.type === "image") return message.image?.caption ?? null;
+  return null;
+}
+
+function extractMediaUrl(message: KapsoMessage): string | null {
+  return (
+    message.image?.link ??
+    message.audio?.link ??
+    message.video?.link ??
+    null
+  );
+}
+
+async function processEvent(event: KapsoEvent, eventType: string | null) {
+  const phoneNumberId = event.phone_number_id;
+  const message = event.message;
+
+  // --- Inbound message ---
+  if (
+    eventType === "whatsapp.message.received" &&
+    message?.from &&
+    message?.kapso?.direction === "inbound"
+  ) {
+    const peer = message.from;
+    const displayName = event.contacts?.[0]?.profile?.name ?? null;
+    const { id: conversationId } = await upsertConversation({
+      phone_number: peer,
+      display_name: displayName,
+    });
+    await persistMessage({
+      conversation_id: conversationId,
+      external_id: message.id ?? null,
+      direction: "inbound",
+      type: message.type ?? "text",
+      body: extractBody(message),
+      media_url: extractMediaUrl(message),
+      raw: event,
+    });
+    return { conversationId, peer, phoneNumberId, message };
+  }
+
+  // --- Outbound delivery status updates ---
+  if (event.status?.id) {
+    // Update existing message row's status if we have it.
+    // (We don't necessarily have it if the outbound was sent from outside
+    // this app; ignore silently in that case.)
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const admin = createAdminClient();
+    await admin
+      .from("whatsapp_messages")
+      .update({ status: event.status.status ?? null })
+      .eq("external_id", event.status.id);
+  }
+
+  return null;
+}
+
+async function autoReply(opts: {
+  phoneNumberId: string;
+  peer: string;
+  conversationId: string;
+}) {
+  try {
+    const { messageId } = await sendKapsoText(
+      opts.phoneNumberId,
+      opts.peer,
+      REPLY_TEXT,
+    );
+    await persistMessage({
+      conversation_id: opts.conversationId,
+      external_id: messageId ?? null,
+      direction: "outbound",
+      type: "text",
+      body: REPLY_TEXT,
+      status: "sent",
+    });
+  } catch (err) {
+    console.error("[kapso autoReply] error", err);
+  }
+}
 
 export async function POST(req: NextRequest) {
   const meta = {
@@ -105,10 +171,9 @@ export async function POST(req: NextRequest) {
     batchSize: req.headers.get("x-batch-size"),
   };
 
-  // Raw body needed for byte-exact signature validation.
   const rawBody = await req.text();
 
-  // --- Signature validation ---
+  // Signature validation.
   const secret = process.env.KAPSO_WEBHOOK_SECRET;
   if (secret) {
     if (!meta.signature) {
@@ -133,7 +198,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Parse body for logging/routing.
   let body: KapsoWebhookBody | string;
   try {
     body = JSON.parse(rawBody) as KapsoWebhookBody;
@@ -141,31 +205,41 @@ export async function POST(req: NextRequest) {
     body = rawBody;
   }
 
-  console.log("[kapso webhook]", JSON.stringify({ meta, body }, null, 2));
-
-  // --- Auto-reply (preserved from public-site implementation) ---
-  // Only reply to inbound text messages. Redundant filters on event header
-  // AND direction to avoid auto-replying to our own outbound echoes.
-  if (
-    meta.event === "whatsapp.message.received" &&
-    typeof body === "object" &&
-    Array.isArray(body.data)
-  ) {
-    const replies = body.data
-      .filter(
-        (evt) =>
-          !!evt?.message?.from &&
-          !!evt?.phone_number_id &&
-          evt?.message?.type === "text" &&
-          evt?.message?.kapso?.direction === "inbound",
-      )
-      .map((evt) =>
-        sendKapsoText(evt.phone_number_id!, evt.message!.from!, REPLY_TEXT),
-      );
-
-    // allSettled so one failure doesn't block the rest of the batch.
-    await Promise.allSettled(replies);
+  if (typeof body !== "object" || !Array.isArray(body.data)) {
+    return NextResponse.json({ ok: true }, { status: 200 });
   }
+
+  // Process events; collect inbound text events so we can auto-reply once
+  // the persistence is committed.
+  const replyTargets: Array<{
+    phoneNumberId: string;
+    peer: string;
+    conversationId: string;
+  }> = [];
+
+  await Promise.allSettled(
+    body.data.map(async (event) => {
+      try {
+        const result = await processEvent(event, meta.event);
+        if (
+          result &&
+          result.message?.type === "text" &&
+          result.phoneNumberId
+        ) {
+          replyTargets.push({
+            phoneNumberId: result.phoneNumberId,
+            peer: result.peer,
+            conversationId: result.conversationId,
+          });
+        }
+      } catch (err) {
+        console.error("[kapso webhook] processEvent error", err);
+      }
+    }),
+  );
+
+  // Fire-and-forget auto-replies.
+  await Promise.allSettled(replyTargets.map(autoReply));
 
   return NextResponse.json({ ok: true }, { status: 200 });
 }
