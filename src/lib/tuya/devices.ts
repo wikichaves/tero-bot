@@ -81,14 +81,57 @@ export async function listAppUsers(): Promise<TuyaAppUser[]> {
 }
 
 /**
- * List devices linked to a specific Tuya app user (by UID).
+ * List devices linked to a specific Tuya app user (by UID). Different
+ * endpoints work depending on subscriptions and Tuya version — try the
+ * modern IoT-03 one first, then the Cloud Thing API, then the legacy one.
  */
 export async function listDevicesByUser(uid: string): Promise<TuyaDevice[]> {
-  const result = await tuyaFetch<TuyaDevice[] | { list: TuyaDevice[] }>(
-    "GET",
-    `/v1.0/users/${uid}/devices`,
-  );
-  return Array.isArray(result) ? result : (result?.list ?? []);
+  const errors: string[] = [];
+
+  // 1. IoT-03 (modern, requires IoT Core subscription — which we have)
+  try {
+    const r = await tuyaFetch<{ list?: TuyaDevice[] } | TuyaDevice[]>(
+      "GET",
+      "/v1.3/iot-03/devices",
+      { query: { source_type: "tuyaUser", source_id: uid, page_size: 100 } },
+    );
+    const list = Array.isArray(r) ? r : (r?.list ?? []);
+    if (list.length > 0) return list;
+  } catch (e) {
+    errors.push(`iot-03: ${(e as Error).message}`);
+  }
+
+  // 2. Cloud Thing API (v2.0)
+  try {
+    const r = await tuyaFetch<{ list?: TuyaDevice[] } | TuyaDevice[]>(
+      "GET",
+      "/v2.0/cloud/thing/device",
+      { query: { source_type: "tuyaUser", source_id: uid, page_size: 100 } },
+    );
+    const list = Array.isArray(r) ? r : (r?.list ?? []);
+    if (list.length > 0) return list;
+  } catch (e) {
+    errors.push(`v2.0/cloud/thing: ${(e as Error).message}`);
+  }
+
+  // 3. Legacy Smart Home endpoint
+  try {
+    const r = await tuyaFetch<TuyaDevice[] | { list?: TuyaDevice[] }>(
+      "GET",
+      `/v1.0/users/${uid}/devices`,
+    );
+    const list = Array.isArray(r) ? r : (r?.list ?? []);
+    if (list.length > 0) return list;
+  } catch (e) {
+    errors.push(`v1.0/users/{uid}/devices: ${(e as Error).message}`);
+  }
+
+  if (errors.length === 3) {
+    throw new Error(
+      `All device-list endpoints failed. Try copying the UID exactly from the Tuya cloud (Devices → Link App Account, UID column — beware of line wrapping). Errors:\n${errors.join("\n")}`,
+    );
+  }
+  return [];
 }
 
 /**
