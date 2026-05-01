@@ -28,6 +28,12 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
+-- IMPORTANT: do NOT read `role` from raw_user_meta_data here. That field is
+-- attacker-controlled at signup time (Supabase's public signup endpoint accepts
+-- arbitrary metadata with only the anon key). Allowing it would let anyone
+-- self-register as 'admin'. Roles are always assigned by an admin server action
+-- via the service-role client AFTER the auth user is created — see
+-- src/app/admin/users/actions.ts.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -39,7 +45,7 @@ begin
     new.id,
     new.email,
     coalesce(new.raw_user_meta_data->>'full_name', null),
-    coalesce((new.raw_user_meta_data->>'role')::user_role, 'gestor')
+    'gestor'
   )
   on conflict (id) do nothing;
   return new;

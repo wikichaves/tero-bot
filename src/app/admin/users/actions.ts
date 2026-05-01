@@ -35,13 +35,31 @@ export async function createUser(formData: FormData) {
 
   const { email, password, full_name, role, whatsapp } = parsed.data;
   const admin = createAdminClient();
-  const { error } = await admin.auth.admin.createUser({
+
+  // SECURITY: do NOT pass `role` in user_metadata. The DB trigger ignores it
+  // (always assigns 'gestor' on insert) — we explicitly assign the requested
+  // role below using the service-role client, which bypasses RLS but only
+  // executes after this server action's requireRole(['admin']) check above.
+  const { data: created, error } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
-    user_metadata: { full_name, role, whatsapp },
+    user_metadata: { full_name, whatsapp },
   });
   if (error) return { error: error.message };
+  if (!created.user) {
+    return { error: "No se pudo crear el usuario." };
+  }
+
+  const { error: profileError } = await admin
+    .from("profiles")
+    .update({ role, full_name, whatsapp })
+    .eq("id", created.user.id);
+  if (profileError) {
+    // Roll back the auth user so we don't leave orphans with the default role.
+    await admin.auth.admin.deleteUser(created.user.id);
+    return { error: `No se pudo asignar el rol: ${profileError.message}` };
+  }
 
   revalidatePath("/admin/users");
   return { ok: true };
