@@ -16,6 +16,12 @@ export function SiteHeader({ profile }: { profile: Profile }) {
           </Link>
           {profile.role === "admin" && (
             <>
+              <Link
+                href="/admin/properties"
+                className="hover:text-foreground"
+              >
+                Propiedades
+              </Link>
               <Link href="/admin/users" className="hover:text-foreground">
                 Usuarios
               </Link>

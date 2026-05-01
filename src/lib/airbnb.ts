@@ -1,0 +1,112 @@
+import "server-only";
+import ICAL from "ical.js";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+export type SyncResult = {
+  property_id: string;
+  fetched: number;
+  reservations: number;
+  blocks: number;
+  errors: string[];
+};
+
+/**
+ * Fetch and parse an Airbnb iCal feed for a property and upsert reservations
+ * into the database. Idempotent: re-running the same feed produces no new
+ * rows and only updates dates that changed.
+ *
+ * Notes about Airbnb's iCal:
+ *  - DTEND is the exclusive end (Airbnb checkout date itself).
+ *  - SUMMARY is "Reserved" for real bookings, "Airbnb (Not available)" or
+ *    "Not available" for manual blocks.
+ *  - No guest PII is exposed — only dates + UID + a reservation code in
+ *    DESCRIPTION (e.g. "Reservation URL: .../HMABC123").
+ */
+export async function syncAirbnb(
+  propertyId: string,
+  icalUrl: string,
+): Promise<SyncResult> {
+  const result: SyncResult = {
+    property_id: propertyId,
+    fetched: 0,
+    reservations: 0,
+    blocks: 0,
+    errors: [],
+  };
+
+  let ics: string;
+  try {
+    const res = await fetch(icalUrl, { cache: "no-store" });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    }
+    ics = await res.text();
+  } catch (e) {
+    throw new Error(`Fetching iCal failed: ${(e as Error).message}`);
+  }
+
+  let comp: ICAL.Component;
+  try {
+    comp = new ICAL.Component(ICAL.parse(ics));
+  } catch (e) {
+    throw new Error(`Parsing iCal failed: ${(e as Error).message}`);
+  }
+
+  const vevents = comp.getAllSubcomponents("vevent");
+  result.fetched = vevents.length;
+
+  const admin = createAdminClient();
+
+  for (const vevent of vevents) {
+    try {
+      const event = new ICAL.Event(vevent);
+      const summary = event.summary ?? "";
+      const uid = event.uid;
+      if (!uid) continue;
+
+      // Skip manual blocks — they aren't reservations.
+      if (
+        /not\s*available|airbnb\s*\(not\s*available\)|^block/i.test(summary)
+      ) {
+        result.blocks++;
+        continue;
+      }
+      // Only handle entries that look like reservations.
+      if (!/reserv/i.test(summary)) {
+        continue;
+      }
+
+      const checkIn = toIsoDate(event.startDate.toJSDate());
+      const checkOut = toIsoDate(event.endDate.toJSDate());
+
+      const description = event.description ?? "";
+      const codeMatch = description.match(/HM[A-Z0-9]+/);
+      const reservationCode = codeMatch?.[0] ?? null;
+      const notes = reservationCode
+        ? `Airbnb reservation: ${reservationCode}`
+        : null;
+
+      const { error } = await admin.from("reservations").upsert(
+        {
+          property_id: propertyId,
+          source: "airbnb",
+          external_id: uid,
+          check_in: checkIn,
+          check_out: checkOut,
+          notes,
+        },
+        { onConflict: "source,external_id" },
+      );
+      if (error) throw new Error(error.message);
+      result.reservations++;
+    } catch (e) {
+      result.errors.push((e as Error).message);
+    }
+  }
+
+  return result;
+}
+
+function toIsoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}

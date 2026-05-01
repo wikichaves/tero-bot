@@ -125,10 +125,12 @@ create policy profiles_admin_write on public.profiles
   for all using (public.current_role() = 'admin')
   with check (public.current_role() = 'admin');
 
--- properties: admin/gestor read+write; limpieza/mantenimiento read
+-- properties: admin/gestor read+write. Limpieza/mantenimiento don't read
+-- properties directly (avoids leaking iCal URLs); they get property name via
+-- the tasks they're assigned to (denormalized when needed).
 drop policy if exists properties_read on public.properties;
 create policy properties_read on public.properties
-  for select using (auth.role() = 'authenticated');
+  for select using (public.current_role() in ('admin', 'gestor'));
 
 drop policy if exists properties_write on public.properties;
 create policy properties_write on public.properties

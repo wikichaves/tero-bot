@@ -1,0 +1,107 @@
+import { format, parseISO } from "date-fns";
+import { es } from "date-fns/locale";
+import { createClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/auth";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { NewPropertyDialog } from "./property-form-dialog";
+import { PropertyActions } from "./property-actions";
+import type { Property } from "@/lib/types";
+
+export default async function PropertiesPage() {
+  await requireRole(["admin"]);
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("properties")
+    .select("*")
+    .order("created_at", { ascending: true });
+  const properties = (data ?? []) as Property[];
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Propiedades</h1>
+          <p className="text-sm text-muted-foreground">
+            {properties.length} propiedad
+            {properties.length === 1 ? "" : "es"} en el sistema.
+          </p>
+        </div>
+        <NewPropertyDialog />
+      </div>
+
+      {error && (
+        <Card>
+          <CardContent className="pt-6 text-sm text-destructive">
+            {error.message}
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardContent className="pt-6">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Airbnb iCal</TableHead>
+                <TableHead>Booking iCal</TableHead>
+                <TableHead>Creada</TableHead>
+                <TableHead className="w-12" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {properties.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="text-center text-muted-foreground"
+                  >
+                    Sin propiedades. Creá la primera con el botón{" "}
+                    <em>Nueva propiedad</em>.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                properties.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium">{p.name}</TableCell>
+                    <TableCell>
+                      {p.airbnb_ical_url ? (
+                        <Badge variant="default">configurada</Badge>
+                      ) : (
+                        <Badge variant="secondary">—</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {p.booking_ical_url ? (
+                        <Badge variant="default">configurada</Badge>
+                      ) : (
+                        <Badge variant="secondary">—</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {format(parseISO(p.created_at), "d MMM yyyy", {
+                        locale: es,
+                      })}
+                    </TableCell>
+                    <TableCell>
+                      <PropertyActions property={p} />
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
