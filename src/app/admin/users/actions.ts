@@ -65,6 +65,39 @@ export async function createUser(formData: FormData) {
   return { ok: true };
 }
 
+const updateProfileSchema = z.object({
+  id: z.string().uuid(),
+  full_name: z.string().min(1, "Falta el nombre.").max(100),
+  whatsapp: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v ? v : null)),
+});
+
+export async function updateProfile(input: {
+  id: string;
+  full_name: string;
+  whatsapp: string;
+}) {
+  await requireRole(["admin"]);
+  const parsed = updateProfileSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("profiles")
+    .update({
+      full_name: parsed.data.full_name,
+      whatsapp: parsed.data.whatsapp,
+    })
+    .eq("id", parsed.data.id);
+  if (error) return { error: error.message };
+  revalidatePath("/admin/users");
+  return { ok: true };
+}
+
 const updateRoleSchema = z.object({
   id: z.string().uuid(),
   role: z.enum(ROLES),

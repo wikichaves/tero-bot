@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import type { Profile, UserRole } from "@/lib/types";
 import { deleteUser, updateRole } from "./actions";
+import { EditUserDialog } from "./edit-user-dialog";
 
 const ROLES: UserRole[] = ["admin", "gestor", "limpieza", "mantenimiento"];
 
@@ -26,6 +27,7 @@ export function UserActions({
   isSelf: boolean;
 }) {
   const [pending, startTransition] = useTransition();
+  const [editOpen, setEditOpen] = useState(false);
 
   function changeRole(role: UserRole) {
     startTransition(async () => {
@@ -45,33 +47,44 @@ export function UserActions({
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={<Button variant="ghost" size="icon" disabled={pending} />}
-      >
-        <MoreHorizontal className="h-4 w-4" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Cambiar rol</DropdownMenuLabel>
-          {ROLES.filter((r) => r !== profile.role).map((r) => (
-            <DropdownMenuItem key={r} onClick={() => changeRole(r)}>
-              {r}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuGroup>
-        {!isSelf && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={remove}
-              className="text-destructive focus:text-destructive"
-            >
-              Eliminar
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button variant="ghost" size="icon" disabled={pending} />}
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => setEditOpen(true)}>
+            Editar
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Cambiar rol</DropdownMenuLabel>
+            {ROLES.filter((r) => r !== profile.role).map((r) => (
+              <DropdownMenuItem key={r} onClick={() => changeRole(r)}>
+                {r}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuGroup>
+          {!isSelf && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={remove}
+                className="text-destructive focus:text-destructive"
+              >
+                Eliminar
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <EditUserDialog
+        profile={profile}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+      />
+    </>
   );
 }
