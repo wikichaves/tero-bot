@@ -9,23 +9,45 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
     profile.role === "limpieza" || profile.role === "mantenimiento";
   const homeHref = isStaff ? "/mis-tareas" : "/dashboard";
 
-  // Count this user's open assigned tasks for the badge.
+  // Counts for the nav badges. We track overdue separately so we can color
+  // the badge red when something needs urgent attention.
   const supabase = await createClient();
-  const { count: myOpen } = await supabase
-    .from("tasks")
-    .select("id", { count: "exact", head: true })
-    .eq("assigned_to", profile.id)
-    .in("status", ["pending", "in_progress"]);
+  const todayIso = new Date().toISOString().slice(0, 10);
 
-  // For admin/gestor, also show the count of unassigned + open tasks across
-  // all properties — useful to spot stuff that needs triage.
-  let teamOpen: number | null = null;
-  if (profile.role === "admin" || profile.role === "gestor") {
-    const { count } = await supabase
+  const [myOpenRes, myOverdueRes] = await Promise.all([
+    supabase
       .from("tasks")
       .select("id", { count: "exact", head: true })
-      .in("status", ["pending", "in_progress"]);
-    teamOpen = count ?? 0;
+      .eq("assigned_to", profile.id)
+      .in("status", ["pending", "in_progress"]),
+    supabase
+      .from("tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("assigned_to", profile.id)
+      .in("status", ["pending", "in_progress"])
+      .lt("due_date", todayIso),
+  ]);
+  const myOpen = myOpenRes.count ?? 0;
+  const myOverdue = myOverdueRes.count ?? 0;
+
+  // For admin/gestor, also show the count of open tasks across all
+  // properties — useful to spot stuff that needs triage.
+  let teamOpen = 0;
+  let teamOverdue = 0;
+  if (profile.role === "admin" || profile.role === "gestor") {
+    const [openRes, overdueRes] = await Promise.all([
+      supabase
+        .from("tasks")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["pending", "in_progress"]),
+      supabase
+        .from("tasks")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["pending", "in_progress"])
+        .lt("due_date", todayIso),
+    ]);
+    teamOpen = openRes.count ?? 0;
+    teamOverdue = overdueRes.count ?? 0;
   }
 
   return (
@@ -37,7 +59,12 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
         <nav className="flex items-center gap-4 text-sm text-muted-foreground">
           {/* Staff (limpieza/mantenimiento) only need their own task list. */}
           {isStaff && (
-            <NavLink href="/mis-tareas" label="Mis tareas" badge={myOpen} />
+            <NavLink
+              href="/mis-tareas"
+              label="Mis tareas"
+              badge={myOpen}
+              urgent={myOverdue > 0}
+            />
           )}
           {!isStaff && (
             <Link href="/dashboard" className="hover:text-foreground">
@@ -46,8 +73,18 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
           )}
           {(profile.role === "admin" || profile.role === "gestor") && (
             <>
-              <NavLink href="/tasks" label="Tareas" badge={teamOpen} />
-              <NavLink href="/mis-tareas" label="Mis tareas" badge={myOpen} />
+              <NavLink
+                href="/tasks"
+                label="Tareas"
+                badge={teamOpen}
+                urgent={teamOverdue > 0}
+              />
+              <NavLink
+                href="/mis-tareas"
+                label="Mis tareas"
+                badge={myOpen}
+                urgent={myOverdue > 0}
+              />
               <Link href="/whatsapp" className="hover:text-foreground">
                 WhatsApp
               </Link>
@@ -96,10 +133,12 @@ function NavLink({
   href,
   label,
   badge,
+  urgent = false,
 }: {
   href: string;
   label: string;
   badge: number | null;
+  urgent?: boolean;
 }) {
   return (
     <Link
@@ -108,7 +147,14 @@ function NavLink({
     >
       <span>{label}</span>
       {badge != null && badge > 0 && (
-        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-xs font-medium text-foreground">
+        <span
+          className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium ${
+            urgent
+              ? "bg-destructive text-destructive-foreground"
+              : "bg-muted text-foreground"
+          }`}
+          title={urgent ? "Hay tareas vencidas" : undefined}
+        >
           {badge}
         </span>
       )}
