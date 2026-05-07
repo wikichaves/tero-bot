@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   Card,
@@ -15,19 +15,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import type { LockTempPassword } from "@/lib/tuya/lock";
-import { generateLockPassword, revokeLockPassword } from "./actions";
+import {
+  clearAllPasswords,
+  generateLockPassword,
+  revokeLockPassword,
+} from "./actions";
 
 function nowDatetimeLocal(offsetMinutes = 0): string {
   const d = new Date(Date.now() + offsetMinutes * 60_000);
-  // Convert to a YYYY-MM-DDTHH:mm string in local time for <input type="datetime-local">
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-type ActiveCode = LockTempPassword & {
-  // populated locally when we just generated a code
-  password?: string;
+type SessionCode = {
+  id: string;
+  name: string;
+  password: string;
+  effective_time: number;
+  invalid_time: number;
 };
 
 export function LockCard({
@@ -36,25 +41,15 @@ export function LockCard({
   online,
   propertyName,
   isPrimary,
-  initialPasswords,
-  listError,
 }: {
   deviceId: string;
   deviceName: string;
   online: boolean;
   propertyName: string | null;
   isPrimary: boolean;
-  initialPasswords: LockTempPassword[];
-  listError: string | null;
 }) {
   const [pending, startTransition] = useTransition();
-  const [passwords, setPasswords] =
-    useState<ActiveCode[]>(initialPasswords);
-  const [lastGenerated, setLastGenerated] = useState<{
-    name: string;
-    password: string;
-    invalid_time: number;
-  } | null>(null);
+  const [codes, setCodes] = useState<SessionCode[]>([]);
 
   function onGenerate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -77,18 +72,13 @@ export function LockCard({
       if ("created" in result && result.created) {
         const c = result.created;
         toast.success(`Código generado: ${c.password}`);
-        setLastGenerated({
-          name,
-          password: c.password,
-          invalid_time: c.invalid_time,
-        });
-        setPasswords((curr) => [
+        setCodes((curr) => [
           {
             id: c.id,
-            name,
+            name: c.name,
+            password: c.password,
             effective_time: c.effective_time,
             invalid_time: c.invalid_time,
-            password: c.password,
           },
           ...curr,
         ]);
@@ -108,7 +98,26 @@ export function LockCard({
         return;
       }
       toast.success("Código revocado.");
-      setPasswords((curr) => curr.filter((p) => p.id !== passwordId));
+      setCodes((curr) => curr.filter((c) => c.id !== passwordId));
+    });
+  }
+
+  function onClearAll() {
+    if (
+      !confirm(
+        `¿Borrar TODOS los códigos temporales de "${deviceName}"? Esto incluye códigos creados desde la app Smart Life o desde sesiones anteriores. No se puede deshacer.`,
+      )
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      const result = await clearAllPasswords({ device_id: deviceId });
+      if (result?.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Todos los códigos fueron borrados.");
+      setCodes([]);
     });
   }
 
@@ -171,63 +180,54 @@ export function LockCard({
               />
             </div>
           </div>
-          <Button type="submit" disabled={pending}>
-            {pending ? "Generando…" : "Generar código"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" disabled={pending}>
+              {pending ? "Generando…" : "Generar código"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onClearAll}
+              disabled={pending}
+              className="text-destructive hover:text-destructive"
+            >
+              Borrar todos los códigos del lock
+            </Button>
+          </div>
         </form>
 
-        {/* Last generated code (show prominently) */}
-        {lastGenerated && (
-          <div className="rounded-lg border bg-muted/40 p-4">
-            <p className="text-xs text-muted-foreground">
-              Último código generado para{" "}
-              <strong>{lastGenerated.name}</strong>, válido hasta{" "}
-              {format(
-                new Date(lastGenerated.invalid_time * 1000),
-                "EEE d MMM HH:mm",
-                { locale: es },
-              )}
-              :
-            </p>
-            <p className="mt-1 font-mono text-3xl tracking-widest">
-              {lastGenerated.password}
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Anotalo ahora — Tuya no nos lo devuelve más después.
-            </p>
-          </div>
-        )}
-
-        {/* Active codes list */}
+        {/* Codes generated this session */}
         <div>
-          <h4 className="mb-2 text-sm font-medium">Códigos activos</h4>
-          {listError ? (
+          <h4 className="mb-2 text-sm font-medium">
+            Códigos generados en esta sesión
+          </h4>
+          {codes.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No pude leer la lista de códigos ({listError}). El generar/revocar
-              igual debería funcionar.
-            </p>
-          ) : passwords.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Sin códigos activos en esta cerradura.
+              Sin códigos generados todavía. Tuya no expone una API para listar
+              los activos — los seguimos en la próxima iteración persistiéndolos
+              en la DB cuando los creamos.
             </p>
           ) : (
             <ul className="divide-y rounded-md border">
-              {passwords.map((p) => (
+              {codes.map((c) => (
                 <li
-                  key={p.id}
+                  key={c.id}
                   className="flex items-center justify-between gap-3 p-3 text-sm"
                 >
                   <div className="min-w-0">
-                    <p className="font-medium truncate">{p.name ?? "—"}</p>
+                    <div className="flex items-center gap-3">
+                      <p className="font-medium truncate">{c.name}</p>
+                      <p className="font-mono tracking-wider">{c.password}</p>
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {format(
-                        new Date(p.effective_time * 1000),
+                        new Date(c.effective_time * 1000),
                         "d MMM HH:mm",
                         { locale: es },
                       )}{" "}
                       →{" "}
                       {format(
-                        new Date(p.invalid_time * 1000),
+                        new Date(c.invalid_time * 1000),
                         "d MMM HH:mm",
                         { locale: es },
                       )}
@@ -236,7 +236,7 @@ export function LockCard({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => onRevoke(p.id)}
+                    onClick={() => onRevoke(c.id)}
                     disabled={pending}
                     className="text-destructive hover:text-destructive"
                   >

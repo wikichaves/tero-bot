@@ -2,67 +2,41 @@ import "server-only";
 import { tuyaFetch } from "./client";
 
 /**
- * Smart-lock helpers.
+ * Smart-lock helpers — offline temporary password flow.
  *
- * Tuya supports two flows for temp passwords on door locks:
+ * Tuya's official docs: https://developer.tuya.com/en/docs/cloud/009bdf7768
  *
- *   1. **Offline temp password** — Tuya's cloud generates the code server-side
- *      using a deterministic hash + the lock's seed. The code works even if
- *      the lock is temporarily offline at the moment of use, as long as the
- *      lock has been activated before. No client-side encryption needed.
- *      Endpoints: `/v1.0/devices/{id}/door-lock/offline/temp-passwords` (newer)
- *      or `/v1.0/smart-lock/devices/{id}/password-offline-time` (older alias).
+ * The endpoint is `POST /v1.1/devices/{device_id}/door-lock/offline-temp-password`
+ * and a single endpoint handles all operations via the `type` field:
+ *   - `multiple`  → create a multi-use temp password (what we want for guests)
+ *   - `once`      → create a single-use one
+ *   - `clear_one` → revoke one (requires `password_id`)
+ *   - `clear_all` → revoke all
  *
- *   2. **Online temp password** — admin generates the code, encrypts it with
- *      a per-request "ticket key" (AES-128-ECB), and sends it. The lock
- *      receives the password via cloud. Requires the lock to be online when
- *      the code is set. More complex (encryption flow), kept as future
- *      fallback if a particular lock model rejects the offline flow.
- *
- * We start with offline only; if a lock model rejects it we'll add the
- * encrypted online flow as fallback.
- *
- * Tuya docs:
- *   https://developer.tuya.com/en/docs/cloud/temporary-password
- *   https://developer.tuya.com/en/docs/cloud/offline-password
+ * There is NO separate GET endpoint to list active offline temp passwords —
+ * Tuya only returns the password at creation time. To track active codes we
+ * need to persist them in our own DB (future iteration). For now the UI only
+ * remembers codes generated in the current session.
  */
 
 export type LockTempPasswordCreated = {
   id: string;
   password: string;
+  name: string;
   effective_time: number;
   invalid_time: number;
-};
-
-export type LockTempPassword = {
-  id: string;
-  name: string | null;
-  effective_time: number;
-  invalid_time: number;
-  phase?: number;
-  status?: string;
 };
 
 type CreateOfflineResponse = {
-  id?: string | number;
-  password_id?: string | number;
-  multiple_password_id?: string | number;
-  password?: string;
+  offline_temp_password_id?: string | number;
+  offline_temp_password?: string;
+  offline_temp_password_name?: string;
   effective_time?: number;
   invalid_time?: number;
 };
 
-type ListOfflineResponse =
-  | LockTempPassword[]
-  | { list?: LockTempPassword[]; passwords?: LockTempPassword[] }
-  | null;
-
-function asString(v: string | number | undefined): string {
-  return v == null ? "" : String(v);
-}
-
 /**
- * Create an offline temp password on the given lock.
+ * Create a multi-use offline temp password on the given lock.
  *
  * Tuya validates that:
  *   - effective_time < invalid_time
@@ -77,8 +51,6 @@ export async function addOfflineTempPassword(
     name: string;
     effective_time: number;
     invalid_time: number;
-    /** Some endpoints accept a phone for SMS delivery; we don't use it. */
-    phone?: string;
   },
 ): Promise<LockTempPasswordCreated> {
   if (!Number.isFinite(opts.effective_time) || !Number.isFinite(opts.invalid_time)) {
@@ -97,112 +69,65 @@ export async function addOfflineTempPassword(
     name: opts.name.slice(0, 50),
     effective_time: opts.effective_time,
     invalid_time: opts.invalid_time,
-    ...(opts.phone ? { phone: opts.phone } : {}),
+    type: "multiple",
   };
 
-  // Tuya has changed offline temp password endpoint names several times and
-  // they vary by lock model (Wi-Fi vs Bluetooth-via-gateway, residential vs
-  // hotel category). We try the most common ones in order of likelihood.
-  const errors: string[] = [];
-  for (const path of [
-    `/v1.0/smart-lock/devices/${deviceId}/password-offline-multi-times`,
-    `/v1.0/smart-lock/devices/${deviceId}/password-offline-multi`,
-    `/v1.0/smart-lock/devices/${deviceId}/offline-temp-password`,
-    `/v1.0/smart-lock/devices/${deviceId}/multi-password-offline`,
-    `/v1.0/devices/${deviceId}/door-lock/offline/temp-passwords`,
-    `/v1.0/smart-lock/devices/${deviceId}/password-offline-time`,
-  ]) {
-    try {
-      const r = await tuyaFetch<CreateOfflineResponse>("POST", path, { body });
-      const id = asString(r.id ?? r.password_id ?? r.multiple_password_id);
-      const password = asString(r.password);
-      if (!id || !password) {
-        errors.push(
-          `${path}: replied without password/id. Body: ${JSON.stringify(r)}`,
-        );
-        continue;
-      }
-      return {
-        id,
-        password,
-        effective_time: r.effective_time ?? opts.effective_time,
-        invalid_time: r.invalid_time ?? opts.invalid_time,
-      };
-    } catch (e) {
-      errors.push(`${path}: ${(e as Error).message}`);
-    }
-  }
-  throw new Error(
-    `addOfflineTempPassword: all known endpoints failed.\n` +
-      errors.map((e) => "  - " + e).join("\n"),
+  const r = await tuyaFetch<CreateOfflineResponse>(
+    "POST",
+    `/v1.1/devices/${deviceId}/door-lock/offline-temp-password`,
+    { body },
   );
+
+  const id = r.offline_temp_password_id ? String(r.offline_temp_password_id) : "";
+  const password = r.offline_temp_password ?? "";
+
+  if (!id || !password) {
+    throw new Error(
+      `Tuya replied without password/id. Body: ${JSON.stringify(r)}`,
+    );
+  }
+
+  return {
+    id,
+    password,
+    name: r.offline_temp_password_name ?? opts.name,
+    effective_time: r.effective_time ?? opts.effective_time,
+    invalid_time: r.invalid_time ?? opts.invalid_time,
+  };
 }
 
 /**
- * List offline temp passwords currently on the lock.
- * Tries the v1.0 endpoint first, falls back to the smart-lock alias.
- */
-export async function listOfflineTempPasswords(
-  deviceId: string,
-): Promise<LockTempPassword[]> {
-  const errors: string[] = [];
-  for (const path of [
-    `/v1.0/smart-lock/devices/${deviceId}/password-offline-multi-times`,
-    `/v1.0/smart-lock/devices/${deviceId}/offline-temp-password`,
-    `/v1.0/devices/${deviceId}/door-lock/offline/temp-passwords`,
-    `/v1.0/smart-lock/devices/${deviceId}/password-offline-time`,
-  ]) {
-    try {
-      const r = await tuyaFetch<ListOfflineResponse>("GET", path);
-      if (Array.isArray(r)) return r;
-      if (r && typeof r === "object") {
-        return r.list ?? r.passwords ?? [];
-      }
-      return [];
-    } catch (e) {
-      errors.push(`${path}: ${(e as Error).message}`);
-    }
-  }
-  throw new Error(
-    `listOfflineTempPasswords: all known endpoints failed.\n` +
-      errors.map((e) => "  - " + e).join("\n"),
-  );
-}
-
-/**
- * Revoke a temp password by its id.
+ * Revoke a temp password by its id. Uses the same endpoint as create with
+ * type=clear_one and password_id.
  */
 export async function deleteOfflineTempPassword(
   deviceId: string,
   passwordId: string,
 ): Promise<void> {
-  const errors: string[] = [];
-  for (const path of [
-    `/v1.0/smart-lock/devices/${deviceId}/password-offline-multi-times/${passwordId}`,
-    `/v1.0/smart-lock/devices/${deviceId}/offline-temp-password/${passwordId}`,
-    `/v1.0/devices/${deviceId}/door-lock/offline/temp-passwords/${passwordId}`,
-    `/v1.0/smart-lock/devices/${deviceId}/password-offline-time/${passwordId}`,
-  ]) {
-    try {
-      await tuyaFetch("DELETE", path);
-      return;
-    } catch (e) {
-      errors.push(`${path}: ${(e as Error).message}`);
-    }
-  }
-  throw new Error(
-    `deleteOfflineTempPassword: all known endpoints failed.\n` +
-      errors.map((e) => "  - " + e).join("\n"),
+  await tuyaFetch(
+    "POST",
+    `/v1.1/devices/${deviceId}/door-lock/offline-temp-password`,
+    {
+      body: {
+        type: "clear_one",
+        password_id: passwordId,
+      },
+    },
   );
 }
 
 /**
- * Convenience: a temp password is "active" when it's still within its
- * effective window (Tuya doesn't always set `status`, so we compute it).
+ * Revoke ALL offline temp passwords on the lock. Useful if we lose track of
+ * password_ids and want to start clean.
  */
-export function isLockPasswordActive(
-  password: LockTempPassword,
-  now: number = Math.floor(Date.now() / 1000),
-): boolean {
-  return now >= password.effective_time && now < password.invalid_time;
+export async function clearAllOfflineTempPasswords(
+  deviceId: string,
+): Promise<void> {
+  await tuyaFetch(
+    "POST",
+    `/v1.1/devices/${deviceId}/door-lock/offline-temp-password`,
+    {
+      body: { type: "clear_all" },
+    },
+  );
 }

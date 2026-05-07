@@ -8,7 +8,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { listAllDevices, type TuyaDevice } from "@/lib/tuya/devices";
-import { listOfflineTempPasswords, type LockTempPassword } from "@/lib/tuya/lock";
 import { listPropertyDeviceMap } from "@/lib/tuya/property-devices";
 import { createClient } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
@@ -68,7 +67,7 @@ export default async function LockPage() {
     );
   }
 
-  // Pull property assignments + load passwords per lock in parallel.
+  // Pull property assignments for the locks.
   const supabase = await createClient();
   const [propertiesRes, deviceMap] = await Promise.all([
     supabase.from("properties").select("id, name"),
@@ -80,44 +79,25 @@ export default async function LockPage() {
   >[];
   const propertyById = new Map(properties.map((p) => [p.id, p]));
 
-  const lockSnapshots = await Promise.all(
-    locks.map(async (lock) => {
-      let initialPasswords: LockTempPassword[] = [];
-      let listError: string | null = null;
-      try {
-        initialPasswords = await listOfflineTempPasswords(lock.id);
-      } catch (e) {
-        listError = (e as Error).message;
-      }
-      const assignment = deviceMap.get(lock.id) ?? null;
-      const property = assignment
-        ? (propertyById.get(assignment.property_id) ?? null)
-        : null;
-      return {
-        lock,
-        assignment,
-        property,
-        initialPasswords,
-        listError,
-      };
-    }),
-  );
-
   return (
     <div className="flex flex-col gap-6">
       <Header />
-      {lockSnapshots.map(({ lock, assignment, property, initialPasswords, listError }) => (
-        <LockCard
-          key={lock.id}
-          deviceId={lock.id}
-          deviceName={lock.name}
-          online={lock.online}
-          propertyName={property?.name ?? null}
-          isPrimary={!!assignment?.is_primary}
-          initialPasswords={initialPasswords}
-          listError={listError}
-        />
-      ))}
+      {locks.map((lock) => {
+        const assignment = deviceMap.get(lock.id) ?? null;
+        const property = assignment
+          ? (propertyById.get(assignment.property_id) ?? null)
+          : null;
+        return (
+          <LockCard
+            key={lock.id}
+            deviceId={lock.id}
+            deviceName={lock.name}
+            online={lock.online}
+            propertyName={property?.name ?? null}
+            isPrimary={!!assignment?.is_primary}
+          />
+        );
+      })}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireRole } from "@/lib/auth";
 import {
   addOfflineTempPassword,
+  clearAllOfflineTempPasswords,
   deleteOfflineTempPassword,
 } from "@/lib/tuya/lock";
 
@@ -67,6 +68,18 @@ export async function revokeLockPassword(input: {
   }
   try {
     await deleteOfflineTempPassword(input.device_id, input.password_id);
+    revalidatePath("/admin/tuya/lock");
+    return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+export async function clearAllPasswords(input: { device_id: string }) {
+  await requireRole(["admin"]);
+  if (!input.device_id) return { error: "Falta el ID del dispositivo." };
+  try {
+    await clearAllOfflineTempPasswords(input.device_id);
     revalidatePath("/admin/tuya/lock");
     return { ok: true };
   } catch (e) {
