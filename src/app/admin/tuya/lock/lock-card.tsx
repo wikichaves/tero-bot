@@ -63,8 +63,16 @@ export function LockCard({
     const form = e.currentTarget;
     const formData = new FormData(form);
     const name = String(formData.get("name") ?? "");
-    const effective_at = String(formData.get("effective_at") ?? "");
-    const invalid_at = String(formData.get("invalid_at") ?? "");
+    // datetime-local sends a string without timezone (e.g. "2026-05-07T00:04").
+    // We convert here to a full ISO string (UTC) using the browser's local
+    // timezone. Otherwise the server (Vercel runs UTC) would misinterpret
+    // the user's local time as UTC, throwing off the value by hours.
+    const effective_at = new Date(
+      String(formData.get("effective_at") ?? ""),
+    ).toISOString();
+    const invalid_at = new Date(
+      String(formData.get("invalid_at") ?? ""),
+    ).toISOString();
     startTransition(async () => {
       const result = await generateLockPassword({
         device_id: deviceId,

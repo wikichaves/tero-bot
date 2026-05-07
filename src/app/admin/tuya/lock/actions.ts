@@ -39,14 +39,23 @@ export async function generateLockPassword(input: {
     return { error: "Fechas inválidas." };
   }
 
-  // Tuya requires the offline temp password's effective_time and invalid_time
-  // to be aligned to hour boundaries (minute=0, second=0). Anything else is
-  // rejected with "invalid offline time". We round effective DOWN to the
-  // current hour (so the code is usable from now-ish) and invalid UP to the
-  // next hour (so we never accidentally make duration zero).
+  // Tuya requires offline temp password times to be aligned to hour
+  // boundaries (minute=0, second=0). It also rejects effective_time values
+  // that are in the past — "invalid offline time".
+  // We round effective UP to the NEXT hour (always future), and invalid UP
+  // to the next hour after that as a minimum.
   const HOUR = 3600;
-  const effective = Math.floor(rawEffective / HOUR) * HOUR;
-  const invalid = Math.ceil(rawInvalid / HOUR) * HOUR;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const nextHour = (Math.floor(nowSec / HOUR) + 1) * HOUR;
+
+  const effective = Math.max(
+    Math.ceil(rawEffective / HOUR) * HOUR,
+    nextHour,
+  );
+  const invalid = Math.max(
+    Math.ceil(rawInvalid / HOUR) * HOUR,
+    effective + HOUR,
+  );
   if (invalid <= effective) {
     return {
       error:
