@@ -64,7 +64,9 @@ export async function isAuthorizedCommandSender(
 
 /**
  * Run a parsed command and return the response text. Returns null if the
- * command is not authorized (silent ignore — better than leaking info).
+ * input wasn't a command at all. If it was a command but the sender isn't
+ * authorized, returns an explanatory message (helpful for sandbox debugging
+ * — easy to lock this down later by returning null).
  */
 export async function runCommand(
   command: ParsedCommand,
@@ -72,7 +74,10 @@ export async function runCommand(
 ): Promise<string | null> {
   if (!command) return null;
   const allowed = await isAuthorizedCommandSender(fromPhone);
-  if (!allowed) return null;
+  if (!allowed) {
+    const normalized = normalizePhone(fromPhone) ?? fromPhone;
+    return `🔒 Tu número (\`${normalized}\`) no está autorizado para usar comandos.\n\nSi sos admin/gestor de Acme Rentals, cargá ese número exacto en tu profile (admin.example.com → Usuarios → editar) y reintentá.`;
+  }
 
   switch (command.type) {
     case "help":
