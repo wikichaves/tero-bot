@@ -32,8 +32,14 @@ import {
   toUsd,
   type FxRate,
 } from "@/lib/fx";
+import {
+  getConsumptionSince,
+  startOfDaysAgoIso,
+  startOfTodayIso,
+} from "@/lib/tuya/snapshots";
 import { createClient } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
+import { SnapshotButton } from "./snapshot-button";
 
 export const dynamic = "force-dynamic";
 
@@ -46,12 +52,18 @@ type DeviceWithContext = {
   device: TuyaDevice;
   homeName: string | null;
   property: PropertySummary | null;
+  /** property_devices.id (only if device is assigned). */
+  propertyDeviceId: string | null;
   reading: EnergyReading | null;
   readError: string | null;
   /** Effective tariff used for cost calc (property override or default). */
   tariff: number;
   /** ISO 4217 currency for display. */
   currency: string;
+  /** Consumption today (kWh delta) since 00:00 local. */
+  todayKwh: number | null;
+  /** Consumption over the last 7 days. */
+  weekKwh: number | null;
 };
 
 export default async function EnergyPage() {
@@ -96,6 +108,9 @@ export default async function EnergyPage() {
   const properties = (propertiesRes.data ?? []) as PropertySummary[];
   const propertyById = new Map(properties.map((p) => [p.id, p]));
 
+  const todayIso = startOfTodayIso();
+  const sevenDaysAgoIso = startOfDaysAgoIso(7);
+
   const devicesWithContext: DeviceWithContext[] = await Promise.all(
     energyDevices.map(async (device) => {
       const assignment = deviceMap.get(device.id);
@@ -116,14 +131,31 @@ export default async function EnergyPage() {
       } catch (e) {
         readError = (e as Error).message;
       }
+
+      // Pull historical consumption (only meaningful if device is assigned —
+      // we key snapshots by property_device_id).
+      let todayKwh: number | null = null;
+      let weekKwh: number | null = null;
+      if (assignment?.id) {
+        const [today, week] = await Promise.all([
+          getConsumptionSince(assignment.id, todayIso),
+          getConsumptionSince(assignment.id, sevenDaysAgoIso),
+        ]);
+        todayKwh = today.delta_kwh;
+        weekKwh = week.delta_kwh;
+      }
+
       return {
         device,
         homeName: homeNameByDeviceId.get(device.id) ?? null,
         property,
+        propertyDeviceId: assignment?.id ?? null,
         reading,
         readError,
         tariff,
         currency,
+        todayKwh,
+        weekKwh,
       };
     }),
   );
@@ -142,18 +174,42 @@ export default async function EnergyPage() {
       if (ctx.reading?.total_energy_kwh != null) {
         acc.energy_kwh += ctx.reading.total_energy_kwh;
       }
+      if (ctx.todayKwh != null) acc.today_kwh += ctx.todayKwh;
+      if (ctx.weekKwh != null) acc.week_kwh += ctx.weekKwh;
       const fx = fxRates.get(ctx.currency);
-      if (!fx || !ctx.reading) return acc;
-      const cost = estimateCost(ctx.reading, ctx.tariff, ctx.currency);
-      const hourlyUsd = toUsd(cost.hourly_cost_at_current, fx);
-      const dailyUsd = toUsd(cost.daily_cost_at_current, fx);
-      const totalUsd = toUsd(cost.total_cost, fx);
-      if (hourlyUsd != null) acc.hourly_usd += hourlyUsd;
-      if (dailyUsd != null) acc.daily_usd += dailyUsd;
-      if (totalUsd != null) acc.total_usd += totalUsd;
+      if (!fx) return acc;
+      if (ctx.reading) {
+        const cost = estimateCost(ctx.reading, ctx.tariff, ctx.currency);
+        const hourlyUsd = toUsd(cost.hourly_cost_at_current, fx);
+        const dailyUsd = toUsd(cost.daily_cost_at_current, fx);
+        const totalUsd = toUsd(cost.total_cost, fx);
+        if (hourlyUsd != null) acc.hourly_usd += hourlyUsd;
+        if (dailyUsd != null) acc.daily_usd += dailyUsd;
+        if (totalUsd != null) acc.total_usd += totalUsd;
+      }
+      // Historical costs use the same tariff (we don't track tariff changes
+      // over time yet — Phase 3).
+      if (ctx.todayKwh != null) {
+        const todayUsd = toUsd(ctx.todayKwh * ctx.tariff, fx);
+        if (todayUsd != null) acc.today_usd += todayUsd;
+      }
+      if (ctx.weekKwh != null) {
+        const weekUsd = toUsd(ctx.weekKwh * ctx.tariff, fx);
+        if (weekUsd != null) acc.week_usd += weekUsd;
+      }
       return acc;
     },
-    { power_w: 0, energy_kwh: 0, hourly_usd: 0, daily_usd: 0, total_usd: 0 },
+    {
+      power_w: 0,
+      energy_kwh: 0,
+      hourly_usd: 0,
+      daily_usd: 0,
+      total_usd: 0,
+      today_kwh: 0,
+      today_usd: 0,
+      week_kwh: 0,
+      week_usd: 0,
+    },
   );
 
   return (
@@ -188,7 +244,7 @@ export default async function EnergyPage() {
                 convertidos a USD al cambio del día.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-4">
                 <Stat
                   label="Potencia ahora"
@@ -207,6 +263,26 @@ export default async function EnergyPage() {
                   label="Acumulado total"
                   value={formatKwh(aggregate.energy_kwh || null)}
                   hint={formatUsd(aggregate.total_usd || null)}
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 border-t pt-4">
+                <Stat
+                  label="Consumo hoy"
+                  value={formatKwh(aggregate.today_kwh || null)}
+                  hint={
+                    aggregate.today_usd > 0
+                      ? formatUsd(aggregate.today_usd)
+                      : "necesita 2+ snapshots — apretá 'Snapshot ahora' para empezar"
+                  }
+                />
+                <Stat
+                  label="Consumo últimos 7 días"
+                  value={formatKwh(aggregate.week_kwh || null)}
+                  hint={
+                    aggregate.week_usd > 0
+                      ? formatUsd(aggregate.week_usd)
+                      : undefined
+                  }
                 />
               </div>
             </CardContent>
@@ -229,19 +305,22 @@ export default async function EnergyPage() {
 
 function Header() {
   return (
-    <div>
-      <h1 className="text-2xl font-semibold">Energía</h1>
-      <p className="text-sm text-muted-foreground">
-        Consumo en vivo por propiedad. La tarifa y moneda se configuran por
-        propiedad en{" "}
-        <a
-          href="/admin/properties"
-          className="underline hover:text-foreground"
-        >
-          /admin/properties
-        </a>
-        .
-      </p>
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 className="text-2xl font-semibold">Energía</h1>
+        <p className="text-sm text-muted-foreground">
+          Consumo en vivo por propiedad. Histórico vía snapshots horarios.
+          Tarifa y moneda se configuran por propiedad en{" "}
+          <a
+            href="/admin/properties"
+            className="underline hover:text-foreground"
+          >
+            /admin/properties
+          </a>
+          .
+        </p>
+      </div>
+      <SnapshotButton />
     </div>
   );
 }
@@ -288,8 +367,17 @@ function DeviceEnergyCard({
   ctx: DeviceWithContext;
   fx: FxRate | undefined;
 }) {
-  const { device, homeName, property, reading, readError, tariff, currency } =
-    ctx;
+  const {
+    device,
+    homeName,
+    property,
+    reading,
+    readError,
+    tariff,
+    currency,
+    todayKwh,
+    weekKwh,
+  } = ctx;
   const cost = reading
     ? estimateCost(reading, tariff, currency)
     : {
@@ -406,6 +494,53 @@ function DeviceEnergyCard({
                     </span>
                   )}
                 </>
+              }
+            />
+          </div>
+        )}
+
+        {(todayKwh != null || weekKwh != null) && (
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 border-t pt-4">
+            <Stat
+              label="Consumo hoy"
+              value={formatKwh(todayKwh)}
+              hint={
+                todayKwh != null
+                  ? (() => {
+                      const localCost = todayKwh * tariff;
+                      return (
+                        <>
+                          {formatMoney(localCost, currency)}
+                          {fx && (
+                            <span className="block opacity-70">
+                              ≈ {formatUsd(toUsd(localCost, fx))}
+                            </span>
+                          )}
+                        </>
+                      );
+                    })()
+                  : undefined
+              }
+            />
+            <Stat
+              label="Consumo últimos 7 días"
+              value={formatKwh(weekKwh)}
+              hint={
+                weekKwh != null
+                  ? (() => {
+                      const localCost = weekKwh * tariff;
+                      return (
+                        <>
+                          {formatMoney(localCost, currency)}
+                          {fx && (
+                            <span className="block opacity-70">
+                              ≈ {formatUsd(toUsd(localCost, fx))}
+                            </span>
+                          )}
+                        </>
+                      );
+                    })()
+                  : undefined
               }
             />
           </div>

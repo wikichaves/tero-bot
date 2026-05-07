@@ -50,6 +50,16 @@ export type Task = {
   created_at: string;
 };
 
+export type EnergySnapshot = {
+  id: string;
+  property_device_id: string;
+  power_w: number | null;
+  total_energy_kwh: number | null;
+  voltage_v: number | null;
+  current_a: number | null;
+  taken_at: string;
+};
+
 export type LockPasswordStatus = "active" | "revoked" | "expired";
 
 export type LockPassword = {

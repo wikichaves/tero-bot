@@ -323,3 +323,40 @@ drop policy if exists lock_passwords_write on public.lock_passwords;
 create policy lock_passwords_write on public.lock_passwords
   for all using (public.current_role() in ('admin', 'gestor'))
   with check (public.current_role() in ('admin', 'gestor'));
+
+-- ────────────────────────────────────────────────────────────────────────
+-- Energy snapshots (added 2026-05-07). Hourly captures of each property
+-- device's instantaneous reading + cumulative kWh. Lets us compute real
+-- daily/weekly consumption (not just projections from current power).
+
+create table if not exists public.energy_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  property_device_id uuid not null
+    references public.property_devices(id) on delete cascade,
+  power_w numeric,
+  total_energy_kwh numeric,
+  voltage_v numeric,
+  current_a numeric,
+  taken_at timestamptz not null default now()
+);
+
+create index if not exists energy_snapshots_device_taken_idx
+  on public.energy_snapshots(property_device_id, taken_at desc);
+
+-- Idempotency: at most one snapshot per device per hour.
+create unique index if not exists energy_snapshots_unique_hourly
+  on public.energy_snapshots(
+    property_device_id,
+    date_trunc('hour', taken_at)
+  );
+
+alter table public.energy_snapshots enable row level security;
+
+drop policy if exists energy_snapshots_read on public.energy_snapshots;
+create policy energy_snapshots_read on public.energy_snapshots
+  for select using (public.current_role() in ('admin', 'gestor'));
+
+drop policy if exists energy_snapshots_write on public.energy_snapshots;
+create policy energy_snapshots_write on public.energy_snapshots
+  for all using (public.current_role() in ('admin', 'gestor'))
+  with check (public.current_role() in ('admin', 'gestor'));
