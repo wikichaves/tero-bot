@@ -9,7 +9,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import {
   estimateCost,
+  formatKwh,
   formatMoney,
+  formatNumeric,
+  formatPower,
   getDefaultTariff,
   getDeviceStatus,
   isEnergyDevice,
@@ -23,6 +26,7 @@ import {
 } from "@/lib/tuya/devices";
 import { listPropertyDeviceMap } from "@/lib/tuya/property-devices";
 import {
+  formatRate,
   formatUsd,
   getRatesToUsd,
   toUsd,
@@ -49,17 +53,6 @@ type DeviceWithContext = {
   /** ISO 4217 currency for display. */
   currency: string;
 };
-
-function formatPower(w: number | null): string {
-  if (w == null) return "—";
-  if (w < 1000) return `${w.toFixed(0)} W`;
-  return `${(w / 1000).toFixed(2)} kW`;
-}
-
-function formatNumber(n: number | null, unit: string, digits = 1): string {
-  if (n == null) return "—";
-  return `${n.toFixed(digits)} ${unit}`;
-}
 
 export default async function EnergyPage() {
   const defaultTariff = getDefaultTariff();
@@ -135,28 +128,33 @@ export default async function EnergyPage() {
     }),
   );
 
-  // Aggregate totals — split by currency since we can't sum across them.
-  const totalsByCurrency = new Map<
-    string,
-    { power: number; energy: number; tariffSum: number; tariffCount: number }
-  >();
-  for (const ctx of devicesWithContext) {
-    const curr = totalsByCurrency.get(ctx.currency) ?? {
-      power: 0,
-      energy: 0,
-      tariffSum: 0,
-      tariffCount: 0,
-    };
-    if (ctx.reading?.power_w != null) curr.power += ctx.reading.power_w;
-    if (ctx.reading?.total_energy_kwh != null)
-      curr.energy += ctx.reading.total_energy_kwh;
-    curr.tariffSum += ctx.tariff;
-    curr.tariffCount += 1;
-    totalsByCurrency.set(ctx.currency, curr);
-  }
-
   // Fetch USD exchange rates for all distinct currencies in parallel.
-  const fxRates = await getRatesToUsd(totalsByCurrency.keys());
+  const distinctCurrencies = new Set(
+    devicesWithContext.map((d) => d.currency),
+  );
+  const fxRates = await getRatesToUsd(distinctCurrencies);
+
+  // Aggregate Total in USD across ALL properties / currencies.
+  // Each device's local cost gets converted via its own currency's FX rate.
+  const aggregate = devicesWithContext.reduce(
+    (acc, ctx) => {
+      if (ctx.reading?.power_w != null) acc.power_w += ctx.reading.power_w;
+      if (ctx.reading?.total_energy_kwh != null) {
+        acc.energy_kwh += ctx.reading.total_energy_kwh;
+      }
+      const fx = fxRates.get(ctx.currency);
+      if (!fx || !ctx.reading) return acc;
+      const cost = estimateCost(ctx.reading, ctx.tariff, ctx.currency);
+      const hourlyUsd = toUsd(cost.hourly_cost_at_current, fx);
+      const dailyUsd = toUsd(cost.daily_cost_at_current, fx);
+      const totalUsd = toUsd(cost.total_cost, fx);
+      if (hourlyUsd != null) acc.hourly_usd += hourlyUsd;
+      if (dailyUsd != null) acc.daily_usd += dailyUsd;
+      if (totalUsd != null) acc.total_usd += totalUsd;
+      return acc;
+    },
+    { power_w: 0, energy_kwh: 0, hourly_usd: 0, daily_usd: 0, total_usd: 0 },
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -179,80 +177,40 @@ export default async function EnergyPage() {
         </Card>
       ) : (
         <>
-          {Array.from(totalsByCurrency.entries()).map(([currency, t]) => {
-            const avgTariff = t.tariffSum / Math.max(1, t.tariffCount);
-            const cost = estimateCost(
-              {
-                power_w: t.power || null,
-                voltage_v: null,
-                current_a: null,
-                total_energy_kwh: t.energy || null,
-              },
-              avgTariff,
-              currency,
-            );
-            const fx = fxRates.get(currency);
-            return (
-              <Card key={currency}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Zap className="h-5 w-5" />
-                    Total · {currency}
-                  </CardTitle>
-                  <CardDescription>
-                    Devices con tarifa en {currency} (≈ {avgTariff.toFixed(2)}{" "}
-                    {currency}/kWh).
-                    {fx && (
-                      <>
-                        {" "}
-                        Cambio: 1 USD ≈ {fx.per_usd.toLocaleString("es-UY", {
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        {currency} ({fx.source}).
-                      </>
-                    )}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 sm:grid-cols-4">
-                    <Stat
-                      label="Potencia ahora"
-                      value={formatPower(t.power || null)}
-                    />
-                    <MoneyStat
-                      label="Costo / hora"
-                      amount={cost.hourly_cost_at_current}
-                      currency={currency}
-                      fx={fx}
-                    />
-                    <MoneyStat
-                      label="Proyección 24 h"
-                      amount={cost.daily_cost_at_current}
-                      currency={currency}
-                      fx={fx}
-                      footHint="al consumo actual"
-                    />
-                    <Stat
-                      label="Acumulado total"
-                      value={
-                        t.energy ? `${t.energy.toFixed(1)} kWh` : "—"
-                      }
-                      hint={
-                        <>
-                          {formatMoney(cost.total_cost, currency)}
-                          {fx && cost.total_cost != null && (
-                            <span className="block opacity-70">
-                              ≈ {formatUsd(toUsd(cost.total_cost, fx))}
-                            </span>
-                          )}
-                        </>
-                      }
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5" />
+                Total · USD
+              </CardTitle>
+              <CardDescription>
+                Suma de los {devicesWithContext.length} medidores activos,
+                convertidos a USD al cambio del día.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 sm:grid-cols-4">
+                <Stat
+                  label="Potencia ahora"
+                  value={formatPower(aggregate.power_w || null)}
+                />
+                <Stat
+                  label="Costo / hora"
+                  value={formatUsd(aggregate.hourly_usd || null)}
+                />
+                <Stat
+                  label="Proyección 24 h"
+                  value={formatUsd(aggregate.daily_usd || null)}
+                  hint="al consumo actual"
+                />
+                <Stat
+                  label="Acumulado total"
+                  value={formatKwh(aggregate.energy_kwh || null)}
+                  hint={formatUsd(aggregate.total_usd || null)}
+                />
+              </div>
+            </CardContent>
+          </Card>
 
           {devicesWithContext.map((d) => (
             <DeviceEnergyCard
@@ -266,62 +224,6 @@ export default async function EnergyPage() {
         </>
       )}
     </div>
-  );
-}
-
-function MoneyStat({
-  label,
-  amount,
-  currency,
-  fx,
-  footHint,
-}: {
-  label: string;
-  amount: number | null;
-  currency: string;
-  fx: FxRate | undefined;
-  footHint?: string;
-}) {
-  const usdAmount = toUsd(amount, fx);
-  return (
-    <Stat
-      label={label}
-      value={formatMoney(amount, currency)}
-      hint={
-        usdAmount != null ? (
-          <>
-            ≈ {formatUsd(usdAmount)}
-            {footHint && <span className="block">{footHint}</span>}
-          </>
-        ) : (
-          footHint
-        )
-      }
-    />
-  );
-}
-
-function FxFooter({ rates }: { rates: Map<string, FxRate> }) {
-  if (rates.size === 0) return null;
-  return (
-    <p className="text-xs text-muted-foreground">
-      Tasas de cambio:{" "}
-      {Array.from(rates.values())
-        .filter((r) => r.currency !== "USD")
-        .map(
-          (r) =>
-            `1 USD ≈ ${r.per_usd.toLocaleString("es-UY", {
-              maximumFractionDigits: 2,
-            })} ${r.currency}`,
-        )
-        .join(" · ")}
-      {" — "}
-      <em>
-        {Array.from(new Set(Array.from(rates.values(), (r) => r.source))).join(
-          ", ",
-        )}
-      </em>
-    </p>
   );
 }
 
@@ -359,6 +261,23 @@ function Stat({
       <p className="text-2xl font-semibold tabular-nums">{value}</p>
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
+  );
+}
+
+function FxFooter({ rates }: { rates: Map<string, FxRate> }) {
+  const nonUsd = Array.from(rates.values()).filter((r) => r.currency !== "USD");
+  if (nonUsd.length === 0) return null;
+  return (
+    <p className="text-xs text-muted-foreground">
+      Tasas de cambio:{" "}
+      {nonUsd
+        .map((r) => `1 USD ≈ ${formatRate(r.per_usd, 2)} ${r.currency}`)
+        .join(" · ")}
+      {" — "}
+      <em>
+        {Array.from(new Set(nonUsd.map((r) => r.source))).join(", ")}
+      </em>
+    </p>
   );
 }
 
@@ -424,7 +343,7 @@ function DeviceEnergyCard({
             Tarifa:
             <br />
             <span className="font-mono">
-              {tariff.toFixed(2)} {currency}/kWh
+              {formatRate(tariff, 2)} {currency}/kWh
             </span>
             {(!property?.tariff_per_kwh || property.tariff_per_kwh <= 0) && (
               <>
@@ -458,7 +377,7 @@ function DeviceEnergyCard({
               value={formatPower(reading.power_w)}
               hint={
                 reading.voltage_v != null && reading.current_a != null
-                  ? `${formatNumber(reading.voltage_v, "V", 0)} · ${formatNumber(reading.current_a, "A", 1)}`
+                  ? `${formatNumeric(reading.voltage_v, "V", 0)} · ${formatNumeric(reading.current_a, "A", 1)}`
                   : undefined
               }
             />
@@ -477,11 +396,7 @@ function DeviceEnergyCard({
             />
             <Stat
               label="Acumulado total"
-              value={
-                reading.total_energy_kwh != null
-                  ? `${reading.total_energy_kwh.toFixed(1)} kWh`
-                  : "—"
-              }
+              value={formatKwh(reading.total_energy_kwh)}
               hint={
                 <>
                   {formatMoney(cost.total_cost, currency)}

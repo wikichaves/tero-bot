@@ -131,13 +131,22 @@ export function toUsd(amount: number | null, rate: FxRate | undefined): number |
   return amount / rate.per_usd;
 }
 
-const usdFmt = new Intl.NumberFormat("en-US", {
+const usdFmt = new Intl.NumberFormat("es-UY", {
   style: "currency",
   currency: "USD",
   maximumFractionDigits: 2,
 });
 
+/** Format a USD amount with `.` thousands and `,` decimals (Spanish). */
 export function formatUsd(amount: number | null): string {
   if (amount == null) return "—";
   return usdFmt.format(amount);
+}
+
+/** Format a generic number (e.g. exchange rate) with Spanish locale. */
+export function formatRate(n: number, digits = 2): string {
+  return n.toLocaleString("es-UY", {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: 0,
+  });
 }

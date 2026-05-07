@@ -147,6 +147,13 @@ export function isEnergyDevice(d: TuyaDevice): boolean {
 const formatterCache = new Map<string, Intl.NumberFormat>();
 
 /**
+ * Locale used everywhere in the energy UI. `es-UY` and `es-AR` both produce
+ * the conventional Spanish number format: `.` for thousands, `,` for
+ * decimals (e.g. `1.234,56`).
+ */
+const LOCALE = "es-UY";
+
+/**
  * Format a money amount in the given ISO 4217 currency (e.g. UYU, ARS, USD).
  * Uses a per-currency cache so we don't re-instantiate the formatter on
  * every render.
@@ -156,22 +163,18 @@ export function formatMoney(
   currency: string = "UYU",
 ): string {
   if (amount == null) return "—";
-  const key = currency;
-  let fmt = formatterCache.get(key);
+  let fmt = formatterCache.get(currency);
   if (!fmt) {
     try {
-      fmt = new Intl.NumberFormat(undefined, {
+      fmt = new Intl.NumberFormat(LOCALE, {
         style: "currency",
         currency,
         maximumFractionDigits: 0,
       });
     } catch {
-      // Invalid currency code — fall back to a generic decimal display.
-      fmt = new Intl.NumberFormat(undefined, {
-        maximumFractionDigits: 0,
-      });
+      fmt = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 0 });
     }
-    formatterCache.set(key, fmt);
+    formatterCache.set(currency, fmt);
   }
   return fmt.format(amount);
 }
@@ -179,4 +182,52 @@ export function formatMoney(
 /** Backwards-compat alias for the old UYU-only formatter. */
 export function formatUyu(amount: number | null): string {
   return formatMoney(amount, "UYU");
+}
+
+/**
+ * Format a kWh value with Spanish thousands/decimals.
+ */
+export function formatKwh(kwh: number | null, digits = 1): string {
+  if (kwh == null) return "—";
+  return (
+    kwh.toLocaleString(LOCALE, {
+      maximumFractionDigits: digits,
+      minimumFractionDigits: 0,
+    }) + " kWh"
+  );
+}
+
+/**
+ * Format a numeric value with a unit and Spanish thousands/decimals.
+ */
+export function formatNumeric(
+  n: number | null,
+  unit: string,
+  digits = 1,
+): string {
+  if (n == null) return "—";
+  return (
+    n.toLocaleString(LOCALE, {
+      maximumFractionDigits: digits,
+      minimumFractionDigits: 0,
+    }) +
+    " " +
+    unit
+  );
+}
+
+/**
+ * Format watts as W or kW depending on size, Spanish locale.
+ */
+export function formatPower(w: number | null): string {
+  if (w == null) return "—";
+  if (w < 1000) {
+    return (
+      w.toLocaleString(LOCALE, { maximumFractionDigits: 0 }) + " W"
+    );
+  }
+  return (
+    (w / 1000).toLocaleString(LOCALE, { maximumFractionDigits: 2 }) +
+    " kW"
+  );
 }
