@@ -9,6 +9,7 @@ export type SyncResult = {
   reservations: number;
   blocks: number;
   codes_generated: number;
+  cleaning_tasks_created: number;
   errors: string[];
 };
 
@@ -34,6 +35,7 @@ export async function syncAirbnb(
     reservations: 0,
     blocks: 0,
     codes_generated: 0,
+    cleaning_tasks_created: 0,
     errors: [],
   };
 
@@ -124,6 +126,15 @@ export async function syncAirbnb(
           // boring "no lock configured" case to keep sync output clean.
           result.errors.push(`code:${uid}: ${codeResult.reason}`);
         }
+
+        // Auto-create a cleaning task for the check-out date. Idempotent —
+        // skips if a limpieza task already exists for this (property, date).
+        const created = await ensureCheckoutCleaningTask(
+          admin,
+          propertyId,
+          checkOut,
+        );
+        if (created) result.cleaning_tasks_created++;
       }
     } catch (e) {
       result.errors.push((e as Error).message);
@@ -135,4 +146,35 @@ export async function syncAirbnb(
 
 function toIsoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Ensure a "Limpieza post-checkout" task exists for the given property and
+ * check-out date. Idempotent: returns false if one already exists.
+ */
+async function ensureCheckoutCleaningTask(
+  admin: ReturnType<typeof createAdminClient>,
+  propertyId: string,
+  checkOut: string,
+): Promise<boolean> {
+  const { data: existing, error: existErr } = await admin
+    .from("tasks")
+    .select("id")
+    .eq("property_id", propertyId)
+    .eq("kind", "limpieza")
+    .eq("due_date", checkOut)
+    .limit(1);
+  if (existErr) throw new Error(existErr.message);
+  if (existing && existing.length > 0) return false;
+
+  const { error } = await admin.from("tasks").insert({
+    property_id: propertyId,
+    kind: "limpieza",
+    title: "Limpieza post-checkout",
+    description: "Generada automáticamente al sincronizar la reserva.",
+    due_date: checkOut,
+    status: "pending",
+  });
+  if (error) throw new Error(error.message);
+  return true;
 }

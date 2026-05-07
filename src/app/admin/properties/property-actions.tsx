@@ -30,7 +30,13 @@ export function PropertyActions({ property }: { property: Property }) {
         toast.error(r.error);
         return;
       }
-      const { reservations, blocks, codes_generated, errors } = r.result;
+      const {
+        reservations,
+        blocks,
+        codes_generated,
+        cleaning_tasks_created,
+        errors,
+      } = r.result;
       const parts = [
         `${reservations} reserva${reservations === 1 ? "" : "s"}`,
         `${blocks} bloqueo${blocks === 1 ? "" : "s"}`,
@@ -38,6 +44,11 @@ export function PropertyActions({ property }: { property: Property }) {
       if (codes_generated > 0) {
         parts.push(
           `${codes_generated} código${codes_generated === 1 ? "" : "s"} generado${codes_generated === 1 ? "" : "s"}`,
+        );
+      }
+      if (cleaning_tasks_created > 0) {
+        parts.push(
+          `${cleaning_tasks_created} limpieza${cleaning_tasks_created === 1 ? "" : "s"} agendada${cleaning_tasks_created === 1 ? "" : "s"}`,
         );
       }
       const summary = parts.join(", ");

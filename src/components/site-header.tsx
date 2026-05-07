@@ -16,6 +16,9 @@ export function SiteHeader({ profile }: { profile: Profile }) {
           </Link>
           {(profile.role === "admin" || profile.role === "gestor") && (
             <>
+              <Link href="/tasks" className="hover:text-foreground">
+                Tareas
+              </Link>
               <Link href="/whatsapp" className="hover:text-foreground">
                 WhatsApp
               </Link>
