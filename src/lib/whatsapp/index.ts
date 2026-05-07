@@ -10,14 +10,48 @@ import type { WhatsAppDirection } from "@/lib/types";
 const KAPSO_BASE = "https://api.kapso.ai/meta/whatsapp/v24.0";
 
 /**
- * Normalize a phone number to a canonical "+<digits>" form.
- * Strips spaces, dashes, dots, parens, and ensures a single leading "+".
+ * Normalize a phone number to a canonical E.164 "+<digits>" form for
+ * exact-match comparison against what WhatsApp/Meta sends in webhooks.
+ *
+ * Strips non-digits, then handles country-specific trunk prefixes that
+ * people commonly type but aren't actually part of the international
+ * number:
+ *
+ *  - **Uruguay (+598)**: many people type `+598 099 123 456` (with the
+ *    domestic trunk `0`). E.164 / WhatsApp uses `+598 99 123 456`. We
+ *    strip the trunk `0`.
+ *  - **Argentina (+54)**: WhatsApp specifically requires the mobile
+ *    prefix `9` after the country code (`+54 9 11 ...`). If a number
+ *    starts with `54` followed by `11` (Buenos Aires) or another known
+ *    mobile area code without the `9`, we insert it. This is best-effort;
+ *    landlines may share area codes so we restrict to common mobile
+ *    lengths.
+ *
  * Returns null for empty / whitespace-only inputs.
  */
 export function normalizePhone(p: string | null | undefined): string | null {
   if (!p) return null;
-  const digits = p.replace(/\D/g, "");
+  let digits = p.replace(/\D/g, "");
   if (!digits) return null;
+
+  // Uruguay: strip trunk "0" between country code (598) and national number.
+  // Pattern: 598 + 0 + 8-digit national mobile = 12 digits total.
+  if (digits.length === 12 && digits.startsWith("598") && digits[3] === "0") {
+    digits = digits.slice(0, 3) + digits.slice(4);
+  }
+
+  // Argentina: ensure the mobile "9" after country code 54 is present —
+  // WhatsApp stores numbers as +54 9 <area> <line>. Without the 9, matches
+  // against WA payloads fail.
+  // Pattern: 54 + (10 digits not starting with 9) → insert 9 after 54.
+  if (
+    digits.length === 12 &&
+    digits.startsWith("54") &&
+    digits[2] !== "9"
+  ) {
+    digits = digits.slice(0, 2) + "9" + digits.slice(2);
+  }
+
   return "+" + digits;
 }
 
