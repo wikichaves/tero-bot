@@ -22,6 +22,15 @@ const upsertSchema = z.object({
     .optional()
     .or(z.literal(""))
     .transform((v) => (v ? v : null)),
+  currency: z
+    .string()
+    .regex(/^[A-Z]{3}$/, "Moneda inválida (usá ISO 4217: UYU, ARS, USD, ...)")
+    .default("UYU"),
+  tariff_per_kwh: z
+    .number()
+    .positive("La tarifa debe ser positiva.")
+    .nullable()
+    .optional(),
 });
 
 export async function upsertProperty(input: {
@@ -29,6 +38,8 @@ export async function upsertProperty(input: {
   name: string;
   airbnb_ical_url: string;
   booking_ical_url: string;
+  currency: string;
+  tariff_per_kwh: number | null;
 }) {
   await requireRole(["admin"]);
   const parsed = upsertSchema.safeParse(input);
@@ -40,6 +51,8 @@ export async function upsertProperty(input: {
     name: parsed.data.name,
     airbnb_ical_url: parsed.data.airbnb_ical_url,
     booking_ical_url: parsed.data.booking_ical_url,
+    currency: parsed.data.currency,
+    tariff_per_kwh: parsed.data.tariff_per_kwh ?? null,
   };
   if (parsed.data.id) {
     const { error } = await supabase

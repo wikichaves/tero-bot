@@ -63,8 +63,16 @@ create table if not exists public.properties (
   name text not null,
   airbnb_ical_url text,
   booking_ical_url text,
+  currency text not null default 'UYU' check (currency ~ '^[A-Z]{3}$'),
+  tariff_per_kwh numeric,
   created_at timestamptz not null default now()
 );
+
+-- Backfill columns for projects that had `properties` from before WIK-41:
+alter table public.properties
+  add column if not exists currency text not null default 'UYU'
+    check (currency ~ '^[A-Z]{3}$'),
+  add column if not exists tariff_per_kwh numeric;
 
 -- Reservations
 create table if not exists public.reservations (

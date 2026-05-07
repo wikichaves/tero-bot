@@ -82,28 +82,34 @@ export function parseEnergyReading(status: TuyaStatusItem[]): EnergyReading {
 }
 
 /**
- * UYU per kWh — residential Uruguay tariff. Configurable via env var; if
- * the user is on a different plan or country, override.
- * 2026 reference (UTE residencial general): ~9 UYU/kWh.
+ * Fallback tariff (UYU/kWh) when a property has no `tariff_per_kwh` set.
+ * 2026 reference (UTE residencial general Uruguay): ~9 UYU/kWh.
  */
-export function getEnergyTariff(): number {
+export function getDefaultTariff(): number {
   const fromEnv = Number(process.env.ENERGY_TARIFF_UYU_PER_KWH);
   if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv;
   return 9;
 }
 
+/** Backwards-compat: previous name. */
+export const getEnergyTariff = getDefaultTariff;
+
 export type EnergyCostEstimate = {
   /** Cost so far based on cumulative kWh × tariff. */
-  total_cost_uyu: number | null;
+  total_cost: number | null;
   /** Cost projection if current power held for 24h. */
-  daily_cost_at_current_uyu: number | null;
+  daily_cost_at_current: number | null;
   /** Cost per hour at current power (instantaneous). */
-  hourly_cost_at_current_uyu: number | null;
-  tariff_uyu_per_kwh: number;
+  hourly_cost_at_current: number | null;
+  tariff_per_kwh: number;
+  currency: string;
 };
 
-export function estimateCost(reading: EnergyReading): EnergyCostEstimate {
-  const tariff = getEnergyTariff();
+export function estimateCost(
+  reading: EnergyReading,
+  tariff: number = getDefaultTariff(),
+  currency: string = "UYU",
+): EnergyCostEstimate {
   const total =
     reading.total_energy_kwh != null
       ? reading.total_energy_kwh * tariff
@@ -113,10 +119,11 @@ export function estimateCost(reading: EnergyReading): EnergyCostEstimate {
   const daily = hourly != null ? hourly * 24 : null;
 
   return {
-    total_cost_uyu: total,
-    daily_cost_at_current_uyu: daily,
-    hourly_cost_at_current_uyu: hourly,
-    tariff_uyu_per_kwh: tariff,
+    total_cost: total,
+    daily_cost_at_current: daily,
+    hourly_cost_at_current: hourly,
+    tariff_per_kwh: tariff,
+    currency,
   };
 }
 
@@ -137,13 +144,39 @@ export function isEnergyDevice(d: TuyaDevice): boolean {
   return /breaker|t[eé]rmica/.test(catName) || /breaker/.test(cat);
 }
 
-const UYU = new Intl.NumberFormat("es-UY", {
-  style: "currency",
-  currency: "UYU",
-  maximumFractionDigits: 0,
-});
+const formatterCache = new Map<string, Intl.NumberFormat>();
 
-export function formatUyu(amount: number | null): string {
+/**
+ * Format a money amount in the given ISO 4217 currency (e.g. UYU, ARS, USD).
+ * Uses a per-currency cache so we don't re-instantiate the formatter on
+ * every render.
+ */
+export function formatMoney(
+  amount: number | null,
+  currency: string = "UYU",
+): string {
   if (amount == null) return "—";
-  return UYU.format(amount);
+  const key = currency;
+  let fmt = formatterCache.get(key);
+  if (!fmt) {
+    try {
+      fmt = new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency,
+        maximumFractionDigits: 0,
+      });
+    } catch {
+      // Invalid currency code — fall back to a generic decimal display.
+      fmt = new Intl.NumberFormat(undefined, {
+        maximumFractionDigits: 0,
+      });
+    }
+    formatterCache.set(key, fmt);
+  }
+  return fmt.format(amount);
+}
+
+/** Backwards-compat alias for the old UYU-only formatter. */
+export function formatUyu(amount: number | null): string {
+  return formatMoney(amount, "UYU");
 }

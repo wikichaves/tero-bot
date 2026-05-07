@@ -9,9 +9,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import {
   estimateCost,
-  formatUyu,
+  formatMoney,
+  getDefaultTariff,
   getDeviceStatus,
-  getEnergyTariff,
   isEnergyDevice,
   parseEnergyReading,
   type EnergyReading,
@@ -27,12 +27,21 @@ import type { Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+type PropertySummary = Pick<
+  Property,
+  "id" | "name" | "currency" | "tariff_per_kwh"
+>;
+
 type DeviceWithContext = {
   device: TuyaDevice;
   homeName: string | null;
-  propertyName: string | null;
+  property: PropertySummary | null;
   reading: EnergyReading | null;
   readError: string | null;
+  /** Effective tariff used for cost calc (property override or default). */
+  tariff: number;
+  /** ISO 4217 currency for display. */
+  currency: string;
 };
 
 function formatPower(w: number | null): string {
@@ -47,11 +56,8 @@ function formatNumber(n: number | null, unit: string, digits = 1): string {
 }
 
 export default async function EnergyPage() {
-  const tariff = getEnergyTariff();
+  const defaultTariff = getDefaultTariff();
 
-  // Fetch the rich flat device list (iot-03, includes category_name) AND
-  // the home grouping (for home name mapping). They use different endpoints
-  // and return slightly different shapes — we merge them here.
   const [flatRes, groupedRes] = await Promise.all([
     listAllDevices().catch((err: Error) => ({ error: err.message })),
     listDevicesGroupedByHome().catch((err: Error) => ({ error: err.message })),
@@ -60,7 +66,7 @@ export default async function EnergyPage() {
   if ("error" in flatRes) {
     return (
       <div className="flex flex-col gap-6">
-        <Header tariff={tariff} />
+        <Header />
         <Card>
           <CardContent className="pt-6 text-sm text-destructive">
             No se pudo hablar con Tuya: {flatRes.error}
@@ -70,8 +76,6 @@ export default async function EnergyPage() {
     );
   }
 
-  // Build deviceId → homeName map from the grouped response (or empty if
-  // that call failed — we can still show energy without home grouping).
   const homeNameByDeviceId = new Map<string, string>();
   if (!("error" in groupedRes)) {
     for (const { home, devices } of groupedRes.homes) {
@@ -85,21 +89,26 @@ export default async function EnergyPage() {
 
   const supabase = await createClient();
   const [propertiesRes, deviceMap] = await Promise.all([
-    supabase.from("properties").select("id, name"),
+    supabase
+      .from("properties")
+      .select("id, name, currency, tariff_per_kwh"),
     listPropertyDeviceMap(),
   ]);
-  const properties = (propertiesRes.data ?? []) as Pick<
-    Property,
-    "id" | "name"
-  >[];
+  const properties = (propertiesRes.data ?? []) as PropertySummary[];
   const propertyById = new Map(properties.map((p) => [p.id, p]));
 
   const devicesWithContext: DeviceWithContext[] = await Promise.all(
     energyDevices.map(async (device) => {
       const assignment = deviceMap.get(device.id);
-      const propertyName = assignment
-        ? (propertyById.get(assignment.property_id)?.name ?? null)
+      const property = assignment
+        ? (propertyById.get(assignment.property_id) ?? null)
         : null;
+      const tariff =
+        property?.tariff_per_kwh && property.tariff_per_kwh > 0
+          ? Number(property.tariff_per_kwh)
+          : defaultTariff;
+      const currency = property?.currency ?? "UYU";
+
       let reading: EnergyReading | null = null;
       let readError: string | null = null;
       try {
@@ -111,33 +120,38 @@ export default async function EnergyPage() {
       return {
         device,
         homeName: homeNameByDeviceId.get(device.id) ?? null,
-        propertyName,
+        property,
         reading,
         readError,
+        tariff,
+        currency,
       };
     }),
   );
 
-  // Aggregate totals across all devices.
-  const totals = devicesWithContext.reduce(
-    (acc, { reading }) => {
-      if (reading?.power_w != null) acc.power += reading.power_w;
-      if (reading?.total_energy_kwh != null)
-        acc.energy += reading.total_energy_kwh;
-      return acc;
-    },
-    { power: 0, energy: 0 },
-  );
-  const aggregateCost = estimateCost({
-    power_w: totals.power || null,
-    voltage_v: null,
-    current_a: null,
-    total_energy_kwh: totals.energy || null,
-  });
+  // Aggregate totals — split by currency since we can't sum across them.
+  const totalsByCurrency = new Map<
+    string,
+    { power: number; energy: number; tariffSum: number; tariffCount: number }
+  >();
+  for (const ctx of devicesWithContext) {
+    const curr = totalsByCurrency.get(ctx.currency) ?? {
+      power: 0,
+      energy: 0,
+      tariffSum: 0,
+      tariffCount: 0,
+    };
+    if (ctx.reading?.power_w != null) curr.power += ctx.reading.power_w;
+    if (ctx.reading?.total_energy_kwh != null)
+      curr.energy += ctx.reading.total_energy_kwh;
+    curr.tariffSum += ctx.tariff;
+    curr.tariffCount += 1;
+    totalsByCurrency.set(ctx.currency, curr);
+  }
 
   return (
     <div className="flex flex-col gap-6">
-      <Header tariff={tariff} />
+      <Header />
 
       {devicesWithContext.length === 0 ? (
         <Card>
@@ -148,53 +162,74 @@ export default async function EnergyPage() {
               project.
             </p>
             <p>
-              Buscamos por categoría <code>pc</code> o nombre que contenga
-              "Circuit breaker" / "breaker". Si las Térmicas tienen otra
-              categoría en tu setup, agregame el detalle (categoría exacta
-              que ves en <em>/admin/tuya</em>) y ajusto el filtro.
+              Buscamos por categoría <code>dlq</code> / <code>pc</code> /{" "}
+              <code>znyk</code> o nombre que contenga "Circuit breaker" /
+              "breaker" / "Térmica".
             </p>
           </CardContent>
         </Card>
       ) : (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="h-5 w-5" />
-                Total agregado
-              </CardTitle>
-              <CardDescription>
-                Suma de los {devicesWithContext.length} medidores de
-                consumo activos.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-4">
-                <Stat
-                  label="Potencia ahora"
-                  value={formatPower(totals.power || null)}
-                />
-                <Stat
-                  label="Costo / hora"
-                  value={formatUyu(aggregateCost.hourly_cost_at_current_uyu)}
-                />
-                <Stat
-                  label="Proyección 24 h"
-                  value={formatUyu(aggregateCost.daily_cost_at_current_uyu)}
-                  hint="al consumo actual"
-                />
-                <Stat
-                  label="Acumulado total"
-                  value={
-                    totals.energy
-                      ? `${totals.energy.toFixed(1)} kWh`
-                      : "—"
-                  }
-                  hint={formatUyu(aggregateCost.total_cost_uyu)}
-                />
-              </div>
-            </CardContent>
-          </Card>
+          {Array.from(totalsByCurrency.entries()).map(([currency, t]) => {
+            // Use the average tariff for this currency for the aggregate
+            // estimate (typically all devices in same currency share tariff
+            // anyway).
+            const avgTariff = t.tariffSum / Math.max(1, t.tariffCount);
+            const cost = estimateCost(
+              {
+                power_w: t.power || null,
+                voltage_v: null,
+                current_a: null,
+                total_energy_kwh: t.energy || null,
+              },
+              avgTariff,
+              currency,
+            );
+            return (
+              <Card key={currency}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Zap className="h-5 w-5" />
+                    Total · {currency}
+                  </CardTitle>
+                  <CardDescription>
+                    Devices con tarifa en {currency} (≈ {avgTariff.toFixed(2)}{" "}
+                    {currency}/kWh).
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 sm:grid-cols-4">
+                    <Stat
+                      label="Potencia ahora"
+                      value={formatPower(t.power || null)}
+                    />
+                    <Stat
+                      label="Costo / hora"
+                      value={formatMoney(
+                        cost.hourly_cost_at_current,
+                        currency,
+                      )}
+                    />
+                    <Stat
+                      label="Proyección 24 h"
+                      value={formatMoney(
+                        cost.daily_cost_at_current,
+                        currency,
+                      )}
+                      hint="al consumo actual"
+                    />
+                    <Stat
+                      label="Acumulado total"
+                      value={
+                        t.energy ? `${t.energy.toFixed(1)} kWh` : "—"
+                      }
+                      hint={formatMoney(cost.total_cost, currency)}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
 
           {devicesWithContext.map((d) => (
             <DeviceEnergyCard key={d.device.id} ctx={d} />
@@ -205,18 +240,20 @@ export default async function EnergyPage() {
   );
 }
 
-function Header({ tariff }: { tariff: number }) {
+function Header() {
   return (
-    <div className="flex items-end justify-between gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Energía</h1>
-        <p className="text-sm text-muted-foreground">
-          Consumo en vivo y costo estimado al tarifa actual.
-        </p>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Tarifa configurada:{" "}
-        <span className="font-mono">{tariff} UYU/kWh</span>
+    <div>
+      <h1 className="text-2xl font-semibold">Energía</h1>
+      <p className="text-sm text-muted-foreground">
+        Consumo en vivo por propiedad. La tarifa y moneda se configuran por
+        propiedad en{" "}
+        <a
+          href="/admin/properties"
+          className="underline hover:text-foreground"
+        >
+          /admin/properties
+        </a>
+        .
       </p>
     </div>
   );
@@ -241,14 +278,16 @@ function Stat({
 }
 
 function DeviceEnergyCard({ ctx }: { ctx: DeviceWithContext }) {
-  const { device, homeName, propertyName, reading, readError } = ctx;
+  const { device, homeName, property, reading, readError, tariff, currency } =
+    ctx;
   const cost = reading
-    ? estimateCost(reading)
+    ? estimateCost(reading, tariff, currency)
     : {
-        total_cost_uyu: null,
-        daily_cost_at_current_uyu: null,
-        hourly_cost_at_current_uyu: null,
-        tariff_uyu_per_kwh: getEnergyTariff(),
+        total_cost: null,
+        daily_cost_at_current: null,
+        hourly_cost_at_current: null,
+        tariff_per_kwh: tariff,
+        currency,
       };
 
   return (
@@ -268,17 +307,32 @@ function DeviceEnergyCard({ ctx }: { ctx: DeviceWithContext }) {
                   Home: <strong>{homeName}</strong>
                 </>
               )}
-              {homeName && propertyName && " · "}
-              {propertyName && (
+              {homeName && property && " · "}
+              {property && (
                 <>
-                  Propiedad: <strong>{propertyName}</strong>
+                  Propiedad: <strong>{property.name}</strong>
                 </>
               )}
-              {!homeName && !propertyName && (
+              {!homeName && !property && (
                 <span className="text-muted-foreground">Sin asignar</span>
               )}
             </CardDescription>
           </div>
+          <p className="text-xs text-muted-foreground text-right">
+            Tarifa:
+            <br />
+            <span className="font-mono">
+              {tariff.toFixed(2)} {currency}/kWh
+            </span>
+            {(!property?.tariff_per_kwh || property.tariff_per_kwh <= 0) && (
+              <>
+                <br />
+                <span className="text-amber-700 dark:text-amber-300">
+                  (default)
+                </span>
+              </>
+            )}
+          </p>
         </div>
       </CardHeader>
       <CardContent>
@@ -289,13 +343,11 @@ function DeviceEnergyCard({ ctx }: { ctx: DeviceWithContext }) {
         ) : !device.online ? (
           <p className="text-sm text-muted-foreground">
             El device está offline — los valores en vivo no están disponibles.
-            Cuando vuelva a conectarse, vamos a poder leer el consumo.
           </p>
         ) : !reading ||
           (reading.power_w == null && reading.total_energy_kwh == null) ? (
           <p className="text-sm text-muted-foreground">
             Tuya no devolvió datos de potencia/energía para este device.
-            Puede ser un modelo sin métrica de consumo.
           </p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
@@ -310,12 +362,12 @@ function DeviceEnergyCard({ ctx }: { ctx: DeviceWithContext }) {
             />
             <Stat
               label="Costo / hora"
-              value={formatUyu(cost.hourly_cost_at_current_uyu)}
+              value={formatMoney(cost.hourly_cost_at_current, currency)}
               hint="al consumo actual"
             />
             <Stat
               label="Proyección 24 h"
-              value={formatUyu(cost.daily_cost_at_current_uyu)}
+              value={formatMoney(cost.daily_cost_at_current, currency)}
               hint="si se mantiene este consumo"
             />
             <Stat
@@ -325,7 +377,7 @@ function DeviceEnergyCard({ ctx }: { ctx: DeviceWithContext }) {
                   ? `${reading.total_energy_kwh.toFixed(1)} kWh`
                   : "—"
               }
-              hint={formatUyu(cost.total_cost_uyu)}
+              hint={formatMoney(cost.total_cost, currency)}
             />
           </div>
         )}

@@ -65,21 +65,36 @@ function PropertyForm({
   const [bookingUrl, setBookingUrl] = useState(
     property?.booking_ical_url ?? "",
   );
+  const [currency, setCurrency] = useState(property?.currency ?? "UYU");
+  const [tariff, setTariff] = useState<string>(
+    property?.tariff_per_kwh != null ? String(property.tariff_per_kwh) : "",
+  );
 
   useEffect(() => {
     setName(property?.name ?? "");
     setAirbnbUrl(property?.airbnb_ical_url ?? "");
     setBookingUrl(property?.booking_ical_url ?? "");
+    setCurrency(property?.currency ?? "UYU");
+    setTariff(
+      property?.tariff_per_kwh != null ? String(property.tariff_per_kwh) : "",
+    );
   }, [property]);
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const tariffNum = tariff.trim() ? Number(tariff) : null;
+    if (tariff.trim() && (!Number.isFinite(tariffNum) || tariffNum! <= 0)) {
+      toast.error("La tarifa debe ser un número positivo.");
+      return;
+    }
     startTransition(async () => {
       const result = await upsertProperty({
         id: property?.id,
         name,
         airbnb_ical_url: airbnbUrl,
         booking_ical_url: bookingUrl,
+        currency: currency.toUpperCase(),
+        tariff_per_kwh: tariffNum,
       });
       if (result?.error) {
         toast.error(result.error);
@@ -131,6 +146,40 @@ function PropertyForm({
             onChange={(e) => setBookingUrl(e.target.value)}
             placeholder="https://admin.booking.com/hotel/.../ical?..."
           />
+        </div>
+        <div className="grid grid-cols-[1fr_2fr] gap-3">
+          <div className="grid gap-2">
+            <Label htmlFor="currency">Moneda</Label>
+            <select
+              id="currency"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              required
+              className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+            >
+              <option value="UYU">UYU · Uruguay</option>
+              <option value="ARS">ARS · Argentina</option>
+              <option value="USD">USD · Dólar</option>
+              <option value="BRL">BRL · Brasil</option>
+              <option value="CLP">CLP · Chile</option>
+              <option value="EUR">EUR · Euro</option>
+            </select>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="tariff_per_kwh">Tarifa por kWh (opcional)</Label>
+            <Input
+              id="tariff_per_kwh"
+              type="number"
+              step="0.01"
+              min="0"
+              value={tariff}
+              onChange={(e) => setTariff(e.target.value)}
+              placeholder="ej. 9 (UTE), 75 (Edenor)"
+            />
+            <p className="text-xs text-muted-foreground">
+              Si lo dejás vacío, /energy usa el fallback global.
+            </p>
+          </div>
         </div>
       </div>
       <DialogFooter>

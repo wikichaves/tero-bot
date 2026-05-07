@@ -14,6 +14,8 @@ export type Property = {
   name: string;
   airbnb_ical_url: string | null;
   booking_ical_url: string | null;
+  currency: string;
+  tariff_per_kwh: number | null;
   created_at: string;
 };
 
