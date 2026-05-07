@@ -16,10 +16,37 @@ import type {
   LockPassword,
   Property,
   Reservation,
+  Task,
   WhatsAppConversation,
   WhatsAppMessage,
 } from "@/lib/types";
 import { ReservationDetailActions } from "./detail-actions";
+
+const TASK_STATUS_LABEL: Record<Task["status"], string> = {
+  pending: "Pendiente",
+  in_progress: "En curso",
+  done: "Hecha",
+};
+
+const TASK_STATUS_BADGE: Record<
+  Task["status"],
+  "default" | "secondary" | "outline"
+> = {
+  pending: "secondary",
+  in_progress: "default",
+  done: "outline",
+};
+
+const TASK_KIND_LABEL: Record<Task["kind"], string> = {
+  limpieza: "Limpieza",
+  mantenimiento: "Mantenimiento",
+  insumos: "Insumos",
+  otro: "Otro",
+};
+
+type CleaningTask = Task & {
+  assignee: { full_name: string | null; email: string } | null;
+};
 
 export const dynamic = "force-dynamic";
 
@@ -82,6 +109,24 @@ export default async function ReservationDetailPage({
   ]);
   const accessCode = (accessCodeRes.data ?? null) as LockPassword | null;
   const hasPrimaryLock = !!primaryLockRes.data;
+
+  // Cleaning task auto-created (or manually created) for this checkout date.
+  // We dedup by (property_id, kind=limpieza, due_date=check_out) — the same
+  // tuple the airbnb sync hook uses, so this surfaces the auto-task too.
+  const cleaningTaskRes = reservation.property?.id
+    ? await supabase
+        .from("tasks")
+        .select(
+          "*, assignee:profiles!tasks_assigned_to_fkey(full_name, email)",
+        )
+        .eq("property_id", reservation.property.id)
+        .eq("kind", "limpieza")
+        .eq("due_date", reservation.check_out)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    : { data: null };
+  const cleaningTask = (cleaningTaskRes.data ?? null) as CleaningTask | null;
 
   // Try to find a WhatsApp conversation matching the guest's phone, and pull
   // its messages. Best-effort: only matches if guest_phone normalizes to
@@ -206,6 +251,76 @@ export default async function ReservationDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Tarea de limpieza (post-checkout)</CardTitle>
+          <CardDescription>
+            {cleaningTask
+              ? `Tarea para ${format(checkOut, "EEEE d 'de' MMMM", {
+                  locale: es,
+                })}`
+              : "Aún no hay una tarea de limpieza para esta fecha."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm">
+          {cleaningTask ? (
+            <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
+              <dt className="text-muted-foreground">Título</dt>
+              <dd className="font-medium">{cleaningTask.title}</dd>
+              <dt className="text-muted-foreground">Tipo</dt>
+              <dd>
+                <Badge variant="outline">
+                  {TASK_KIND_LABEL[cleaningTask.kind]}
+                </Badge>
+              </dd>
+              <dt className="text-muted-foreground">Estado</dt>
+              <dd>
+                <Badge variant={TASK_STATUS_BADGE[cleaningTask.status]}>
+                  {TASK_STATUS_LABEL[cleaningTask.status]}
+                </Badge>
+              </dd>
+              <dt className="text-muted-foreground">Asignado</dt>
+              <dd>
+                {cleaningTask.assignee ? (
+                  cleaningTask.assignee.full_name ??
+                  cleaningTask.assignee.email
+                ) : (
+                  <span className="text-muted-foreground">Sin asignar</span>
+                )}
+              </dd>
+              {cleaningTask.description && (
+                <>
+                  <dt className="text-muted-foreground">Descripción</dt>
+                  <dd className="whitespace-pre-wrap">
+                    {cleaningTask.description}
+                  </dd>
+                </>
+              )}
+            </dl>
+          ) : (
+            <p className="text-muted-foreground">
+              Se crea automáticamente al sincronizar la reserva. También podés
+              crear una manualmente desde{" "}
+              <Link
+                href={`/tasks?property=${reservation.property?.id ?? ""}`}
+                className="underline hover:text-foreground"
+              >
+                Tareas
+              </Link>
+              .
+            </p>
+          )}
+          <p className="mt-3 text-xs">
+            <Link
+              href="/tasks?status=pending"
+              className="text-muted-foreground underline hover:text-foreground"
+            >
+              Ver todas las tareas →
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
