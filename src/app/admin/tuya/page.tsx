@@ -16,19 +16,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { listAllDevices } from "@/lib/tuya/devices";
+import { listDevicesGroupedByHome, type TuyaDevice } from "@/lib/tuya/devices";
 import {
   listPropertyDeviceMap,
   suggestDeviceKind,
 } from "@/lib/tuya/property-devices";
 import { createClient } from "@/lib/supabase/server";
 import { AssignDeviceButton } from "./assign-device-button";
+import { BulkAssignButton } from "./bulk-assign-button";
 import type { Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function TuyaPage() {
-  const result = await listAllDevices().catch((err: Error) => ({
+  const result = await listDevicesGroupedByHome().catch((err: Error) => ({
     error: err.message,
   }));
 
@@ -55,13 +56,14 @@ export default async function TuyaPage() {
             <ul className="mt-4 list-disc pl-5 text-muted-foreground">
               <li>
                 Verificá que <code>TUYA_ACCESS_ID</code>,{" "}
-                <code>TUYA_ACCESS_SECRET</code> y <code>TUYA_REGION</code> estén
-                en <code>.env.local</code> (y en Vercel).
+                <code>TUYA_ACCESS_SECRET</code> y <code>TUYA_REGION</code>{" "}
+                estén en <code>.env.local</code> (y en Vercel).
               </li>
               <li>
                 Confirmá que el Cloud Project tenga las APIs requeridas
-                autorizadas: <em>IoT Core</em>, <em>Authorization Token
-                Management</em>, <em>Smart Home Basic Service</em>,{" "}
+                autorizadas: <em>IoT Core</em>,{" "}
+                <em>Authorization Token Management</em>,{" "}
+                <em>Smart Home Basic Service</em>,{" "}
                 <em>Smart Lock Open Service</em>.
               </li>
               <li>
@@ -75,9 +77,9 @@ export default async function TuyaPage() {
     );
   }
 
-  const { user, devices } = result;
+  const { user, homes } = result;
 
-  // Load properties + existing device assignments in parallel.
+  // Properties + existing assignments in parallel.
   const supabase = await createClient();
   const [propertiesRes, deviceMap] = await Promise.all([
     supabase
@@ -91,6 +93,8 @@ export default async function TuyaPage() {
     "id" | "name"
   >[];
   const propertyById = new Map(properties.map((p) => [p.id, p]));
+
+  const totalDevices = homes.reduce((acc, h) => acc + h.devices.length, 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -125,118 +129,173 @@ export default async function TuyaPage() {
                   </dd>
                 </>
               )}
+              <dt className="text-muted-foreground">Homes</dt>
+              <dd>
+                {homes.length} home{homes.length === 1 ? "" : "s"} con{" "}
+                {totalDevices} device{totalDevices === 1 ? "" : "s"} en total
+              </dd>
             </dl>
           ) : (
             <div className="text-muted-foreground space-y-2">
               <p>
                 No se encontró ninguna cuenta linkeada vía los endpoints
-                automáticos de Tuya. Probablemente la API de "list users" no
-                está disponible en tu plan o cambió de path.
+                automáticos de Tuya.
               </p>
               <p>
                 <strong>Workaround:</strong> agregá tu UID a las env vars como{" "}
-                <code>TUYA_USER_UID</code> (lo ves en Tuya →{" "}
-                <em>Devices → Link App Account</em>, columna UID — algo como{" "}
-                <code>az159097966553O5Zk</code>) y reiniciá el dev server o
-                hacé redeploy en Vercel. Con eso saltamos el discovery y
-                listamos los devices directo.
+                <code>TUYA_USER_UID</code>.
               </p>
             </div>
           )}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Dispositivos ({devices.length})</CardTitle>
-          <CardDescription>
-            Devices visibles desde el Cloud Project, vía la cuenta linkeada.
-            Asignalos a una propiedad para usarlos en flows automáticos
-            (códigos de cerradura por reserva, etc.).
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {devices.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No hay dispositivos. Si en la app Smart Life ves dispositivos,
-              probablemente estén en una <em>Home</em> distinta — asegurate que
-              la home con tus devices sea la principal o compartida con la
-              cuenta linkeada.
-            </p>
-          ) : properties.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Antes de asignar dispositivos a propiedades, creá al menos una
-              propiedad en{" "}
-              <a
-                href="/admin/properties"
-                className="underline hover:text-foreground"
-              >
-                /admin/properties
-              </a>
-              .
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Categoría</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Propiedad</TableHead>
-                  <TableHead>Device ID</TableHead>
-                  <TableHead className="w-24" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {devices.map((d) => {
-                  const assignment = deviceMap.get(d.id) ?? null;
-                  const property = assignment
-                    ? propertyById.get(assignment.property_id)
-                    : null;
-                  return (
-                    <TableRow key={d.id}>
-                      <TableCell className="font-medium">{d.name}</TableCell>
-                      <TableCell>
-                        {d.category_name ?? d.category ?? "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={d.online ? "default" : "secondary"}>
-                          {d.online ? "online" : "offline"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {assignment ? (
-                          <div className="flex flex-col gap-0.5">
-                            <span>{property?.name ?? "(propiedad eliminada)"}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {assignment.device_kind}
-                              {assignment.is_primary && " · primaria"}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {d.id}
-                      </TableCell>
-                      <TableCell>
-                        <AssignDeviceButton
-                          tuyaDeviceId={d.id}
-                          tuyaDeviceName={d.name}
-                          properties={properties}
-                          current={assignment}
-                          suggestedKind={suggestDeviceKind(d)}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      {homes.length === 0 && (
+        <Card>
+          <CardContent className="pt-6 text-sm text-muted-foreground">
+            No se encontraron homes. Si tu Smart Life tiene devices, asegurate
+            que estén en una home (no en "Sin Hogar"). Después linkeá la
+            cuenta de nuevo en el Cloud Project si hace falta.
+          </CardContent>
+        </Card>
+      )}
+
+      {homes.map(({ home, devices }) => (
+        <HomeCard
+          key={home.home_id}
+          homeName={home.name}
+          devices={devices}
+          properties={properties}
+          deviceMap={deviceMap}
+          propertyById={propertyById}
+        />
+      ))}
     </div>
+  );
+}
+
+function HomeCard({
+  homeName,
+  devices,
+  properties,
+  deviceMap,
+  propertyById,
+}: {
+  homeName: string;
+  devices: TuyaDevice[];
+  properties: Pick<Property, "id" | "name">[];
+  deviceMap: Awaited<ReturnType<typeof listPropertyDeviceMap>>;
+  propertyById: Map<string, Pick<Property, "id" | "name">>;
+}) {
+  // Property summary: which properties already own devices in this home?
+  const assignedPropertyIds = new Set<string>();
+  let unassignedCount = 0;
+  for (const d of devices) {
+    const pd = deviceMap.get(d.id);
+    if (pd) assignedPropertyIds.add(pd.property_id);
+    else unassignedCount++;
+  }
+  const assignedNames = Array.from(assignedPropertyIds)
+    .map((id) => propertyById.get(id)?.name)
+    .filter(Boolean) as string[];
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle>Home: {homeName}</CardTitle>
+            <CardDescription>
+              {devices.length} device{devices.length === 1 ? "" : "s"}.{" "}
+              {assignedNames.length > 0 && (
+                <>
+                  Asignados a:{" "}
+                  <strong>{assignedNames.join(", ")}</strong>.
+                </>
+              )}{" "}
+              {unassignedCount > 0 && (
+                <span className="text-amber-700 dark:text-amber-300">
+                  {unassignedCount} sin asignar.
+                </span>
+              )}
+            </CardDescription>
+          </div>
+          {devices.length > 0 && (
+            <BulkAssignButton
+              homeName={homeName}
+              devices={devices.map((d) => ({
+                id: d.id,
+                name: d.name,
+                category: d.category ?? null,
+                category_name: d.category_name ?? null,
+              }))}
+              properties={properties}
+            />
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {devices.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Sin devices.</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Categoría</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Propiedad</TableHead>
+                <TableHead className="w-24" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {devices.map((d) => {
+                const assignment = deviceMap.get(d.id) ?? null;
+                const property = assignment
+                  ? propertyById.get(assignment.property_id)
+                  : null;
+                return (
+                  <TableRow key={d.id}>
+                    <TableCell className="font-medium">{d.name}</TableCell>
+                    <TableCell>
+                      {d.category_name ?? d.category ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={d.online ? "default" : "secondary"}>
+                        {d.online ? "online" : "offline"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {assignment ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span>
+                            {property?.name ?? "(propiedad eliminada)"}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {assignment.device_kind}
+                            {assignment.is_primary && " · primaria"}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <AssignDeviceButton
+                        tuyaDeviceId={d.id}
+                        tuyaDeviceName={d.name}
+                        properties={properties}
+                        current={assignment}
+                        suggestedKind={suggestDeviceKind(d)}
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -157,3 +157,65 @@ export async function getDevice(deviceId: string) {
     `/v1.0/devices/${deviceId}`,
   );
 }
+
+export type TuyaHome = {
+  home_id: number | string;
+  name: string;
+  geo_name?: string;
+  admin?: boolean;
+  role?: number;
+};
+
+/** List all Smart Life "homes" the user belongs to. */
+export async function listUserHomes(uid: string): Promise<TuyaHome[]> {
+  const r = await tuyaFetch<
+    TuyaHome[] | { homes?: TuyaHome[]; list?: TuyaHome[] }
+  >("GET", `/v1.0/users/${uid}/homes`);
+  if (Array.isArray(r)) return r;
+  return r?.homes ?? r?.list ?? [];
+}
+
+/** List devices in a specific home. */
+export async function listDevicesForHome(
+  homeId: string | number,
+): Promise<TuyaDevice[]> {
+  const r = await tuyaFetch<
+    TuyaDevice[] | { devices?: TuyaDevice[]; list?: TuyaDevice[] }
+  >("GET", `/v1.0/homes/${homeId}/devices`);
+  if (Array.isArray(r)) return r;
+  return r?.devices ?? r?.list ?? [];
+}
+
+/**
+ * High-level: pull every home for the linked Smart Life user and the
+ * devices in each. Returns `null` for `user` if no app account is linked.
+ *
+ * Rather than a single flat device list, this preserves the home grouping
+ * — useful for bulk-assigning all devices in a home to a property.
+ */
+export async function listDevicesGroupedByHome(): Promise<{
+  user: TuyaAppUser | null;
+  homes: Array<{ home: TuyaHome; devices: TuyaDevice[] }>;
+}> {
+  const users = await listAppUsers();
+  if (users.length === 0) return { user: null, homes: [] };
+  const user = users[0];
+
+  const homes = await listUserHomes(user.uid);
+  const homeGroups = await Promise.all(
+    homes.map(async (home) => {
+      try {
+        const devices = await listDevicesForHome(home.home_id);
+        return { home, devices };
+      } catch (e) {
+        console.warn(
+          `[listDevicesGroupedByHome] home ${home.home_id} failed:`,
+          (e as Error).message,
+        );
+        return { home, devices: [] as TuyaDevice[] };
+      }
+    }),
+  );
+
+  return { user, homes: homeGroups };
+}
