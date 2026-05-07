@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { format, formatDistanceToNow, parseISO } from "date-fns";
+import { formatDistanceToNow, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";

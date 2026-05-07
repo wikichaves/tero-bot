@@ -154,7 +154,7 @@ export default async function TuyaPage() {
         <Card>
           <CardContent className="pt-6 text-sm text-muted-foreground">
             No se encontraron homes. Si tu Smart Life tiene devices, asegurate
-            que estén en una home (no en "Sin Hogar"). Después linkeá la
+            que estén en una home (no en &ldquo;Sin Hogar&rdquo;). Después linkeá la
             cuenta de nuevo en el Cloud Project si hace falta.
           </CardContent>
         </Card>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -78,7 +78,11 @@ export function EditTaskDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
+        {/* key={task.id} re-mounts the form when switching between tasks,
+            so we can derive initial state from props in useState() instead
+            of syncing it inside a useEffect. */}
         <TaskForm
+          key={task.id}
           task={task}
           properties={properties}
           assignees={assignees}
@@ -114,18 +118,6 @@ function TaskForm({
   const [description, setDescription] = useState(task?.description ?? "");
   const [assignedTo, setAssignedTo] = useState(task?.assigned_to ?? "");
   const [dueDate, setDueDate] = useState(task?.due_date ?? "");
-
-  useEffect(() => {
-    if (task) {
-      setPropertyId(task.property_id);
-      setKind(task.kind);
-      setStatus(task.status);
-      setTitle(task.title);
-      setDescription(task.description ?? "");
-      setAssignedTo(task.assigned_to ?? "");
-      setDueDate(task.due_date ?? "");
-    }
-  }, [task]);
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

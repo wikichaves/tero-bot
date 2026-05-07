@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -43,7 +43,11 @@ export function EditPropertyDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
+        {/* key={property.id} re-mounts the form when switching between
+            properties, so initial state can come from props in useState()
+            without a useEffect sync. */}
         <PropertyForm
+          key={property.id}
           property={property}
           onDone={() => onOpenChange(false)}
         />
@@ -69,16 +73,6 @@ function PropertyForm({
   const [tariff, setTariff] = useState<string>(
     property?.tariff_per_kwh != null ? String(property.tariff_per_kwh) : "",
   );
-
-  useEffect(() => {
-    setName(property?.name ?? "");
-    setAirbnbUrl(property?.airbnb_ical_url ?? "");
-    setBookingUrl(property?.booking_ical_url ?? "");
-    setCurrency(property?.currency ?? "UYU");
-    setTariff(
-      property?.tariff_per_kwh != null ? String(property.tariff_per_kwh) : "",
-    );
-  }, [property]);
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

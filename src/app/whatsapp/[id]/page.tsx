@@ -54,13 +54,17 @@ export default async function ConversationPage({
   }
 
   // 24h window check: when did the user last send us a message?
+  // This is a server component, rendered once per request — Date.now() is
+  // fine here even though the linter flags it as impure (the warning is
+  // about client re-renders, which don't apply).
   const lastInbound = [...list]
     .reverse()
     .find((m) => m.direction === "inbound");
+  // eslint-disable-next-line react-hooks/purity
+  const nowMs = Date.now();
   const within24h =
     !!lastInbound &&
-    Date.now() - parseISO(lastInbound.sent_at).getTime() <
-      24 * 60 * 60 * 1000;
+    nowMs - parseISO(lastInbound.sent_at).getTime() < 24 * 60 * 60 * 1000;
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">

@@ -232,8 +232,8 @@ export default async function EnergyPage() {
             </p>
             <p>
               Buscamos por categoría <code>dlq</code> / <code>pc</code> /{" "}
-              <code>znyk</code> o nombre que contenga "Circuit breaker" /
-              "breaker" / "Térmica".
+              <code>znyk</code> o nombre que contenga &ldquo;Circuit breaker&rdquo; /
+              &ldquo;breaker&rdquo; / &ldquo;Térmica&rdquo;.
             </p>
           </CardContent>
         </Card>
