@@ -44,13 +44,33 @@ export type EnergyReading = {
   total_energy_kwh: number | null;
 };
 
-const POWER_KEYS = ["cur_power", "active_power", "phase_a_power"];
-const VOLTAGE_KEYS = ["cur_voltage", "voltage", "phase_a_voltage"];
-const CURRENT_KEYS = ["cur_current", "current", "phase_a_current"];
+const POWER_KEYS = [
+  "cur_power",
+  "active_power",
+  "phase_a_power",
+  "power_a",
+  "total_power",
+  "forward_power",
+  "power",
+];
+const VOLTAGE_KEYS = [
+  "cur_voltage",
+  "voltage",
+  "phase_a_voltage",
+  "voltage_a",
+];
+const CURRENT_KEYS = [
+  "cur_current",
+  "current",
+  "phase_a_current",
+  "current_a",
+];
 const TOTAL_ENERGY_KEYS = [
   "forward_energy_total",
   "total_forward_energy",
   "energy_total",
+  "add_ele",
+  "total_energy",
 ];
 
 function pickNumeric(
@@ -65,6 +85,44 @@ function pickNumeric(
   return null;
 }
 
+/**
+ * Parse Tuya's `phase_a` composite DP. Some firmwares pack voltage, current
+ * and active power into a single base64-encoded byte string instead of
+ * exposing them as separate codes.
+ *
+ * Common layout (8 bytes, big-endian):
+ *   [0..1]  voltage in 0.1 V (uint16)
+ *   [2..4]  current in mA    (uint24)
+ *   [5..7]  power in 0.1 W   (uint24)
+ *
+ * Returns null if the value isn't decodable; tolerant of varying lengths.
+ */
+function parsePhaseA(value: TuyaStatusValue): {
+  voltage_v: number | null;
+  current_a: number | null;
+  power_w: number | null;
+} | null {
+  if (typeof value !== "string" || value.length === 0) return null;
+  let buf: Buffer;
+  try {
+    buf = Buffer.from(value, "base64");
+  } catch {
+    return null;
+  }
+  if (buf.length < 8) return null;
+  try {
+    const voltage = ((buf[0] << 8) | buf[1]) / 10;
+    const current = ((buf[2] << 16) | (buf[3] << 8) | buf[4]) / 1000;
+    const power = ((buf[5] << 16) | (buf[6] << 8) | buf[7]) / 10;
+    // Sanity: residential breakers run 100-260V. If voltage looks wildly
+    // off, give up — the layout might be different on this firmware.
+    if (voltage < 50 || voltage > 400) return null;
+    return { voltage_v: voltage, current_a: current, power_w: power };
+  } catch {
+    return null;
+  }
+}
+
 export function parseEnergyReading(status: TuyaStatusItem[]): EnergyReading {
   const map = new Map(status.map((s) => [s.code, s.value]));
 
@@ -73,12 +131,39 @@ export function parseEnergyReading(status: TuyaStatusItem[]): EnergyReading {
   const rawCurrent = pickNumeric(map, CURRENT_KEYS);
   const rawTotalEnergy = pickNumeric(map, TOTAL_ENERGY_KEYS);
 
-  return {
-    power_w: rawPower != null ? rawPower / 10 : null,
-    voltage_v: rawVoltage != null ? rawVoltage / 10 : null,
-    current_a: rawCurrent != null ? rawCurrent / 1000 : null,
-    total_energy_kwh: rawTotalEnergy != null ? rawTotalEnergy / 100 : null,
-  };
+  let power_w = rawPower != null ? rawPower / 10 : null;
+  let voltage_v = rawVoltage != null ? rawVoltage / 10 : null;
+  let current_a = rawCurrent != null ? rawCurrent / 1000 : null;
+  const total_energy_kwh = rawTotalEnergy != null ? rawTotalEnergy / 100 : null;
+
+  // Fallback: try to parse phase_a composite when individual codes are absent.
+  if (power_w == null || voltage_v == null || current_a == null) {
+    const phaseA =
+      parsePhaseA(map.get("phase_a") as TuyaStatusValue) ??
+      parsePhaseA(map.get("phase_a_data") as TuyaStatusValue);
+    if (phaseA) {
+      if (power_w == null && phaseA.power_w != null) power_w = phaseA.power_w;
+      if (voltage_v == null && phaseA.voltage_v != null)
+        voltage_v = phaseA.voltage_v;
+      if (current_a == null && phaseA.current_a != null)
+        current_a = phaseA.current_a;
+    }
+  }
+
+  // Help diagnose missing-power devices: when we got total energy but no
+  // power, log the keys that came back so we can add them next time.
+  if (
+    process.env.NODE_ENV !== "production" &&
+    total_energy_kwh != null &&
+    power_w == null
+  ) {
+    console.warn(
+      "[parseEnergyReading] total_energy_kwh present but power_w missing. Status codes seen:",
+      status.map((s) => s.code).join(", "),
+    );
+  }
+
+  return { power_w, voltage_v, current_a, total_energy_kwh };
 }
 
 /**
