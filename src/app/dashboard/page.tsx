@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import type { Reservation } from "@/lib/types";
+import { ReservationRowActions } from "./reservation-row-actions";
 
 const HORIZON_DAYS = 14;
 
@@ -119,6 +120,7 @@ function ReservationsCard({
                 {showProperty && <TableHead>Propiedad</TableHead>}
                 <TableHead>Huésped</TableHead>
                 <TableHead>Origen</TableHead>
+                <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -135,6 +137,9 @@ function ReservationsCard({
                   <TableCell>{r.guest_name ?? "—"}</TableCell>
                   <TableCell>
                     <Badge variant="secondary">{r.source}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <ReservationRowActions reservation={r} />
                   </TableCell>
                 </TableRow>
               ))}
