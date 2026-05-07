@@ -17,6 +17,7 @@ import {
   type EnergyReading,
 } from "@/lib/tuya/energy";
 import {
+  listAllDevices,
   listDevicesGroupedByHome,
   type TuyaDevice,
 } from "@/lib/tuya/devices";
@@ -28,7 +29,7 @@ export const dynamic = "force-dynamic";
 
 type DeviceWithContext = {
   device: TuyaDevice;
-  homeName: string;
+  homeName: string | null;
   propertyName: string | null;
   reading: EnergyReading | null;
   readError: string | null;
@@ -46,34 +47,41 @@ function formatNumber(n: number | null, unit: string, digits = 1): string {
 }
 
 export default async function EnergyPage() {
-  const result = await listDevicesGroupedByHome().catch((err: Error) => ({
-    error: err.message,
-  }));
-
   const tariff = getEnergyTariff();
 
-  if ("error" in result) {
+  // Fetch the rich flat device list (iot-03, includes category_name) AND
+  // the home grouping (for home name mapping). They use different endpoints
+  // and return slightly different shapes — we merge them here.
+  const [flatRes, groupedRes] = await Promise.all([
+    listAllDevices().catch((err: Error) => ({ error: err.message })),
+    listDevicesGroupedByHome().catch((err: Error) => ({ error: err.message })),
+  ]);
+
+  if ("error" in flatRes) {
     return (
       <div className="flex flex-col gap-6">
         <Header tariff={tariff} />
         <Card>
           <CardContent className="pt-6 text-sm text-destructive">
-            No se pudo hablar con Tuya: {result.error}
+            No se pudo hablar con Tuya: {flatRes.error}
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  // Flatten all energy-capable devices and pull their status in parallel.
-  const allEnergyDevices: { device: TuyaDevice; homeName: string }[] = [];
-  for (const { home, devices } of result.homes) {
-    for (const d of devices) {
-      if (isEnergyDevice(d)) {
-        allEnergyDevices.push({ device: d, homeName: home.name });
+  // Build deviceId → homeName map from the grouped response (or empty if
+  // that call failed — we can still show energy without home grouping).
+  const homeNameByDeviceId = new Map<string, string>();
+  if (!("error" in groupedRes)) {
+    for (const { home, devices } of groupedRes.homes) {
+      for (const d of devices) {
+        homeNameByDeviceId.set(d.id, home.name);
       }
     }
   }
+
+  const energyDevices = flatRes.devices.filter(isEnergyDevice);
 
   const supabase = await createClient();
   const [propertiesRes, deviceMap] = await Promise.all([
@@ -87,7 +95,7 @@ export default async function EnergyPage() {
   const propertyById = new Map(properties.map((p) => [p.id, p]));
 
   const devicesWithContext: DeviceWithContext[] = await Promise.all(
-    allEnergyDevices.map(async ({ device, homeName }) => {
+    energyDevices.map(async (device) => {
       const assignment = deviceMap.get(device.id);
       const propertyName = assignment
         ? (propertyById.get(assignment.property_id)?.name ?? null)
@@ -100,7 +108,13 @@ export default async function EnergyPage() {
       } catch (e) {
         readError = (e as Error).message;
       }
-      return { device, homeName, propertyName, reading, readError };
+      return {
+        device,
+        homeName: homeNameByDeviceId.get(device.id) ?? null,
+        propertyName,
+        reading,
+        readError,
+      };
     }),
   );
 
@@ -127,10 +141,18 @@ export default async function EnergyPage() {
 
       {devicesWithContext.length === 0 ? (
         <Card>
-          <CardContent className="pt-6 text-sm text-muted-foreground">
-            No hay dispositivos de tipo <em>Circuit breaker</em>. Los Tuya
-            Térmicas suelen aparecer con esa categoría — verificá que el
-            device esté linkeado al Cloud Project.
+          <CardContent className="pt-6 text-sm text-muted-foreground space-y-2">
+            <p>
+              No se encontraron dispositivos identificables como medidores
+              de consumo entre los {flatRes.devices.length} devices del cloud
+              project.
+            </p>
+            <p>
+              Buscamos por categoría <code>pc</code> o nombre que contenga
+              "Circuit breaker" / "breaker". Si las Térmicas tienen otra
+              categoría en tu setup, agregame el detalle (categoría exacta
+              que ves en <em>/admin/tuya</em>) y ajusto el filtro.
+            </p>
           </CardContent>
         </Card>
       ) : (
@@ -241,12 +263,19 @@ function DeviceEnergyCard({ ctx }: { ctx: DeviceWithContext }) {
               </Badge>
             </CardTitle>
             <CardDescription>
-              Home: <strong>{homeName}</strong>
+              {homeName && (
+                <>
+                  Home: <strong>{homeName}</strong>
+                </>
+              )}
+              {homeName && propertyName && " · "}
               {propertyName && (
                 <>
-                  {" "}
-                  · Propiedad: <strong>{propertyName}</strong>
+                  Propiedad: <strong>{propertyName}</strong>
                 </>
+              )}
+              {!homeName && !propertyName && (
+                <span className="text-muted-foreground">Sin asignar</span>
               )}
             </CardDescription>
           </div>
