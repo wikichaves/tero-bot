@@ -21,8 +21,15 @@ import {
   revokeLockPassword,
 } from "./actions";
 
-function nowDatetimeLocal(offsetMinutes = 0): string {
-  const d = new Date(Date.now() + offsetMinutes * 60_000);
+/**
+ * Returns a YYYY-MM-DDTHH:00 string in local time, anchored to a full hour.
+ * Tuya offline temp passwords require hour-aligned times — any precision
+ * smaller than 1 hour gets rejected with "invalid offline time".
+ */
+function fullHourDatetimeLocal(offsetHours = 0): string {
+  const d = new Date();
+  d.setMinutes(0, 0, 0);
+  d.setHours(d.getHours() + offsetHours);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
@@ -165,8 +172,9 @@ export function LockCard({
                 id={`from-${deviceId}`}
                 name="effective_at"
                 type="datetime-local"
+                step={3600}
                 required
-                defaultValue={nowDatetimeLocal(1)}
+                defaultValue={fullHourDatetimeLocal(0)}
               />
             </div>
             <div className="grid gap-1.5">
@@ -175,11 +183,16 @@ export function LockCard({
                 id={`to-${deviceId}`}
                 name="invalid_at"
                 type="datetime-local"
+                step={3600}
                 required
-                defaultValue={nowDatetimeLocal(60)}
+                defaultValue={fullHourDatetimeLocal(2)}
               />
             </div>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Tuya solo acepta horarios redondeados a la hora completa
+            (minuto = 0). Si elegís 12:30, se redondea a 12:00.
+          </p>
           <div className="flex flex-wrap gap-2">
             <Button type="submit" disabled={pending}>
               {pending ? "Generando…" : "Generar código"}

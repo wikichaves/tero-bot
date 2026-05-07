@@ -33,16 +33,25 @@ export async function generateLockPassword(input: {
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
   }
-  const effective = toUnixSeconds(parsed.data.effective_at);
-  const invalid = toUnixSeconds(parsed.data.invalid_at);
-  if (!effective || !invalid) {
+  const rawEffective = toUnixSeconds(parsed.data.effective_at);
+  const rawInvalid = toUnixSeconds(parsed.data.invalid_at);
+  if (!rawEffective || !rawInvalid) {
     return { error: "Fechas inválidas." };
   }
-  if (effective >= invalid) {
-    return { error: "La fecha 'desde' debe ser anterior a 'hasta'." };
-  }
-  if (invalid - effective < 60) {
-    return { error: "La duración mínima es 1 minuto." };
+
+  // Tuya requires the offline temp password's effective_time and invalid_time
+  // to be aligned to hour boundaries (minute=0, second=0). Anything else is
+  // rejected with "invalid offline time". We round effective DOWN to the
+  // current hour (so the code is usable from now-ish) and invalid UP to the
+  // next hour (so we never accidentally make duration zero).
+  const HOUR = 3600;
+  const effective = Math.floor(rawEffective / HOUR) * HOUR;
+  const invalid = Math.ceil(rawInvalid / HOUR) * HOUR;
+  if (invalid <= effective) {
+    return {
+      error:
+        "La duración mínima es 1 hora (Tuya solo acepta horarios redondeados a la hora completa).",
+    };
   }
 
   try {
