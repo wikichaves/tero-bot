@@ -51,12 +51,20 @@ type TaskWithJoins = Task & {
 export default async function TasksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; property?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    property?: string;
+    assignee?: string;
+  }>;
 }) {
   const profile = await requireRole(["admin", "gestor"]);
   const params = await searchParams;
   const statusFilter = (params.status as StatusFilter) ?? "all";
   const propertyFilter = params.property ?? null;
+  // assignee=unassigned → only tasks without an assignee
+  // assignee=<uuid> → only that user's tasks
+  // assignee absent / "all" → no filter
+  const assigneeFilter = params.assignee ?? null;
 
   const supabase = await createClient();
   let query = supabase
@@ -72,6 +80,11 @@ export default async function TasksPage({
   }
   if (propertyFilter) {
     query = query.eq("property_id", propertyFilter);
+  }
+  if (assigneeFilter === "unassigned") {
+    query = query.is("assigned_to", null);
+  } else if (assigneeFilter) {
+    query = query.eq("assigned_to", assigneeFilter);
   }
 
   const [tasksRes, propertiesRes, assigneesRes] = await Promise.all([
@@ -127,44 +140,114 @@ export default async function TasksPage({
         />
       </div>
 
-      <div className="flex flex-wrap gap-2 text-sm">
-        <FilterPill
-          href={`/tasks${propertyFilter ? `?property=${propertyFilter}` : ""}`}
-          label="Todas"
-          active={statusFilter === "all"}
-        />
-        <FilterPill
-          href={`/tasks?status=pending${propertyFilter ? `&property=${propertyFilter}` : ""}`}
-          label="Pendientes"
-          active={statusFilter === "pending"}
-        />
-        <FilterPill
-          href={`/tasks?status=in_progress${propertyFilter ? `&property=${propertyFilter}` : ""}`}
-          label="En curso"
-          active={statusFilter === "in_progress"}
-        />
-        <FilterPill
-          href={`/tasks?status=done${propertyFilter ? `&property=${propertyFilter}` : ""}`}
-          label="Hechas"
-          active={statusFilter === "done"}
-        />
+      <div className="flex flex-col gap-3 text-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterPill
+            href={buildTasksUrl({
+              status: null,
+              property: propertyFilter,
+              assignee: assigneeFilter,
+            })}
+            label="Todas"
+            active={statusFilter === "all"}
+          />
+          <FilterPill
+            href={buildTasksUrl({
+              status: "pending",
+              property: propertyFilter,
+              assignee: assigneeFilter,
+            })}
+            label="Pendientes"
+            active={statusFilter === "pending"}
+          />
+          <FilterPill
+            href={buildTasksUrl({
+              status: "in_progress",
+              property: propertyFilter,
+              assignee: assigneeFilter,
+            })}
+            label="En curso"
+            active={statusFilter === "in_progress"}
+          />
+          <FilterPill
+            href={buildTasksUrl({
+              status: "done",
+              property: propertyFilter,
+              assignee: assigneeFilter,
+            })}
+            label="Hechas"
+            active={statusFilter === "done"}
+          />
 
-        {properties.length > 1 && (
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-muted-foreground">Propiedad:</span>
-            <Link
-              href={`/tasks${statusFilter !== "all" ? `?status=${statusFilter}` : ""}`}
-              className={`rounded-full px-3 py-1 ${propertyFilter ? "hover:bg-muted" : "bg-muted font-medium"}`}
-            >
-              Todas
-            </Link>
-            {properties.map((p) => (
+          {properties.length > 1 && (
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-muted-foreground">Propiedad:</span>
               <Link
-                key={p.id}
-                href={`/tasks?property=${p.id}${statusFilter !== "all" ? `&status=${statusFilter}` : ""}`}
-                className={`rounded-full px-3 py-1 ${propertyFilter === p.id ? "bg-muted font-medium" : "hover:bg-muted"}`}
+                href={buildTasksUrl({
+                  status:
+                    statusFilter === "all" ? null : statusFilter,
+                  property: null,
+                  assignee: assigneeFilter,
+                })}
+                className={`rounded-full px-3 py-1 ${propertyFilter ? "hover:bg-muted" : "bg-muted font-medium"}`}
               >
-                {p.name}
+                Todas
+              </Link>
+              {properties.map((p) => (
+                <Link
+                  key={p.id}
+                  href={buildTasksUrl({
+                    status:
+                      statusFilter === "all" ? null : statusFilter,
+                    property: p.id,
+                    assignee: assigneeFilter,
+                  })}
+                  className={`rounded-full px-3 py-1 ${propertyFilter === p.id ? "bg-muted font-medium" : "hover:bg-muted"}`}
+                >
+                  {p.name}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {assignees.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-muted-foreground">Asignado:</span>
+            <Link
+              href={buildTasksUrl({
+                status:
+                  statusFilter === "all" ? null : statusFilter,
+                property: propertyFilter,
+                assignee: null,
+              })}
+              className={`rounded-full px-3 py-1 ${assigneeFilter ? "hover:bg-muted" : "bg-muted font-medium"}`}
+            >
+              Todos
+            </Link>
+            <Link
+              href={buildTasksUrl({
+                status:
+                  statusFilter === "all" ? null : statusFilter,
+                property: propertyFilter,
+                assignee: "unassigned",
+              })}
+              className={`rounded-full px-3 py-1 ${assigneeFilter === "unassigned" ? "bg-muted font-medium" : "hover:bg-muted"}`}
+            >
+              Sin asignar
+            </Link>
+            {assignees.map((a) => (
+              <Link
+                key={a.id}
+                href={buildTasksUrl({
+                  status:
+                    statusFilter === "all" ? null : statusFilter,
+                  property: propertyFilter,
+                  assignee: a.id,
+                })}
+                className={`rounded-full px-3 py-1 ${assigneeFilter === a.id ? "bg-muted font-medium" : "hover:bg-muted"}`}
+              >
+                {a.full_name?.split(" ")[0] ?? a.email.split("@")[0]}
               </Link>
             ))}
           </div>
@@ -282,4 +365,21 @@ function FilterPill({
       {label}
     </Link>
   );
+}
+
+/**
+ * Build a `/tasks` URL preserving the filters that aren't being changed. Each
+ * filter accepts null to clear it.
+ */
+function buildTasksUrl(filters: {
+  status: StatusFilter | null;
+  property: string | null;
+  assignee: string | null;
+}): string {
+  const params = new URLSearchParams();
+  if (filters.status) params.set("status", filters.status);
+  if (filters.property) params.set("property", filters.property);
+  if (filters.assignee) params.set("assignee", filters.assignee);
+  const qs = params.toString();
+  return qs ? `/tasks?${qs}` : "/tasks";
 }
