@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireProfile } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Task } from "@/lib/types";
@@ -25,7 +25,14 @@ export default async function MisTareasPage({
   const filter: Filter =
     params.filter === "done" || params.filter === "all" ? params.filter : "open";
 
-  const supabase = await createClient();
+  // Use admin client because:
+  //  1. limpieza/mantenimiento profiles can't read `properties` directly per
+  //     RLS (the table holds iCal URLs we don't want to leak), and we need
+  //     the property name for the join.
+  //  2. The query is explicitly scoped to `assigned_to = profile.id` so the
+  //     admin client doesn't widen what the user can see — they still only
+  //     get their own tasks.
+  const supabase = createAdminClient();
   let query = supabase
     .from("tasks")
     .select("*, property:properties(id, name)")
