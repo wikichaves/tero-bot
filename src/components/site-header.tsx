@@ -1,12 +1,32 @@
 import Link from "next/link";
 import { signOut } from "@/app/login/actions";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 
-export function SiteHeader({ profile }: { profile: Profile }) {
+export async function SiteHeader({ profile }: { profile: Profile }) {
   const isStaff =
     profile.role === "limpieza" || profile.role === "mantenimiento";
   const homeHref = isStaff ? "/mis-tareas" : "/dashboard";
+
+  // Count this user's open assigned tasks for the badge.
+  const supabase = await createClient();
+  const { count: myOpen } = await supabase
+    .from("tasks")
+    .select("id", { count: "exact", head: true })
+    .eq("assigned_to", profile.id)
+    .in("status", ["pending", "in_progress"]);
+
+  // For admin/gestor, also show the count of unassigned + open tasks across
+  // all properties — useful to spot stuff that needs triage.
+  let teamOpen: number | null = null;
+  if (profile.role === "admin" || profile.role === "gestor") {
+    const { count } = await supabase
+      .from("tasks")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["pending", "in_progress"]);
+    teamOpen = count ?? 0;
+  }
 
   return (
     <header className="flex items-center justify-between border-b px-6 py-3">
@@ -14,12 +34,10 @@ export function SiteHeader({ profile }: { profile: Profile }) {
         <Link href={homeHref} className="font-semibold">
           Acme Rentals
         </Link>
-        <nav className="flex gap-4 text-sm text-muted-foreground">
+        <nav className="flex items-center gap-4 text-sm text-muted-foreground">
           {/* Staff (limpieza/mantenimiento) only need their own task list. */}
           {isStaff && (
-            <Link href="/mis-tareas" className="hover:text-foreground">
-              Mis tareas
-            </Link>
+            <NavLink href="/mis-tareas" label="Mis tareas" badge={myOpen} />
           )}
           {!isStaff && (
             <Link href="/dashboard" className="hover:text-foreground">
@@ -28,12 +46,8 @@ export function SiteHeader({ profile }: { profile: Profile }) {
           )}
           {(profile.role === "admin" || profile.role === "gestor") && (
             <>
-              <Link href="/tasks" className="hover:text-foreground">
-                Tareas
-              </Link>
-              <Link href="/mis-tareas" className="hover:text-foreground">
-                Mis tareas
-              </Link>
+              <NavLink href="/tasks" label="Tareas" badge={teamOpen} />
+              <NavLink href="/mis-tareas" label="Mis tareas" badge={myOpen} />
               <Link href="/whatsapp" className="hover:text-foreground">
                 WhatsApp
               </Link>
@@ -75,5 +89,29 @@ export function SiteHeader({ profile }: { profile: Profile }) {
         </form>
       </div>
     </header>
+  );
+}
+
+function NavLink({
+  href,
+  label,
+  badge,
+}: {
+  href: string;
+  label: string;
+  badge: number | null;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-1.5 hover:text-foreground"
+    >
+      <span>{label}</span>
+      {badge != null && badge > 0 && (
+        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-xs font-medium text-foreground">
+          {badge}
+        </span>
+      )}
+    </Link>
   );
 }
