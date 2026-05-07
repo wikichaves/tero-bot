@@ -100,8 +100,15 @@ export async function addOfflineTempPassword(
     ...(opts.phone ? { phone: opts.phone } : {}),
   };
 
-  let lastError: unknown;
+  // Tuya has changed offline temp password endpoint names several times and
+  // they vary by lock model (Wi-Fi vs Bluetooth-via-gateway, residential vs
+  // hotel category). We try the most common ones in order of likelihood.
+  const errors: string[] = [];
   for (const path of [
+    `/v1.0/smart-lock/devices/${deviceId}/password-offline-multi-times`,
+    `/v1.0/smart-lock/devices/${deviceId}/password-offline-multi`,
+    `/v1.0/smart-lock/devices/${deviceId}/offline-temp-password`,
+    `/v1.0/smart-lock/devices/${deviceId}/multi-password-offline`,
     `/v1.0/devices/${deviceId}/door-lock/offline/temp-passwords`,
     `/v1.0/smart-lock/devices/${deviceId}/password-offline-time`,
   ]) {
@@ -110,9 +117,10 @@ export async function addOfflineTempPassword(
       const id = asString(r.id ?? r.password_id ?? r.multiple_password_id);
       const password = asString(r.password);
       if (!id || !password) {
-        throw new Error(
-          `Tuya replied without password/id (path: ${path}). Body: ${JSON.stringify(r)}`,
+        errors.push(
+          `${path}: replied without password/id. Body: ${JSON.stringify(r)}`,
         );
+        continue;
       }
       return {
         id,
@@ -121,11 +129,12 @@ export async function addOfflineTempPassword(
         invalid_time: r.invalid_time ?? opts.invalid_time,
       };
     } catch (e) {
-      lastError = e;
+      errors.push(`${path}: ${(e as Error).message}`);
     }
   }
   throw new Error(
-    `addOfflineTempPassword failed on all known endpoints: ${(lastError as Error)?.message ?? "unknown"}`,
+    `addOfflineTempPassword: all known endpoints failed.\n` +
+      errors.map((e) => "  - " + e).join("\n"),
   );
 }
 
@@ -136,8 +145,10 @@ export async function addOfflineTempPassword(
 export async function listOfflineTempPasswords(
   deviceId: string,
 ): Promise<LockTempPassword[]> {
-  let lastError: unknown;
+  const errors: string[] = [];
   for (const path of [
+    `/v1.0/smart-lock/devices/${deviceId}/password-offline-multi-times`,
+    `/v1.0/smart-lock/devices/${deviceId}/offline-temp-password`,
     `/v1.0/devices/${deviceId}/door-lock/offline/temp-passwords`,
     `/v1.0/smart-lock/devices/${deviceId}/password-offline-time`,
   ]) {
@@ -149,11 +160,12 @@ export async function listOfflineTempPasswords(
       }
       return [];
     } catch (e) {
-      lastError = e;
+      errors.push(`${path}: ${(e as Error).message}`);
     }
   }
   throw new Error(
-    `listOfflineTempPasswords failed: ${(lastError as Error)?.message ?? "unknown"}`,
+    `listOfflineTempPasswords: all known endpoints failed.\n` +
+      errors.map((e) => "  - " + e).join("\n"),
   );
 }
 
@@ -164,8 +176,10 @@ export async function deleteOfflineTempPassword(
   deviceId: string,
   passwordId: string,
 ): Promise<void> {
-  let lastError: unknown;
+  const errors: string[] = [];
   for (const path of [
+    `/v1.0/smart-lock/devices/${deviceId}/password-offline-multi-times/${passwordId}`,
+    `/v1.0/smart-lock/devices/${deviceId}/offline-temp-password/${passwordId}`,
     `/v1.0/devices/${deviceId}/door-lock/offline/temp-passwords/${passwordId}`,
     `/v1.0/smart-lock/devices/${deviceId}/password-offline-time/${passwordId}`,
   ]) {
@@ -173,11 +187,12 @@ export async function deleteOfflineTempPassword(
       await tuyaFetch("DELETE", path);
       return;
     } catch (e) {
-      lastError = e;
+      errors.push(`${path}: ${(e as Error).message}`);
     }
   }
   throw new Error(
-    `deleteOfflineTempPassword failed: ${(lastError as Error)?.message ?? "unknown"}`,
+    `deleteOfflineTempPassword: all known endpoints failed.\n` +
+      errors.map((e) => "  - " + e).join("\n"),
   );
 }
 
