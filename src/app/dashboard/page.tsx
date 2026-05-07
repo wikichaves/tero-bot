@@ -21,6 +21,10 @@ import type { Reservation } from "@/lib/types";
 
 const HORIZON_DAYS = 14;
 
+type ReservationWithProperty = Reservation & {
+  property: { name: string } | null;
+};
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const today = new Date();
@@ -28,19 +32,25 @@ export default async function DashboardPage() {
 
   const { data, error } = await supabase
     .from("reservations")
-    .select("*")
+    .select("*, property:properties(name)")
     .or(
       `and(check_in.gte.${today.toISOString().slice(0, 10)},check_in.lte.${horizon.toISOString().slice(0, 10)}),and(check_out.gte.${today.toISOString().slice(0, 10)},check_out.lte.${horizon.toISOString().slice(0, 10)})`,
     )
     .order("check_in", { ascending: true });
 
-  const reservations = (data ?? []) as Reservation[];
+  const reservations = (data ?? []) as ReservationWithProperty[];
   const checkIns = reservations.filter((r) =>
     isOnOrAfter(parseISO(r.check_in), today),
   );
   const checkOuts = reservations.filter((r) =>
     isOnOrAfter(parseISO(r.check_out), today),
   );
+
+  // Show the "Propiedad" column only when there's more than one distinct
+  // property in the visible window — for a single-property setup the column
+  // is just noise.
+  const distinctProperties = new Set(reservations.map((r) => r.property_id));
+  const showProperty = distinctProperties.size > 1;
 
   return (
     <div className="flex flex-col gap-6">
@@ -65,12 +75,14 @@ export default async function DashboardPage() {
           description="Llegadas próximas"
           rows={checkIns}
           dateField="check_in"
+          showProperty={showProperty}
         />
         <ReservationsCard
           title="Check-outs"
           description="Salidas próximas"
           rows={checkOuts}
           dateField="check_out"
+          showProperty={showProperty}
         />
       </div>
     </div>
@@ -82,11 +94,13 @@ function ReservationsCard({
   description,
   rows,
   dateField,
+  showProperty,
 }: {
   title: string;
   description: string;
-  rows: Reservation[];
+  rows: ReservationWithProperty[];
   dateField: "check_in" | "check_out";
+  showProperty: boolean;
 }) {
   return (
     <Card>
@@ -102,6 +116,7 @@ function ReservationsCard({
             <TableHeader>
               <TableRow>
                 <TableHead>Fecha</TableHead>
+                {showProperty && <TableHead>Propiedad</TableHead>}
                 <TableHead>Huésped</TableHead>
                 <TableHead>Origen</TableHead>
               </TableRow>
@@ -110,8 +125,13 @@ function ReservationsCard({
               {rows.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell>
-                    {format(parseISO(r[dateField]), "EEE d MMM", { locale: es })}
+                    {format(parseISO(r[dateField]), "EEE d MMM", {
+                      locale: es,
+                    })}
                   </TableCell>
+                  {showProperty && (
+                    <TableCell>{r.property?.name ?? "—"}</TableCell>
+                  )}
                   <TableCell>{r.guest_name ?? "—"}</TableCell>
                   <TableCell>
                     <Badge variant="secondary">{r.source}</Badge>
