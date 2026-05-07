@@ -22,6 +22,12 @@ import {
   type TuyaDevice,
 } from "@/lib/tuya/devices";
 import { listPropertyDeviceMap } from "@/lib/tuya/property-devices";
+import {
+  formatUsd,
+  getRatesToUsd,
+  toUsd,
+  type FxRate,
+} from "@/lib/fx";
 import { createClient } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 
@@ -149,6 +155,9 @@ export default async function EnergyPage() {
     totalsByCurrency.set(ctx.currency, curr);
   }
 
+  // Fetch USD exchange rates for all distinct currencies in parallel.
+  const fxRates = await getRatesToUsd(totalsByCurrency.keys());
+
   return (
     <div className="flex flex-col gap-6">
       <Header />
@@ -171,9 +180,6 @@ export default async function EnergyPage() {
       ) : (
         <>
           {Array.from(totalsByCurrency.entries()).map(([currency, t]) => {
-            // Use the average tariff for this currency for the aggregate
-            // estimate (typically all devices in same currency share tariff
-            // anyway).
             const avgTariff = t.tariffSum / Math.max(1, t.tariffCount);
             const cost = estimateCost(
               {
@@ -185,6 +191,7 @@ export default async function EnergyPage() {
               avgTariff,
               currency,
             );
+            const fx = fxRates.get(currency);
             return (
               <Card key={currency}>
                 <CardHeader>
@@ -195,6 +202,15 @@ export default async function EnergyPage() {
                   <CardDescription>
                     Devices con tarifa en {currency} (≈ {avgTariff.toFixed(2)}{" "}
                     {currency}/kWh).
+                    {fx && (
+                      <>
+                        {" "}
+                        Cambio: 1 USD ≈ {fx.per_usd.toLocaleString("es-UY", {
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        {currency} ({fx.source}).
+                      </>
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -203,27 +219,34 @@ export default async function EnergyPage() {
                       label="Potencia ahora"
                       value={formatPower(t.power || null)}
                     />
-                    <Stat
+                    <MoneyStat
                       label="Costo / hora"
-                      value={formatMoney(
-                        cost.hourly_cost_at_current,
-                        currency,
-                      )}
+                      amount={cost.hourly_cost_at_current}
+                      currency={currency}
+                      fx={fx}
                     />
-                    <Stat
+                    <MoneyStat
                       label="Proyección 24 h"
-                      value={formatMoney(
-                        cost.daily_cost_at_current,
-                        currency,
-                      )}
-                      hint="al consumo actual"
+                      amount={cost.daily_cost_at_current}
+                      currency={currency}
+                      fx={fx}
+                      footHint="al consumo actual"
                     />
                     <Stat
                       label="Acumulado total"
                       value={
                         t.energy ? `${t.energy.toFixed(1)} kWh` : "—"
                       }
-                      hint={formatMoney(cost.total_cost, currency)}
+                      hint={
+                        <>
+                          {formatMoney(cost.total_cost, currency)}
+                          {fx && cost.total_cost != null && (
+                            <span className="block opacity-70">
+                              ≈ {formatUsd(toUsd(cost.total_cost, fx))}
+                            </span>
+                          )}
+                        </>
+                      }
                     />
                   </div>
                 </CardContent>
@@ -232,11 +255,73 @@ export default async function EnergyPage() {
           })}
 
           {devicesWithContext.map((d) => (
-            <DeviceEnergyCard key={d.device.id} ctx={d} />
+            <DeviceEnergyCard
+              key={d.device.id}
+              ctx={d}
+              fx={fxRates.get(d.currency)}
+            />
           ))}
+
+          <FxFooter rates={fxRates} />
         </>
       )}
     </div>
+  );
+}
+
+function MoneyStat({
+  label,
+  amount,
+  currency,
+  fx,
+  footHint,
+}: {
+  label: string;
+  amount: number | null;
+  currency: string;
+  fx: FxRate | undefined;
+  footHint?: string;
+}) {
+  const usdAmount = toUsd(amount, fx);
+  return (
+    <Stat
+      label={label}
+      value={formatMoney(amount, currency)}
+      hint={
+        usdAmount != null ? (
+          <>
+            ≈ {formatUsd(usdAmount)}
+            {footHint && <span className="block">{footHint}</span>}
+          </>
+        ) : (
+          footHint
+        )
+      }
+    />
+  );
+}
+
+function FxFooter({ rates }: { rates: Map<string, FxRate> }) {
+  if (rates.size === 0) return null;
+  return (
+    <p className="text-xs text-muted-foreground">
+      Tasas de cambio:{" "}
+      {Array.from(rates.values())
+        .filter((r) => r.currency !== "USD")
+        .map(
+          (r) =>
+            `1 USD ≈ ${r.per_usd.toLocaleString("es-UY", {
+              maximumFractionDigits: 2,
+            })} ${r.currency}`,
+        )
+        .join(" · ")}
+      {" — "}
+      <em>
+        {Array.from(new Set(Array.from(rates.values(), (r) => r.source))).join(
+          ", ",
+        )}
+      </em>
+    </p>
   );
 }
 
@@ -266,7 +351,7 @@ function Stat({
 }: {
   label: string;
   value: string;
-  hint?: string;
+  hint?: React.ReactNode;
 }) {
   return (
     <div>
@@ -277,7 +362,13 @@ function Stat({
   );
 }
 
-function DeviceEnergyCard({ ctx }: { ctx: DeviceWithContext }) {
+function DeviceEnergyCard({
+  ctx,
+  fx,
+}: {
+  ctx: DeviceWithContext;
+  fx: FxRate | undefined;
+}) {
   const { device, homeName, property, reading, readError, tariff, currency } =
     ctx;
   const cost = reading
@@ -289,6 +380,17 @@ function DeviceEnergyCard({ ctx }: { ctx: DeviceWithContext }) {
         tariff_per_kwh: tariff,
         currency,
       };
+
+  function moneyHint(amount: number | null, suffix?: string) {
+    const usd = toUsd(amount, fx);
+    if (usd == null) return suffix;
+    return (
+      <>
+        ≈ {formatUsd(usd)}
+        {suffix && <span className="block">{suffix}</span>}
+      </>
+    );
+  }
 
   return (
     <Card>
@@ -363,12 +465,15 @@ function DeviceEnergyCard({ ctx }: { ctx: DeviceWithContext }) {
             <Stat
               label="Costo / hora"
               value={formatMoney(cost.hourly_cost_at_current, currency)}
-              hint="al consumo actual"
+              hint={moneyHint(cost.hourly_cost_at_current)}
             />
             <Stat
               label="Proyección 24 h"
               value={formatMoney(cost.daily_cost_at_current, currency)}
-              hint="si se mantiene este consumo"
+              hint={moneyHint(
+                cost.daily_cost_at_current,
+                "si se mantiene este consumo",
+              )}
             />
             <Stat
               label="Acumulado total"
@@ -377,7 +482,16 @@ function DeviceEnergyCard({ ctx }: { ctx: DeviceWithContext }) {
                   ? `${reading.total_energy_kwh.toFixed(1)} kWh`
                   : "—"
               }
-              hint={formatMoney(cost.total_cost, currency)}
+              hint={
+                <>
+                  {formatMoney(cost.total_cost, currency)}
+                  {fx && cost.total_cost != null && (
+                    <span className="block opacity-70">
+                      ≈ {formatUsd(toUsd(cost.total_cost, fx))}
+                    </span>
+                  )}
+                </>
+              }
             />
           </div>
         )}
