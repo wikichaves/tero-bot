@@ -17,6 +17,13 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { listAllDevices } from "@/lib/tuya/devices";
+import {
+  listPropertyDeviceMap,
+  suggestDeviceKind,
+} from "@/lib/tuya/property-devices";
+import { createClient } from "@/lib/supabase/server";
+import { AssignDeviceButton } from "./assign-device-button";
+import type { Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +76,21 @@ export default async function TuyaPage() {
   }
 
   const { user, devices } = result;
+
+  // Load properties + existing device assignments in parallel.
+  const supabase = await createClient();
+  const [propertiesRes, deviceMap] = await Promise.all([
+    supabase
+      .from("properties")
+      .select("id, name")
+      .order("name", { ascending: true }),
+    listPropertyDeviceMap(),
+  ]);
+  const properties = (propertiesRes.data ?? []) as Pick<
+    Property,
+    "id" | "name"
+  >[];
+  const propertyById = new Map(properties.map((p) => [p.id, p]));
 
   return (
     <div className="flex flex-col gap-6">
@@ -129,6 +151,8 @@ export default async function TuyaPage() {
           <CardTitle>Dispositivos ({devices.length})</CardTitle>
           <CardDescription>
             Devices visibles desde el Cloud Project, vía la cuenta linkeada.
+            Asignalos a una propiedad para usarlos en flows automáticos
+            (códigos de cerradura por reserva, etc.).
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -139,6 +163,18 @@ export default async function TuyaPage() {
               la home con tus devices sea la principal o compartida con la
               cuenta linkeada.
             </p>
+          ) : properties.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Antes de asignar dispositivos a propiedades, creá al menos una
+              propiedad en{" "}
+              <a
+                href="/admin/properties"
+                className="underline hover:text-foreground"
+              >
+                /admin/properties
+              </a>
+              .
+            </p>
           ) : (
             <Table>
               <TableHeader>
@@ -146,24 +182,56 @@ export default async function TuyaPage() {
                   <TableHead>Nombre</TableHead>
                   <TableHead>Categoría</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead>Propiedad</TableHead>
                   <TableHead>Device ID</TableHead>
+                  <TableHead className="w-24" />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {devices.map((d) => (
-                  <TableRow key={d.id}>
-                    <TableCell className="font-medium">{d.name}</TableCell>
-                    <TableCell>
-                      {d.category_name ?? d.category ?? "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={d.online ? "default" : "secondary"}>
-                        {d.online ? "online" : "offline"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{d.id}</TableCell>
-                  </TableRow>
-                ))}
+                {devices.map((d) => {
+                  const assignment = deviceMap.get(d.id) ?? null;
+                  const property = assignment
+                    ? propertyById.get(assignment.property_id)
+                    : null;
+                  return (
+                    <TableRow key={d.id}>
+                      <TableCell className="font-medium">{d.name}</TableCell>
+                      <TableCell>
+                        {d.category_name ?? d.category ?? "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={d.online ? "default" : "secondary"}>
+                          {d.online ? "online" : "offline"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {assignment ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span>{property?.name ?? "(propiedad eliminada)"}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {assignment.device_kind}
+                              {assignment.is_primary && " · primaria"}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {d.id}
+                      </TableCell>
+                      <TableCell>
+                        <AssignDeviceButton
+                          tuyaDeviceId={d.id}
+                          tuyaDeviceName={d.name}
+                          properties={properties}
+                          current={assignment}
+                          suggestedKind={suggestDeviceKind(d)}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}

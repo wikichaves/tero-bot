@@ -235,3 +235,43 @@ drop policy if exists whatsapp_messages_write on public.whatsapp_messages;
 create policy whatsapp_messages_write on public.whatsapp_messages
   for all using (public.current_role() in ('admin', 'gestor'))
   with check (public.current_role() in ('admin', 'gestor'));
+
+-- ────────────────────────────────────────────────────────────────────────
+-- Property ↔ Tuya device mapping (added 2026-05-07). Lets us know which
+-- physical device serves which property — e.g. "Puerta Principal" lock is
+-- the primary lock for "Acme Rentals". One Tuya device belongs to
+-- at most one property; a property can have many devices of different
+-- kinds, but only one primary per kind.
+
+create table if not exists public.property_devices (
+  id uuid primary key default gen_random_uuid(),
+  property_id uuid not null references public.properties(id) on delete cascade,
+  tuya_device_id text not null unique,
+  tuya_device_name text,
+  device_kind text not null check (
+    device_kind in ('lock', 'thermostat', 'light', 'switch', 'camera', 'other')
+  ),
+  is_primary boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists property_devices_property_idx
+  on public.property_devices(property_id);
+create index if not exists property_devices_kind_idx
+  on public.property_devices(device_kind);
+
+-- Only one primary device per (property, kind).
+create unique index if not exists property_devices_primary_idx
+  on public.property_devices(property_id, device_kind)
+  where is_primary;
+
+alter table public.property_devices enable row level security;
+
+drop policy if exists property_devices_read on public.property_devices;
+create policy property_devices_read on public.property_devices
+  for select using (public.current_role() in ('admin', 'gestor'));
+
+drop policy if exists property_devices_write on public.property_devices;
+create policy property_devices_write on public.property_devices
+  for all using (public.current_role() in ('admin', 'gestor'))
+  with check (public.current_role() in ('admin', 'gestor'));

@@ -65,6 +65,24 @@ export type WhatsAppConversation = {
   updated_at: string;
 };
 
+export type DeviceKind =
+  | "lock"
+  | "thermostat"
+  | "light"
+  | "switch"
+  | "camera"
+  | "other";
+
+export type PropertyDevice = {
+  id: string;
+  property_id: string;
+  tuya_device_id: string;
+  tuya_device_name: string | null;
+  device_kind: DeviceKind;
+  is_primary: boolean;
+  created_at: string;
+};
+
 export type WhatsAppMessage = {
   id: string;
   conversation_id: string;
