@@ -121,17 +121,20 @@ export function estimateCost(reading: EnergyReading): EnergyCostEstimate {
 }
 
 /**
- * True if the device looks like a Tuya circuit breaker (the only kind that
- * reports whole-house energy consumption in our setup).
+ * True if the device looks like a Tuya circuit breaker — the only kind that
+ * reports whole-property energy consumption in our setup.
+ *
+ * Tuya category codes for circuit breakers vary by product line:
+ *   - `dlq`  → smart circuit breaker (most common, Térmicas use this)
+ *   - `pc`   → power strip / power meter
+ *   - `znyk` → some industrial breakers
+ * Also matches devices whose name or category_name contains "breaker".
  */
 export function isEnergyDevice(d: TuyaDevice): boolean {
   const cat = (d.category ?? "").toLowerCase();
   const catName = (d.category_name ?? "").toLowerCase();
-  return (
-    /^pc$/.test(cat) ||
-    /circuit\s*breaker/.test(catName) ||
-    /circuit\s*breaker/.test(cat)
-  );
+  if (cat === "dlq" || cat === "pc" || cat === "znyk") return true;
+  return /breaker|t[eé]rmica/.test(catName) || /breaker/.test(cat);
 }
 
 const UYU = new Intl.NumberFormat("es-UY", {

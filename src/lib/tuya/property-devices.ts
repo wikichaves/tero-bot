@@ -44,8 +44,11 @@ export function suggestDeviceKind(device: TuyaDevice): DeviceKind {
     cat.includes("socket") ||
     cat.includes("switch") ||
     cat.includes("breaker") ||
-    cat.includes("cz") ||
-    cat.includes("pc")
+    cat === "cz" ||
+    cat === "pc" ||
+    cat === "dlq" ||
+    cat === "kg" ||
+    /t[eé]rmica/.test(name)
   )
     return "switch";
   return "other";
