@@ -5,6 +5,7 @@ import {
   sendKapsoText,
   upsertConversation,
 } from "@/lib/whatsapp";
+import { parseCommand, runCommand } from "@/lib/whatsapp/commands";
 
 /**
  * Webhook receiver for Kapso (BSP wrapper around Meta WhatsApp Cloud API).
@@ -157,33 +158,69 @@ async function processEvent(event: KapsoEvent, eventType: string | null) {
   return null;
 }
 
+async function sendAndPersist(opts: {
+  phoneNumberId: string;
+  peer: string;
+  conversationId: string;
+  text: string;
+}) {
+  const { messageId } = await sendKapsoText(
+    opts.phoneNumberId,
+    opts.peer,
+    opts.text,
+  );
+  await persistMessage({
+    conversation_id: opts.conversationId,
+    external_id: messageId ?? null,
+    direction: "outbound",
+    type: "text",
+    body: opts.text,
+    status: "sent",
+  });
+}
+
 async function autoReply(opts: {
   phoneNumberId: string;
   peer: string;
   conversationId: string;
   audience: "guest" | "staff" | "unknown";
   displayName: string | null;
+  messageBody: string | null;
 }) {
   if (!isAutoReplyEnabled()) return;
-  // Staff is silent — admin/gestor will respond manually from the inbox.
+
+  // First: try to handle as a command (works for admin/gestor only — the
+  // command runner enforces auth via profile lookup).
+  const command = parseCommand(opts.messageBody);
+  if (command) {
+    try {
+      const reply = await runCommand(command, opts.peer);
+      if (reply) {
+        await sendAndPersist({
+          phoneNumberId: opts.phoneNumberId,
+          peer: opts.peer,
+          conversationId: opts.conversationId,
+          text: reply,
+        });
+        return;
+      }
+    } catch (err) {
+      console.error("[kapso command] error", err);
+    }
+  }
+
+  // Staff is silent for non-command messages — admin/gestor responds manually.
   if (opts.audience === "staff") return;
 
   const text =
     opts.audience === "guest" ? REPLY_GUEST(opts.displayName) : REPLY_UNKNOWN;
 
   try {
-    const { messageId } = await sendKapsoText(
-      opts.phoneNumberId,
-      opts.peer,
+    await sendAndPersist({
+      phoneNumberId: opts.phoneNumberId,
+      peer: opts.peer,
+      conversationId: opts.conversationId,
       text,
-    );
-    await persistMessage({
-      conversation_id: opts.conversationId,
-      external_id: messageId ?? null,
-      direction: "outbound",
-      type: "text",
-      body: text,
-      status: "sent",
     });
   } catch (err) {
     console.error("[kapso autoReply] error", err);
@@ -245,6 +282,7 @@ export async function POST(req: NextRequest) {
     conversationId: string;
     audience: "guest" | "staff" | "unknown";
     displayName: string | null;
+    messageBody: string | null;
   }> = [];
 
   await Promise.allSettled(
@@ -262,6 +300,7 @@ export async function POST(req: NextRequest) {
             conversationId: result.conversationId,
             audience: result.audience,
             displayName: result.displayName,
+            messageBody: extractBody(result.message),
           });
         }
       } catch (err) {
