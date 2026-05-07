@@ -174,7 +174,7 @@ function PropertyForm({
               min="0"
               value={tariff}
               onChange={(e) => setTariff(e.target.value)}
-              placeholder="ej. 9 (UTE), 75 (Edenor)"
+              placeholder="ej. 8 (UTE UY), 204 (Edenor AR con impuestos)"
             />
             <p className="text-xs text-muted-foreground">
               Si lo dejás vacío, /energy usa el fallback global.
