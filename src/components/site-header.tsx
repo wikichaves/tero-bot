@@ -4,20 +4,35 @@ import { Button } from "@/components/ui/button";
 import type { Profile } from "@/lib/types";
 
 export function SiteHeader({ profile }: { profile: Profile }) {
+  const isStaff =
+    profile.role === "limpieza" || profile.role === "mantenimiento";
+  const homeHref = isStaff ? "/mis-tareas" : "/dashboard";
+
   return (
     <header className="flex items-center justify-between border-b px-6 py-3">
       <div className="flex items-center gap-6">
-        <Link href="/dashboard" className="font-semibold">
+        <Link href={homeHref} className="font-semibold">
           Acme Rentals
         </Link>
         <nav className="flex gap-4 text-sm text-muted-foreground">
-          <Link href="/dashboard" className="hover:text-foreground">
-            Dashboard
-          </Link>
+          {/* Staff (limpieza/mantenimiento) only need their own task list. */}
+          {isStaff && (
+            <Link href="/mis-tareas" className="hover:text-foreground">
+              Mis tareas
+            </Link>
+          )}
+          {!isStaff && (
+            <Link href="/dashboard" className="hover:text-foreground">
+              Dashboard
+            </Link>
+          )}
           {(profile.role === "admin" || profile.role === "gestor") && (
             <>
               <Link href="/tasks" className="hover:text-foreground">
                 Tareas
+              </Link>
+              <Link href="/mis-tareas" className="hover:text-foreground">
+                Mis tareas
               </Link>
               <Link href="/whatsapp" className="hover:text-foreground">
                 WhatsApp

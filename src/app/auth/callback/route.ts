@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-const DEFAULT_NEXT = "/dashboard";
+// "/" routes via role to /dashboard or /mis-tareas — see src/app/page.tsx.
+const DEFAULT_NEXT = "/";
 
 /**
  * OAuth / magic-link / password-recovery callback. Supabase redirects users

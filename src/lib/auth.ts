@@ -29,6 +29,16 @@ export async function requireProfile(): Promise<Profile> {
 
 export async function requireRole(roles: UserRole[]): Promise<Profile> {
   const profile = await requireProfile();
-  if (!roles.includes(profile.role)) redirect("/dashboard");
+  if (!roles.includes(profile.role)) redirect(homeForRole(profile.role));
   return profile;
+}
+
+/**
+ * The default landing page for a given role. Admin/gestor see the
+ * reservation dashboard; staff (limpieza/mantenimiento) only see their
+ * own task list.
+ */
+export function homeForRole(role: UserRole): string {
+  if (role === "limpieza" || role === "mantenimiento") return "/mis-tareas";
+  return "/dashboard";
 }
