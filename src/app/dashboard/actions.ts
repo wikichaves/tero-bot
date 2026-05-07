@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
+import { normalizePhone } from "@/lib/whatsapp";
 
 const updateReservationSchema = z.object({
   id: z.string().uuid(),
@@ -43,7 +44,7 @@ export async function updateReservation(input: {
     .from("reservations")
     .update({
       guest_name: parsed.data.guest_name,
-      guest_phone: parsed.data.guest_phone,
+      guest_phone: normalizePhone(parsed.data.guest_phone),
       notes: parsed.data.notes,
     })
     .eq("id", parsed.data.id);

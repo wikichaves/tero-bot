@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import type { LockPassword } from "@/lib/types";
 import {
   clearAllPasswords,
   generateLockPassword,
@@ -34,13 +35,23 @@ function fullHourDatetimeLocal(offsetHours = 0): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-type SessionCode = {
-  id: string;
+type CodeRow = {
+  id: string;             // tuya_password_id (used to revoke)
   name: string;
   password: string;
-  effective_time: number;
+  effective_time: number; // unix seconds
   invalid_time: number;
 };
+
+function fromDbRow(p: LockPassword): CodeRow {
+  return {
+    id: p.tuya_password_id,
+    name: p.name,
+    password: p.password,
+    effective_time: Math.floor(new Date(p.effective_time).getTime() / 1000),
+    invalid_time: Math.floor(new Date(p.invalid_time).getTime() / 1000),
+  };
+}
 
 export function LockCard({
   deviceId,
@@ -48,15 +59,19 @@ export function LockCard({
   online,
   propertyName,
   isPrimary,
+  initialPasswords,
 }: {
   deviceId: string;
   deviceName: string;
   online: boolean;
   propertyName: string | null;
   isPrimary: boolean;
+  initialPasswords: LockPassword[];
 }) {
   const [pending, startTransition] = useTransition();
-  const [codes, setCodes] = useState<SessionCode[]>([]);
+  const [codes, setCodes] = useState<CodeRow[]>(
+    initialPasswords.map(fromDbRow),
+  );
 
   function onGenerate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -219,14 +234,10 @@ export function LockCard({
 
         {/* Codes generated this session */}
         <div>
-          <h4 className="mb-2 text-sm font-medium">
-            Códigos generados en esta sesión
-          </h4>
+          <h4 className="mb-2 text-sm font-medium">Códigos activos</h4>
           {codes.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Sin códigos generados todavía. Tuya no expone una API para listar
-              los activos — los seguimos en la próxima iteración persistiéndolos
-              en la DB cuando los creamos.
+              Sin códigos activos. Generá uno con el form de arriba.
             </p>
           ) : (
             <ul className="divide-y rounded-md border">

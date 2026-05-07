@@ -48,6 +48,22 @@ export type Task = {
   created_at: string;
 };
 
+export type LockPasswordStatus = "active" | "revoked" | "expired";
+
+export type LockPassword = {
+  id: string;
+  property_device_id: string;
+  reservation_id: string | null;
+  name: string;
+  password: string;
+  tuya_password_id: string;
+  effective_time: string;
+  invalid_time: string;
+  status: LockPasswordStatus;
+  created_by: string | null;
+  created_at: string;
+};
+
 export type WhatsAppAudience = "guest" | "staff" | "unknown";
 export type WhatsAppDirection = "inbound" | "outbound";
 

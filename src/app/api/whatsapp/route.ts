@@ -22,7 +22,19 @@ import {
  *   4. Always 200 if signature valid (so Kapso doesn't retry endlessly).
  */
 
-const REPLY_TEXT = "Hola, como andás? Que te gustaría saber?";
+const REPLY_GUEST = (name: string | null) =>
+  name
+    ? `Hola ${name}, gracias por escribir a Acme Rentals. Te respondemos a la brevedad. 🌲`
+    : "¡Hola! Gracias por escribir a Acme Rentals. Te respondemos a la brevedad. 🌲";
+
+const REPLY_UNKNOWN =
+  "Hola, gracias por escribir a Acme Rentals. Te respondemos a la brevedad.";
+
+function isAutoReplyEnabled(): boolean {
+  const v = process.env.WHATSAPP_AUTO_REPLY_ENABLED?.toLowerCase();
+  // Default ON; only "false"/"0"/"no" disable it.
+  return v !== "false" && v !== "0" && v !== "no";
+}
 
 function verifySignature(
   rawBody: string,
@@ -106,7 +118,7 @@ async function processEvent(event: KapsoEvent, eventType: string | null) {
   ) {
     const peer = message.from;
     const displayName = event.contacts?.[0]?.profile?.name ?? null;
-    const { id: conversationId } = await upsertConversation({
+    const { id: conversationId, audience } = await upsertConversation({
       phone_number: peer,
       display_name: displayName,
     });
@@ -119,7 +131,14 @@ async function processEvent(event: KapsoEvent, eventType: string | null) {
       media_url: extractMediaUrl(message),
       raw: event,
     });
-    return { conversationId, peer, phoneNumberId, message };
+    return {
+      conversationId,
+      peer,
+      phoneNumberId,
+      message,
+      audience,
+      displayName,
+    };
   }
 
   // --- Outbound delivery status updates ---
@@ -142,19 +161,28 @@ async function autoReply(opts: {
   phoneNumberId: string;
   peer: string;
   conversationId: string;
+  audience: "guest" | "staff" | "unknown";
+  displayName: string | null;
 }) {
+  if (!isAutoReplyEnabled()) return;
+  // Staff is silent — admin/gestor will respond manually from the inbox.
+  if (opts.audience === "staff") return;
+
+  const text =
+    opts.audience === "guest" ? REPLY_GUEST(opts.displayName) : REPLY_UNKNOWN;
+
   try {
     const { messageId } = await sendKapsoText(
       opts.phoneNumberId,
       opts.peer,
-      REPLY_TEXT,
+      text,
     );
     await persistMessage({
       conversation_id: opts.conversationId,
       external_id: messageId ?? null,
       direction: "outbound",
       type: "text",
-      body: REPLY_TEXT,
+      body: text,
       status: "sent",
     });
   } catch (err) {
@@ -215,6 +243,8 @@ export async function POST(req: NextRequest) {
     phoneNumberId: string;
     peer: string;
     conversationId: string;
+    audience: "guest" | "staff" | "unknown";
+    displayName: string | null;
   }> = [];
 
   await Promise.allSettled(
@@ -230,6 +260,8 @@ export async function POST(req: NextRequest) {
             phoneNumberId: result.phoneNumberId,
             peer: result.peer,
             conversationId: result.conversationId,
+            audience: result.audience,
+            displayName: result.displayName,
           });
         }
       } catch (err) {

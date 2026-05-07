@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireRole } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import {
   addOfflineTempPassword,
   clearAllOfflineTempPasswords,
@@ -12,8 +14,8 @@ import {
 const generateSchema = z.object({
   device_id: z.string().min(1),
   name: z.string().min(1, "Falta el nombre.").max(50),
-  effective_at: z.string().datetime({ offset: true }).or(z.string()),
-  invalid_at: z.string().datetime({ offset: true }).or(z.string()),
+  effective_at: z.string().min(1),
+  invalid_at: z.string().min(1),
 });
 
 function toUnixSeconds(value: string): number | null {
@@ -28,7 +30,7 @@ export async function generateLockPassword(input: {
   effective_at: string;
   invalid_at: string;
 }) {
-  await requireRole(["admin", "gestor"]);
+  const profile = await requireRole(["admin", "gestor"]);
   const parsed = generateSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
@@ -63,17 +65,53 @@ export async function generateLockPassword(input: {
     };
   }
 
+  // Look up the property_device row for this Tuya device — needed to link
+  // the persisted password back to the property.
+  const supabase = await createClient();
+  const { data: device } = await supabase
+    .from("property_devices")
+    .select("id")
+    .eq("tuya_device_id", parsed.data.device_id)
+    .maybeSingle();
+
+  let created;
   try {
-    const created = await addOfflineTempPassword(parsed.data.device_id, {
+    created = await addOfflineTempPassword(parsed.data.device_id, {
       name: parsed.data.name,
       effective_time: effective,
       invalid_time: invalid,
     });
-    revalidatePath("/admin/tuya/lock");
-    return { ok: true, created };
   } catch (e) {
     return { error: (e as Error).message };
   }
+
+  // Persist to lock_passwords if the device is associated with a property.
+  // If not, we still return success but log a warning — the code is on the
+  // lock, just won't appear in our ledger.
+  if (device?.id) {
+    const admin = createAdminClient();
+    const { error: persistError } = await admin
+      .from("lock_passwords")
+      .insert({
+        property_device_id: device.id,
+        name: created.name,
+        password: created.password,
+        tuya_password_id: created.id,
+        effective_time: new Date(created.effective_time * 1000).toISOString(),
+        invalid_time: new Date(created.invalid_time * 1000).toISOString(),
+        created_by: profile.id,
+      });
+    if (persistError) {
+      console.error("[lock_passwords insert]", persistError);
+    }
+  } else {
+    console.warn(
+      `[generateLockPassword] device ${parsed.data.device_id} not assigned to a property — code won't be persisted.`,
+    );
+  }
+
+  revalidatePath("/admin/tuya/lock");
+  return { ok: true, created };
 }
 
 export async function revokeLockPassword(input: {
@@ -86,11 +124,17 @@ export async function revokeLockPassword(input: {
   }
   try {
     await deleteOfflineTempPassword(input.device_id, input.password_id);
-    revalidatePath("/admin/tuya/lock");
-    return { ok: true };
   } catch (e) {
     return { error: (e as Error).message };
   }
+  // Mark our DB row as revoked (best-effort — no-op if row doesn't exist).
+  const admin = createAdminClient();
+  await admin
+    .from("lock_passwords")
+    .update({ status: "revoked" })
+    .eq("tuya_password_id", input.password_id);
+  revalidatePath("/admin/tuya/lock");
+  return { ok: true };
 }
 
 export async function clearAllPasswords(input: { device_id: string }) {
@@ -98,9 +142,23 @@ export async function clearAllPasswords(input: { device_id: string }) {
   if (!input.device_id) return { error: "Falta el ID del dispositivo." };
   try {
     await clearAllOfflineTempPasswords(input.device_id);
-    revalidatePath("/admin/tuya/lock");
-    return { ok: true };
   } catch (e) {
     return { error: (e as Error).message };
   }
+  // Mark all of our DB rows for this device as revoked.
+  const admin = createAdminClient();
+  const { data: device } = await admin
+    .from("property_devices")
+    .select("id")
+    .eq("tuya_device_id", input.device_id)
+    .maybeSingle();
+  if (device?.id) {
+    await admin
+      .from("lock_passwords")
+      .update({ status: "revoked" })
+      .eq("property_device_id", device.id)
+      .eq("status", "active");
+  }
+  revalidatePath("/admin/tuya/lock");
+  return { ok: true };
 }

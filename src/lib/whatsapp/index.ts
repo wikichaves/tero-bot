@@ -9,10 +9,74 @@ import type { WhatsAppDirection } from "@/lib/types";
 
 const KAPSO_BASE = "https://api.kapso.ai/meta/whatsapp/v24.0";
 
-/** Normalize a phone number to E.164-ish ("+5491234..."). */
-function normalizePhone(p: string): string {
-  const trimmed = p.trim();
-  return trimmed.startsWith("+") ? trimmed : `+${trimmed}`;
+/**
+ * Normalize a phone number to a canonical "+<digits>" form.
+ * Strips spaces, dashes, dots, parens, and ensures a single leading "+".
+ * Returns null for empty / whitespace-only inputs.
+ */
+export function normalizePhone(p: string | null | undefined): string | null {
+  if (!p) return null;
+  const digits = p.replace(/\D/g, "");
+  if (!digits) return null;
+  return "+" + digits;
+}
+
+export type WhatsAppAudienceMatch = {
+  audience: "guest" | "staff" | "unknown";
+  profile_id: string | null;
+  display_name: string | null;
+};
+
+/**
+ * Try to identify a WhatsApp peer by phone number.
+ *  - First check `profiles.whatsapp` → "staff" if match
+ *  - Else check active reservations' `guest_phone` → "guest" if match
+ *  - Else "unknown"
+ *
+ * Both stored and incoming phones are normalized before comparing.
+ */
+export async function matchAudience(
+  phoneNumber: string,
+): Promise<WhatsAppAudienceMatch> {
+  const normalized = normalizePhone(phoneNumber);
+  if (!normalized) {
+    return { audience: "unknown", profile_id: null, display_name: null };
+  }
+  const admin = createAdminClient();
+
+  // Staff lookup by exact match on normalized phone.
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id, full_name")
+    .eq("whatsapp", normalized)
+    .maybeSingle();
+  if (profile) {
+    return {
+      audience: "staff",
+      profile_id: profile.id,
+      display_name: profile.full_name,
+    };
+  }
+
+  // Guest lookup: any reservation whose check_out hasn't passed yet.
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: reservation } = await admin
+    .from("reservations")
+    .select("guest_name")
+    .eq("guest_phone", normalized)
+    .gte("check_out", today)
+    .order("check_in", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (reservation) {
+    return {
+      audience: "guest",
+      profile_id: null,
+      display_name: reservation.guest_name,
+    };
+  }
+
+  return { audience: "unknown", profile_id: null, display_name: null };
 }
 
 export type UpsertConversationInput = {
@@ -22,32 +86,50 @@ export type UpsertConversationInput = {
 
 export async function upsertConversation(
   input: UpsertConversationInput,
-): Promise<{ id: string }> {
+): Promise<{ id: string; audience: WhatsAppAudienceMatch["audience"] }> {
   const admin = createAdminClient();
   const phone = normalizePhone(input.phone_number);
+  if (!phone) {
+    throw new Error(
+      `upsertConversation: invalid phone "${input.phone_number}"`,
+    );
+  }
+
+  const match = await matchAudience(phone);
 
   const { data: existing } = await admin
     .from("whatsapp_conversations")
-    .select("id")
+    .select("id, audience")
     .eq("phone_number", phone)
     .maybeSingle();
 
   if (existing?.id) {
-    if (input.display_name) {
+    // Refresh display_name + audience link if we now know more about the peer.
+    const updates: Record<string, unknown> = {};
+    if (input.display_name) updates.display_name = input.display_name;
+    if (match.display_name && !input.display_name) {
+      updates.display_name = match.display_name;
+    }
+    if (match.audience !== "unknown") {
+      updates.audience = match.audience;
+      if (match.profile_id) updates.profile_id = match.profile_id;
+    }
+    if (Object.keys(updates).length > 0) {
       await admin
         .from("whatsapp_conversations")
-        .update({ display_name: input.display_name })
-        .eq("id", existing.id)
-        .is("display_name", null);
+        .update(updates)
+        .eq("id", existing.id);
     }
-    return { id: existing.id };
+    return { id: existing.id, audience: match.audience };
   }
 
   const { data, error } = await admin
     .from("whatsapp_conversations")
     .insert({
       phone_number: phone,
-      display_name: input.display_name ?? null,
+      display_name: input.display_name ?? match.display_name ?? null,
+      audience: match.audience,
+      profile_id: match.profile_id,
     })
     .select("id")
     .single();
@@ -56,7 +138,7 @@ export async function upsertConversation(
       `upsertConversation failed: ${error?.message ?? "no data"}`,
     );
   }
-  return { id: data.id };
+  return { id: data.id, audience: match.audience };
 }
 
 export type PersistMessageInput = {

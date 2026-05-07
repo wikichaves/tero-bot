@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
+import { normalizePhone } from "@/lib/whatsapp";
 
 const ROLES = ["admin", "gestor", "limpieza", "mantenimiento"] as const;
 
@@ -33,7 +34,8 @@ export async function createUser(formData: FormData) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
   }
 
-  const { email, password, full_name, role, whatsapp } = parsed.data;
+  const { email, password, full_name, role } = parsed.data;
+  const whatsapp = normalizePhone(parsed.data.whatsapp);
   const admin = createAdminClient();
 
   // SECURITY: do NOT pass `role` in user_metadata. The DB trigger ignores it
@@ -90,7 +92,7 @@ export async function updateProfile(input: {
     .from("profiles")
     .update({
       full_name: parsed.data.full_name,
-      whatsapp: parsed.data.whatsapp,
+      whatsapp: normalizePhone(parsed.data.whatsapp),
     })
     .eq("id", parsed.data.id);
   if (error) return { error: error.message };

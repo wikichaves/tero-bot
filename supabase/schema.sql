@@ -275,3 +275,43 @@ drop policy if exists property_devices_write on public.property_devices;
 create policy property_devices_write on public.property_devices
   for all using (public.current_role() in ('admin', 'gestor'))
   with check (public.current_role() in ('admin', 'gestor'));
+
+-- ────────────────────────────────────────────────────────────────────────
+-- Lock temp passwords (added 2026-05-07). Tuya doesn't expose a GET
+-- endpoint to list offline temp passwords on a lock — we have to keep
+-- our own ledger. Each row records what we created via Tuya so we can
+-- show active codes, link them to reservations, and revoke them later.
+
+create table if not exists public.lock_passwords (
+  id uuid primary key default gen_random_uuid(),
+  property_device_id uuid not null
+    references public.property_devices(id) on delete cascade,
+  reservation_id uuid references public.reservations(id) on delete set null,
+  name text not null,
+  password text not null,
+  tuya_password_id text not null,
+  effective_time timestamptz not null,
+  invalid_time timestamptz not null,
+  status text not null default 'active'
+    check (status in ('active', 'revoked', 'expired')),
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists lock_passwords_device_idx
+  on public.lock_passwords(property_device_id);
+create index if not exists lock_passwords_reservation_idx
+  on public.lock_passwords(reservation_id);
+create index if not exists lock_passwords_status_idx
+  on public.lock_passwords(status, invalid_time);
+
+alter table public.lock_passwords enable row level security;
+
+drop policy if exists lock_passwords_read on public.lock_passwords;
+create policy lock_passwords_read on public.lock_passwords
+  for select using (public.current_role() in ('admin', 'gestor'));
+
+drop policy if exists lock_passwords_write on public.lock_passwords;
+create policy lock_passwords_write on public.lock_passwords
+  for all using (public.current_role() in ('admin', 'gestor'))
+  with check (public.current_role() in ('admin', 'gestor'));

@@ -10,7 +10,7 @@ import {
 import { listAllDevices, type TuyaDevice } from "@/lib/tuya/devices";
 import { listPropertyDeviceMap } from "@/lib/tuya/property-devices";
 import { createClient } from "@/lib/supabase/server";
-import type { Property } from "@/lib/types";
+import type { LockPassword, Property } from "@/lib/types";
 import { LockCard } from "./lock-card";
 
 export const dynamic = "force-dynamic";
@@ -67,17 +67,23 @@ export default async function LockPage() {
     );
   }
 
-  // Pull property assignments for the locks.
+  // Pull property assignments + active passwords for the locks.
   const supabase = await createClient();
-  const [propertiesRes, deviceMap] = await Promise.all([
+  const [propertiesRes, deviceMap, passwordsRes] = await Promise.all([
     supabase.from("properties").select("id, name"),
     listPropertyDeviceMap(),
+    supabase
+      .from("lock_passwords")
+      .select("*")
+      .eq("status", "active")
+      .order("effective_time", { ascending: false }),
   ]);
   const properties = (propertiesRes.data ?? []) as Pick<
     Property,
     "id" | "name"
   >[];
   const propertyById = new Map(properties.map((p) => [p.id, p]));
+  const allPasswords = (passwordsRes.data ?? []) as LockPassword[];
 
   return (
     <div className="flex flex-col gap-6">
@@ -87,6 +93,9 @@ export default async function LockPage() {
         const property = assignment
           ? (propertyById.get(assignment.property_id) ?? null)
           : null;
+        const passwords = assignment
+          ? allPasswords.filter((p) => p.property_device_id === assignment.id)
+          : [];
         return (
           <LockCard
             key={lock.id}
@@ -95,6 +104,7 @@ export default async function LockPage() {
             online={lock.online}
             propertyName={property?.name ?? null}
             isPrimary={!!assignment?.is_primary}
+            initialPasswords={passwords}
           />
         );
       })}
