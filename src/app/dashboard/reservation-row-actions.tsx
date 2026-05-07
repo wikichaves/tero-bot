@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { MoreHorizontal } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -17,6 +19,7 @@ export function ReservationRowActions({
 }: {
   reservation: Reservation;
 }) {
+  const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
 
   return (
@@ -34,6 +37,14 @@ export function ReservationRowActions({
           <MoreHorizontal className="h-4 w-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            onClick={() =>
+              router.push(`/dashboard/reservations/${reservation.id}`)
+            }
+          >
+            Ver detalle
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setEditOpen(true)}>
             Editar
           </DropdownMenuItem>
