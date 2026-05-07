@@ -1,24 +1,41 @@
 import "server-only";
+import { format, parseISO } from "date-fns";
+import { es } from "date-fns/locale";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildConsumptionReport } from "@/lib/energy/reports";
+import type { Profile, Task } from "@/lib/types";
 import { normalizePhone } from "./index";
 
 export type ParsedCommand =
   | { type: "consumption"; propertyFilter: string | null }
+  | { type: "my_tasks" }
   | { type: "help" }
   | null;
 
-const HELP_TEXT = `🌲 *Acme Rentals · Comandos*
+const HELP_TEXT_FULL = `🌲 *Acme Rentals · Comandos*
 
-📊 *Consumo*
+📊 *Consumo* (admin/gestor)
 • \`consumo\` — resumen total (hoy + 7 días)
 • \`consumo merced\` — solo Acme Rentals
 • \`consumo 14 julio\` — solo Casa Secundaria
+
+📋 *Tareas*
+• \`tareas\` — tus tareas pendientes
+• \`mis tareas\` — igual
 
 ❓ *Ayuda*
 • \`ayuda\` — esta lista
 
 _Sandbox de Kapso. Más comandos próximamente._`;
+
+const HELP_TEXT_STAFF = `🌲 *Acme Rentals · Comandos*
+
+📋 *Tareas*
+• \`tareas\` — tus tareas pendientes
+• \`mis tareas\` — igual
+
+❓ *Ayuda*
+• \`ayuda\` — esta lista`;
 
 /**
  * Parse a free-form WhatsApp text into a command. Returns null if it doesn't
@@ -30,6 +47,11 @@ export function parseCommand(text: string | null | undefined): ParsedCommand {
 
   if (/^(ayuda|help|comandos|menu)\b/.test(lower)) {
     return { type: "help" };
+  }
+
+  // "tareas" / "mis tareas" / "pendientes"
+  if (/^(mis\s+)?(tareas|pendientes|tasks?)\b/.test(lower)) {
+    return { type: "my_tasks" };
   }
 
   // "consumo" or "consumo <name>" — match consumption query
@@ -44,44 +66,134 @@ export function parseCommand(text: string | null | undefined): ParsedCommand {
 }
 
 /**
+ * Look up a profile by WhatsApp number. Returns null if no profile has the
+ * normalized phone configured.
+ */
+async function getProfileByPhone(
+  phoneNumber: string,
+): Promise<Profile | null> {
+  const normalized = normalizePhone(phoneNumber);
+  if (!normalized) return null;
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("profiles")
+    .select("*")
+    .eq("whatsapp", normalized)
+    .maybeSingle();
+  return (data as Profile) ?? null;
+}
+
+/**
  * Check whether a phone number belongs to a profile that's authorized to
- * issue commands (admin or gestor).
+ * issue admin-level commands (admin or gestor). Used by `consumption`/`help`
+ * which expose business-wide data; `my_tasks` is open to any profile and
+ * scopes results to that user.
  */
 export async function isAuthorizedCommandSender(
   phoneNumber: string,
 ): Promise<boolean> {
-  const normalized = normalizePhone(phoneNumber);
-  if (!normalized) return false;
+  const profile = await getProfileByPhone(phoneNumber);
+  if (!profile) return false;
+  return profile.role === "admin" || profile.role === "gestor";
+}
+
+const KIND_EMOJI: Record<Task["kind"], string> = {
+  limpieza: "🧹",
+  mantenimiento: "🔧",
+  insumos: "📦",
+  otro: "📋",
+};
+
+const STATUS_EMOJI: Record<Task["status"], string> = {
+  pending: "⏳",
+  in_progress: "▶️",
+  done: "✅",
+};
+
+type TaskWithProperty = Task & { property: { name: string } | null };
+
+async function buildMyTasksReport(profileId: string): Promise<string> {
   const admin = createAdminClient();
-  const { data } = await admin
-    .from("profiles")
-    .select("role")
-    .eq("whatsapp", normalized)
-    .maybeSingle();
-  if (!data) return false;
-  return data.role === "admin" || data.role === "gestor";
+  const { data, error } = await admin
+    .from("tasks")
+    .select("*, property:properties(name)")
+    .eq("assigned_to", profileId)
+    .in("status", ["pending", "in_progress"])
+    .order("status", { ascending: true })
+    .order("due_date", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error) {
+    return `❌ No pude consultar tus tareas: ${error.message}`;
+  }
+  const tasks = (data ?? []) as TaskWithProperty[];
+  if (tasks.length === 0) {
+    return "✨ ¡No tenés tareas pendientes!";
+  }
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const lines = tasks.map((t, i) => {
+    const overdue = !!t.due_date && t.due_date < todayIso;
+    const dueLabel = t.due_date
+      ? `${overdue ? "⚠️ vencida " : "📅 "}${format(parseISO(t.due_date), "EEE d MMM", { locale: es })}`
+      : "";
+    const statusBit = STATUS_EMOJI[t.status];
+    const propertyBit = t.property?.name ? ` · ${t.property.name}` : "";
+    return `${i + 1}. ${KIND_EMOJI[t.kind]} ${statusBit} *${t.title}*${propertyBit}${dueLabel ? `\n   ${dueLabel}` : ""}`;
+  });
+
+  return (
+    `📋 *Tus tareas pendientes* (${tasks.length})\n\n` +
+    lines.join("\n\n") +
+    `\n\n_Marcá hechas en: admin.example.com/mis-tareas_`
+  );
 }
 
 /**
  * Run a parsed command and return the response text. Returns null if the
  * input wasn't a command at all. If it was a command but the sender isn't
- * authorized, returns an explanatory message (helpful for sandbox debugging
- * — easy to lock this down later by returning null).
+ * authorized, returns an explanatory message.
+ *
+ * Authorization model:
+ *  - `my_tasks`: any profile with whatsapp configured (results scoped to them)
+ *  - `consumption` / `help`: admin or gestor only (business-wide data)
  */
 export async function runCommand(
   command: ParsedCommand,
   fromPhone: string,
 ): Promise<string | null> {
   if (!command) return null;
+
+  // Per-user commands (no role gate, but profile must exist).
+  if (command.type === "my_tasks") {
+    const profile = await getProfileByPhone(fromPhone);
+    if (!profile) {
+      const normalized = normalizePhone(fromPhone) ?? fromPhone;
+      return (
+        `🔒 Tu número (\`${normalized}\`) no está vinculado a ningún usuario.\n\n` +
+        `Pedile a un admin/gestor que te cargue ese número exacto en tu perfil ` +
+        `(admin.example.com → Usuarios → editar) y reintentá.`
+      );
+    }
+    return await buildMyTasksReport(profile.id);
+  }
+
+  // Admin-level commands.
   const allowed = await isAuthorizedCommandSender(fromPhone);
   if (!allowed) {
+    const profile = await getProfileByPhone(fromPhone);
+    if (profile) {
+      // Profile exists but isn't admin/gestor — show staff help instead of
+      // a flat "denied" so they discover the `tareas` command.
+      return HELP_TEXT_STAFF;
+    }
     const normalized = normalizePhone(fromPhone) ?? fromPhone;
     return `🔒 Tu número (\`${normalized}\`) no está autorizado para usar comandos.\n\nSi sos admin/gestor de Acme Rentals, cargá ese número exacto en tu profile (admin.example.com → Usuarios → editar) y reintentá.`;
   }
 
   switch (command.type) {
     case "help":
-      return HELP_TEXT;
+      return HELP_TEXT_FULL;
     case "consumption":
       try {
         return await buildConsumptionReport({

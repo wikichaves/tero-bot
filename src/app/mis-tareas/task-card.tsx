@@ -36,6 +36,9 @@ type MyTask = Task & {
 
 export function MyTaskCard({ task }: { task: MyTask }) {
   const [pending, startTransition] = useTransition();
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const isOverdue =
+    task.status !== "done" && !!task.due_date && task.due_date < todayIso;
 
   function setStatus(status: Task["status"], successMsg: string) {
     startTransition(async () => {
@@ -46,7 +49,7 @@ export function MyTaskCard({ task }: { task: MyTask }) {
   }
 
   return (
-    <Card>
+    <Card className={isOverdue ? "border-destructive" : undefined}>
       <CardContent className="flex flex-col gap-3 pt-6">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
@@ -60,8 +63,12 @@ export function MyTaskCard({ task }: { task: MyTask }) {
               {task.due_date && (
                 <>
                   <span>·</span>
-                  <span>
-                    Vence{" "}
+                  <span
+                    className={
+                      isOverdue ? "text-destructive font-medium" : ""
+                    }
+                  >
+                    {isOverdue ? "Vencida " : "Vence "}
                     {format(parseISO(task.due_date), "EEE d MMM", {
                       locale: es,
                     })}

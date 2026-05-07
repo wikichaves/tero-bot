@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
+import { notifyTaskAssigned } from "@/lib/whatsapp/notify";
 
 const KINDS = ["limpieza", "mantenimiento", "insumos", "otro"] as const;
 const STATUSES = ["pending", "in_progress", "done"] as const;
@@ -46,17 +47,29 @@ export async function createTask(input: {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
   }
   const supabase = await createClient();
-  const { error } = await supabase.from("tasks").insert({
-    property_id: parsed.data.property_id,
-    kind: parsed.data.kind,
-    title: parsed.data.title,
-    description: parsed.data.description,
-    assigned_to: parsed.data.assigned_to,
-    due_date: parsed.data.due_date,
-    reported_by: profile.id,
-  });
+  const { data: inserted, error } = await supabase
+    .from("tasks")
+    .insert({
+      property_id: parsed.data.property_id,
+      kind: parsed.data.kind,
+      title: parsed.data.title,
+      description: parsed.data.description,
+      assigned_to: parsed.data.assigned_to,
+      due_date: parsed.data.due_date,
+      reported_by: profile.id,
+    })
+    .select("id")
+    .single();
   if (error) return { error: error.message };
   revalidatePath("/tasks");
+
+  // Best-effort WhatsApp notification if the task was created already
+  // assigned to someone with whatsapp configured. notifyTaskAssigned never
+  // throws — it logs and continues.
+  if (parsed.data.assigned_to && inserted?.id) {
+    await notifyTaskAssigned(inserted.id);
+  }
+
   return { ok: true };
 }
 
@@ -112,12 +125,33 @@ export async function updateTask(input: {
   if (parsed.data.due_date !== undefined)
     patch.due_date = parsed.data.due_date;
 
+  // If we're (re)assigning, fetch the previous assignee first so we only
+  // notify on actual changes (not on every status flip).
+  let previousAssignedTo: string | null | undefined;
+  if (parsed.data.assigned_to !== undefined) {
+    const { data: existing } = await supabase
+      .from("tasks")
+      .select("assigned_to")
+      .eq("id", parsed.data.id)
+      .maybeSingle();
+    previousAssignedTo = existing?.assigned_to ?? null;
+  }
+
   const { error } = await supabase
     .from("tasks")
     .update(patch)
     .eq("id", parsed.data.id);
   if (error) return { error: error.message };
   revalidatePath("/tasks");
+
+  // Notify if the assignee changed to a non-null value.
+  if (
+    parsed.data.assigned_to &&
+    parsed.data.assigned_to !== previousAssignedTo
+  ) {
+    await notifyTaskAssigned(parsed.data.id);
+  }
+
   return { ok: true };
 }
 

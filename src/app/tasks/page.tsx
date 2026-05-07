@@ -89,6 +89,7 @@ export default async function TasksPage({
     "id" | "name"
   >[];
   const assignees = assigneesRes.data ?? [];
+  const todayIso = new Date().toISOString().slice(0, 10);
 
   const counts = {
     all: 0,
@@ -224,11 +225,24 @@ export default async function TasksPage({
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {t.due_date
-                        ? format(parseISO(t.due_date), "d MMM", {
+                      {t.due_date ? (
+                        <span
+                          className={
+                            t.status !== "done" && t.due_date < todayIso
+                              ? "text-destructive font-medium"
+                              : ""
+                          }
+                        >
+                          {t.status !== "done" && t.due_date < todayIso
+                            ? "Vencida "
+                            : ""}
+                          {format(parseISO(t.due_date), "d MMM", {
                             locale: es,
-                          })
-                        : "—"}
+                          })}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
                     </TableCell>
                     <TableCell>
                       <TaskRowActions
