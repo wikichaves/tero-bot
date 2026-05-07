@@ -15,9 +15,14 @@ export function SiteHeader({ profile }: { profile: Profile }) {
             Dashboard
           </Link>
           {(profile.role === "admin" || profile.role === "gestor") && (
-            <Link href="/whatsapp" className="hover:text-foreground">
-              WhatsApp
-            </Link>
+            <>
+              <Link href="/whatsapp" className="hover:text-foreground">
+                WhatsApp
+              </Link>
+              <Link href="/energy" className="hover:text-foreground">
+                Energía
+              </Link>
+            </>
           )}
           {profile.role === "admin" && (
             <>
