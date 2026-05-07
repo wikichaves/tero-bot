@@ -34,6 +34,7 @@ import {
 } from "@/lib/fx";
 import {
   getConsumptionSince,
+  maybeSnapshotIfStale,
   startOfDaysAgoIso,
   startOfTodayIso,
 } from "@/lib/tuya/snapshots";
@@ -68,6 +69,11 @@ type DeviceWithContext = {
 
 export default async function EnergyPage() {
   const defaultTariff = getDefaultTariff();
+
+  // Take a fresh snapshot if the latest is over an hour old. This is the
+  // primary capture mechanism on Vercel's Hobby plan (cron is daily-only).
+  // Best-effort, fire-and-forget — errors don't block rendering.
+  await maybeSnapshotIfStale(60).catch(() => null);
 
   const [flatRes, groupedRes] = await Promise.all([
     listAllDevices().catch((err: Error) => ({ error: err.message })),

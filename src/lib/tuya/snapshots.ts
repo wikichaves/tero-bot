@@ -165,3 +165,37 @@ export function startOfDaysAgoIso(daysAgo: number): string {
   d.setDate(d.getDate() - daysAgo);
   return d.toISOString();
 }
+
+/**
+ * If the most recent snapshot is older than `maxAgeMinutes` (or there are
+ * none), take a fresh one. Used as a fallback when the cron frequency is
+ * limited (Vercel Hobby allows only daily crons).
+ *
+ * Best-effort: errors are swallowed so a flaky Tuya call doesn't break
+ * page rendering.
+ */
+export async function maybeSnapshotIfStale(
+  maxAgeMinutes = 60,
+): Promise<{ snapshotted: boolean; reason?: string }> {
+  const admin = createAdminClient();
+  const cutoff = new Date(Date.now() - maxAgeMinutes * 60 * 1000).toISOString();
+  const { data, error } = await admin
+    .from("energy_snapshots")
+    .select("taken_at")
+    .gte("taken_at", cutoff)
+    .order("taken_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    return { snapshotted: false, reason: error.message };
+  }
+  if (data?.taken_at) {
+    return { snapshotted: false, reason: "fresh enough" };
+  }
+  try {
+    await snapshotAllDevices();
+    return { snapshotted: true };
+  } catch (e) {
+    return { snapshotted: false, reason: (e as Error).message };
+  }
+}

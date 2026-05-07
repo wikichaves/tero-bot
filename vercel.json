@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/energy-snapshot",
-      "schedule": "0 * * * *"
+      "schedule": "0 7 * * *"
     },
     {
       "path": "/api/cron/daily-energy-report",
