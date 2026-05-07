@@ -33,6 +33,12 @@ export function SiteHeader({ profile }: { profile: Profile }) {
               <Link href="/admin/tuya" className="hover:text-foreground">
                 Tuya
               </Link>
+              <Link
+                href="/admin/tuya/lock"
+                className="hover:text-foreground"
+              >
+                Cerraduras
+              </Link>
             </>
           )}
         </nav>
