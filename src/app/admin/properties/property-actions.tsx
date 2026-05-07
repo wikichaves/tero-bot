@@ -30,8 +30,17 @@ export function PropertyActions({ property }: { property: Property }) {
         toast.error(r.error);
         return;
       }
-      const { reservations, blocks, errors } = r.result;
-      const summary = `${reservations} reserva${reservations === 1 ? "" : "s"}, ${blocks} bloqueo${blocks === 1 ? "" : "s"}`;
+      const { reservations, blocks, codes_generated, errors } = r.result;
+      const parts = [
+        `${reservations} reserva${reservations === 1 ? "" : "s"}`,
+        `${blocks} bloqueo${blocks === 1 ? "" : "s"}`,
+      ];
+      if (codes_generated > 0) {
+        parts.push(
+          `${codes_generated} código${codes_generated === 1 ? "" : "s"} generado${codes_generated === 1 ? "" : "s"}`,
+        );
+      }
+      const summary = parts.join(", ");
       if (errors.length > 0) {
         toast.warning(`${summary} (${errors.length} errores)`);
       } else {

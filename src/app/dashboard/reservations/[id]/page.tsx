@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type {
+  LockPassword,
   Property,
   Reservation,
   WhatsAppConversation,
@@ -56,6 +57,31 @@ export default async function ReservationDetailPage({
 
   if (!reservationData) notFound();
   const reservation = reservationData as ReservationWithProperty;
+
+  // Existing access code for this reservation (if generated previously)
+  // and whether the property has a primary lock to enable the button.
+  const [accessCodeRes, primaryLockRes] = await Promise.all([
+    supabase
+      .from("lock_passwords")
+      .select("*")
+      .eq("reservation_id", reservation.id)
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    reservation.property?.id
+      ? supabase
+          .from("property_devices")
+          .select("id")
+          .eq("property_id", reservation.property.id)
+          .eq("device_kind", "lock")
+          .eq("is_primary", true)
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const accessCode = (accessCodeRes.data ?? null) as LockPassword | null;
+  const hasPrimaryLock = !!primaryLockRes.data;
 
   // Try to find a WhatsApp conversation matching the guest's phone, and pull
   // its messages. Best-effort: only matches if guest_phone normalizes to
@@ -108,7 +134,11 @@ export default async function ReservationDetailPage({
         </p>
       </div>
 
-      <ReservationDetailActions reservation={reservation} />
+      <ReservationDetailActions
+        reservation={reservation}
+        initialAccessCode={accessCode}
+        hasPrimaryLock={hasPrimaryLock}
+      />
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>

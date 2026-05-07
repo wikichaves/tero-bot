@@ -1,12 +1,14 @@
 import "server-only";
 import ICAL from "ical.js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { generateCodeForReservation } from "@/lib/tuya/auto-code";
 
 export type SyncResult = {
   property_id: string;
   fetched: number;
   reservations: number;
   blocks: number;
+  codes_generated: number;
   errors: string[];
 };
 
@@ -31,6 +33,7 @@ export async function syncAirbnb(
     fetched: 0,
     reservations: 0,
     blocks: 0,
+    codes_generated: 0,
     errors: [],
   };
 
@@ -86,19 +89,42 @@ export async function syncAirbnb(
         ? `Airbnb reservation: ${reservationCode}`
         : null;
 
-      const { error } = await admin.from("reservations").upsert(
-        {
-          property_id: propertyId,
-          source: "airbnb",
-          external_id: uid,
-          check_in: checkIn,
-          check_out: checkOut,
-          notes,
-        },
-        { onConflict: "source,external_id" },
-      );
+      const { data: upserted, error } = await admin
+        .from("reservations")
+        .upsert(
+          {
+            property_id: propertyId,
+            source: "airbnb",
+            external_id: uid,
+            check_in: checkIn,
+            check_out: checkOut,
+            notes,
+          },
+          { onConflict: "source,external_id" },
+        )
+        .select("id, check_out")
+        .single();
       if (error) throw new Error(error.message);
       result.reservations++;
+
+      // Auto-generate access code for upcoming reservations only.
+      // generateCodeForReservation is idempotent — no-op if a code already
+      // exists, no-op if no primary lock is configured.
+      const today = new Date().toISOString().slice(0, 10);
+      if (upserted?.id && upserted.check_out >= today) {
+        const codeResult = await generateCodeForReservation(upserted.id);
+        if (codeResult.ok && !codeResult.already_existed) {
+          result.codes_generated++;
+        } else if (
+          !codeResult.ok &&
+          codeResult.reason_code !== "no_primary_lock" &&
+          codeResult.reason_code !== "already_expired"
+        ) {
+          // Surface unexpected failures (e.g. Tuya API down) but ignore the
+          // boring "no lock configured" case to keep sync output clean.
+          result.errors.push(`code:${uid}: ${codeResult.reason}`);
+        }
+      }
     } catch (e) {
       result.errors.push((e as Error).message);
     }
