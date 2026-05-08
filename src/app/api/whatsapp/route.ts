@@ -11,6 +11,8 @@ import { parseCommand, runCommand } from "@/lib/whatsapp/commands";
 import {
   createTaskFromWhatsApp,
   looksLikeCreateTaskCommand,
+  parsePropertyChoiceReply,
+  type PropertyChoiceIntent,
 } from "@/lib/whatsapp/create-task";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Profile } from "@/lib/types";
@@ -184,6 +186,9 @@ async function sendAndPersist(opts: {
   peer: string;
   conversationId: string;
   text: string;
+  /** Optional structured intent to persist on the outbound message. The
+   *  next inbound reply may match against it (see PropertyChoiceIntent). */
+  intent?: unknown;
 }) {
   const { messageId } = await sendKapsoText(
     opts.phoneNumberId,
@@ -197,6 +202,7 @@ async function sendAndPersist(opts: {
     type: "text",
     body: opts.text,
     status: "sent",
+    raw: opts.intent ?? null,
   });
 }
 
@@ -231,6 +237,33 @@ async function fetchPropertiesForCreate(): Promise<
   return data ?? [];
 }
 
+/**
+ * Look up the latest outbound message in this conversation that has a
+ * "create-task-property-choice" intent stored in its `raw` field. Used
+ * when the user replies with a number — we match it against the options
+ * we just offered. Returns null if no recent prompt is pending or it's
+ * older than 10 minutes (treat as expired).
+ */
+async function findPendingPropertyChoice(
+  conversationId: string,
+): Promise<PropertyChoiceIntent | null> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("whatsapp_messages")
+    .select("sent_at, raw")
+    .eq("conversation_id", conversationId)
+    .eq("direction", "outbound")
+    .order("sent_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data?.raw) return null;
+  const raw = data.raw as { intent?: string };
+  if (raw.intent !== "create-task-property-choice") return null;
+  const sentAt = new Date(data.sent_at as string).getTime();
+  if (Date.now() - sentAt > 10 * 60 * 1000) return null; // 10min expiry
+  return data.raw as PropertyChoiceIntent;
+}
+
 async function autoReply(opts: {
   phoneNumberId: string;
   peer: string;
@@ -242,6 +275,63 @@ async function autoReply(opts: {
   mediaUrl: string | null;
 }) {
   if (!isAutoReplyEnabled()) return;
+
+  // 0) Numbered selection reply — if user previously got a "qué propiedad?"
+  // prompt, a short reply like "1" / "2" / "0" picks (or cancels) that
+  // pending create-task. Has to run BEFORE the create-task triggers below
+  // so `tareas`-like keywords don't accidentally re-fire instead.
+  if (opts.messageType === "text") {
+    const selection = parsePropertyChoiceReply(opts.messageBody);
+    if (selection !== null) {
+      const pending = await findPendingPropertyChoice(opts.conversationId);
+      if (pending) {
+        if (selection === 0) {
+          await sendAndPersist({
+            phoneNumberId: opts.phoneNumberId,
+            peer: opts.peer,
+            conversationId: opts.conversationId,
+            text: "👍 Cancelado. La tarea no se creó.",
+          });
+          return;
+        }
+        const idx = selection - 1;
+        if (idx < 0 || idx >= pending.properties.length) {
+          await sendAndPersist({
+            phoneNumberId: opts.phoneNumberId,
+            peer: opts.peer,
+            conversationId: opts.conversationId,
+            text:
+              `Esa opción no está. Probá con un número entre 1 y ` +
+              `${pending.properties.length}, o *0* para cancelar.`,
+          });
+          return;
+        }
+        const profile = await lookupProfileByPhone(opts.peer);
+        if (!profile) {
+          // Edge case: profile was removed between prompt and reply.
+          return;
+        }
+        try {
+          const result = await createTaskFromWhatsApp({
+            profile,
+            text: pending.text,
+            mediaUrl: pending.mediaUrl,
+            prefetchedProperties: pending.properties,
+            forcePropertyId: pending.properties[idx].id,
+          });
+          await sendAndPersist({
+            phoneNumberId: opts.phoneNumberId,
+            peer: opts.peer,
+            conversationId: opts.conversationId,
+            text: result.reply,
+          });
+        } catch (err) {
+          console.error("[kapso property-choice] error", err);
+        }
+        return;
+      }
+    }
+  }
 
   // 1) Photo from a registered profile → auto-create a task
   // 2) Text starting with `tarea …` from a registered profile → create task
@@ -271,6 +361,9 @@ async function autoReply(opts: {
           peer: opts.peer,
           conversationId: opts.conversationId,
           text: result.reply,
+          // If create-task is asking for a property pick, persist the
+          // intent so the user's next reply can match against it.
+          intent: !result.ok ? result.pendingIntent : undefined,
         });
         console.log(
           `[kapso autoReply] create-task ${opts.peer} took ${Date.now() - startedAt}ms`,

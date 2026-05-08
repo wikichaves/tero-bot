@@ -23,7 +23,12 @@ import type { Profile, Property, Task } from "@/lib/types";
 
 export type CreateTaskFromWAResult =
   | { ok: true; taskId: string; reply: string }
-  | { ok: false; reply: string };
+  | {
+      ok: false;
+      reply: string;
+      /** When set, caller should persist this intent on the outbound message. */
+      pendingIntent?: PropertyChoiceIntent;
+    };
 
 export type CreateTaskFromWAInput = {
   /** Caller-supplied profile (already authenticated by phone). */
@@ -38,7 +43,79 @@ export type CreateTaskFromWAInput = {
    * skip the DB roundtrip.
    */
   prefetchedProperties?: Pick<Property, "id" | "name">[];
+  /**
+   * Skip property detection and use this one. Used when the user picked
+   * one from the numbered prompt we sent on a previous ambiguous message.
+   */
+  forcePropertyId?: string;
 };
+
+/**
+ * Pending intent we store in `whatsapp_messages.raw` when we ask the user
+ * to pick a property. The next reply (if it's a number/cancel) is matched
+ * back against this intent to continue the create-task flow.
+ */
+export type PropertyChoiceIntent = {
+  intent: "create-task-property-choice";
+  text: string | null;
+  mediaUrl: string | null;
+  properties: Pick<Property, "id" | "name">[];
+};
+
+/**
+ * Try to parse a short reply as a numbered selection (1-based). Returns
+ *  - a positive integer for a numeric choice
+ *  - 0 for "cancelar"/"0"/"no"
+ *  - null if it doesn't look like a selection at all
+ *
+ * We're conservative: only obvious short replies match. A user typing
+ * a long message is treated as a fresh request.
+ */
+export function parsePropertyChoiceReply(
+  text: string | null | undefined,
+): number | null {
+  if (!text) return null;
+  const trimmed = text.trim().toLowerCase();
+  if (trimmed.length > 12) return null;
+  if (/^(cancelar|cancel|no|0)\b/.test(trimmed)) return 0;
+  // Match "1", "1.", "1)", "*1*", "opcion 1", "opción 1"
+  const m = trimmed.match(/(?:^|\b)(\d{1,2})(?:\b|[.)])/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n < 1 || n > 9) return null;
+  return n;
+}
+
+/**
+ * Build the numbered prompt body we send when we can't infer the property
+ * from the user's text. Returns the body + the intent to persist alongside.
+ */
+export function buildPropertyChoicePrompt(
+  properties: Pick<Property, "id" | "name">[],
+  cleanText: string,
+  mediaUrl: string | null,
+): { body: string; intent: PropertyChoiceIntent } {
+  const numbered = properties
+    .map((p, i) => `*${i + 1}.* ${p.name}`)
+    .join("\n");
+  const preview = cleanText
+    ? `\n\n_Para: "${cleanText.slice(0, 80)}${cleanText.length > 80 ? "…" : ""}"_`
+    : mediaUrl
+      ? `\n\n_Para tu foto adjunta._`
+      : "";
+  const body =
+    `🤔 *¿En qué propiedad?* Respondé con el número:\n\n` +
+    numbered +
+    `\n*0.* Cancelar` +
+    preview;
+  const intent: PropertyChoiceIntent = {
+    intent: "create-task-property-choice",
+    text: cleanText || null,
+    mediaUrl,
+    properties: properties.map((p) => ({ id: p.id, name: p.name })),
+  };
+  return { body, intent };
+}
 
 const KIND_PATTERNS: Array<{ kind: Task["kind"]; rx: RegExp }> = [
   { kind: "limpieza", rx: /\b(limpi[ae][rz]?|aspirar|lavar|barrer|trapear)\b/i },
@@ -168,16 +245,28 @@ export async function createTaskFromWhatsApp(
     };
   }
 
-  const property = detectProperty(cleanText, properties);
+  // forcePropertyId short-circuits detection — used when the user picked
+  // an option from a previous numbered prompt.
+  let property: Pick<Property, "id" | "name"> | null = null;
+  if (input.forcePropertyId) {
+    property =
+      properties.find((p) => p.id === input.forcePropertyId) ?? null;
+  } else {
+    property = detectProperty(cleanText, properties);
+  }
   if (!property) {
-    const list = properties.map((p) => `• ${p.name}`).join("\n");
-    return {
-      ok: false,
-      reply:
-        `🤔 No supe a qué propiedad referís. Reintentá incluyendo el nombre, ej:\n\n` +
-        `_tarea ${properties[0]?.name.split(" ").pop()?.toLowerCase()} se rompió la canilla_\n\n` +
-        `Propiedades:\n${list}`,
-    };
+    if (input.forcePropertyId) {
+      return {
+        ok: false,
+        reply: "❌ Esa propiedad ya no existe. Reintentá.",
+      };
+    }
+    const { body, intent } = buildPropertyChoicePrompt(
+      properties,
+      cleanText,
+      mediaUrl ?? null,
+    );
+    return { ok: false, reply: body, pendingIntent: intent };
   }
 
   const kind = detectKind(cleanText, hasPhoto);
