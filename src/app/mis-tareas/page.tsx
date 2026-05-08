@@ -4,8 +4,9 @@ import { es } from "date-fns/locale";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireProfile } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
-import type { Task } from "@/lib/types";
+import type { Property, Task } from "@/lib/types";
 import { MyTaskCard } from "./task-card";
+import { ReportTaskDialog } from "./report-dialog";
 
 export const dynamic = "force-dynamic";
 
@@ -47,19 +48,29 @@ export default async function MisTareasPage({
     query = query.eq("status", "done");
   }
 
-  const { data, error } = await query;
+  const [{ data, error }, propertiesRes] = await Promise.all([
+    query,
+    supabase.from("properties").select("id, name").order("name"),
+  ]);
   const tasks = (data ?? []) as MyTask[];
+  const properties = (propertiesRes.data ?? []) as Pick<
+    Property,
+    "id" | "name"
+  >[];
 
   const today = new Date();
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Mis tareas</h1>
-        <p className="text-sm text-muted-foreground">
-          {format(today, "EEEE d 'de' MMMM", { locale: es })} ·{" "}
-          {profile.full_name ?? profile.email}
-        </p>
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Mis tareas</h1>
+          <p className="text-sm text-muted-foreground">
+            {format(today, "EEEE d 'de' MMMM", { locale: es })} ·{" "}
+            {profile.full_name ?? profile.email}
+          </p>
+        </div>
+        <ReportTaskDialog properties={properties} />
       </div>
 
       <div className="flex flex-wrap gap-2 text-sm">
