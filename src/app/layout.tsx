@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Admin",
-  description: "Panel de administración de Acme Rentals.",
+  description: "Panel de administración.",
 };
 
 export default function RootLayout({
