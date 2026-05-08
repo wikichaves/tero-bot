@@ -16,7 +16,11 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { PropertyThumb } from "@/components/property-thumb";
 import type { Property } from "@/lib/types";
-import { upsertProperty, uploadPropertyThumbnail } from "./actions";
+import {
+  getThumbnailUploadTicket,
+  notifyPropertyThumbnailUploaded,
+  upsertProperty,
+} from "./actions";
 
 export function NewPropertyDialog() {
   const [open, setOpen] = useState(false);
@@ -99,19 +103,51 @@ function PropertyForm({
         toast.error(result?.error ?? "No se pudo guardar.");
         return;
       }
-      // Upload thumbnail (best-effort) if one was picked.
+      // Upload thumbnail (best-effort) if one was picked. We do a DIRECT
+      // upload from the browser to Supabase Storage via a signed URL — that
+      // way the file bytes never go through Vercel and we sidestep the
+      // platform's ~4.5 MB body limit.
       if (thumbFile && result.id) {
-        const fd = new FormData();
-        fd.append("property_id", result.id);
-        fd.append("file", thumbFile);
-        const upRes = await uploadPropertyThumbnail(fd);
-        if (upRes?.error) {
+        // Client-side size guard so we fail fast with a clear toast, even
+        // before involving Storage (which would also reject).
+        if (thumbFile.size > 10 * 1024 * 1024) {
           toast.warning(
-            `Propiedad guardada, pero la foto falló: ${upRes.error}`,
+            "Propiedad guardada, pero la foto supera 10 MB.",
           );
           onDone();
           return;
         }
+        if (!/^image\/(jpeg|png|webp)$/i.test(thumbFile.type)) {
+          toast.warning(
+            "Propiedad guardada, pero el formato de la foto no es JPG/PNG/WebP.",
+          );
+          onDone();
+          return;
+        }
+        const ticket = await getThumbnailUploadTicket(result.id);
+        if ("error" in ticket || !ticket.signedUrl) {
+          toast.warning(
+            `Propiedad guardada, pero la foto falló: ${
+              "error" in ticket ? ticket.error : "URL inválida"
+            }`,
+          );
+          onDone();
+          return;
+        }
+        const putRes = await fetch(ticket.signedUrl, {
+          method: "PUT",
+          headers: { "Content-Type": thumbFile.type },
+          body: thumbFile,
+        });
+        if (!putRes.ok) {
+          const text = await putRes.text().catch(() => "");
+          toast.warning(
+            `Propiedad guardada, pero la subida de la foto falló (HTTP ${putRes.status}). ${text.slice(0, 100)}`,
+          );
+          onDone();
+          return;
+        }
+        await notifyPropertyThumbnailUploaded();
         setThumbVersion((v) => v + 1);
       }
       toast.success(property ? "Propiedad actualizada." : "Propiedad creada.");
@@ -154,7 +190,8 @@ function PropertyForm({
               className="mt-1 cursor-pointer"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              JPG, PNG o WebP. Hasta 5 MB. Se sube al guardar.
+              JPG, PNG o WebP. Hasta 10 MB. Se sube directo a Storage al
+              guardar.
             </p>
           </div>
         </div>

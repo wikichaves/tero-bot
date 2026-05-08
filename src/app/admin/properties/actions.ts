@@ -77,7 +77,7 @@ export async function upsertProperty(input: {
 }
 
 const THUMBNAIL_BUCKET = "property-thumbnails";
-const MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_THUMBNAIL_BYTES = 10 * 1024 * 1024; // 10 MB
 
 /**
  * Lazily create the public Supabase Storage bucket where property
@@ -86,61 +86,64 @@ const MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024; // 5 MB
 async function ensureThumbnailBucket(
   admin: ReturnType<typeof createAdminClient>,
 ): Promise<void> {
+  const config = {
+    public: true,
+    fileSizeLimit: MAX_THUMBNAIL_BYTES,
+    allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+  };
   const { data: buckets, error } = await admin.storage.listBuckets();
   if (error) throw new Error(`Storage listBuckets failed: ${error.message}`);
-  if (buckets?.some((b) => b.name === THUMBNAIL_BUCKET)) return;
+  if (buckets?.some((b) => b.name === THUMBNAIL_BUCKET)) {
+    // Bucket already exists — make sure its limits match current config
+    // (an earlier deploy may have created it with a smaller fileSizeLimit).
+    await admin.storage.updateBucket(THUMBNAIL_BUCKET, config);
+    return;
+  }
   const { error: createErr } = await admin.storage.createBucket(
     THUMBNAIL_BUCKET,
-    {
-      public: true,
-      fileSizeLimit: MAX_THUMBNAIL_BYTES,
-      allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
-    },
+    config,
   );
-  if (createErr) {
-    // Race: another concurrent call created it first — ignore.
-    if (!/already exists/i.test(createErr.message)) {
-      throw new Error(`Storage createBucket failed: ${createErr.message}`);
-    }
+  if (createErr && !/already exists/i.test(createErr.message)) {
+    throw new Error(`Storage createBucket failed: ${createErr.message}`);
   }
 }
 
 /**
- * Upload (or replace) a property thumbnail. The file is stored in the
- * public bucket under the property's id (no extension — content type lives
- * in object metadata). The public URL is therefore predictable and can be
- * rendered without a DB migration.
+ * Issue a one-shot signed upload URL for a property's thumbnail. The
+ * client uploads directly to Supabase Storage (PUT with the file as body),
+ * bypassing Vercel's request body limit (~4.5 MB on Hobby).
+ *
+ * We do all auth + validation here, then hand back a short-lived URL +
+ * token that the browser uses to do the actual file transfer.
  */
-export async function uploadPropertyThumbnail(formData: FormData) {
+export async function getThumbnailUploadTicket(propertyId: string) {
   await requireRole(["admin"]);
-  const propertyId = String(formData.get("property_id") ?? "");
-  const file = formData.get("file");
   if (!propertyId || !/^[0-9a-f-]{36}$/i.test(propertyId)) {
     return { error: "ID de propiedad inválido." };
   }
-  if (!(file instanceof File) || file.size === 0) {
-    return { error: "No se recibió ningún archivo." };
-  }
-  if (file.size > MAX_THUMBNAIL_BYTES) {
-    return { error: "La imagen supera los 5 MB." };
-  }
-  if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) {
-    return { error: "Formato no soportado. Usá JPG, PNG o WebP." };
-  }
-
   const admin = createAdminClient();
   await ensureThumbnailBucket(admin);
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const { error } = await admin.storage
+  const { data, error } = await admin.storage
     .from(THUMBNAIL_BUCKET)
-    .upload(propertyId, buffer, {
-      upsert: true,
-      contentType: file.type,
-      cacheControl: "300", // 5 min cache; we bust by adding ?v=<ts> on save
-    });
-  if (error) {
-    return { error: `Subida falló: ${error.message}` };
+    .createSignedUploadUrl(propertyId, { upsert: true });
+  if (error || !data) {
+    return { error: `No se pudo emitir URL de subida: ${error?.message}` };
   }
+  return {
+    ok: true as const,
+    path: data.path,
+    token: data.token,
+    signedUrl: data.signedUrl,
+    bucket: THUMBNAIL_BUCKET,
+  };
+}
+
+/**
+ * Server-side bookkeeping after a successful direct upload — invalidate the
+ * pages that show the thumbnail. Optional but keeps caches fresh.
+ */
+export async function notifyPropertyThumbnailUploaded() {
+  await requireRole(["admin"]);
   revalidatePath("/admin/properties");
   revalidatePath("/dashboard");
   return { ok: true };
