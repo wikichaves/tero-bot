@@ -28,13 +28,13 @@ export function PropertyThumb({
   const url = propertyThumbnailUrl(propertyId, cacheBuster);
   const dimClass = {
     xs: "h-6 w-6",
-    sm: "h-9 w-9",
+    sm: "h-18 w-18", // doubled from h-9 — used in /admin/properties list
     md: "h-14 w-14",
     lg: "h-24 w-24",
   }[size];
   const iconClass = {
     xs: "h-3 w-3",
-    sm: "h-4 w-4",
+    sm: "h-8 w-8", // doubled with the dim
     md: "h-6 w-6",
     lg: "h-10 w-10",
   }[size];
