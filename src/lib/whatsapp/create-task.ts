@@ -218,12 +218,15 @@ export async function createTaskFromWhatsApp(
   const assignedLine = isStaff
     ? `\n👤 Asignada a vos.`
     : `\n👤 Sin asignar — algún admin/gestor te la deriva.`;
+  const link = isStaff
+    ? "admin.example.com/mis-tareas"
+    : `admin.example.com/tasks/${inserted.id}`;
   const reply =
     `✅ *Tarea creada*\n\n` +
     `*${title}*\n` +
     `${KIND_LABEL[kind]} · 🏠 ${property.name}` +
     assignedLine +
-    `\n\n_Verla en: admin.example.com/${isStaff ? "mis-tareas" : "tasks"}_`;
+    `\n\n_Verla en: ${link}_`;
 
   return { ok: true, taskId: inserted.id, reply };
 }

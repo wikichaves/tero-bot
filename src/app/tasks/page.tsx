@@ -282,7 +282,12 @@ export default async function TasksPage({
                 tasks.map((t) => (
                   <TableRow key={t.id}>
                     <TableCell className="font-medium">
-                      <div>{t.title}</div>
+                      <Link
+                        href={`/tasks/${t.id}`}
+                        className="block hover:underline"
+                      >
+                        {t.title}
+                      </Link>
                       {t.description && (
                         <div className="text-xs text-muted-foreground line-clamp-1">
                           {t.description}

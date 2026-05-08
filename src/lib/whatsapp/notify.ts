@@ -66,7 +66,7 @@ function buildAssignedMessage(t: TaskRow): string {
     propertyLine +
     dueLine +
     descLine +
-    `\n\n_Verla en: admin.example.com/mis-tareas_`
+    `\n\n_Detalle: admin.example.com/tasks/${t.id}_`
   );
 }
 
@@ -179,7 +179,7 @@ function buildStatusChangedMessage(t: TaskRow): string {
     `*${t.title}*\n` +
     `🔧 ${KIND_LABEL[t.kind]}` +
     propertyLine +
-    `\n\n_Detalle: admin.example.com/tasks_`
+    `\n\n_Detalle: admin.example.com/tasks/${t.id}_`
   );
 }
 
