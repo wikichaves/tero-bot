@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { Property, Task } from "@/lib/types";
+import { extractPhotos } from "@/lib/whatsapp/create-task";
 import { TaskRowActions } from "../task-row-actions";
 import { PhotoThumb } from "./photo-thumb";
 
@@ -42,28 +43,6 @@ type TaskDetail = Task & {
   assignee: { id: string; full_name: string | null; email: string } | null;
   reporter: { id: string; full_name: string | null; email: string } | null;
 };
-
-/**
- * Pull image URLs out of a description that might contain `📸 Foto: <url>`
- * blocks (the format `createTaskFromWhatsApp` uses). Returns the URLs and
- * the description with those blocks stripped, so we can render previews
- * separately and avoid duplicating the URL inline.
- */
-function extractPhotos(description: string | null): {
-  urls: string[];
-  cleaned: string;
-} {
-  if (!description) return { urls: [], cleaned: "" };
-  const urls: string[] = [];
-  const cleaned = description
-    .replace(/^📸\s*Foto:\s*(\S+)\s*$/gm, (_, url) => {
-      urls.push(url);
-      return "";
-    })
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  return { urls, cleaned };
-}
 
 export default async function TaskDetailPage({
   params,

@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Task } from "@/lib/types";
+import { extractPhotos } from "@/lib/tasks/format";
 import { markOwnTaskStatus } from "./actions";
 
 const KIND_LABEL: Record<Task["kind"], string> = {
@@ -39,6 +40,9 @@ export function MyTaskCard({ task }: { task: MyTask }) {
   const todayIso = new Date().toISOString().slice(0, 10);
   const isOverdue =
     task.status !== "done" && !!task.due_date && task.due_date < todayIso;
+  const { urls: photoUrls, cleaned: cleanedDescription } = extractPhotos(
+    task.description,
+  );
 
   function setStatus(status: Task["status"], successMsg: string) {
     startTransition(async () => {
@@ -82,10 +86,32 @@ export function MyTaskCard({ task }: { task: MyTask }) {
           </Badge>
         </div>
 
-        {task.description && (
+        {cleanedDescription && (
           <p className="whitespace-pre-line text-sm text-muted-foreground">
-            {task.description}
+            {cleanedDescription}
           </p>
+        )}
+
+        {photoUrls.length > 0 && (
+          <div className="grid grid-cols-2 gap-2">
+            {photoUrls.map((url, i) => (
+              <a
+                key={`${url}-${i}`}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block overflow-hidden rounded-md border bg-muted"
+                title="Abrir foto"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt={`Foto adjunta ${i + 1}`}
+                  className="h-32 w-full object-cover"
+                />
+              </a>
+            ))}
+          </div>
         )}
 
         <div className="flex flex-wrap gap-2 pt-1">

@@ -20,6 +20,7 @@ import type {
   WhatsAppConversation,
   WhatsAppMessage,
 } from "@/lib/types";
+import { extractPhotos } from "@/lib/whatsapp/create-task";
 import { ReservationDetailActions } from "./detail-actions";
 
 const TASK_STATUS_LABEL: Record<Task["status"], string> = {
@@ -289,14 +290,38 @@ export default async function ReservationDetailPage({
                   <span className="text-muted-foreground">Sin asignar</span>
                 )}
               </dd>
-              {cleaningTask.description && (
-                <>
-                  <dt className="text-muted-foreground">Descripción</dt>
-                  <dd className="whitespace-pre-wrap">
-                    {cleaningTask.description}
-                  </dd>
-                </>
-              )}
+              {(() => {
+                const { urls, cleaned } = extractPhotos(
+                  cleaningTask.description,
+                );
+                return (
+                  <>
+                    {cleaned && (
+                      <>
+                        <dt className="text-muted-foreground self-start">
+                          Descripción
+                        </dt>
+                        <dd className="whitespace-pre-wrap">{cleaned}</dd>
+                      </>
+                    )}
+                    {urls.length > 0 && (
+                      <>
+                        <dt className="text-muted-foreground">Fotos</dt>
+                        <dd>
+                          {urls.length} foto
+                          {urls.length === 1 ? "" : "s"} —{" "}
+                          <Link
+                            href={`/tasks/${cleaningTask.id}`}
+                            className="underline hover:text-foreground"
+                          >
+                            ver en la tarea
+                          </Link>
+                        </dd>
+                      </>
+                    )}
+                  </>
+                );
+              })()}
             </dl>
           ) : (
             <p className="text-muted-foreground">

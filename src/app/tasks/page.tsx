@@ -16,7 +16,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { ImageIcon } from "lucide-react";
 import type { Property, Task } from "@/lib/types";
+import { extractPhotos } from "@/lib/whatsapp/create-task";
 import { NewTaskDialog } from "./task-form-dialog";
 import { TaskRowActions } from "./task-row-actions";
 
@@ -279,18 +281,35 @@ export default async function TasksPage({
                   </TableCell>
                 </TableRow>
               ) : (
-                tasks.map((t) => (
+                tasks.map((t) => {
+                  const { urls: photos, cleaned } = extractPhotos(
+                    t.description,
+                  );
+                  return (
                   <TableRow key={t.id}>
                     <TableCell className="font-medium">
                       <Link
                         href={`/tasks/${t.id}`}
-                        className="block hover:underline"
+                        className="flex items-center gap-2 hover:underline"
                       >
-                        {t.title}
+                        <span>{t.title}</span>
+                        {photos.length > 0 && (
+                          <span
+                            className="inline-flex items-center gap-0.5 text-muted-foreground"
+                            title={`${photos.length} foto${photos.length === 1 ? "" : "s"} adjunta${photos.length === 1 ? "" : "s"}`}
+                          >
+                            <ImageIcon className="h-3.5 w-3.5" />
+                            {photos.length > 1 && (
+                              <span className="text-xs">
+                                ×{photos.length}
+                              </span>
+                            )}
+                          </span>
+                        )}
                       </Link>
-                      {t.description && (
+                      {cleaned && (
                         <div className="text-xs text-muted-foreground line-clamp-1">
-                          {t.description}
+                          {cleaned}
                         </div>
                       )}
                     </TableCell>
@@ -341,7 +360,8 @@ export default async function TasksPage({
                       />
                     </TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>

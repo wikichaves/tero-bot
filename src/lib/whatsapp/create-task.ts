@@ -50,6 +50,11 @@ export type CreateTaskFromWAInput = {
   forcePropertyId?: string;
 };
 
+// extractPhotos lives in `@/lib/tasks/format` because client components need
+// the same parser. Re-exported here for backwards compatibility / discovery
+// (the format `📸 Foto: <url>` is generated below in the description).
+export { extractPhotos } from "@/lib/tasks/format";
+
 /**
  * Pending intent we store in `whatsapp_messages.raw` when we ask the user
  * to pick a property. The next reply (if it's a number/cancel) is matched
