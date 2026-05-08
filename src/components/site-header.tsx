@@ -52,12 +52,14 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
   }
 
   return (
-    <header className="flex items-center justify-between border-b px-6 py-3">
-      <div className="flex items-center gap-6">
-        <Link href={homeHref} className="font-semibold">
+    <header className="flex items-center justify-between gap-4 border-b px-6 py-3">
+      <div className="flex min-w-0 items-center gap-6">
+        <Link href={homeHref} className="shrink-0 font-semibold">
           Acme Rentals
         </Link>
-        <nav className="flex items-center gap-4 text-sm text-muted-foreground">
+        {/* min-w-0 + overflow-x-auto so on narrow viewports the nav scrolls
+            instead of squashing the user / theme toggle on the right. */}
+        <nav className="flex min-w-0 items-center gap-4 overflow-x-auto text-sm text-muted-foreground">
           {/* Staff (limpieza/mantenimiento) only need their own task list. */}
           {isStaff && (
             <NavLink
@@ -118,7 +120,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
           )}
         </nav>
       </div>
-      <div className="flex items-center gap-3 text-sm">
+      <div className="flex shrink-0 items-center gap-3 text-sm">
         <span className="hidden text-muted-foreground sm:inline">
           {profile.email}
         </span>

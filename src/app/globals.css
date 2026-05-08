@@ -126,5 +126,11 @@
   }
   html {
     @apply font-sans;
+    /* Bump the rem base from the browser default 16px → 18px so all of
+       Tailwind's rem-based utilities (text sizes, spacing, gaps, radii,
+       etc.) scale up ~12.5% uniformly. Net effect: text-sm renders at
+       ~15.75px (was 14), text-base at 18px (was 16), p-4 at 18px (was
+       16). Tweak this single value to scale the whole admin density. */
+    font-size: 18px;
   }
 }
