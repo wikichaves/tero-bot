@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { signOut } from "@/app/login/actions";
 import { Button } from "@/components/ui/button";
+import { ModeToggle } from "@/components/mode-toggle";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 
@@ -118,7 +119,10 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
         </nav>
       </div>
       <div className="flex items-center gap-3 text-sm">
-        <span className="text-muted-foreground">{profile.email}</span>
+        <span className="hidden text-muted-foreground sm:inline">
+          {profile.email}
+        </span>
+        <ModeToggle />
         <form action={signOut}>
           <Button type="submit" variant="ghost" size="sm">
             Salir
