@@ -32,6 +32,12 @@ export type CreateTaskFromWAInput = {
   text: string | null;
   /** WhatsApp media URL if a photo/audio/video was attached. */
   mediaUrl?: string | null;
+  /**
+   * Optional pre-fetched properties — if the caller already has them in
+   * hand (e.g. fetched in parallel with the profile lookup), pass them to
+   * skip the DB roundtrip.
+   */
+  prefetchedProperties?: Pick<Property, "id" | "name">[];
 };
 
 const KIND_PATTERNS: Array<{ kind: Task["kind"]; rx: RegExp }> = [
@@ -138,17 +144,22 @@ export async function createTaskFromWhatsApp(
   }
 
   const admin = createAdminClient();
-  const { data: propertyRows, error: propsErr } = await admin
-    .from("properties")
-    .select("id, name")
-    .order("name");
-  if (propsErr) {
-    return {
-      ok: false,
-      reply: `❌ No pude buscar propiedades: ${propsErr.message}`,
-    };
+  let properties: Pick<Property, "id" | "name">[];
+  if (input.prefetchedProperties) {
+    properties = input.prefetchedProperties;
+  } else {
+    const { data: propertyRows, error: propsErr } = await admin
+      .from("properties")
+      .select("id, name")
+      .order("name");
+    if (propsErr) {
+      return {
+        ok: false,
+        reply: `❌ No pude buscar propiedades: ${propsErr.message}`,
+      };
+    }
+    properties = (propertyRows ?? []) as Pick<Property, "id" | "name">[];
   }
-  const properties = (propertyRows ?? []) as Pick<Property, "id" | "name">[];
   if (properties.length === 0) {
     return {
       ok: false,

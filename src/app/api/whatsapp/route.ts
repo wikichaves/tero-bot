@@ -216,6 +216,21 @@ async function lookupProfileByPhone(phone: string): Promise<Profile | null> {
   return (data as Profile) ?? null;
 }
 
+/**
+ * Fetch all properties (id+name only) — pre-warmed in parallel with the
+ * profile lookup so create-task doesn't pay the DB roundtrip serially.
+ */
+async function fetchPropertiesForCreate(): Promise<
+  { id: string; name: string }[]
+> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("properties")
+    .select("id, name")
+    .order("name");
+  return data ?? [];
+}
+
 async function autoReply(opts: {
   phoneNumberId: string;
   peer: string;
@@ -235,13 +250,21 @@ async function autoReply(opts: {
     opts.messageType === "image" ||
     looksLikeCreateTaskCommand(opts.messageBody);
   if (wantsCreate) {
-    const profile = await lookupProfileByPhone(opts.peer);
+    // Profile lookup AND properties fetch run in parallel — they're
+    // independent and the create-task path needs both. Saves one
+    // DB roundtrip of latency.
+    const startedAt = Date.now();
+    const [profile, properties] = await Promise.all([
+      lookupProfileByPhone(opts.peer),
+      fetchPropertiesForCreate(),
+    ]);
     if (profile) {
       try {
         const result = await createTaskFromWhatsApp({
           profile,
           text: opts.messageBody,
           mediaUrl: opts.mediaUrl,
+          prefetchedProperties: properties,
         });
         await sendAndPersist({
           phoneNumberId: opts.phoneNumberId,
@@ -249,6 +272,9 @@ async function autoReply(opts: {
           conversationId: opts.conversationId,
           text: result.reply,
         });
+        console.log(
+          `[kapso autoReply] create-task ${opts.peer} took ${Date.now() - startedAt}ms`,
+        );
         return;
       } catch (err) {
         console.error("[kapso create-task] error", err);

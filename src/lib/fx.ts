@@ -25,7 +25,17 @@ export type FxRate = {
 
 const REVALIDATE_SECONDS = 60 * 60; // 1 hour
 
+// In-memory caches: speed up the warm-instance path. Next's fetch cache is
+// supposed to handle this too, but in serverless practice it's flaky across
+// invocations — keeping our own Map gives us a guaranteed second-hit speed
+// boost while a single function instance is warm.
+let cachedArsBlue: FxRate | null = null;
+let cachedArsBlueAt = 0;
+
 async function fetchArsBlue(): Promise<FxRate | null> {
+  if (cachedArsBlue && Date.now() - cachedArsBlueAt < REVALIDATE_SECONDS * 1000) {
+    return cachedArsBlue;
+  }
   try {
     const res = await fetch("https://dolarapi.com/v1/dolares/blue", {
       next: { revalidate: REVALIDATE_SECONDS },
@@ -37,15 +47,28 @@ async function fetchArsBlue(): Promise<FxRate | null> {
       fechaActualizacion?: string;
     };
     if (typeof data.venta !== "number" || data.venta <= 0) return null;
-    return {
+    const rate: FxRate = {
       currency: "ARS",
       per_usd: data.venta,
       source: "dolarapi.com (blue, venta)",
       timestamp: data.fechaActualizacion ?? new Date().toISOString(),
     };
+    cachedArsBlue = rate;
+    cachedArsBlueAt = Date.now();
+    return rate;
   } catch {
     return null;
   }
+}
+
+/**
+ * Fire FX fetches in the background for the common currency set so that by
+ * the time a user actually requests a report, the in-memory caches are
+ * already warm. Safe to call multiple times — duplicates use the cache
+ * immediately. Errors are swallowed; this is purely an optimization.
+ */
+export function prewarmFx(currencies: readonly string[] = ["USD", "ARS", "UYU"]): void {
+  void getRatesToUsd(currencies).catch(() => {});
 }
 
 type ErApiResponse = {

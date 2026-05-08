@@ -5,7 +5,7 @@ import {
   formatMoney,
   getDefaultTariff,
 } from "@/lib/tuya/energy";
-import { formatUsd, getRatesToUsd, toUsd } from "@/lib/fx";
+import { formatUsd, getRatesToUsd, prewarmFx, toUsd } from "@/lib/fx";
 import {
   getConsumptionSince,
   startOfDaysAgoIso,
@@ -36,13 +36,23 @@ type DeviceRow = {
 export async function buildConsumptionReport(opts?: {
   propertyFilter?: string | null;
 }): Promise<string> {
+  console.time("[consumo] total");
   const admin = createAdminClient();
+
+  // Fire FX in parallel with the DB queries — we don't yet know which
+  // currencies are in `visible`, but we pre-fetch the common set (USD +
+  // ARS + UYU). When `getRatesToUsd` is called below it'll mostly hit the
+  // in-memory cache. Saves ~500ms-1s on warm instances.
+  const fxPrefetch = getRatesToUsd(["USD", "ARS", "UYU"]);
+
+  console.time("[consumo] db.properties+devices");
   const [propsRes, devicesRes] = await Promise.all([
     admin.from("properties").select("id, name, currency, tariff_per_kwh"),
     admin
       .from("property_devices")
       .select("id, property_id, device_kind, is_primary"),
   ]);
+  console.timeEnd("[consumo] db.properties+devices");
   const properties = (propsRes.data ?? []) as PropertyRow[];
   const devices = (devicesRes.data ?? []) as DeviceRow[];
 
@@ -52,69 +62,84 @@ export async function buildConsumptionReport(opts?: {
     : properties;
 
   if (visible.length === 0) {
+    console.timeEnd("[consumo] total");
     if (filter) {
       return `No encontré una propiedad que coincida con "${opts?.propertyFilter}". Probá sin filtro o con otro nombre.`;
     }
     return "No hay propiedades cargadas todavía.";
   }
 
-  // FX rates for all currencies present.
-  const fxRates = await getRatesToUsd(
-    visible.map((p) => p.currency).concat(["USD"]),
-  );
   const defaultTariff = getDefaultTariff();
   const todayIso = startOfTodayIso();
   const sevenDaysAgoIso = startOfDaysAgoIso(7);
 
-  type PerProperty = {
+  type PerPropertyRaw = {
     name: string;
     currency: string;
     tariff: number;
     today_kwh: number;
     week_kwh: number;
-    today_local: number;
-    week_local: number;
-    today_usd: number;
-    week_usd: number;
   };
 
-  const perProperty: PerProperty[] = await Promise.all(
-    visible.map(async (p) => {
-      // Aggregate consumption across all devices in this property (typically
-      // there's just one circuit breaker but be defensive).
-      const propertyDevices = devices.filter((d) => d.property_id === p.id);
-      let today_kwh = 0;
-      let week_kwh = 0;
-      for (const d of propertyDevices) {
-        const [today, week] = await Promise.all([
-          getConsumptionSince(d.id, todayIso),
-          getConsumptionSince(d.id, sevenDaysAgoIso),
-        ]);
-        if (today.delta_kwh != null) today_kwh += today.delta_kwh;
-        if (week.delta_kwh != null) week_kwh += week.delta_kwh;
-      }
-      const tariff =
-        p.tariff_per_kwh && p.tariff_per_kwh > 0
-          ? Number(p.tariff_per_kwh)
-          : defaultTariff;
-      const fx = fxRates.get(p.currency);
-      const today_local = today_kwh * tariff;
-      const week_local = week_kwh * tariff;
-      const today_usd = toUsd(today_local, fx) ?? 0;
-      const week_usd = toUsd(week_local, fx) ?? 0;
-      return {
-        name: p.name,
-        currency: p.currency,
-        tariff,
-        today_kwh,
-        week_kwh,
-        today_local,
-        week_local,
-        today_usd,
-        week_usd,
-      };
-    }),
-  );
+  // Run the FX fetch and the per-property consumption queries CONCURRENTLY
+  // — they don't depend on each other. Saves ~500ms-1s vs the sequential
+  // version, especially on warm instances where DB queries dominate.
+  console.time("[consumo] fx + per-property (parallel)");
+  const [fxRates, perPropertyRaw] = await Promise.all([
+    (async () => {
+      await fxPrefetch;
+      return getRatesToUsd(
+        visible.map((p) => p.currency).concat(["USD"]),
+      );
+    })(),
+    Promise.all(
+      visible.map(async (p): Promise<PerPropertyRaw> => {
+        // Aggregate consumption across all devices in this property
+        // (typically just one circuit breaker, but be defensive).
+        const propertyDevices = devices.filter((d) => d.property_id === p.id);
+        let today_kwh = 0;
+        let week_kwh = 0;
+        for (const d of propertyDevices) {
+          const [today, week] = await Promise.all([
+            getConsumptionSince(d.id, todayIso),
+            getConsumptionSince(d.id, sevenDaysAgoIso),
+          ]);
+          if (today.delta_kwh != null) today_kwh += today.delta_kwh;
+          if (week.delta_kwh != null) week_kwh += week.delta_kwh;
+        }
+        const tariff =
+          p.tariff_per_kwh && p.tariff_per_kwh > 0
+            ? Number(p.tariff_per_kwh)
+            : defaultTariff;
+        return {
+          name: p.name,
+          currency: p.currency,
+          tariff,
+          today_kwh,
+          week_kwh,
+        };
+      }),
+    ),
+  ]);
+  console.timeEnd("[consumo] fx + per-property (parallel)");
+  // Kick off the next request's FX prewarm — cheap if cache is hot.
+  prewarmFx();
+
+  // Apply tariff + FX conversion (CPU-only, fast).
+  const perProperty = perPropertyRaw.map((p) => {
+    const fx = fxRates.get(p.currency);
+    const today_local = p.today_kwh * p.tariff;
+    const week_local = p.week_kwh * p.tariff;
+    const today_usd = toUsd(today_local, fx) ?? 0;
+    const week_usd = toUsd(week_local, fx) ?? 0;
+    return {
+      ...p,
+      today_local,
+      week_local,
+      today_usd,
+      week_usd,
+    };
+  });
 
   // Build the message.
   const lines: string[] = [];
@@ -173,5 +198,6 @@ export async function buildConsumptionReport(opts?: {
     lines.push(`_Cambio del día: 1 USD ≈ ${parts.join(" · ")}_`);
   }
 
+  console.timeEnd("[consumo] total");
   return lines.join("\n").trim();
 }
