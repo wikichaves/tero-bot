@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireProfile } from "@/lib/auth";
+import { notifyTaskStatusChanged } from "@/lib/whatsapp/notify";
 
 const STATUSES = ["pending", "in_progress", "done"] as const;
 const KINDS = ["limpieza", "mantenimiento", "insumos", "otro"] as const;
@@ -47,6 +48,11 @@ export async function markOwnTaskStatus(input: {
   revalidatePath("/mis-tareas");
   // Also revalidate /tasks for admin/gestor seeing the global list.
   revalidatePath("/tasks");
+
+  // Best-effort notify the reporter (skipped if reporter == self, which is
+  // the common case for staff completing their own self-reported tasks).
+  await notifyTaskStatusChanged(parsed.data.id, parsed.data.status, profile.id);
+
   return { ok: true };
 }
 

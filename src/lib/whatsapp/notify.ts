@@ -23,9 +23,18 @@ type TaskRow = {
   title: string;
   description: string | null;
   kind: "limpieza" | "mantenimiento" | "insumos" | "otro";
+  status: "pending" | "in_progress" | "done";
   due_date: string | null;
+  reported_by: string | null;
+  assigned_to: string | null;
   property: { name: string } | null;
   assignee: {
+    id: string;
+    full_name: string | null;
+    email: string;
+    whatsapp: string | null;
+  } | null;
+  reporter: {
     id: string;
     full_name: string | null;
     email: string;
@@ -85,7 +94,7 @@ export async function notifyTaskAssigned(taskId: string): Promise<void> {
     const { data: task, error } = await admin
       .from("tasks")
       .select(
-        "id, title, description, kind, due_date, property:properties(name), assignee:profiles!tasks_assigned_to_fkey(id, full_name, email, whatsapp)",
+        "id, title, description, kind, status, due_date, reported_by, assigned_to, property:properties(name), assignee:profiles!tasks_assigned_to_fkey(id, full_name, email, whatsapp), reporter:profiles!tasks_reported_by_fkey(id, full_name, email, whatsapp)",
       )
       .eq("id", taskId)
       .single<TaskRow>();
@@ -146,5 +155,121 @@ export async function notifyTaskAssigned(taskId: string): Promise<void> {
   } catch (err) {
     // Catch-all: notifications never throw to the caller.
     console.error("[notifyTaskAssigned] unexpected error", err);
+  }
+}
+
+const STATUS_VERB: Record<TaskRow["status"], string> = {
+  pending: "reabierta",
+  in_progress: "en curso",
+  done: "marcada como hecha",
+};
+
+const STATUS_EMOJI: Record<TaskRow["status"], string> = {
+  pending: "🔄",
+  in_progress: "▶️",
+  done: "✅",
+};
+
+function buildStatusChangedMessage(t: TaskRow): string {
+  const name = t.reporter?.full_name?.split(" ")[0] ?? null;
+  const greeting = name ? `Hola ${name}, ` : "";
+  const propertyLine = t.property?.name ? `\n🏠 ${t.property.name}` : "";
+  return (
+    `${STATUS_EMOJI[t.status]} *${greeting}una tarea que reportaste fue ${STATUS_VERB[t.status]}*\n\n` +
+    `*${t.title}*\n` +
+    `🔧 ${KIND_LABEL[t.kind]}` +
+    propertyLine +
+    `\n\n_Detalle: admin.example.com/tasks_`
+  );
+}
+
+/**
+ * Notify the *reporter* of a task that its status changed. Useful when
+ * someone reports a problem via WhatsApp/photo and an admin/gestor
+ * triages it — they get a heads-up that their report is being addressed.
+ *
+ * Skipped when:
+ *  - The reporter is the same person who triggered the change (no
+ *    self-notifications).
+ *  - The reporter has no whatsapp configured.
+ *  - The reporter is also the assignee (they're already getting notified
+ *    via /mis-tareas in real time).
+ *  - The new status is `pending` (reopening — usually internal noise).
+ */
+export async function notifyTaskStatusChanged(
+  taskId: string,
+  newStatus: TaskRow["status"],
+  changedByProfileId: string | null,
+): Promise<void> {
+  try {
+    if (newStatus === "pending") return;
+
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    if (!phoneNumberId) return;
+    const apiKey = process.env.KAPSO_API_KEY;
+    if (!apiKey) return;
+
+    const admin = createAdminClient();
+    const { data: task, error } = await admin
+      .from("tasks")
+      .select(
+        "id, title, description, kind, status, due_date, reported_by, assigned_to, property:properties(name), assignee:profiles!tasks_assigned_to_fkey(id, full_name, email, whatsapp), reporter:profiles!tasks_reported_by_fkey(id, full_name, email, whatsapp)",
+      )
+      .eq("id", taskId)
+      .single<TaskRow>();
+    if (error || !task) {
+      console.warn(
+        "[notifyTaskStatusChanged] task lookup failed",
+        error?.message,
+      );
+      return;
+    }
+
+    const reporter = task.reporter;
+    if (!reporter || !reporter.whatsapp) return;
+    if (changedByProfileId && reporter.id === changedByProfileId) return;
+    // Reporter == assignee → they already see updates in /mis-tareas.
+    if (task.assigned_to && reporter.id === task.assigned_to) return;
+
+    const peer = reporter.whatsapp;
+    const text = buildStatusChangedMessage(task);
+
+    const { id: conversationId } = await upsertConversation({
+      phone_number: peer,
+      display_name: reporter.full_name,
+    });
+
+    try {
+      const { messageId } = await sendKapsoText(phoneNumberId, peer, text);
+      await persistMessage({
+        conversation_id: conversationId,
+        external_id: messageId ?? null,
+        direction: "outbound",
+        type: "text",
+        body: text,
+        status: "sent",
+      });
+      console.log(
+        `[notifyTaskStatusChanged] sent task=${taskId} to=${peer} status=${newStatus}`,
+      );
+    } catch (sendErr) {
+      const reason = (sendErr as Error).message;
+      console.warn(
+        `[notifyTaskStatusChanged] send failed task=${taskId} to=${peer}: ${reason}`,
+      );
+      try {
+        await persistMessage({
+          conversation_id: conversationId,
+          direction: "outbound",
+          type: "text",
+          body: text,
+          status: "failed",
+        });
+      } catch {
+        // ignore — best effort
+      }
+    }
+  } catch (err) {
+    console.error("[notifyTaskStatusChanged] unexpected error", err);
   }
 }

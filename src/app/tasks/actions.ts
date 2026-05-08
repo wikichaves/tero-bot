@@ -5,7 +5,10 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
-import { notifyTaskAssigned } from "@/lib/whatsapp/notify";
+import {
+  notifyTaskAssigned,
+  notifyTaskStatusChanged,
+} from "@/lib/whatsapp/notify";
 
 const KINDS = ["limpieza", "mantenimiento", "insumos", "otro"] as const;
 const STATUSES = ["pending", "in_progress", "done"] as const;
@@ -106,7 +109,7 @@ export async function updateTask(input: {
   assigned_to?: string;
   due_date?: string;
 }) {
-  await requireRole(["admin", "gestor"]);
+  const profile = await requireRole(["admin", "gestor"]);
   const parsed = updateSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
@@ -125,16 +128,21 @@ export async function updateTask(input: {
   if (parsed.data.due_date !== undefined)
     patch.due_date = parsed.data.due_date;
 
-  // If we're (re)assigning, fetch the previous assignee first so we only
-  // notify on actual changes (not on every status flip).
+  // If we're (re)assigning or changing status, peek at the current row so
+  // we can compare and only notify on actual transitions (not on every save).
   let previousAssignedTo: string | null | undefined;
-  if (parsed.data.assigned_to !== undefined) {
+  let previousStatus: "pending" | "in_progress" | "done" | undefined;
+  if (
+    parsed.data.assigned_to !== undefined ||
+    parsed.data.status !== undefined
+  ) {
     const { data: existing } = await supabase
       .from("tasks")
-      .select("assigned_to")
+      .select("assigned_to, status")
       .eq("id", parsed.data.id)
       .maybeSingle();
     previousAssignedTo = existing?.assigned_to ?? null;
+    previousStatus = existing?.status as typeof previousStatus;
   }
 
   const { error } = await supabase
@@ -150,6 +158,18 @@ export async function updateTask(input: {
     parsed.data.assigned_to !== previousAssignedTo
   ) {
     await notifyTaskAssigned(parsed.data.id);
+  }
+
+  // Notify the reporter on real status changes (not on every save).
+  if (
+    parsed.data.status &&
+    parsed.data.status !== previousStatus
+  ) {
+    await notifyTaskStatusChanged(
+      parsed.data.id,
+      parsed.data.status,
+      profile.id,
+    );
   }
 
   return { ok: true };
