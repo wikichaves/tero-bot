@@ -21,7 +21,9 @@ const HELP_TEXT_FULL = `🌲 *Acme Rentals · Comandos*
 
 📋 *Tareas*
 • \`tareas\` — tus tareas pendientes
-• \`mis tareas\` — igual
+• \`tarea <descripción>\` — crear una tarea nueva
+   _ej:_ \`tarea casa bosque se rompió la canilla del baño\`
+• 📸 mandá una *foto* (con o sin caption) → crea tarea automática
 
 ❓ *Ayuda*
 • \`ayuda\` — esta lista
@@ -32,7 +34,9 @@ const HELP_TEXT_STAFF = `🌲 *Acme Rentals · Comandos*
 
 📋 *Tareas*
 • \`tareas\` — tus tareas pendientes
-• \`mis tareas\` — igual
+• \`tarea <descripción>\` — crear una tarea (te queda asignada)
+   _ej:_ \`tarea se rompió la canilla del baño\`
+• 📸 mandá una *foto* → crea tarea automática
 
 ❓ *Ayuda*
 • \`ayuda\` — esta lista`;

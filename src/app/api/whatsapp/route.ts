@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import {
+  normalizePhone,
   persistMessage,
   sendKapsoText,
   upsertConversation,
 } from "@/lib/whatsapp";
 import { parseCommand, runCommand } from "@/lib/whatsapp/commands";
+import {
+  createTaskFromWhatsApp,
+  looksLikeCreateTaskCommand,
+} from "@/lib/whatsapp/create-task";
+import { createAdminClient } from "@/lib/supabase/admin";
+import type { Profile } from "@/lib/types";
 
 /**
  * Webhook receiver for Kapso (BSP wrapper around Meta WhatsApp Cloud API).
@@ -179,18 +186,80 @@ async function sendAndPersist(opts: {
   });
 }
 
+/**
+ * Look up a profile by WA phone number using the admin client. Used to
+ * authenticate task-creation requests before we accept them.
+ */
+async function lookupProfileByPhone(phone: string): Promise<Profile | null> {
+  const normalized = normalizePhone(phone);
+  if (!normalized) return null;
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("profiles")
+    .select("*")
+    .eq("whatsapp", normalized)
+    .maybeSingle();
+  return (data as Profile) ?? null;
+}
+
 async function autoReply(opts: {
   phoneNumberId: string;
   peer: string;
   conversationId: string;
   audience: "guest" | "staff" | "unknown";
   displayName: string | null;
+  messageType: string;
   messageBody: string | null;
+  mediaUrl: string | null;
 }) {
   if (!isAutoReplyEnabled()) return;
 
-  // First: try to handle as a command (works for admin/gestor only — the
-  // command runner enforces auth via profile lookup).
+  // 1) Photo from a registered profile → auto-create a task
+  // 2) Text starting with `tarea …` from a registered profile → create task
+  // (We look up the profile once and reuse it.)
+  const wantsCreate =
+    opts.messageType === "image" ||
+    looksLikeCreateTaskCommand(opts.messageBody);
+  if (wantsCreate) {
+    const profile = await lookupProfileByPhone(opts.peer);
+    if (profile) {
+      try {
+        const result = await createTaskFromWhatsApp({
+          profile,
+          text: opts.messageBody,
+          mediaUrl: opts.mediaUrl,
+        });
+        await sendAndPersist({
+          phoneNumberId: opts.phoneNumberId,
+          peer: opts.peer,
+          conversationId: opts.conversationId,
+          text: result.reply,
+        });
+        return;
+      } catch (err) {
+        console.error("[kapso create-task] error", err);
+        // Fall through to default reply if creation crashed unexpectedly.
+      }
+    } else if (opts.messageType === "image") {
+      // Photo from an unknown sender — don't auto-create. Fall through to
+      // the default guest/unknown auto-reply below.
+    } else {
+      // Text-based create attempt from an unknown sender → tell them.
+      const normalized = normalizePhone(opts.peer) ?? opts.peer;
+      await sendAndPersist({
+        phoneNumberId: opts.phoneNumberId,
+        peer: opts.peer,
+        conversationId: opts.conversationId,
+        text:
+          `🔒 Tu número (\`${normalized}\`) no está vinculado a ningún ` +
+          `usuario, así que no puedo crear la tarea. Pedile a un admin ` +
+          `que te cargue el número en tu perfil.`,
+      });
+      return;
+    }
+  }
+
+  // Try to handle as a regular command (consumo, tareas, ayuda).
   const command = parseCommand(opts.messageBody);
   if (command) {
     try {
@@ -274,35 +343,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
-  // Process events; collect inbound text events so we can auto-reply once
-  // the persistence is committed.
+  // Process events; collect inbound text + image events so we can auto-reply
+  // once the persistence is committed. Images get the create-task flow when
+  // the sender is a known profile; text gets command/auto-reply handling.
   const replyTargets: Array<{
     phoneNumberId: string;
     peer: string;
     conversationId: string;
     audience: "guest" | "staff" | "unknown";
     displayName: string | null;
+    messageType: string;
     messageBody: string | null;
+    mediaUrl: string | null;
   }> = [];
 
   await Promise.allSettled(
     body.data.map(async (event) => {
       try {
         const result = await processEvent(event, meta.event);
-        if (
-          result &&
-          result.message?.type === "text" &&
-          result.phoneNumberId
-        ) {
-          replyTargets.push({
-            phoneNumberId: result.phoneNumberId,
-            peer: result.peer,
-            conversationId: result.conversationId,
-            audience: result.audience,
-            displayName: result.displayName,
-            messageBody: extractBody(result.message),
-          });
-        }
+        if (!result || !result.phoneNumberId) return;
+        const messageType = result.message?.type ?? "text";
+        if (messageType !== "text" && messageType !== "image") return;
+        replyTargets.push({
+          phoneNumberId: result.phoneNumberId,
+          peer: result.peer,
+          conversationId: result.conversationId,
+          audience: result.audience,
+          displayName: result.displayName,
+          messageType,
+          messageBody: result.message ? extractBody(result.message) : null,
+          mediaUrl: result.message ? extractMediaUrl(result.message) : null,
+        });
       } catch (err) {
         console.error("[kapso webhook] processEvent error", err);
       }
