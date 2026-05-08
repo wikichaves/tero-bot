@@ -252,6 +252,43 @@ export async function markConversationRead(conversationId: string) {
 }
 
 /**
+ * Mark an inbound WhatsApp message as read AND show "escribiendo…" until
+ * we send the actual reply (or ~25s timeout). Uses Meta's typing-indicator
+ * extension (available in WhatsApp Cloud API since late 2024) which Kapso
+ * passes through.
+ *
+ * Best-effort: if Kapso/Meta rejects the field, the call still marks the
+ * message read and we continue. Errors are caught and logged by the caller.
+ */
+export async function sendTypingIndicator(
+  phoneNumberId: string,
+  incomingMessageId: string,
+): Promise<void> {
+  const apiKey = process.env.KAPSO_API_KEY;
+  if (!apiKey) throw new Error("KAPSO_API_KEY is not set.");
+  const url = `${KAPSO_BASE}/${phoneNumberId}/messages`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "X-API-Key": apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      status: "read",
+      message_id: incomingMessageId,
+      typing_indicator: { type: "text" },
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `Typing indicator failed: HTTP ${res.status} ${text.slice(0, 200)}`,
+    );
+  }
+}
+
+/**
  * Send a free-form text message via Kapso. Only valid within the 24-hour
  * customer-service window after the user's last inbound message — outside
  * that window, WhatsApp requires a pre-approved template.

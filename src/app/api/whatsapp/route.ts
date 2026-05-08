@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import {
   normalizePhone,
   persistMessage,
   sendKapsoText,
+  sendTypingIndicator,
   upsertConversation,
 } from "@/lib/whatsapp";
 import { parseCommand, runCommand } from "@/lib/whatsapp/commands";
@@ -130,7 +131,19 @@ async function processEvent(event: KapsoEvent, eventType: string | null) {
       phone_number: peer,
       display_name: displayName,
     });
-    await persistMessage({
+    // Fire the typing indicator concurrently with the persist — best-effort
+    // (Meta added the typing_indicator field in late 2024; Kapso may or
+    // may not pass it through). Fire for both text and image since both
+    // trigger reply work; skip for unsupported types.
+    const typingTriggers =
+      message.type === "text" || message.type === "image";
+    const typingPromise =
+      message.id && phoneNumberId && typingTriggers
+        ? sendTypingIndicator(phoneNumberId, message.id).catch((err) => {
+            console.warn("[kapso typing] failed", err);
+          })
+        : Promise.resolve();
+    const persistPromise = persistMessage({
       conversation_id: conversationId,
       external_id: message.id ?? null,
       direction: "inbound",
@@ -139,6 +152,7 @@ async function processEvent(event: KapsoEvent, eventType: string | null) {
       media_url: extractMediaUrl(message),
       raw: event,
     });
+    await Promise.all([typingPromise, persistPromise]);
     return {
       conversationId,
       peer,
@@ -380,8 +394,17 @@ export async function POST(req: NextRequest) {
     }),
   );
 
-  // Fire-and-forget auto-replies.
-  await Promise.allSettled(replyTargets.map(autoReply));
+  // Fire-and-forget auto-replies via after(): the webhook responds 200 to
+  // Kapso immediately, then the slow work (DB lookups + Kapso send) happens
+  // in the background. The user has already seen "escribiendo…" by now via
+  // the typing indicator we sent during processEvent.
+  if (replyTargets.length > 0) {
+    after(async () => {
+      console.time("[kapso] autoReply batch");
+      await Promise.allSettled(replyTargets.map(autoReply));
+      console.timeEnd("[kapso] autoReply batch");
+    });
+  }
 
   return NextResponse.json({ ok: true }, { status: 200 });
 }

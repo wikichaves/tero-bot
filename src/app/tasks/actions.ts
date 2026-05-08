@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -67,10 +68,11 @@ export async function createTask(input: {
   revalidatePath("/tasks");
 
   // Best-effort WhatsApp notification if the task was created already
-  // assigned to someone with whatsapp configured. notifyTaskAssigned never
-  // throws — it logs and continues.
+  // assigned to someone with whatsapp configured. Runs via after() so the
+  // UI gets the success response immediately — the WA send happens in the
+  // background. notifyTaskAssigned never throws.
   if (parsed.data.assigned_to && inserted?.id) {
-    await notifyTaskAssigned(inserted.id);
+    after(() => notifyTaskAssigned(inserted.id));
   }
 
   return { ok: true };
@@ -152,24 +154,23 @@ export async function updateTask(input: {
   if (error) return { error: error.message };
   revalidatePath("/tasks");
 
-  // Notify if the assignee changed to a non-null value.
+  // Notify (fire-and-forget via after()) — the action returns immediately
+  // and the WA sends happen in the background after the response.
   if (
     parsed.data.assigned_to &&
     parsed.data.assigned_to !== previousAssignedTo
   ) {
-    await notifyTaskAssigned(parsed.data.id);
+    const taskId = parsed.data.id;
+    after(() => notifyTaskAssigned(taskId));
   }
-
-  // Notify the reporter on real status changes (not on every save).
   if (
     parsed.data.status &&
     parsed.data.status !== previousStatus
   ) {
-    await notifyTaskStatusChanged(
-      parsed.data.id,
-      parsed.data.status,
-      profile.id,
-    );
+    const taskId = parsed.data.id;
+    const newStatus = parsed.data.status;
+    const changerId = profile.id;
+    after(() => notifyTaskStatusChanged(taskId, newStatus, changerId));
   }
 
   return { ok: true };

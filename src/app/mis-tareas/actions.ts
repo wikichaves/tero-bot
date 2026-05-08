@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -51,7 +52,11 @@ export async function markOwnTaskStatus(input: {
 
   // Best-effort notify the reporter (skipped if reporter == self, which is
   // the common case for staff completing their own self-reported tasks).
-  await notifyTaskStatusChanged(parsed.data.id, parsed.data.status, profile.id);
+  // Runs via after() so the UI gets immediate feedback.
+  const taskId = parsed.data.id;
+  const newStatus = parsed.data.status;
+  const changerId = profile.id;
+  after(() => notifyTaskStatusChanged(taskId, newStatus, changerId));
 
   return { ok: true };
 }
