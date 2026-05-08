@@ -16,7 +16,7 @@ export default function LoginPage() {
       </div>
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Acme Rentals</CardTitle>
+          <CardTitle>Admin</CardTitle>
           <CardDescription>Iniciar sesión en el panel.</CardDescription>
         </CardHeader>
         <CardContent>

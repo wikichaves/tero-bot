@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { PropertyThumb } from "@/components/property-thumb";
 import { NewPropertyDialog } from "./property-form-dialog";
 import { PropertyActions } from "./property-actions";
 import type { Property } from "@/lib/types";
@@ -72,7 +73,17 @@ export default async function PropertiesPage() {
               ) : (
                 properties.map((p) => (
                   <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-3">
+                        <PropertyThumb
+                          propertyId={p.id}
+                          cacheBuster={p.created_at}
+                          size="sm"
+                          alt={p.name}
+                        />
+                        <span>{p.name}</span>
+                      </div>
+                    </TableCell>
                     <TableCell>
                       {p.airbnb_ical_url ? (
                         <Badge variant="default">configurada</Badge>

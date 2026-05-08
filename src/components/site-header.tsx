@@ -152,8 +152,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
         </DropdownMenu>
 
         <Link href={homeHref} className="shrink-0 font-semibold">
-          <span className="sm:hidden">Casa Bosque</span>
-          <span className="hidden sm:inline">Acme Rentals</span>
+          Admin
         </Link>
 
         {/* Desktop inline nav — hidden on mobile in favor of the dropdown. */}

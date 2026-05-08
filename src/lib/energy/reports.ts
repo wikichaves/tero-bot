@@ -257,7 +257,7 @@ export async function buildConsumptionReport(opts?: {
   if (arsRate || uyuRate) {
     const parts: string[] = [];
     if (uyuRate) parts.push(`UYU ${uyuRate.toFixed(2)}`);
-    if (arsRate) parts.push(`ARS ${arsRate.toFixed(0)} (blue)`);
+    if (arsRate) parts.push(`ARS ${arsRate.toFixed(0)}`);
     lines.push(`_Cambio del día: 1 USD ≈ ${parts.join(" · ")}_`);
   }
 

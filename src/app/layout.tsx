@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Acme Rentals — Admin",
+  title: "Admin",
   description: "Panel de administración de Acme Rentals.",
 };
 

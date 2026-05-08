@@ -4,8 +4,10 @@ import "server-only";
  * FX rate fetcher — converts local currency amounts to USD.
  *
  * Strategy:
- *   - ARS uses the "dolar blue" rate from dolarapi.com (more realistic for
- *     residents/owners than the official rate, which is artificial).
+ *   - ARS uses the "mayorista" (wholesale interbank) rate from dolarapi.com,
+ *     mid (compra+venta)/2. This matches what Google and most consumer apps
+ *     show as "the" rate. Blue/MEP/oficial all diverge by 1-15% but mayorista
+ *     is the most universally-referenced number.
  *   - Other currencies use open.er-api.com which provides a free public
  *     daily-updated rate against USD with no API key.
  *
@@ -29,15 +31,17 @@ const REVALIDATE_SECONDS = 60 * 60; // 1 hour
 // supposed to handle this too, but in serverless practice it's flaky across
 // invocations — keeping our own Map gives us a guaranteed second-hit speed
 // boost while a single function instance is warm.
-let cachedArsBlue: FxRate | null = null;
-let cachedArsBlueAt = 0;
+let cachedArs: FxRate | null = null;
+let cachedArsAt = 0;
 
-async function fetchArsBlue(): Promise<FxRate | null> {
-  if (cachedArsBlue && Date.now() - cachedArsBlueAt < REVALIDATE_SECONDS * 1000) {
-    return cachedArsBlue;
+async function fetchArs(): Promise<FxRate | null> {
+  if (cachedArs && Date.now() - cachedArsAt < REVALIDATE_SECONDS * 1000) {
+    return cachedArs;
   }
   try {
-    const res = await fetch("https://dolarapi.com/v1/dolares/blue", {
+    // mayorista is the wholesale interbank rate — the number Google shows
+    // and the closest thing to "the" exchange rate for ARS.
+    const res = await fetch("https://dolarapi.com/v1/dolares/mayorista", {
       next: { revalidate: REVALIDATE_SECONDS },
     });
     if (!res.ok) return null;
@@ -46,15 +50,24 @@ async function fetchArsBlue(): Promise<FxRate | null> {
       compra?: number;
       fechaActualizacion?: string;
     };
-    if (typeof data.venta !== "number" || data.venta <= 0) return null;
+    if (
+      typeof data.venta !== "number" ||
+      typeof data.compra !== "number" ||
+      data.venta <= 0 ||
+      data.compra <= 0
+    ) {
+      return null;
+    }
+    // Use the mid rate (compra+venta)/2 — most neutral / closest to mid-market.
+    const mid = (data.compra + data.venta) / 2;
     const rate: FxRate = {
       currency: "ARS",
-      per_usd: data.venta,
-      source: "dolarapi.com (blue, venta)",
+      per_usd: mid,
+      source: "dolarapi.com (mayorista, mid)",
       timestamp: data.fechaActualizacion ?? new Date().toISOString(),
     };
-    cachedArsBlue = rate;
-    cachedArsBlueAt = Date.now();
+    cachedArs = rate;
+    cachedArsAt = Date.now();
     return rate;
   } catch {
     return null;
@@ -114,9 +127,9 @@ export async function getRateToUsd(currency: string): Promise<FxRate | null> {
   }
 
   if (code === "ARS") {
-    const blue = await fetchArsBlue();
-    if (blue) return blue;
-    // Fall through to open.er-api if blue API fails.
+    const ars = await fetchArs();
+    if (ars) return ars;
+    // Fall through to open.er-api if dolarapi is unreachable.
   }
 
   const general = await fetchErApi();

@@ -14,8 +14,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { PropertyThumb } from "@/components/property-thumb";
 import type { Property } from "@/lib/types";
-import { upsertProperty } from "./actions";
+import { upsertProperty, uploadPropertyThumbnail } from "./actions";
 
 export function NewPropertyDialog() {
   const [open, setOpen] = useState(false);
@@ -73,6 +74,10 @@ function PropertyForm({
   const [tariff, setTariff] = useState<string>(
     property?.tariff_per_kwh != null ? String(property.tariff_per_kwh) : "",
   );
+  const [thumbFile, setThumbFile] = useState<File | null>(null);
+  // Bumps when the user picks a new file → forces <PropertyThumb> to re-fetch
+  // so the local preview shows the new image after upload.
+  const [thumbVersion, setThumbVersion] = useState(0);
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -90,9 +95,24 @@ function PropertyForm({
         currency: currency.toUpperCase(),
         tariff_per_kwh: tariffNum,
       });
-      if (result?.error) {
-        toast.error(result.error);
+      if (result?.error || !result.ok) {
+        toast.error(result?.error ?? "No se pudo guardar.");
         return;
+      }
+      // Upload thumbnail (best-effort) if one was picked.
+      if (thumbFile && result.id) {
+        const fd = new FormData();
+        fd.append("property_id", result.id);
+        fd.append("file", thumbFile);
+        const upRes = await uploadPropertyThumbnail(fd);
+        if (upRes?.error) {
+          toast.warning(
+            `Propiedad guardada, pero la foto falló: ${upRes.error}`,
+          );
+          onDone();
+          return;
+        }
+        setThumbVersion((v) => v + 1);
       }
       toast.success(property ? "Propiedad actualizada." : "Propiedad creada.");
       onDone();
@@ -111,6 +131,33 @@ function PropertyForm({
         </DialogDescription>
       </DialogHeader>
       <div className="grid gap-4 py-4">
+        <div className="flex items-center gap-3">
+          {property?.id ? (
+            <PropertyThumb
+              propertyId={property.id}
+              cacheBuster={String(thumbVersion)}
+              size="md"
+              alt={name}
+            />
+          ) : (
+            <div className="h-14 w-14 shrink-0 rounded-md bg-muted" />
+          )}
+          <div className="flex-1">
+            <Label htmlFor="thumb">Foto de portada</Label>
+            <Input
+              id="thumb"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(e) =>
+                setThumbFile(e.target.files?.[0] ?? null)
+              }
+              className="mt-1 cursor-pointer"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              JPG, PNG o WebP. Hasta 5 MB. Se sube al guardar.
+            </p>
+          </div>
+        </div>
         <div className="grid gap-2">
           <Label htmlFor="name">Nombre</Label>
           <Input

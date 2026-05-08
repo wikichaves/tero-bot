@@ -54,15 +54,106 @@ export async function upsertProperty(input: {
     currency: parsed.data.currency,
     tariff_per_kwh: parsed.data.tariff_per_kwh ?? null,
   };
+  let id: string | null = null;
   if (parsed.data.id) {
     const { error } = await supabase
       .from("properties")
       .update(payload)
       .eq("id", parsed.data.id);
     if (error) return { error: error.message };
+    id = parsed.data.id;
   } else {
-    const { error } = await supabase.from("properties").insert(payload);
+    const { data, error } = await supabase
+      .from("properties")
+      .insert(payload)
+      .select("id")
+      .single();
     if (error) return { error: error.message };
+    id = data?.id ?? null;
+  }
+  revalidatePath("/admin/properties");
+  revalidatePath("/dashboard");
+  return { ok: true, id };
+}
+
+const THUMBNAIL_BUCKET = "property-thumbnails";
+const MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024; // 5 MB
+
+/**
+ * Lazily create the public Supabase Storage bucket where property
+ * thumbnails live. Idempotent — does nothing if it already exists.
+ */
+async function ensureThumbnailBucket(
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<void> {
+  const { data: buckets, error } = await admin.storage.listBuckets();
+  if (error) throw new Error(`Storage listBuckets failed: ${error.message}`);
+  if (buckets?.some((b) => b.name === THUMBNAIL_BUCKET)) return;
+  const { error: createErr } = await admin.storage.createBucket(
+    THUMBNAIL_BUCKET,
+    {
+      public: true,
+      fileSizeLimit: MAX_THUMBNAIL_BYTES,
+      allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+    },
+  );
+  if (createErr) {
+    // Race: another concurrent call created it first — ignore.
+    if (!/already exists/i.test(createErr.message)) {
+      throw new Error(`Storage createBucket failed: ${createErr.message}`);
+    }
+  }
+}
+
+/**
+ * Upload (or replace) a property thumbnail. The file is stored in the
+ * public bucket under the property's id (no extension — content type lives
+ * in object metadata). The public URL is therefore predictable and can be
+ * rendered without a DB migration.
+ */
+export async function uploadPropertyThumbnail(formData: FormData) {
+  await requireRole(["admin"]);
+  const propertyId = String(formData.get("property_id") ?? "");
+  const file = formData.get("file");
+  if (!propertyId || !/^[0-9a-f-]{36}$/i.test(propertyId)) {
+    return { error: "ID de propiedad inválido." };
+  }
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "No se recibió ningún archivo." };
+  }
+  if (file.size > MAX_THUMBNAIL_BYTES) {
+    return { error: "La imagen supera los 5 MB." };
+  }
+  if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) {
+    return { error: "Formato no soportado. Usá JPG, PNG o WebP." };
+  }
+
+  const admin = createAdminClient();
+  await ensureThumbnailBucket(admin);
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const { error } = await admin.storage
+    .from(THUMBNAIL_BUCKET)
+    .upload(propertyId, buffer, {
+      upsert: true,
+      contentType: file.type,
+      cacheControl: "300", // 5 min cache; we bust by adding ?v=<ts> on save
+    });
+  if (error) {
+    return { error: `Subida falló: ${error.message}` };
+  }
+  revalidatePath("/admin/properties");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+export async function deletePropertyThumbnail(propertyId: string) {
+  await requireRole(["admin"]);
+  const admin = createAdminClient();
+  const { error } = await admin.storage
+    .from(THUMBNAIL_BUCKET)
+    .remove([propertyId]);
+  if (error && !/not.*found/i.test(error.message)) {
+    return { error: error.message };
   }
   revalidatePath("/admin/properties");
   revalidatePath("/dashboard");

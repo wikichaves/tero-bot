@@ -50,6 +50,8 @@ type TaskWithJoins = Task & {
   assignee: { id: string; full_name: string | null; email: string } | null;
 };
 
+type KindFilter = "all" | Task["kind"];
+
 export default async function TasksPage({
   searchParams,
 }: {
@@ -57,6 +59,7 @@ export default async function TasksPage({
     status?: string;
     property?: string;
     assignee?: string;
+    kind?: string;
   }>;
 }) {
   const profile = await requireRole(["admin", "gestor"]);
@@ -67,6 +70,11 @@ export default async function TasksPage({
   // assignee=<uuid> → only that user's tasks
   // assignee absent / "all" → no filter
   const assigneeFilter = params.assignee ?? null;
+  const kindFilter: KindFilter = (
+    ["limpieza", "mantenimiento", "insumos", "otro"] as const
+  ).includes(params.kind as Task["kind"])
+    ? (params.kind as Task["kind"])
+    : "all";
 
   const supabase = await createClient();
   let query = supabase
@@ -87,6 +95,9 @@ export default async function TasksPage({
     query = query.is("assigned_to", null);
   } else if (assigneeFilter) {
     query = query.eq("assigned_to", assigneeFilter);
+  }
+  if (kindFilter !== "all") {
+    query = query.eq("kind", kindFilter);
   }
 
   const [tasksRes, propertiesRes, assigneesRes] = await Promise.all([
@@ -149,6 +160,7 @@ export default async function TasksPage({
               status: null,
               property: propertyFilter,
               assignee: assigneeFilter,
+              kind: kindFilter === "all" ? null : kindFilter,
             })}
             label="Todas"
             active={statusFilter === "all"}
@@ -158,6 +170,7 @@ export default async function TasksPage({
               status: "pending",
               property: propertyFilter,
               assignee: assigneeFilter,
+              kind: kindFilter === "all" ? null : kindFilter,
             })}
             label="Pendientes"
             active={statusFilter === "pending"}
@@ -167,6 +180,7 @@ export default async function TasksPage({
               status: "in_progress",
               property: propertyFilter,
               assignee: assigneeFilter,
+              kind: kindFilter === "all" ? null : kindFilter,
             })}
             label="En curso"
             active={statusFilter === "in_progress"}
@@ -176,6 +190,7 @@ export default async function TasksPage({
               status: "done",
               property: propertyFilter,
               assignee: assigneeFilter,
+              kind: kindFilter === "all" ? null : kindFilter,
             })}
             label="Hechas"
             active={statusFilter === "done"}
@@ -190,6 +205,7 @@ export default async function TasksPage({
                     statusFilter === "all" ? null : statusFilter,
                   property: null,
                   assignee: assigneeFilter,
+                  kind: kindFilter === "all" ? null : kindFilter,
                 })}
                 className={`rounded-full px-3 py-1 ${propertyFilter ? "hover:bg-muted" : "bg-muted font-medium"}`}
               >
@@ -203,6 +219,7 @@ export default async function TasksPage({
                       statusFilter === "all" ? null : statusFilter,
                     property: p.id,
                     assignee: assigneeFilter,
+                    kind: kindFilter === "all" ? null : kindFilter,
                   })}
                   className={`rounded-full px-3 py-1 ${propertyFilter === p.id ? "bg-muted font-medium" : "hover:bg-muted"}`}
                 >
@@ -222,6 +239,7 @@ export default async function TasksPage({
                   statusFilter === "all" ? null : statusFilter,
                 property: propertyFilter,
                 assignee: null,
+                kind: kindFilter === "all" ? null : kindFilter,
               })}
               className={`rounded-full px-3 py-1 ${assigneeFilter ? "hover:bg-muted" : "bg-muted font-medium"}`}
             >
@@ -233,6 +251,7 @@ export default async function TasksPage({
                   statusFilter === "all" ? null : statusFilter,
                 property: propertyFilter,
                 assignee: "unassigned",
+                kind: kindFilter === "all" ? null : kindFilter,
               })}
               className={`rounded-full px-3 py-1 ${assigneeFilter === "unassigned" ? "bg-muted font-medium" : "hover:bg-muted"}`}
             >
@@ -246,6 +265,7 @@ export default async function TasksPage({
                     statusFilter === "all" ? null : statusFilter,
                   property: propertyFilter,
                   assignee: a.id,
+                  kind: kindFilter === "all" ? null : kindFilter,
                 })}
                 className={`rounded-full px-3 py-1 ${assigneeFilter === a.id ? "bg-muted font-medium" : "hover:bg-muted"}`}
               >
@@ -254,6 +274,39 @@ export default async function TasksPage({
             ))}
           </div>
         )}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-muted-foreground">Tipo:</span>
+          <Link
+            href={buildTasksUrl({
+              status:
+                statusFilter === "all" ? null : statusFilter,
+              property: propertyFilter,
+              assignee: assigneeFilter,
+              kind: null,
+            })}
+            className={`rounded-full px-3 py-1 ${kindFilter === "all" ? "bg-muted font-medium" : "hover:bg-muted"}`}
+          >
+            Todos
+          </Link>
+          {(["limpieza", "mantenimiento", "insumos", "otro"] as const).map(
+            (k) => (
+              <Link
+                key={k}
+                href={buildTasksUrl({
+                  status:
+                    statusFilter === "all" ? null : statusFilter,
+                  property: propertyFilter,
+                  assignee: assigneeFilter,
+                  kind: k,
+                })}
+                className={`rounded-full px-3 py-1 ${kindFilter === k ? "bg-muted font-medium" : "hover:bg-muted"}`}
+              >
+                {KIND_LABEL[k]}
+              </Link>
+            ),
+          )}
+        </div>
       </div>
 
       <Card>
@@ -441,11 +494,13 @@ function buildTasksUrl(filters: {
   status: StatusFilter | null;
   property: string | null;
   assignee: string | null;
+  kind: KindFilter | null;
 }): string {
   const params = new URLSearchParams();
   if (filters.status) params.set("status", filters.status);
   if (filters.property) params.set("property", filters.property);
   if (filters.assignee) params.set("assignee", filters.assignee);
+  if (filters.kind && filters.kind !== "all") params.set("kind", filters.kind);
   const qs = params.toString();
   return qs ? `/tasks?${qs}` : "/tasks";
 }

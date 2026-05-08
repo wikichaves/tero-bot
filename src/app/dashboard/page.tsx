@@ -2,6 +2,7 @@ import Link from "next/link";
 import { addDays, format, isSameDay, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/server";
+import { PropertyThumb } from "@/components/property-thumb";
 import {
   Card,
   CardContent,
@@ -24,7 +25,7 @@ import { ReservationRowActions } from "./reservation-row-actions";
 const HORIZON_DAYS = 14;
 
 type ReservationWithProperty = Reservation & {
-  property: { name: string } | null;
+  property: { id: string; name: string } | null;
 };
 
 type DashTask = Task & {
@@ -45,10 +46,11 @@ export default async function DashboardPage() {
   const horizon = addDays(today, HORIZON_DAYS);
   const todayIso = today.toISOString().slice(0, 10);
 
-  const [reservationsRes, tasksRes] = await Promise.all([
+  const [reservationsRes, tasksRes, insumosRes, mantenimientoRes] =
+    await Promise.all([
     supabase
       .from("reservations")
-      .select("*, property:properties(name)")
+      .select("*, property:properties(id, name)")
       .or(
         `and(check_in.gte.${todayIso},check_in.lte.${horizon.toISOString().slice(0, 10)}),and(check_out.gte.${todayIso},check_out.lte.${horizon.toISOString().slice(0, 10)})`,
       )
@@ -65,10 +67,33 @@ export default async function DashboardPage() {
       .order("due_date", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false })
       .limit(20),
+    // Insumos pendientes — separate widget so admins/gestores can see at a
+    // glance what supplies need to be bought across all properties.
+    supabase
+      .from("tasks")
+      .select(
+        "*, property:properties(name), assignee:profiles!tasks_assigned_to_fkey(full_name, email)",
+      )
+      .eq("kind", "insumos")
+      .in("status", ["pending", "in_progress"])
+      .order("created_at", { ascending: false })
+      .limit(10),
+    // Mantenimiento pendiente — same idea for repairs.
+    supabase
+      .from("tasks")
+      .select(
+        "*, property:properties(name), assignee:profiles!tasks_assigned_to_fkey(full_name, email)",
+      )
+      .eq("kind", "mantenimiento")
+      .in("status", ["pending", "in_progress"])
+      .order("created_at", { ascending: false })
+      .limit(10),
   ]);
 
   const { data, error } = reservationsRes;
   const tasks = (tasksRes.data ?? []) as DashTask[];
+  const insumos = (insumosRes.data ?? []) as DashTask[];
+  const mantenimiento = (mantenimientoRes.data ?? []) as DashTask[];
 
   const reservations = (data ?? []) as ReservationWithProperty[];
   const checkIns = reservations.filter((r) =>
@@ -119,7 +144,106 @@ export default async function DashboardPage() {
       </div>
 
       <TodayTasksCard tasks={tasks} todayIso={todayIso} />
+
+      {/* Reportes del staff: dos columnas — insumos a comprar +
+          mantenimiento pendiente. Alimentadas por las tareas que el
+          equipo crea por WhatsApp o desde la app (kind=insumos /
+          kind=mantenimiento). */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <KindTasksCard
+          title="Insumos a comprar"
+          description="Reportes de staff que necesitan reposición."
+          tasks={insumos}
+          emptyText="Sin insumos pendientes."
+          filterHref="/tasks?kind=insumos&status=pending"
+          todayIso={todayIso}
+        />
+        <KindTasksCard
+          title="Mantenimiento pendiente"
+          description="Reparaciones reportadas por el equipo."
+          tasks={mantenimiento}
+          emptyText="Sin mantenimiento pendiente. ✨"
+          filterHref="/tasks?kind=mantenimiento&status=pending"
+          todayIso={todayIso}
+        />
+      </div>
     </div>
+  );
+}
+
+function KindTasksCard({
+  title,
+  description,
+  tasks,
+  emptyText,
+  filterHref,
+  todayIso,
+}: {
+  title: string;
+  description: string;
+  tasks: DashTask[];
+  emptyText: string;
+  filterHref: string;
+  todayIso: string;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          <span>{title}</span>
+          <Link
+            href={filterHref}
+            className="text-sm font-normal text-muted-foreground hover:text-foreground"
+          >
+            Ver todas →
+          </Link>
+        </CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {tasks.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{emptyText}</p>
+        ) : (
+          <ul className="flex flex-col gap-2 text-sm">
+            {tasks.map((t) => {
+              const isOverdue = !!t.due_date && t.due_date < todayIso;
+              return (
+                <li
+                  key={t.id}
+                  className="flex items-start justify-between gap-3 border-b pb-2 last:border-0 last:pb-0"
+                >
+                  <div className="min-w-0 flex-1">
+                    <Link
+                      href={`/tasks/${t.id}`}
+                      className="font-medium hover:underline"
+                    >
+                      {t.title}
+                    </Link>
+                    <div className="text-xs text-muted-foreground">
+                      {t.property?.name ?? "—"}
+                      {t.assignee && (
+                        <>
+                          {" · "}
+                          {t.assignee.full_name ?? t.assignee.email}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {t.due_date && (
+                    <span
+                      className={`whitespace-nowrap text-xs ${isOverdue ? "text-destructive font-medium" : "text-muted-foreground"}`}
+                    >
+                      {isOverdue ? "Vencida " : ""}
+                      {format(parseISO(t.due_date), "d MMM", { locale: es })}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -279,7 +403,20 @@ function ReservationsCard({
                     })}
                   </TableCell>
                   {showProperty && (
-                    <TableCell>{r.property?.name ?? "—"}</TableCell>
+                    <TableCell>
+                      {r.property ? (
+                        <span className="flex items-center gap-2">
+                          <PropertyThumb
+                            propertyId={r.property.id}
+                            size="xs"
+                            alt={r.property.name}
+                          />
+                          {r.property.name}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
                   )}
                   <TableCell>{r.guest_name ?? "—"}</TableCell>
                   <TableCell>
