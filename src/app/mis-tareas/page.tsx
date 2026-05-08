@@ -62,7 +62,7 @@ export default async function MisTareasPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-end justify-between gap-4">
+      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end sm:gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Mis tareas</h1>
           <p className="text-sm text-muted-foreground">

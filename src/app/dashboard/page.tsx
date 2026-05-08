@@ -163,9 +163,13 @@ function TodayTasksCard({
             <TableHeader>
               <TableRow>
                 <TableHead>Tarea</TableHead>
-                <TableHead>Propiedad</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Asignado</TableHead>
+                <TableHead className="hidden md:table-cell">
+                  Propiedad
+                </TableHead>
+                <TableHead className="hidden lg:table-cell">Tipo</TableHead>
+                <TableHead className="hidden lg:table-cell">
+                  Asignado
+                </TableHead>
                 <TableHead>Vence</TableHead>
               </TableRow>
             </TableHeader>
@@ -174,14 +178,30 @@ function TodayTasksCard({
                 const isOverdue = !!t.due_date && t.due_date < todayIso;
                 return (
                   <TableRow key={t.id}>
-                    <TableCell className="font-medium">{t.title}</TableCell>
-                    <TableCell>{t.property?.name ?? "—"}</TableCell>
-                    <TableCell>
+                    <TableCell className="font-medium">
+                      <div>{t.title}</div>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground md:hidden">
+                        <Badge variant="outline" className="text-xs">
+                          {TASK_KIND_LABEL[t.kind]}
+                        </Badge>
+                        <span>{t.property?.name ?? "—"}</span>
+                        <span>·</span>
+                        <span>
+                          {t.assignee
+                            ? (t.assignee.full_name ?? t.assignee.email)
+                            : "Sin asignar"}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {t.property?.name ?? "—"}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       <Badge variant="outline">
                         {TASK_KIND_LABEL[t.kind]}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       {t.assignee ? (
                         t.assignee.full_name ?? t.assignee.email
                       ) : (

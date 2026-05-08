@@ -126,7 +126,7 @@ export default async function TasksPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
         <div>
           <h1 className="text-2xl font-semibold">Tareas</h1>
           <p className="text-sm text-muted-foreground">
@@ -182,7 +182,7 @@ export default async function TasksPage({
           />
 
           {properties.length > 1 && (
-            <div className="ml-auto flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
               <span className="text-muted-foreground">Propiedad:</span>
               <Link
                 href={buildTasksUrl({
@@ -262,11 +262,15 @@ export default async function TasksPage({
             <TableHeader>
               <TableRow>
                 <TableHead>Título</TableHead>
-                <TableHead>Propiedad</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Asignado</TableHead>
+                <TableHead className="hidden md:table-cell">
+                  Propiedad
+                </TableHead>
+                <TableHead className="hidden lg:table-cell">Tipo</TableHead>
+                <TableHead className="hidden lg:table-cell">
+                  Asignado
+                </TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead>Vence</TableHead>
+                <TableHead className="hidden sm:table-cell">Vence</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -312,12 +316,29 @@ export default async function TasksPage({
                           {cleaned}
                         </div>
                       )}
+                      {/* On mobile we hide the Propiedad/Tipo/Asignado
+                          columns; surface them under the title so the info
+                          isn't lost. */}
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground md:hidden">
+                        <Badge variant="outline" className="text-xs">
+                          {KIND_LABEL[t.kind]}
+                        </Badge>
+                        <span>{t.property?.name ?? "—"}</span>
+                        <span>·</span>
+                        <span>
+                          {t.assignee
+                            ? (t.assignee.full_name ?? t.assignee.email)
+                            : "Sin asignar"}
+                        </span>
+                      </div>
                     </TableCell>
-                    <TableCell>{t.property?.name ?? "—"}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {t.property?.name ?? "—"}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       <Badge variant="outline">{KIND_LABEL[t.kind]}</Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       {t.assignee ? (
                         t.assignee.full_name ?? t.assignee.email
                       ) : (
@@ -330,8 +351,28 @@ export default async function TasksPage({
                       <Badge variant={STATUS_BADGE[t.status]}>
                         {STATUS_LABEL[t.status]}
                       </Badge>
+                      {/* Mobile-only: due date underneath the status badge
+                          (the dedicated Vence column is hidden < sm). */}
+                      {t.due_date && (
+                        <div className="mt-1 text-xs sm:hidden">
+                          <span
+                            className={
+                              t.status !== "done" && t.due_date < todayIso
+                                ? "text-destructive font-medium"
+                                : "text-muted-foreground"
+                            }
+                          >
+                            {t.status !== "done" && t.due_date < todayIso
+                              ? "Vencida "
+                              : ""}
+                            {format(parseISO(t.due_date), "d MMM", {
+                              locale: es,
+                            })}
+                          </span>
+                        </div>
+                      )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       {t.due_date ? (
                         <span
                           className={
