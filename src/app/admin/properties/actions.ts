@@ -31,6 +31,12 @@ const upsertSchema = z.object({
     .positive("La tarifa debe ser positiva.")
     .nullable()
     .optional(),
+  airbnb_listing_id: z
+    .string()
+    .regex(/^\d{4,}$/, "El ID de Airbnb debe ser numérico.")
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v ? v : null)),
 });
 
 export async function upsertProperty(input: {
@@ -40,6 +46,7 @@ export async function upsertProperty(input: {
   booking_ical_url: string;
   currency: string;
   tariff_per_kwh: number | null;
+  airbnb_listing_id?: string;
 }) {
   await requireRole(["admin"]);
   const parsed = upsertSchema.safeParse(input);
@@ -53,6 +60,7 @@ export async function upsertProperty(input: {
     booking_ical_url: parsed.data.booking_ical_url,
     currency: parsed.data.currency,
     tariff_per_kwh: parsed.data.tariff_per_kwh ?? null,
+    airbnb_listing_id: parsed.data.airbnb_listing_id,
   };
   let id: string | null = null;
   if (parsed.data.id) {

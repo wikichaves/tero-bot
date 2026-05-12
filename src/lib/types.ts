@@ -16,6 +16,9 @@ export type Property = {
   booking_ical_url: string | null;
   currency: string;
   tariff_per_kwh: number | null;
+  /** Numeric Airbnb listing id (e.g. "1526467") used to match inbound
+   *  confirmation emails to a property. Optional. */
+  airbnb_listing_id: string | null;
   created_at: string;
 };
 
@@ -41,6 +44,8 @@ export type Reservation = {
   payout_currency: string | null;
   /** Free-form note from the guest, extracted from the confirmation email. */
   guest_message: string | null;
+  /** Guest's Airbnb profile photo URL (muscache.com CDN). */
+  guest_photo_url: string | null;
   status: ReservationStatus;
 };
 
@@ -76,6 +81,8 @@ export type ParsedAirbnbEmail =
       /** Numeric Airbnb listing id pulled from `/rooms/<id>` URLs in the
        *  email. More stable for matching than the listing's display name. */
       airbnb_listing_id: string | null;
+      /** Guest profile photo URL from muscache.com CDN. */
+      guest_photo_url: string | null;
       locale: "es" | "en";
     }
   | {

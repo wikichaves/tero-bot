@@ -159,18 +159,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, kind: "unknown" });
   }
 
-  // Resolve property (best-effort).
+  // Resolve property: first by airbnb_listing_id (most reliable — set by
+  // admin in /admin/properties), then by fuzzy listing name match.
   const { data: propsRows } = await admin
     .from("properties")
-    .select("id, name")
+    .select("id, name, airbnb_listing_id")
     .order("name");
-  const propertyHit = matchProperty(
-    parsed.kind === "cancellation" ? parsed.listing_name : parsed.listing_name,
-    propsRows ?? [],
-  );
+  const propsAll = (propsRows ?? []) as Array<
+    Pick<Property, "id" | "name"> & { airbnb_listing_id: string | null }
+  >;
+  let propertyHit: Pick<Property, "id" | "name"> | null | undefined;
+  if (parsed.airbnb_listing_id) {
+    const byId = propsAll.find(
+      (p) => p.airbnb_listing_id === parsed.airbnb_listing_id,
+    );
+    if (byId) {
+      propertyHit = byId;
+      console.log(
+        `[inbound airbnb] matched property by listing_id ${parsed.airbnb_listing_id} → ${byId.name}`,
+      );
+    }
+  }
+  if (!propertyHit) {
+    propertyHit = matchProperty(parsed.listing_name, propsAll);
+  }
   if (propertyHit === undefined) {
     console.warn(
-      `[inbound airbnb] ambiguous property for "${parsed.listing_name}"`,
+      `[inbound airbnb] ambiguous property for "${parsed.listing_name}" (no listing_id match either)`,
     );
   }
 
@@ -236,6 +251,7 @@ export async function POST(req: NextRequest) {
   if (parsed.payout_amount != null) fields.payout_amount = parsed.payout_amount;
   if (parsed.payout_currency) fields.payout_currency = parsed.payout_currency;
   if (parsed.guest_message) fields.guest_message = parsed.guest_message;
+  if (parsed.guest_photo_url) fields.guest_photo_url = parsed.guest_photo_url;
   if (parsed.kind === "modification") fields.status = "altered";
 
   let reservationId: string | null = existingReservation?.id ?? null;

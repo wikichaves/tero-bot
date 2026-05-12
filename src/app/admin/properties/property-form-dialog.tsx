@@ -78,6 +78,9 @@ function PropertyForm({
   const [tariff, setTariff] = useState<string>(
     property?.tariff_per_kwh != null ? String(property.tariff_per_kwh) : "",
   );
+  const [airbnbListingId, setAirbnbListingId] = useState(
+    property?.airbnb_listing_id ?? "",
+  );
   const [thumbFile, setThumbFile] = useState<File | null>(null);
   // Bumps when the user picks a new file → forces <PropertyThumb> to re-fetch
   // so the local preview shows the new image after upload.
@@ -98,6 +101,7 @@ function PropertyForm({
         booking_ical_url: bookingUrl,
         currency: currency.toUpperCase(),
         tariff_per_kwh: tariffNum,
+        airbnb_listing_id: airbnbListingId.trim(),
       });
       if (result?.error || !result.ok) {
         toast.error(result?.error ?? "No se pudo guardar.");
@@ -214,6 +218,23 @@ function PropertyForm({
             onChange={(e) => setAirbnbUrl(e.target.value)}
             placeholder="https://www.airbnb.com/calendar/ical/...ics?s=..."
           />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="airbnb_listing_id">ID de listing en Airbnb</Label>
+          <Input
+            id="airbnb_listing_id"
+            value={airbnbListingId}
+            onChange={(e) => setAirbnbListingId(e.target.value)}
+            placeholder="ej. 1526467"
+            inputMode="numeric"
+            pattern="\d*"
+          />
+          <p className="text-xs text-muted-foreground">
+            Número que aparece en la URL pública del listing
+            (<code>airbnb.com/rooms/<strong>1526467</strong></code>). Permite
+            matchear automáticamente las confirmaciones por email a esta
+            propiedad.
+          </p>
         </div>
         <div className="grid gap-2">
           <Label htmlFor="booking_ical_url">URL iCal Booking (opcional)</Label>

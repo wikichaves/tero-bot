@@ -200,7 +200,8 @@ export default async function ReservationDetailPage({
       {(reservation.reservation_code ||
         reservation.guest_count != null ||
         reservation.payout_amount != null ||
-        reservation.guest_message) && (
+        reservation.guest_message ||
+        reservation.guest_photo_url) && (
         <Card>
           <CardHeader>
             <CardTitle>Detalles de Airbnb</CardTitle>
@@ -209,45 +210,60 @@ export default async function ReservationDetailPage({
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm">
-            <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
-              {reservation.reservation_code && (
-                <>
-                  <dt className="text-muted-foreground">Código</dt>
-                  <dd className="font-mono">
-                    {reservation.reservation_code}
-                  </dd>
-                </>
+            <div className="flex items-start gap-4">
+              {reservation.guest_photo_url && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={reservation.guest_photo_url}
+                  alt={
+                    reservation.guest_name
+                      ? `Foto de ${reservation.guest_name}`
+                      : "Foto del huésped"
+                  }
+                  className="h-20 w-20 shrink-0 rounded-full border object-cover"
+                  loading="lazy"
+                />
               )}
-              {reservation.guest_count != null && (
-                <>
-                  <dt className="text-muted-foreground">Huéspedes</dt>
-                  <dd>{reservation.guest_count}</dd>
-                </>
-              )}
-              {reservation.payout_amount != null && (
-                <>
-                  <dt className="text-muted-foreground">Payout</dt>
-                  <dd>
-                    {reservation.payout_currency
-                      ? `${reservation.payout_currency} `
-                      : ""}
-                    {reservation.payout_amount.toLocaleString("es-UY", {
-                      maximumFractionDigits: 2,
-                    })}
-                  </dd>
-                </>
-              )}
-              {reservation.guest_message && (
-                <>
-                  <dt className="text-muted-foreground self-start">
-                    Mensaje del huésped
-                  </dt>
-                  <dd className="whitespace-pre-wrap">
-                    {reservation.guest_message}
-                  </dd>
-                </>
-              )}
-            </dl>
+              <dl className="grid flex-1 grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
+                {reservation.reservation_code && (
+                  <>
+                    <dt className="text-muted-foreground">Código</dt>
+                    <dd className="font-mono">
+                      {reservation.reservation_code}
+                    </dd>
+                  </>
+                )}
+                {reservation.guest_count != null && (
+                  <>
+                    <dt className="text-muted-foreground">Huéspedes</dt>
+                    <dd>{reservation.guest_count}</dd>
+                  </>
+                )}
+                {reservation.payout_amount != null && (
+                  <>
+                    <dt className="text-muted-foreground">Payout</dt>
+                    <dd>
+                      {reservation.payout_currency
+                        ? `${reservation.payout_currency} `
+                        : ""}
+                      {reservation.payout_amount.toLocaleString("es-UY", {
+                        maximumFractionDigits: 2,
+                      })}
+                    </dd>
+                  </>
+                )}
+                {reservation.guest_message && (
+                  <>
+                    <dt className="text-muted-foreground self-start">
+                      Mensaje del huésped
+                    </dt>
+                    <dd className="whitespace-pre-wrap">
+                      {reservation.guest_message}
+                    </dd>
+                  </>
+                )}
+              </dl>
+            </div>
           </CardContent>
         </Card>
       )}

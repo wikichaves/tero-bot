@@ -367,8 +367,16 @@ export function parseAirbnbEmail(input: {
 
   // Numeric Airbnb listing id from URLs like `/rooms/1526467` — useful for
   // robust property matching since the display name can change.
-  const listingIdMatch = body.match(/\/rooms\/(\d{4,})/);
+  const listingIdMatch = body.match(/\/rooms\/(\d{4,})/) ?? html.match(/\/rooms\/(\d{4,})/);
   const airbnb_listing_id = listingIdMatch ? listingIdMatch[1] : null;
+
+  // Guest profile photo on Airbnb's CDN. Pattern:
+  //   a0.muscache.com/im/pictures/user/<uuid>.jpg?aki_policy=profile_x_medium
+  // Look in the raw HTML (the `body` strips the URL down to text fragments).
+  const photoMatch = html.match(
+    /https?:\/\/[a-z0-9.-]*muscache\.com\/im\/pictures\/user\/[^"'\s)]+/i,
+  );
+  const guest_photo_url = photoMatch ? photoMatch[0] : null;
 
   if (kind === "cancellation") {
     return {
@@ -428,6 +436,7 @@ export function parseAirbnbEmail(input: {
     check_out,
     listing_name,
     airbnb_listing_id,
+    guest_photo_url,
     locale,
   };
 }

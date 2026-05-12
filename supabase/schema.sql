@@ -407,3 +407,19 @@ create policy airbnb_inbound_emails_admin_read
   for select using (public.current_role() in ('admin','gestor'));
 
 -- No write policy: only the service-role client (route handler) writes here.
+
+-- ────────────────────────────────────────────────────────────────────────
+-- Airbnb listing matching + guest photo (added 2026-05-12 follow-up).
+-- Lets the inbound email parser match a reservation to a property by the
+-- numeric Airbnb listing id (more stable than fuzzy-matching the display
+-- name), and lets us render the guest's Airbnb profile photo on the
+-- reservation detail page.
+
+alter table public.properties
+  add column if not exists airbnb_listing_id text;
+
+create index if not exists properties_airbnb_listing_id_idx
+  on public.properties(airbnb_listing_id);
+
+alter table public.reservations
+  add column if not exists guest_photo_url text;
