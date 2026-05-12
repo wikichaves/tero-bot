@@ -73,12 +73,16 @@ export type ParsedAirbnbEmail =
       check_in: string | null;
       check_out: string | null;
       listing_name: string | null;
+      /** Numeric Airbnb listing id pulled from `/rooms/<id>` URLs in the
+       *  email. More stable for matching than the listing's display name. */
+      airbnb_listing_id: string | null;
       locale: "es" | "en";
     }
   | {
       kind: "cancellation";
       reservation_code: string;
       listing_name: string | null;
+      airbnb_listing_id: string | null;
       locale: "es" | "en";
     }
   | {
