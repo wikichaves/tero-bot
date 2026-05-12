@@ -248,10 +248,22 @@ export async function POST(req: NextRequest) {
     fields.guest_name = parsed.guest_first_name;
   }
   if (parsed.guest_count != null) fields.guest_count = parsed.guest_count;
+  if (parsed.guest_adults != null) fields.guest_adults = parsed.guest_adults;
+  if (parsed.guest_children != null)
+    fields.guest_children = parsed.guest_children;
+  if (parsed.guest_infants != null)
+    fields.guest_infants = parsed.guest_infants;
+  if (parsed.guest_identity_verified != null)
+    fields.guest_identity_verified = parsed.guest_identity_verified;
+  if (parsed.guest_location) fields.guest_location = parsed.guest_location;
   if (parsed.payout_amount != null) fields.payout_amount = parsed.payout_amount;
   if (parsed.payout_currency) fields.payout_currency = parsed.payout_currency;
   if (parsed.guest_message) fields.guest_message = parsed.guest_message;
   if (parsed.guest_photo_url) fields.guest_photo_url = parsed.guest_photo_url;
+  if (parsed.check_in_time && !existingReservation?.check_in_time)
+    fields.check_in_time = parsed.check_in_time;
+  if (parsed.check_out_time && !existingReservation?.check_out_time)
+    fields.check_out_time = parsed.check_out_time;
   if (parsed.kind === "modification") fields.status = "altered";
 
   let reservationId: string | null = existingReservation?.id ?? null;

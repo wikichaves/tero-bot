@@ -46,6 +46,18 @@ export type Reservation = {
   guest_message: string | null;
   /** Guest's Airbnb profile photo URL (muscache.com CDN). */
   guest_photo_url: string | null;
+  /** True if Airbnb showed "Identity Verified" next to the guest profile. */
+  guest_identity_verified: boolean | null;
+  /** Free-form location string from the guest profile (e.g. "Madrid, España"). */
+  guest_location: string | null;
+  /** Adult / child / infant breakdown when available. `guest_count` stays as
+   *  the total for backwards compat. */
+  guest_adults: number | null;
+  guest_children: number | null;
+  guest_infants: number | null;
+  /** "HH:MM" 24h. Default comes from the Airbnb email; admin can override. */
+  check_in_time: string | null;
+  check_out_time: string | null;
   status: ReservationStatus;
 };
 
@@ -72,11 +84,18 @@ export type ParsedAirbnbEmail =
       reservation_code: string;
       guest_first_name: string | null;
       guest_count: number | null;
+      guest_adults: number | null;
+      guest_children: number | null;
+      guest_infants: number | null;
+      guest_identity_verified: boolean | null;
+      guest_location: string | null;
       payout_amount: number | null;
       payout_currency: string | null;
       guest_message: string | null;
       check_in: string | null;
       check_out: string | null;
+      check_in_time: string | null;
+      check_out_time: string | null;
       listing_name: string | null;
       /** Numeric Airbnb listing id pulled from `/rooms/<id>` URLs in the
        *  email. More stable for matching than the listing's display name. */

@@ -58,6 +58,51 @@ const updateReservationSchema = z.object({
     .optional()
     .or(z.literal(""))
     .transform((v) => (v ? v : null)),
+  guest_adults: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => {
+      if (!v) return null;
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 0 ? n : null;
+    }),
+  guest_children: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => {
+      if (!v) return null;
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 0 ? n : null;
+    }),
+  guest_infants: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => {
+      if (!v) return null;
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 0 ? n : null;
+    }),
+  check_in_time: z
+    .string()
+    .regex(
+      /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/,
+      "Horario inválido (HH:MM 24h).",
+    )
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v ? v.padStart(5, "0") : null)),
+  check_out_time: z
+    .string()
+    .regex(
+      /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/,
+      "Horario inválido (HH:MM 24h).",
+    )
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v ? v.padStart(5, "0") : null)),
 });
 
 export async function updateReservation(input: {
@@ -69,6 +114,11 @@ export async function updateReservation(input: {
   payout_amount?: string;
   payout_currency?: string;
   guest_message?: string;
+  guest_adults?: string;
+  guest_children?: string;
+  guest_infants?: string;
+  check_in_time?: string;
+  check_out_time?: string;
 }) {
   await requireRole(["admin", "gestor"]);
   const parsed = updateReservationSchema.safeParse(input);
@@ -86,6 +136,11 @@ export async function updateReservation(input: {
       payout_amount: parsed.data.payout_amount,
       payout_currency: parsed.data.payout_currency,
       guest_message: parsed.data.guest_message,
+      guest_adults: parsed.data.guest_adults,
+      guest_children: parsed.data.guest_children,
+      guest_infants: parsed.data.guest_infants,
+      check_in_time: parsed.data.check_in_time,
+      check_out_time: parsed.data.check_out_time,
     })
     .eq("id", parsed.data.id);
   if (error) return { error: error.message };

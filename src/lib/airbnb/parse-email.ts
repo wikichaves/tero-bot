@@ -378,6 +378,37 @@ export function parseAirbnbEmail(input: {
   );
   const guest_photo_url = photoMatch ? photoMatch[0] : null;
 
+  // Identity Verified: Airbnb literally writes "Identity Verified" /
+  // "Identity Verified" next to a shield icon. Absence = false (could
+  // also mean unknown; using `null` if we have no signal at all).
+  let guest_identity_verified: boolean | null = null;
+  if (locale === "es") {
+    if (/Identidad\s+verificada/i.test(body)) guest_identity_verified = true;
+  } else {
+    if (/Identity\s+verified/i.test(body)) guest_identity_verified = true;
+  }
+
+  // Guest location: short text right under the "Identity Verified" line.
+  // We anchor to the home icon URL Airbnb uses for "from" location:
+  //   00000000-0000-0000-0000-000000000002.jpg
+  // and capture the next text-ish fragment.
+  let guest_location: string | null = null;
+  const locMatchHtml = html.match(
+    /00000000-0000-0000-0000-000000000002[\s\S]{0,400}?>([^<>]{3,80})<\/p>/i,
+  );
+  if (locMatchHtml) {
+    guest_location = stripHtml(locMatchHtml[1]).trim();
+  }
+
+  // Group breakdown: parse "1 adulto", "2 adultos", "1 niño", "1 bebé".
+  // Airbnb usually shows them comma-separated under the "Viajeros" section.
+  const adultsMatch = body.match(/(\d+)\s+adultos?\b/i);
+  const childrenMatch = body.match(/(\d+)\s+ni[ñn]os?\b/i);
+  const infantsMatch = body.match(/(\d+)\s+beb[eé]s?\b/i);
+  const guest_adults = adultsMatch ? Number(adultsMatch[1]) : null;
+  const guest_children = childrenMatch ? Number(childrenMatch[1]) : null;
+  const guest_infants = infantsMatch ? Number(infantsMatch[1]) : null;
+
   if (kind === "cancellation") {
     return {
       kind,
@@ -419,26 +450,84 @@ export function parseAirbnbEmail(input: {
     }
   }
 
+  // Check-in / out times. Airbnb shows them under the dates as
+  //   "4:00 p. m." (es-AR/UY) or "4:00 PM" (en).
+  // We look for the time right after the Check-in/Check-out section.
+  const ciTime = extractTimeAfter(body, locale, "in");
+  const coTime = extractTimeAfter(body, locale, "out");
+  const check_in_time = ciTime;
+  const check_out_time = coTime;
+
+  // Total guest count: prefer the explicit breakdown if we got it, else
+  // fall back to the legacy "guest_count" landmark match.
+  const breakdownSum =
+    (guest_adults ?? 0) + (guest_children ?? 0) + (guest_infants ?? 0);
+  const totalCount =
+    breakdownSum > 0
+      ? breakdownSum
+      : guest_count_parsed != null &&
+          Number.isFinite(guest_count_parsed) &&
+          guest_count_parsed > 0
+        ? guest_count_parsed
+        : null;
+
   return {
     kind,
     reservation_code,
     guest_first_name,
-    guest_count:
-      guest_count_parsed != null &&
-      Number.isFinite(guest_count_parsed) &&
-      guest_count_parsed > 0
-        ? guest_count_parsed
-        : null,
+    guest_count: totalCount,
+    guest_adults,
+    guest_children,
+    guest_infants,
+    guest_identity_verified,
+    guest_location,
     payout_amount,
     payout_currency,
     guest_message,
     check_in,
     check_out,
+    check_in_time,
+    check_out_time,
     listing_name,
     airbnb_listing_id,
     guest_photo_url,
     locale,
   };
+}
+
+/**
+ * Pull a "HH:MM" 24h time out of the body that appears near the Check-in
+ * or Check-out section heading. Handles both "4:00 p. m." (es) and
+ * "4:00 PM" (en) formats.
+ *
+ * Returns null if no time can be confidently associated with the section.
+ */
+function extractTimeAfter(
+  body: string,
+  locale: Locale,
+  which: "in" | "out",
+): string | null {
+  const heading = which === "in" ? /Check-?in/i : /Check-?out/i;
+  const m = heading.exec(body);
+  if (!m) return null;
+  // Search a window after the heading for the first time-like pattern.
+  const start = m.index + m[0].length;
+  const window = body.slice(start, start + 200);
+  // es: "4:00 p. m." / en: "4:00 PM"
+  const rx =
+    locale === "es"
+      ? /\b(\d{1,2}):(\d{2})\s*([ap])\.?\s*m\.?/i
+      : /\b(\d{1,2}):(\d{2})\s*([ap])\.?\s*m\.?/i;
+  const tm = rx.exec(window);
+  if (!tm) return null;
+  let hour = Number(tm[1]);
+  const minute = Number(tm[2]);
+  const ampm = tm[3].toLowerCase();
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  if (hour < 0 || hour > 12 || minute < 0 || minute > 59) return null;
+  if (ampm === "p" && hour < 12) hour += 12;
+  if (ampm === "a" && hour === 12) hour = 0;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
 /**

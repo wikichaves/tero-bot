@@ -374,6 +374,20 @@ function ReservationsCard({
   dateField: "check_in" | "check_out";
   showProperty: boolean;
 }) {
+  // Group rows by property when there are multiple distinct properties so
+  // the admin can scan check-ins/outs of each place at a glance.
+  const grouped = new Map<
+    string,
+    {
+      property: ReservationWithProperty["property"];
+      rows: ReservationWithProperty[];
+    }
+  >();
+  for (const r of rows) {
+    const key = r.property?.id ?? "__none__";
+    if (!grouped.has(key)) grouped.set(key, { property: r.property, rows: [] });
+    grouped.get(key)!.rows.push(r);
+  }
   return (
     <Card>
       <CardHeader>
@@ -384,55 +398,133 @@ function ReservationsCard({
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">Sin reservas.</p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha</TableHead>
-                {showProperty && <TableHead>Propiedad</TableHead>}
-                <TableHead>Huésped</TableHead>
-                <TableHead>Origen</TableHead>
-                <TableHead className="w-12" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>
-                    {format(parseISO(r[dateField]), "EEE d MMM", {
-                      locale: es,
-                    })}
-                  </TableCell>
-                  {showProperty && (
-                    <TableCell>
-                      {r.property ? (
-                        <span className="flex items-center gap-2">
-                          <PropertyThumb
-                            propertyId={r.property.id}
-                            size="xs"
-                            alt={r.property.name}
-                          />
-                          {r.property.name}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                  )}
-                  <TableCell>{r.guest_name ?? "—"}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{r.source}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <ReservationRowActions reservation={r} />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <div className="flex flex-col gap-5">
+            {Array.from(grouped.values()).map((group, gi) => (
+              <div key={group.property?.id ?? `none-${gi}`}>
+                {showProperty && (
+                  <div className="mb-2 flex items-center gap-2 border-b pb-1">
+                    {group.property && (
+                      <PropertyThumb
+                        propertyId={group.property.id}
+                        size="xs"
+                        alt={group.property.name}
+                      />
+                    )}
+                    <span className="text-sm font-semibold">
+                      {group.property?.name ?? "Sin propiedad"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      ({group.rows.length})
+                    </span>
+                  </div>
+                )}
+                <ul className="flex flex-col divide-y">
+                  {group.rows.map((r) => (
+                    <li key={r.id} className="py-3 first:pt-0 last:pb-0">
+                      <ReservationRow row={r} dateField={dateField} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         )}
       </CardContent>
     </Card>
   );
+}
+
+function ReservationRow({
+  row,
+  dateField,
+}: {
+  row: ReservationWithProperty;
+  dateField: "check_in" | "check_out";
+}) {
+  const dateStr = format(parseISO(row[dateField]), "EEE d MMM", { locale: es });
+  const timeStr =
+    dateField === "check_in" ? row.check_in_time : row.check_out_time;
+  const groupStr = formatGuestGroup(row);
+  return (
+    <div className="flex items-start gap-3">
+      {row.guest_photo_url ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={row.guest_photo_url}
+          alt={row.guest_name ?? "Huésped"}
+          className="h-12 w-12 shrink-0 rounded-full border object-cover"
+          loading="lazy"
+        />
+      ) : (
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-muted text-xs text-muted-foreground">
+          {row.guest_name?.[0]?.toUpperCase() ?? "?"}
+        </div>
+      )}
+      <Link
+        href={`/dashboard/reservations/${row.id}`}
+        className="min-w-0 flex-1 hover:underline"
+      >
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="font-medium">{row.guest_name ?? "—"}</span>
+          {row.guest_identity_verified && (
+            <span
+              className="text-xs text-muted-foreground"
+              title="Identity Verified por Airbnb"
+            >
+              ✓ verificado
+            </span>
+          )}
+          <Badge variant="secondary" className="text-xs">
+            {row.source}
+          </Badge>
+        </div>
+        {row.guest_location && (
+          <div className="text-xs text-muted-foreground">
+            📍 {row.guest_location}
+          </div>
+        )}
+        {groupStr && (
+          <div className="text-xs text-muted-foreground">👥 {groupStr}</div>
+        )}
+        <div className="mt-0.5 text-xs text-muted-foreground">
+          🕐 {dateStr}
+          {timeStr ? ` · ${timeStr} hs` : ""}
+        </div>
+      </Link>
+      <ReservationRowActions reservation={row} />
+    </div>
+  );
+}
+
+/**
+ * Build the Spanish string for the guest group composition.
+ * - adults=1, children=0, infants=0 → "1 adulto"
+ * - adults=2, children=1, infants=0 → "2 adultos y 1 niño"
+ * - adults=2, children=1, infants=1 → "2 adultos, 1 niño y 1 bebé"
+ * Falls back to "N huésped(es)" when only `guest_count` is set.
+ */
+function formatGuestGroup(r: ReservationWithProperty): string | null {
+  const parts: string[] = [];
+  if (r.guest_adults && r.guest_adults > 0) {
+    parts.push(`${r.guest_adults} ${r.guest_adults === 1 ? "adulto" : "adultos"}`);
+  }
+  if (r.guest_children && r.guest_children > 0) {
+    parts.push(
+      `${r.guest_children} ${r.guest_children === 1 ? "niño" : "niños"}`,
+    );
+  }
+  if (r.guest_infants && r.guest_infants > 0) {
+    parts.push(`${r.guest_infants} ${r.guest_infants === 1 ? "bebé" : "bebés"}`);
+  }
+  if (parts.length > 0) {
+    if (parts.length === 1) return parts[0];
+    if (parts.length === 2) return `${parts[0]} y ${parts[1]}`;
+    return `${parts.slice(0, -1).join(", ")} y ${parts[parts.length - 1]}`;
+  }
+  if (r.guest_count && r.guest_count > 0) {
+    return `${r.guest_count} ${r.guest_count === 1 ? "huésped" : "huéspedes"}`;
+  }
+  return null;
 }
 
 function isOnOrAfter(date: Date, ref: Date) {

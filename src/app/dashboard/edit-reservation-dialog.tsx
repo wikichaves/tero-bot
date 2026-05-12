@@ -40,6 +40,11 @@ export function EditReservationDialog({
         payout_amount: String(formData.get("payout_amount") ?? ""),
         payout_currency: String(formData.get("payout_currency") ?? ""),
         guest_message: String(formData.get("guest_message") ?? ""),
+        guest_adults: String(formData.get("guest_adults") ?? ""),
+        guest_children: String(formData.get("guest_children") ?? ""),
+        guest_infants: String(formData.get("guest_infants") ?? ""),
+        check_in_time: String(formData.get("check_in_time") ?? ""),
+        check_out_time: String(formData.get("check_out_time") ?? ""),
       });
       if (result?.error) {
         toast.error(result.error);
@@ -88,7 +93,65 @@ export function EditReservationDialog({
             </div>
             <div className="grid grid-cols-[1fr_1fr_1fr] gap-3">
               <div className="grid gap-2">
-                <Label htmlFor="guest_count">Huéspedes</Label>
+                <Label htmlFor="guest_adults">Adultos</Label>
+                <Input
+                  id="guest_adults"
+                  name="guest_adults"
+                  type="number"
+                  min="0"
+                  max="20"
+                  defaultValue={reservation.guest_adults ?? ""}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="guest_children">Niños</Label>
+                <Input
+                  id="guest_children"
+                  name="guest_children"
+                  type="number"
+                  min="0"
+                  max="20"
+                  defaultValue={reservation.guest_children ?? ""}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="guest_infants">Bebés</Label>
+                <Input
+                  id="guest_infants"
+                  name="guest_infants"
+                  type="number"
+                  min="0"
+                  max="10"
+                  defaultValue={reservation.guest_infants ?? ""}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label htmlFor="check_in_time">Horario check-in</Label>
+                <Input
+                  id="check_in_time"
+                  name="check_in_time"
+                  type="time"
+                  defaultValue={reservation.check_in_time ?? ""}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Default Airbnb. Editá si el huésped arregló otro horario.
+                </p>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="check_out_time">Horario check-out</Label>
+                <Input
+                  id="check_out_time"
+                  name="check_out_time"
+                  type="time"
+                  defaultValue={reservation.check_out_time ?? ""}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-[1fr_1fr_1fr] gap-3">
+              <div className="grid gap-2">
+                <Label htmlFor="guest_count">Huéspedes (total)</Label>
                 <Input
                   id="guest_count"
                   name="guest_count"

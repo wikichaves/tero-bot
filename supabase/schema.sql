@@ -423,3 +423,21 @@ create index if not exists properties_airbnb_listing_id_idx
 
 alter table public.reservations
   add column if not exists guest_photo_url text;
+
+-- ────────────────────────────────────────────────────────────────────────
+-- Richer Airbnb reservation data (added 2026-05-12 second follow-up).
+-- Lets the dashboard render guest verification status, location, the full
+-- adult/child/infant breakdown, and the check-in / check-out times that
+-- Airbnb advertises (which the admin can override if the guest arranged
+-- a different schedule).
+
+alter table public.reservations
+  add column if not exists guest_identity_verified boolean,
+  add column if not exists guest_location text,
+  add column if not exists guest_adults int,
+  add column if not exists guest_children int,
+  add column if not exists guest_infants int,
+  add column if not exists check_in_time text
+    check (check_in_time is null or check_in_time ~ '^[0-2][0-9]:[0-5][0-9]$'),
+  add column if not exists check_out_time text
+    check (check_out_time is null or check_out_time ~ '^[0-2][0-9]:[0-5][0-9]$');
