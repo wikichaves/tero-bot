@@ -26,6 +26,38 @@ const updateReservationSchema = z.object({
     .optional()
     .or(z.literal(""))
     .transform((v) => (v ? v : null)),
+  guest_count: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => {
+      if (!v) return null;
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }),
+  payout_amount: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => {
+      if (!v) return null;
+      const n = Number(v.replace(",", "."));
+      return Number.isFinite(n) && n >= 0 ? n : null;
+    }),
+  payout_currency: z
+    .string()
+    .max(3)
+    .optional()
+    .or(z.literal(""))
+    .transform((v) =>
+      v && /^[A-Z]{3}$/i.test(v) ? v.toUpperCase() : null,
+    ),
+  guest_message: z
+    .string()
+    .max(2000)
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v ? v : null)),
 });
 
 export async function updateReservation(input: {
@@ -33,6 +65,10 @@ export async function updateReservation(input: {
   guest_name: string;
   guest_phone: string;
   notes: string;
+  guest_count?: string;
+  payout_amount?: string;
+  payout_currency?: string;
+  guest_message?: string;
 }) {
   await requireRole(["admin", "gestor"]);
   const parsed = updateReservationSchema.safeParse(input);
@@ -46,6 +82,10 @@ export async function updateReservation(input: {
       guest_name: parsed.data.guest_name,
       guest_phone: normalizePhone(parsed.data.guest_phone),
       notes: parsed.data.notes,
+      guest_count: parsed.data.guest_count,
+      payout_amount: parsed.data.payout_amount,
+      payout_currency: parsed.data.payout_currency,
+      guest_message: parsed.data.guest_message,
     })
     .eq("id", parsed.data.id);
   if (error) return { error: error.message };

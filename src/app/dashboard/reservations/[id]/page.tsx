@@ -180,11 +180,77 @@ export default async function ReservationDetailPage({
         </p>
       </div>
 
+      {reservation.status === "cancelled" && (
+        <Card className="border-destructive">
+          <CardContent className="pt-6 text-sm">
+            <Badge variant="destructive">Cancelada</Badge>{" "}
+            <span className="ml-2 text-muted-foreground">
+              Esta reserva fue cancelada vía email de Airbnb.
+            </span>
+          </CardContent>
+        </Card>
+      )}
+
       <ReservationDetailActions
         reservation={reservation}
         initialAccessCode={accessCode}
         hasPrimaryLock={hasPrimaryLock}
       />
+
+      {(reservation.reservation_code ||
+        reservation.guest_count != null ||
+        reservation.payout_amount != null ||
+        reservation.guest_message) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Detalles de Airbnb</CardTitle>
+            <CardDescription>
+              Datos extra extraídos del email de confirmación.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm">
+            <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
+              {reservation.reservation_code && (
+                <>
+                  <dt className="text-muted-foreground">Código</dt>
+                  <dd className="font-mono">
+                    {reservation.reservation_code}
+                  </dd>
+                </>
+              )}
+              {reservation.guest_count != null && (
+                <>
+                  <dt className="text-muted-foreground">Huéspedes</dt>
+                  <dd>{reservation.guest_count}</dd>
+                </>
+              )}
+              {reservation.payout_amount != null && (
+                <>
+                  <dt className="text-muted-foreground">Payout</dt>
+                  <dd>
+                    {reservation.payout_currency
+                      ? `${reservation.payout_currency} `
+                      : ""}
+                    {reservation.payout_amount.toLocaleString("es-UY", {
+                      maximumFractionDigits: 2,
+                    })}
+                  </dd>
+                </>
+              )}
+              {reservation.guest_message && (
+                <>
+                  <dt className="text-muted-foreground self-start">
+                    Mensaje del huésped
+                  </dt>
+                  <dd className="whitespace-pre-wrap">
+                    {reservation.guest_message}
+                  </dd>
+                </>
+              )}
+            </dl>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>

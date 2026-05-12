@@ -85,11 +85,32 @@ export async function syncAirbnb(
       const checkOut = toIsoDate(event.endDate.toJSDate());
 
       const description = event.description ?? "";
-      const codeMatch = description.match(/HM[A-Z0-9]+/);
+      // HM code regex stays loose — Airbnb has used HM*, HMS*, HMP*.
+      const codeMatch = description.match(/\bH[A-Z0-9]{6,12}\b/);
       const reservationCode = codeMatch?.[0] ?? null;
       const notes = reservationCode
         ? `Airbnb reservation: ${reservationCode}`
         : null;
+
+      // Race fix: if the inbound-email webhook (Postmark) created a
+      // placeholder row using the HM code as external_id, rewrite that
+      // row's external_id to the canonical UID so the upsert key works
+      // for future syncs.
+      if (reservationCode) {
+        const { data: placeholder } = await admin
+          .from("reservations")
+          .select("id, external_id")
+          .eq("source", "airbnb")
+          .eq("reservation_code", reservationCode)
+          .neq("external_id", uid)
+          .maybeSingle();
+        if (placeholder) {
+          await admin
+            .from("reservations")
+            .update({ external_id: uid })
+            .eq("id", placeholder.id);
+        }
+      }
 
       const { data: upserted, error } = await admin
         .from("reservations")
@@ -101,6 +122,7 @@ export async function syncAirbnb(
             check_in: checkIn,
             check_out: checkOut,
             notes,
+            reservation_code: reservationCode,
           },
           { onConflict: "source,external_id" },
         )

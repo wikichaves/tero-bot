@@ -20,6 +20,7 @@ export type Property = {
 };
 
 export type ReservationSource = "airbnb" | "booking" | "manual";
+export type ReservationStatus = "confirmed" | "cancelled" | "altered";
 
 export type Reservation = {
   id: string;
@@ -32,7 +33,58 @@ export type Reservation = {
   external_id: string | null;
   notes: string | null;
   created_at: string;
+  /** Airbnb HM code (parsed from iCal DESCRIPTION or confirmation email). */
+  reservation_code: string | null;
+  guest_count: number | null;
+  payout_amount: number | null;
+  /** ISO 4217 (e.g. UYU, USD, ARS). */
+  payout_currency: string | null;
+  /** Free-form note from the guest, extracted from the confirmation email. */
+  guest_message: string | null;
+  status: ReservationStatus;
 };
+
+/** Persisted raw + parsed payload of an inbound Airbnb email. */
+export type AirbnbInboundEmail = {
+  id: string;
+  message_id: string | null;
+  reservation_id: string | null;
+  parsed_kind:
+    | "confirmation"
+    | "cancellation"
+    | "modification"
+    | "unknown"
+    | null;
+  parsed: unknown;
+  raw: unknown;
+  received_at: string;
+};
+
+/** Output of `parseAirbnbEmail()`. Discriminated by `kind`. */
+export type ParsedAirbnbEmail =
+  | {
+      kind: "confirmation" | "modification";
+      reservation_code: string;
+      guest_first_name: string | null;
+      guest_count: number | null;
+      payout_amount: number | null;
+      payout_currency: string | null;
+      guest_message: string | null;
+      check_in: string | null;
+      check_out: string | null;
+      listing_name: string | null;
+      locale: "es" | "en";
+    }
+  | {
+      kind: "cancellation";
+      reservation_code: string;
+      listing_name: string | null;
+      locale: "es" | "en";
+    }
+  | {
+      kind: "unknown";
+      reason: string;
+    };
 
 export type TaskStatus = "pending" | "in_progress" | "done";
 export type TaskKind = "limpieza" | "mantenimiento" | "insumos" | "otro";

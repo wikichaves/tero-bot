@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/daily-energy-report",
       "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron/inbound-purge",
+      "schedule": "0 5 * * *"
     }
   ]
 }

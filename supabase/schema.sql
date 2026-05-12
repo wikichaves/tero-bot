@@ -360,3 +360,50 @@ drop policy if exists energy_snapshots_write on public.energy_snapshots;
 create policy energy_snapshots_write on public.energy_snapshots
   for all using (public.current_role() in ('admin', 'gestor'))
   with check (public.current_role() in ('admin', 'gestor'));
+
+-- ────────────────────────────────────────────────────────────────────────
+-- Airbnb inbound email enrichment (added 2026-05-12). The iCal feed only
+-- gives dates + a reservation code (HM…); confirmation emails carry the
+-- rest (guest name, count, payout). A Postmark Inbound webhook at
+-- /api/inbound/airbnb parses these and writes into the columns below.
+
+do $$ begin
+  create type reservation_status as enum ('confirmed','cancelled','altered');
+exception when duplicate_object then null; end $$;
+
+alter table public.reservations
+  add column if not exists reservation_code text,
+  add column if not exists guest_count int,
+  add column if not exists payout_amount numeric,
+  add column if not exists payout_currency text
+    check (payout_currency is null or payout_currency ~ '^[A-Z]{3}$'),
+  add column if not exists guest_message text,
+  add column if not exists status reservation_status not null default 'confirmed';
+
+create index if not exists reservations_code_idx
+  on public.reservations(reservation_code);
+
+-- Raw inbound payload retention for debug + replay. Purged at 30 days by
+-- /api/cron/inbound-purge so we don't accumulate PII.
+create table if not exists public.airbnb_inbound_emails (
+  id uuid primary key default gen_random_uuid(),
+  message_id text unique,
+  reservation_id uuid references public.reservations(id) on delete set null,
+  parsed_kind text,
+  parsed jsonb,
+  raw jsonb,
+  received_at timestamptz not null default now()
+);
+
+create index if not exists airbnb_inbound_emails_received_at_idx
+  on public.airbnb_inbound_emails(received_at desc);
+
+alter table public.airbnb_inbound_emails enable row level security;
+
+drop policy if exists airbnb_inbound_emails_admin_read
+  on public.airbnb_inbound_emails;
+create policy airbnb_inbound_emails_admin_read
+  on public.airbnb_inbound_emails
+  for select using (public.current_role() in ('admin','gestor'));
+
+-- No write policy: only the service-role client (route handler) writes here.
