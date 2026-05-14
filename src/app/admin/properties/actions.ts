@@ -37,6 +37,20 @@ const upsertSchema = z.object({
     .optional()
     .or(z.literal(""))
     .transform((v) => (v ? v : null)),
+  /** Bag of provider → account_number. Empty strings are dropped so
+   *  the stored jsonb only contains real mappings. */
+  provider_accounts: z
+    .record(z.string(), z.string())
+    .optional()
+    .transform((m) => {
+      if (!m) return {};
+      const out: Record<string, string> = {};
+      for (const [k, v] of Object.entries(m)) {
+        const cleaned = String(v ?? "").trim();
+        if (cleaned) out[k] = cleaned;
+      }
+      return out;
+    }),
 });
 
 export async function upsertProperty(input: {
@@ -47,6 +61,7 @@ export async function upsertProperty(input: {
   currency: string;
   tariff_per_kwh: number | null;
   airbnb_listing_id?: string;
+  provider_accounts?: Record<string, string>;
 }) {
   await requireRole(["admin"]);
   const parsed = upsertSchema.safeParse(input);
@@ -61,6 +76,7 @@ export async function upsertProperty(input: {
     currency: parsed.data.currency,
     tariff_per_kwh: parsed.data.tariff_per_kwh ?? null,
     airbnb_listing_id: parsed.data.airbnb_listing_id,
+    provider_accounts: parsed.data.provider_accounts,
   };
   let id: string | null = null;
   if (parsed.data.id) {

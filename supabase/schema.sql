@@ -563,3 +563,16 @@ create policy bill_attachments_read on storage.objects
     bucket_id = 'bill-attachments'
     and public.current_role() in ('admin', 'gestor')
   );
+
+-- ────────────────────────────────────────────────────────────────────────
+-- Provider account mapping (WIK-65). Cuando hay múltiples propiedades con
+-- la misma currency (5 propiedades UYU, p. ej.), no podemos desambiguar
+-- la propiedad por currency sola. Cada proveedor da un número de cuenta /
+-- cliente único por propiedad — mapeamos provider → account_number aquí,
+-- y el inbound handler lo consulta para asignar la factura a la propiedad
+-- correcta. Forma: {"UTE": "4131911000", "OSE": "12345", ...}.
+alter table public.properties
+  add column if not exists provider_accounts jsonb not null default '{}'::jsonb;
+
+create index if not exists properties_provider_accounts_idx
+  on public.properties using gin (provider_accounts);

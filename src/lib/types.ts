@@ -19,6 +19,10 @@ export type Property = {
   /** Numeric Airbnb listing id (e.g. "1526467") used to match inbound
    *  confirmation emails to a property. Optional. */
   airbnb_listing_id: string | null;
+  /** Per-provider client/account numbers, used by /api/inbound to route
+   *  utility bills to this property when multiple properties share the
+   *  same currency. Shape: { "UTE": "4131911000", "OSE": "12345", ... }. */
+  provider_accounts: Record<string, string>;
   created_at: string;
 };
 

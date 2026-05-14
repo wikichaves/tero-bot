@@ -61,6 +61,21 @@ export function EditPropertyDialog({
   );
 }
 
+/** Bill providers we currently parse from inbound emails. Mapping any
+ *  of them to an account number lets /api/inbound route the matching
+ *  factura to this property even when several properties share a
+ *  currency. Keep in sync with KNOWN_BILL_PROVIDERS in actions.ts and
+ *  with the BillProvider union in lib/types.ts. */
+const BILL_PROVIDERS = [
+  { key: "UTE", placeholder: "ej. 4131911000" },
+  { key: "OSE", placeholder: "ej. 5359041" },
+  { key: "Antel", placeholder: "ej. 25006163000108" },
+  { key: "Prosegur", placeholder: "ej. 3317403" },
+  { key: "Edenor", placeholder: "ej. 2259142078" },
+  { key: "AySA", placeholder: "ej. 1234567" },
+  { key: "Personal Flow", placeholder: "ej. 7654321" },
+] as const;
+
 function PropertyForm({
   property,
   onDone,
@@ -81,6 +96,18 @@ function PropertyForm({
   const [airbnbListingId, setAirbnbListingId] = useState(
     property?.airbnb_listing_id ?? "",
   );
+  const [providerAccounts, setProviderAccounts] = useState<
+    Record<string, string>
+  >(() => {
+    // `property?.provider_accounts` may be missing if the row predates the
+    // column being added — default to empty so the form still renders.
+    const existing = property?.provider_accounts ?? {};
+    const out: Record<string, string> = {};
+    for (const p of BILL_PROVIDERS) {
+      out[p.key] = existing[p.key] ?? "";
+    }
+    return out;
+  });
   const [thumbFile, setThumbFile] = useState<File | null>(null);
   // Bumps when the user picks a new file → forces <PropertyThumb> to re-fetch
   // so the local preview shows the new image after upload.
@@ -102,6 +129,7 @@ function PropertyForm({
         currency: currency.toUpperCase(),
         tariff_per_kwh: tariffNum,
         airbnb_listing_id: airbnbListingId.trim(),
+        provider_accounts: providerAccounts,
       });
       if (result?.error || !result.ok) {
         toast.error(result?.error ?? "No se pudo guardar.");
@@ -278,6 +306,38 @@ function PropertyForm({
             <p className="text-xs text-muted-foreground">
               Si lo dejás vacío, /energy usa el fallback global.
             </p>
+          </div>
+        </div>
+        <div className="grid gap-2">
+          <Label>Números de cuenta por proveedor</Label>
+          <p className="text-xs text-muted-foreground">
+            Necesario cuando hay más de una propiedad con la misma moneda. La
+            factura inbound se asigna a esta propiedad cuando el PDF dice esta
+            cuenta. Dejá vacío lo que no aplique.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {BILL_PROVIDERS.map((p) => (
+              <div key={p.key} className="grid gap-1">
+                <Label
+                  htmlFor={`provider_${p.key}`}
+                  className="text-xs font-normal text-muted-foreground"
+                >
+                  {p.key}
+                </Label>
+                <Input
+                  id={`provider_${p.key}`}
+                  value={providerAccounts[p.key] ?? ""}
+                  onChange={(e) =>
+                    setProviderAccounts((s) => ({
+                      ...s,
+                      [p.key]: e.target.value,
+                    }))
+                  }
+                  placeholder={p.placeholder}
+                  inputMode="numeric"
+                />
+              </div>
+            ))}
           </div>
         </div>
       </div>
