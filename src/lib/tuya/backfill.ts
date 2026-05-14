@@ -69,63 +69,69 @@ type LogEntry = {
 };
 
 /**
- * Page through Tuya's `/v1.0/devices/{id}/logs` endpoint and return every
- * energy data-point report in the window. Capped at `maxPages` to keep
- * webhook total runtime under control.
+ * Fetch one energy log per UTC day for a Tuya device over the past `days`
+ * days. We deliberately do NOT paginate through all logs because active
+ * devices (e.g. a circuit breaker that reports every 15s) emit too many
+ * events — pagination depth would cap us at the last few hours and miss
+ * historical data.
+ *
+ * Strategy: one API call per day window with size=50, then keep the most
+ * recent energy log within that window. 30 calls per device is cheap
+ * and gives us exactly the per-day granularity the bill-comparison needs.
  */
 export async function fetchEnergyLogs(
   tuyaDeviceId: string,
-  startMs: number,
   endMs: number,
-  maxPages: number = 30,
+  days: number,
 ): Promise<LogEntry[]> {
   type LogsResponse = {
     logs?: Array<{
       code: string;
       value: string | number;
       event_time: number;
-      event_id?: number;
     }>;
-    has_more?: boolean;
-    has_next?: boolean;
-    last_row_key?: string;
   };
 
   const out: LogEntry[] = [];
   const energySet = new Set(ENERGY_CODES);
-  let lastRowKey: string | undefined;
-  for (let page = 0; page < maxPages; page++) {
-    // Tuya's `codes=a,b,c` filter triggers "sign invalid" on our HMAC
-    // (likely a comma-encoding mismatch between client and server). We
-    // skip the filter and let Tuya return all DP report events, then
-    // discard the non-energy ones client-side.
-    const query: Record<string, string | number> = {
-      type: 7, // 7 = data point report event
-      start_time: startMs,
-      end_time: endMs,
-      size: 100,
-    };
-    if (lastRowKey) query.last_row_key = lastRowKey;
 
-    const r = await tuyaFetch<LogsResponse>(
-      "GET",
-      `/v1.0/devices/${tuyaDeviceId}/logs`,
-      { query },
-    );
+  for (let offset = 0; offset < days; offset++) {
+    const dayEnd = endMs - offset * 86_400_000;
+    const dayStart = dayEnd - 86_400_000;
+    let r: LogsResponse;
+    try {
+      r = await tuyaFetch<LogsResponse>(
+        "GET",
+        `/v1.0/devices/${tuyaDeviceId}/logs`,
+        {
+          query: {
+            type: 7,
+            start_time: dayStart,
+            end_time: dayEnd,
+            size: 50,
+          },
+        },
+      );
+    } catch (err) {
+      console.warn(
+        `[tuya backfill] ${tuyaDeviceId} day -${offset}: ${(err as Error).message}`,
+      );
+      continue;
+    }
     const logs = r.logs ?? [];
-    for (const log of logs) {
-      if (!energySet.has(log.code)) continue;
-      const raw = Number(log.value);
-      if (!Number.isFinite(raw)) continue;
+    // Logs come back newest-first within the window. First energy match
+    // is the most recent reading of that day — perfect anchor for
+    // start-of-(next-)day cumulative.
+    const energy = logs.find(
+      (l) => energySet.has(l.code) && Number.isFinite(Number(l.value)),
+    );
+    if (energy) {
       out.push({
-        taken_at: new Date(log.event_time).toISOString(),
-        raw_value: raw,
-        code: log.code,
+        taken_at: new Date(energy.event_time).toISOString(),
+        raw_value: Number(energy.value),
+        code: energy.code,
       });
     }
-    const hasMore = (r.has_more ?? r.has_next) === true;
-    if (!hasMore || !r.last_row_key) break;
-    lastRowKey = r.last_row_key;
   }
   return out;
 }
@@ -199,9 +205,10 @@ async function backfillDevice(
   }
   result.current_total_kwh = Number(latest.total_energy_kwh);
 
+  const days = Math.max(1, Math.round(months * 30));
   let logs: LogEntry[];
   try {
-    logs = await fetchEnergyLogs(device.tuya_device_id, startMs, endMs);
+    logs = await fetchEnergyLogs(device.tuya_device_id, endMs, days);
   } catch (err) {
     result.error = `tuya logs failed: ${(err as Error).message}`;
     return result;
