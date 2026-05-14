@@ -130,24 +130,44 @@ function stripHtml(html: string | null | undefined): string {
 }
 
 /**
- * Normalize a number string from the email body. Both `1.234,56` and
- * `1,234.56` formats appear in the wild (ES uses the first, AR uses
- * both depending on the company's locale settings). We heuristically
- * pick the rightmost `.` or `,` as the decimal separator.
+ * Normalize a number string from the email body. Real-world formats:
+ *   "1.234,56"  (es-UY / es-AR full)        → 1234.56
+ *   "1,234.56"  (en-US-style some providers)→ 1234.56
+ *   "7.819"     (es thousand separator)     → 7819
+ *   "12,50"     (es decimal)                → 12.50
+ *   "12.50"     (en decimal)                → 12.50
+ *
+ * The trap is `"7.819"` — naively "last separator wins as decimal" gives
+ * 7.819, but utility bills in UYU don't have 3-decimal amounts. So when
+ * there's exactly ONE separator we use a digits-after rule: 3 digits after
+ * = thousands separator; 1–2 digits = decimal.
  */
 function parseAmount(raw: string): number | null {
   const cleaned = raw.replace(/[^\d.,]/g, "");
   if (!cleaned) return null;
-  // Last separator wins as the decimal.
   const lastDot = cleaned.lastIndexOf(".");
   const lastComma = cleaned.lastIndexOf(",");
   let normalized: string;
   if (lastDot === -1 && lastComma === -1) {
     normalized = cleaned;
-  } else if (lastComma > lastDot) {
-    normalized = cleaned.replace(/\./g, "").replace(",", ".");
+  } else if (lastDot >= 0 && lastComma >= 0) {
+    // Both separators present — the rightmost one is the decimal.
+    if (lastComma > lastDot) {
+      normalized = cleaned.replace(/\./g, "").replace(",", ".");
+    } else {
+      normalized = cleaned.replace(/,/g, "");
+    }
   } else {
-    normalized = cleaned.replace(/,/g, "");
+    // Only one kind of separator. Could be either thousands or decimal.
+    const sepIdx = lastDot >= 0 ? lastDot : lastComma;
+    const digitsAfter = cleaned.length - sepIdx - 1;
+    if (digitsAfter === 3) {
+      // Thousands separator — strip it ("7.819" → 7819).
+      normalized = cleaned.replace(/[.,]/g, "");
+    } else {
+      // Decimal separator — normalize to dot ("12,50" → "12.50").
+      normalized = cleaned.replace(",", ".");
+    }
   }
   const n = Number(normalized);
   return Number.isFinite(n) ? n : null;
