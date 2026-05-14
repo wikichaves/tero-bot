@@ -14,7 +14,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import type { Property, Task } from "@/lib/types";
+import type { Property, Task, UserRole } from "@/lib/types";
+import { ROLE_LABEL } from "@/lib/roles";
 import { createTask, updateTask } from "./actions";
 
 const KIND_OPTIONS: { value: Task["kind"]; label: string }[] = [
@@ -34,7 +35,7 @@ type AssigneeProfile = {
   id: string;
   full_name: string | null;
   email: string;
-  role: string;
+  role: UserRole;
 };
 
 export function NewTaskDialog({
@@ -214,7 +215,7 @@ function TaskForm({
               <option value="">Sin asignar</option>
               {assignees.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.full_name ?? a.email} ({a.role})
+                  {a.full_name ?? a.email} ({ROLE_LABEL[a.role]})
                 </option>
               ))}
             </select>

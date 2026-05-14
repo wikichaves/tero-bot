@@ -18,12 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { NewUserDialog } from "./new-user-dialog";
 import { UserActions } from "./user-actions";
 import type { Profile } from "@/lib/types";
-
-const ROLE_LABEL: Record<Profile["role"], string> = {
-  admin: "Admin",
-  gestor: "Gestor",
-  mantenimiento: "Mantenimiento",
-};
+import { ROLE_LABEL } from "@/lib/roles";
 
 export default async function UsersPage() {
   const me = await requireRole(["admin"]);

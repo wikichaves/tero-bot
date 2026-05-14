@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import type { Property, Task } from "@/lib/types";
+import type { Property, Task, UserRole } from "@/lib/types";
 import { deleteTask, setTaskStatus } from "./actions";
 import { EditTaskDialog } from "./task-form-dialog";
 
@@ -19,7 +19,7 @@ type AssigneeProfile = {
   id: string;
   full_name: string | null;
   email: string;
-  role: string;
+  role: UserRole;
 };
 
 export function TaskRowActions({

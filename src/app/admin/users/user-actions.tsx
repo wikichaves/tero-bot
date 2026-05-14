@@ -14,10 +14,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import type { Profile, UserRole } from "@/lib/types";
+import { ALL_ROLES, ROLE_LABEL } from "@/lib/roles";
 import { deleteUser, updateRole } from "./actions";
 import { EditUserDialog } from "./edit-user-dialog";
-
-const ROLES: UserRole[] = ["admin", "gestor", "mantenimiento"];
 
 export function UserActions({
   profile,
@@ -61,9 +60,9 @@ export function UserActions({
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuLabel>Cambiar rol</DropdownMenuLabel>
-            {ROLES.filter((r) => r !== profile.role).map((r) => (
+            {ALL_ROLES.filter((r) => r !== profile.role).map((r) => (
               <DropdownMenuItem key={r} onClick={() => changeRole(r)}>
-                {r}
+                {ROLE_LABEL[r]}
               </DropdownMenuItem>
             ))}
           </DropdownMenuGroup>
