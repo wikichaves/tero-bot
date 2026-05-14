@@ -88,8 +88,15 @@ function detectProvider(
   fromEmail: string | null,
   fromName: string | null,
   subject: string,
+  body: string,
 ): ProviderRule | null {
-  const haystack = `${fromEmail ?? ""} ${fromName ?? ""} ${subject}`.toLowerCase();
+  // Include the body in the haystack so we can still identify the provider
+  // when the user forwards manually from Gmail — in that case the outer
+  // `From` is the user's own address and the real sender (e.g.
+  // `UTEFACTURACION@ute.com.uy`) is only visible inside the quoted
+  // "---------- Forwarded message ----------" block.
+  const haystack =
+    `${fromEmail ?? ""} ${fromName ?? ""} ${subject}\n${body}`.toLowerCase();
   for (const rule of PROVIDER_RULES) {
     if (rule.domains.some((d) => haystack.includes(d))) return rule;
   }
@@ -194,9 +201,14 @@ function extractAmountAndCurrency(
   body: string,
   fallbackCurrency: string,
 ): { amount: number | null; currency: string | null } {
-  // "Importe a pagar: $ 1.234,56", "Total: ARS 1.234,56", "Total $U 1.234"
+  // Patterns we've seen, most specific first:
+  //   "Importe: $ 7.819"                 (UTE forwarded email body)
+  //   "Importe a pagar: $ 1.234,56"
+  //   "Total a pagar: ARS 1.234,56"
+  //   "Total: $U 1.234"
+  //   "Monto: $1234"
   const candidates = [
-    /(?:importe\s+a\s+pagar|total\s+a\s+pagar|monto\s+a\s+pagar|total\s+factura|total)[^\n$0-9]{0,30}(\$U|U\$S|US\$|ARS|UYU|\$)\s*([\d.,]+)/i,
+    /(?:importe(?:\s+a\s+pagar|\s+total)?|total(?:\s+a\s+pagar|\s+factura)?|monto(?:\s+a\s+pagar)?|saldo\s+a\s+pagar)\s*:?\s*(\$U|U\$S|US\$|ARS|UYU|\$)\s*([\d.,]+)/i,
     /(\$U|U\$S|US\$|ARS|UYU|\$)\s*([\d.,]+)\s*(?:de\s+)?(?:total|importe)/i,
   ];
   for (const rx of candidates) {
@@ -241,6 +253,22 @@ function extractInvoiceNumber(body: string): string | null {
   return null;
 }
 
+function extractAccountNumber(body: string, subject: string): string | null {
+  // "Cuenta n° 4131911000" (UTE), "Cuenta contrato 12345" (Edenor),
+  // "Cuenta cliente: 1234567" (Antel). Also the subject often carries it:
+  // "e-Ticket Crédito de la Cuenta 4131911000".
+  const haystack = `${subject}\n${body}`;
+  const candidates = [
+    /cuenta(?:\s+(?:contrato|cliente|n[uú]mero))?\s*[:#°ºn.\-]*\s*(\d{5,15})/i,
+    /n[ºo°.]?\s*de\s+cuenta\s*:?\s*(\d{5,15})/i,
+  ];
+  for (const rx of candidates) {
+    const m = rx.exec(haystack);
+    if (m) return m[1];
+  }
+  return null;
+}
+
 function extractKwh(body: string): number | null {
   const m = /(\d+(?:[.,]\d+)?)\s*kwh/i.exec(body);
   return m ? parseAmount(m[1]) : null;
@@ -264,18 +292,19 @@ export function parseBillEmail({
   text: string;
   html?: string | null;
 }): ParsedBillEmail {
-  const rule = detectProvider(fromEmail, fromName, subject);
+  const body = `${text}\n${stripHtml(html)}\n${subject}`;
+  const rule = detectProvider(fromEmail, fromName, subject, body);
   if (!rule) {
     return {
       kind: "unknown",
-      reason: `provider not recognized from sender "${fromEmail ?? "?"}"`,
+      reason: `provider not recognized (from="${fromEmail ?? "?"}", subject="${subject.slice(0, 60)}")`,
     };
   }
 
-  const body = `${text}\n${stripHtml(html)}\n${subject}`;
   const { amount, currency } = extractAmountAndCurrency(body, rule.currency);
   const due_date = extractDueDate(body);
   const invoice_number = extractInvoiceNumber(body);
+  const account_number = extractAccountNumber(body, subject);
   const kwh_billed = rule.utility_type === "luz" ? extractKwh(body) : null;
   const m3_billed = rule.utility_type === "agua" ? extractM3(body) : null;
 
@@ -295,7 +324,7 @@ export function parseBillEmail({
     due_date,
     kwh_billed,
     m3_billed,
-    account_number: null,
+    account_number,
     invoice_number,
     property_id: null,
   };
