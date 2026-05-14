@@ -61,20 +61,53 @@ export function EditPropertyDialog({
   );
 }
 
-/** Bill providers we currently parse from inbound emails. Mapping any
- *  of them to an account number lets /api/inbound route the matching
- *  factura to this property even when several properties share a
- *  currency. Keep in sync with KNOWN_BILL_PROVIDERS in actions.ts and
- *  with the BillProvider union in lib/types.ts. */
-const BILL_PROVIDERS = [
-  { key: "UTE", placeholder: "ej. 4131911000" },
-  { key: "OSE", placeholder: "ej. 5359041" },
-  { key: "Antel", placeholder: "ej. 25006163000108" },
-  { key: "Prosegur", placeholder: "ej. 3317403" },
-  { key: "Edenor", placeholder: "ej. 2259142078" },
-  { key: "AySA", placeholder: "ej. 1234567" },
-  { key: "Personal Flow", placeholder: "ej. 7654321" },
-] as const;
+/** Country presets — drives the currency auto-derivation and which
+ *  provider inputs we render. Internal DB still stores ISO currency,
+ *  so the only place "country" lives is in this form's UX. */
+type CountryKey = "UY" | "AR";
+
+const COUNTRIES: Array<{
+  key: CountryKey;
+  label: string;
+  currency: string;
+}> = [
+  { key: "UY", label: "🇺🇾 Uruguay", currency: "UYU" },
+  { key: "AR", label: "🇦🇷 Argentina", currency: "ARS" },
+];
+
+/** Bill providers by country. The `key` is the internal name used by
+ *  the inbound parser and stored as `provider` in utility_bills + as
+ *  keys inside `provider_accounts`. The `label` is what we show in the
+ *  form (e.g. "Antel Fijo" vs internal key "Antel" — keeping the key
+ *  unchanged for backwards compat with existing parsed data). */
+const PROVIDERS_BY_COUNTRY: Record<
+  CountryKey,
+  Array<{ key: string; label: string; placeholder: string }>
+> = {
+  UY: [
+    { key: "UTE", label: "UTE", placeholder: "ej. 4131911000" },
+    { key: "OSE", label: "OSE", placeholder: "ej. 5359041" },
+    { key: "Antel", label: "Antel Fijo", placeholder: "ej. 25006163000108" },
+    { key: "Prosegur", label: "Prosegur", placeholder: "ej. 3317403" },
+  ],
+  AR: [
+    { key: "Edenor", label: "Edenor", placeholder: "ej. 2259142078" },
+    { key: "AySA", label: "AySA", placeholder: "ej. 1234567" },
+    {
+      key: "Personal Flow",
+      label: "Personal Flow",
+      placeholder: "ej. 7654321",
+    },
+  ],
+};
+
+/** Map an existing currency (or default) to a country preset. Properties
+ *  pre-dating the country selector still have `currency` set; we infer
+ *  back the country so the form opens with the right radio + provider
+ *  list. Falls back to Uruguay for the unknown case. */
+function countryFromCurrency(currency: string | null | undefined): CountryKey {
+  return currency === "ARS" ? "AR" : "UY";
+}
 
 function PropertyForm({
   property,
@@ -89,25 +122,34 @@ function PropertyForm({
   const [bookingUrl, setBookingUrl] = useState(
     property?.booking_ical_url ?? "",
   );
-  const [currency, setCurrency] = useState(property?.currency ?? "UYU");
+  const [country, setCountry] = useState<CountryKey>(() =>
+    countryFromCurrency(property?.currency),
+  );
   const [tariff, setTariff] = useState<string>(
     property?.tariff_per_kwh != null ? String(property.tariff_per_kwh) : "",
   );
   const [airbnbListingId, setAirbnbListingId] = useState(
     property?.airbnb_listing_id ?? "",
   );
+  // We keep ALL provider keys in state (even when the country is the
+  // other one) so that switching country temporarily doesn't lose the
+  // values typed for the previous country. On submit we filter to the
+  // country's providers and drop the rest.
   const [providerAccounts, setProviderAccounts] = useState<
     Record<string, string>
   >(() => {
-    // `property?.provider_accounts` may be missing if the row predates the
-    // column being added — default to empty so the form still renders.
     const existing = property?.provider_accounts ?? {};
     const out: Record<string, string> = {};
-    for (const p of BILL_PROVIDERS) {
-      out[p.key] = existing[p.key] ?? "";
+    for (const list of Object.values(PROVIDERS_BY_COUNTRY)) {
+      for (const p of list) {
+        out[p.key] = existing[p.key] ?? "";
+      }
     }
     return out;
   });
+  const visibleProviders = PROVIDERS_BY_COUNTRY[country];
+  const currency =
+    COUNTRIES.find((c) => c.key === country)?.currency ?? "UYU";
   const [thumbFile, setThumbFile] = useState<File | null>(null);
   // Bumps when the user picks a new file → forces <PropertyThumb> to re-fetch
   // so the local preview shows the new image after upload.
@@ -121,15 +163,23 @@ function PropertyForm({
       return;
     }
     startTransition(async () => {
+      // Strip provider accounts that don't belong to the selected country
+      // — keeping them around would let an Edenor account silently sit
+      // on a UYU property and confuse the inbound matcher.
+      const visibleKeys = new Set(visibleProviders.map((p) => p.key));
+      const filteredAccounts: Record<string, string> = {};
+      for (const [k, v] of Object.entries(providerAccounts)) {
+        if (visibleKeys.has(k)) filteredAccounts[k] = v;
+      }
       const result = await upsertProperty({
         id: property?.id,
         name,
         airbnb_ical_url: airbnbUrl,
         booking_ical_url: bookingUrl,
-        currency: currency.toUpperCase(),
+        currency,
         tariff_per_kwh: tariffNum,
         airbnb_listing_id: airbnbListingId.trim(),
-        provider_accounts: providerAccounts,
+        provider_accounts: filteredAccounts,
       });
       if (result?.error || !result.ok) {
         toast.error(result?.error ?? "No se pudo guardar.");
@@ -276,20 +326,19 @@ function PropertyForm({
         </div>
         <div className="grid grid-cols-[1fr_2fr] gap-3">
           <div className="grid gap-2">
-            <Label htmlFor="currency">Moneda</Label>
+            <Label htmlFor="country">País</Label>
             <select
-              id="currency"
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
+              id="country"
+              value={country}
+              onChange={(e) => setCountry(e.target.value as CountryKey)}
               required
               className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
             >
-              <option value="UYU">UYU · Uruguay</option>
-              <option value="ARS">ARS · Argentina</option>
-              <option value="USD">USD · Dólar</option>
-              <option value="BRL">BRL · Brasil</option>
-              <option value="CLP">CLP · Chile</option>
-              <option value="EUR">EUR · Euro</option>
+              {COUNTRIES.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.label} · {c.currency}
+                </option>
+              ))}
             </select>
           </div>
           <div className="grid gap-2">
@@ -316,13 +365,13 @@ function PropertyForm({
             cuenta. Dejá vacío lo que no aplique.
           </p>
           <div className="grid grid-cols-2 gap-3">
-            {BILL_PROVIDERS.map((p) => (
+            {visibleProviders.map((p) => (
               <div key={p.key} className="grid gap-1">
                 <Label
                   htmlFor={`provider_${p.key}`}
                   className="text-xs font-normal text-muted-foreground"
                 >
-                  {p.key}
+                  {p.label}
                 </Label>
                 <Input
                   id={`provider_${p.key}`}
