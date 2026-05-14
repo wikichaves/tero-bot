@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!--
+    Favicon: lucide "trees" (WIK-73).
+
+    Naranjas tomados del theme soft-orange (WIK-71) ajustados para
+    contraste sobre la pestaña del browser:
+      - Light:  #b85c1c  (orange-700 aprox — bien legible sobre blanco)
+      - Dark:   #f59e4a  (orange-400 aprox — pop sobre tab dark)
+
+    El `@media (prefers-color-scheme: dark)` dentro del SVG funciona en
+    Chrome / Firefox / Safari modernos para favicons SVG.
+  -->
+  <style>
+    path { stroke: #b85c1c; }
+    @media (prefers-color-scheme: dark) {
+      path { stroke: #f59e4a; }
+    }
+  </style>
+  <path d="M10 10v.2A3 3 0 0 1 8.9 16H5a3 3 0 0 1-1-5.8V10a3 3 0 0 1 6 0Z" />
+  <path d="M7 16v6" />
+  <path d="M13 19v3" />
+  <path d="M12 19h8.3a1 1 0 0 0 .7-1.7L18 14h.3a1 1 0 0 0 .7-1.7L16 9h.2a1 1 0 0 0 .8-1.7L13 3l-1.4 1.5" />
+</svg>
