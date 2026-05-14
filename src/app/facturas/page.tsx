@@ -9,7 +9,6 @@ import {
   type DeltaLevel,
 } from "@/lib/bills/tuya-comparison";
 import { formatMoney } from "@/lib/tuya/energy";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -26,24 +25,28 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { BillStatus, Property, UtilityBill, UtilityType } from "@/lib/types";
+import type { Property, UtilityBill, UtilityType } from "@/lib/types";
 import { BillFormDialog } from "./bill-form-dialog";
 import { BillRowActions } from "./bill-row-actions";
 
 /**
- * /facturas — listado de facturas de servicios (luz, agua, internet, alarma).
+ * /facturas — listado de facturas de servicios (luz, agua, internet, alarma)
+ * agrupado por propiedad.
  *
  * Fuentes de carga:
  *   1. Inbound automático: forwardear el email del proveedor a
- *      `bills@inbound.example.com` (alias soportados:
- *      `luz@`, `agua@`, `internet@`, `alarma@`, `facturas@`). El
- *      router `/api/inbound` detecta el proveedor por sender domain,
- *      sube el PDF a Storage y crea la fila acá.
- *   2. Manual: botón "Nueva factura" arriba a la derecha — para
- *      cargar lo que llega en papel o de proveedores sin parser.
+ *      `bills@inbound.example.com` (alias: luz@/agua@/etc).
+ *      El router `/api/inbound` detecta el proveedor por sender domain,
+ *      sube el PDF a Storage y crea la fila acá. Si llega un email para
+ *      una factura ya existente (misma propiedad + proveedor + período_to),
+ *      el handler hace UPDATE en vez de INSERT — no se duplican filas.
+ *   2. Manual: botón "Nueva factura" arriba a la derecha — para cargar
+ *      lo que llega en papel o de proveedores sin parser.
  *
- * Lo que se autocompleta puede quedar parcial (parser hace best-effort
- * sólo sobre el body); cualquier campo se edita después con la lupita.
+ * El campo `status` (pending/paid/overdue/cancelled) existe en DB pero
+ * no se muestra en la lista — todas las facturas van por débito automático
+ * así que el seguimiento de pago no agrega valor visual. Sigue editable
+ * desde el dialog si querés marcar manualmente algo cancelled.
  */
 
 const UTILITY_LABEL: Record<UtilityType, string> = {
@@ -52,23 +55,6 @@ const UTILITY_LABEL: Record<UtilityType, string> = {
   internet: "Internet",
   alarma: "Alarma",
   otro: "Otro",
-};
-
-const STATUS_LABEL: Record<BillStatus, string> = {
-  pending: "Pendiente",
-  paid: "Pagada",
-  overdue: "Vencida",
-  cancelled: "Cancelada",
-};
-
-const STATUS_VARIANT: Record<
-  BillStatus,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  pending: "secondary",
-  paid: "default",
-  overdue: "destructive",
-  cancelled: "outline",
 };
 
 type BillRow = UtilityBill & {
@@ -91,25 +77,16 @@ function formatDate(iso: string | null): string {
   return format(parseISO(iso), "d MMM yyyy", { locale: es });
 }
 
-/** Compute the effective status: a bill marked `pending` past its due
- *  date is rendered as overdue — without mutating the DB row. */
-function effectiveStatus(b: BillRow, todayIso: string): BillStatus {
-  if (b.status === "pending" && b.due_date && b.due_date < todayIso) {
-    return "overdue";
-  }
-  return b.status;
-}
-
 export default async function FacturasPage() {
   await requireRole(["admin", "gestor"]);
   const supabase = await createClient();
-  const todayIso = new Date().toISOString().slice(0, 10);
 
   const [billsRes, propertiesRes] = await Promise.all([
     supabase
       .from("utility_bills")
       .select("*, property:properties(id, name, currency)")
       .order("period_to", { ascending: false, nullsFirst: false })
+      .order("due_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false }),
     supabase
       .from("properties")
@@ -123,12 +100,9 @@ export default async function FacturasPage() {
     "id" | "name" | "currency"
   >[];
 
-  // Tuya vs facturado: for every `luz` bill with a complete period
-  // (period_from + period_to + kwh_billed) we compute the property's
-  // Tuya-measured kWh across that range and compare. The admin client
-  // is needed because the user's client doesn't see energy_snapshots
-  // for properties they're not directly granted (in practice it does,
-  // but we keep the abstraction).
+  // Tuya vs facturado: para cada `luz` con período + kWh completo,
+  // computamos el consumo medido por Tuya y lo comparamos en el badge
+  // de la columna Consumo (parcial cuando coverage < 70%).
   const admin = createAdminClient();
   const comparisons = new Map<
     string,
@@ -166,19 +140,14 @@ export default async function FacturasPage() {
       }),
   );
 
-  // Totals: pending (or overdue) by currency. Cancelled / paid don't count.
-  const totalsByCurrency = new Map<string, number>();
+  // Group bills by property. We iterate `properties` (alphabetical) so the
+  // sections render in a stable order even when one property has no bills.
+  const billsByProperty = new Map<string, BillRow[]>();
   for (const b of bills) {
-    const eff = effectiveStatus(b, todayIso);
-    if (eff !== "pending" && eff !== "overdue") continue;
-    if (b.amount == null || !b.currency) continue;
-    totalsByCurrency.set(
-      b.currency,
-      (totalsByCurrency.get(b.currency) ?? 0) + b.amount,
-    );
+    const list = billsByProperty.get(b.property_id) ?? [];
+    list.push(b);
+    billsByProperty.set(b.property_id, list);
   }
-
-  const hasMultipleProperties = properties.length > 1;
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6">
@@ -201,123 +170,133 @@ export default async function FacturasPage() {
         />
       </div>
 
-      {totalsByCurrency.size > 0 && (
+      {bills.length === 0 ? (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Pendiente de pago</CardTitle>
-            <CardDescription>
-              Facturas con estado pendiente o vencidas — agrupado por moneda.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-6">
-              {Array.from(totalsByCurrency.entries()).map(([curr, total]) => (
-                <div key={curr}>
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                    {curr}
-                  </div>
-                  <div className="text-2xl font-semibold tabular-nums">
-                    {formatMoney(total, curr)}
-                  </div>
-                </div>
-              ))}
-            </div>
+          <CardContent className="px-4 py-6 text-sm text-muted-foreground sm:px-6">
+            Reenviá el primer email de UTE / OSE / Antel / Edenor / AySA /
+            Personal Flow / Prosegur a{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">
+              bills@inbound.example.com
+            </code>{" "}
+            y vas a verla acá. Mientras, podés usar &laquo;Nueva factura&raquo;.
           </CardContent>
         </Card>
+      ) : (
+        <div className="flex flex-col gap-4">
+          {properties.map((property) => {
+            const propBills = billsByProperty.get(property.id) ?? [];
+            if (propBills.length === 0) return null;
+            return (
+              <PropertyBillsCard
+                key={property.id}
+                property={property}
+                bills={propBills}
+                comparisons={comparisons}
+                allProperties={properties}
+              />
+            );
+          })}
+          {/* Defensive: bills whose property_id doesn't match any known property
+              (deleted property, stale FK) end up in their own catch-all card. */}
+          {(() => {
+            const knownIds = new Set(properties.map((p) => p.id));
+            const orphans = bills.filter((b) => !knownIds.has(b.property_id));
+            if (orphans.length === 0) return null;
+            return (
+              <PropertyBillsCard
+                key="orphans"
+                property={null}
+                bills={orphans}
+                comparisons={comparisons}
+                allProperties={properties}
+              />
+            );
+          })()}
+        </div>
       )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Historial</CardTitle>
-          <CardDescription>
-            {bills.length === 0
-              ? "Todavía no cargaste ninguna factura."
-              : `${bills.length} factura${bills.length === 1 ? "" : "s"} registrada${bills.length === 1 ? "" : "s"}.`}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="px-0 sm:px-6">
-          {bills.length === 0 ? (
-            <div className="px-4 pb-4 text-sm text-muted-foreground sm:px-0">
-              Reenviá el primer email de UTE / OSE / Antel / Edenor /
-              AySA / Personal Flow / Prosegur a{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                bills@inbound.example.com
-              </code>{" "}
-              y vas a verla acá. Mientras, podés usar &laquo;Nueva factura&raquo;.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {hasMultipleProperties && <TableHead>Propiedad</TableHead>}
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Proveedor</TableHead>
-                    <TableHead>Período</TableHead>
-                    <TableHead className="text-right">Importe</TableHead>
-                    <TableHead className="text-right">Consumo</TableHead>
-                    <TableHead>Vencimiento</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {bills.map((b) => {
-                    const eff = effectiveStatus(b, todayIso);
-                    const cmp = comparisons.get(b.id);
-                    return (
-                      <TableRow key={b.id}>
-                        {hasMultipleProperties && (
-                          <TableCell className="font-medium">
-                            {b.property?.name ?? "—"}
-                          </TableCell>
-                        )}
-                        <TableCell>{UTILITY_LABEL[b.utility_type]}</TableCell>
-                        <TableCell>{b.provider}</TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          {formatPeriod(b.period_from, b.period_to)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {b.amount != null
-                            ? formatMoney(b.amount, b.currency ?? "UYU")
-                            : "—"}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums whitespace-nowrap">
-                          <ConsumoCell bill={b} comparison={cmp} />
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          {formatDate(b.due_date)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={STATUS_VARIANT[eff]}>
-                            {STATUS_LABEL[eff]}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <BillRowActions bill={b} properties={properties} />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
 
-/**
- * Render the consumption cell for a bill row. For luz/agua we show the
- * facturado kWh/m³ value; for luz bills that have a complete period we
- * also show the Tuya-measured delta as a colored badge. Everything else
- * collapses to an em-dash.
- *
- * The level → color mapping intentionally uses neutral tones (no hard
- * destructive red) for warn — the admin should NOTICE these, not panic.
- */
+function PropertyBillsCard({
+  property,
+  bills,
+  comparisons,
+  allProperties,
+}: {
+  property: Pick<Property, "id" | "name" | "currency"> | null;
+  bills: BillRow[];
+  comparisons: Map<
+    string,
+    {
+      tuyaKwh: number;
+      deltaPct: number;
+      level: DeltaLevel;
+      coverageFraction: number;
+    }
+  >;
+  allProperties: Pick<Property, "id" | "name" | "currency">[];
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">
+          {property?.name ?? "Sin propiedad asignada"}
+        </CardTitle>
+        <CardDescription>
+          {bills.length} factura{bills.length === 1 ? "" : "s"}
+          {property?.currency ? ` · ${property.currency}` : ""}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="px-0 sm:px-6">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Proveedor</TableHead>
+                <TableHead>Período</TableHead>
+                <TableHead className="text-right">Importe</TableHead>
+                <TableHead className="text-right">Consumo</TableHead>
+                <TableHead>Vencimiento</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {bills.map((b) => {
+                const cmp = comparisons.get(b.id);
+                return (
+                  <TableRow key={b.id}>
+                    <TableCell>{UTILITY_LABEL[b.utility_type]}</TableCell>
+                    <TableCell>{b.provider}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {formatPeriod(b.period_from, b.period_to)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {b.amount != null
+                        ? formatMoney(b.amount, b.currency ?? "UYU")
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums whitespace-nowrap">
+                      <ConsumoCell bill={b} comparison={cmp} />
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {formatDate(b.due_date)}
+                    </TableCell>
+                    <TableCell>
+                      <BillRowActions bill={b} properties={allProperties} />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 /** When the Tuya snapshot range covers less than this fraction of the
  *  bill's period, we hide the colored ±% delta (it would be misleading)
  *  and show a gray "parcial XX%" pill instead. 70% chosen as the cutoff
@@ -328,7 +307,11 @@ function ConsumoCell({
   bill,
   comparison,
 }: {
-  bill: { utility_type: UtilityType; kwh_billed: number | null; m3_billed: number | null };
+  bill: {
+    utility_type: UtilityType;
+    kwh_billed: number | null;
+    m3_billed: number | null;
+  };
   comparison:
     | {
         tuyaKwh: number;

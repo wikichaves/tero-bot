@@ -125,6 +125,90 @@ async function uploadAttachments(
   return results.filter((r): r is ProcessedAttachment => r !== null);
 }
 
+/**
+ * Smart upsert for utility_bills. Looks for an existing row matching
+ * (property_id, provider, period_to) — if found, MERGE the new parsed
+ * fields with the existing ones (prefer new non-null values, keep
+ * existing values when the new parse returned null). If not found,
+ * insert a new row.
+ *
+ * Dedup is keyed on period_to only because that's the most stable
+ * single-field identifier of "which billing cycle is this". Without
+ * period_to (e.g. a partial parse from a notification email), we let
+ * the row through and the admin can merge / delete by hand if needed.
+ */
+type BillInsertFields = {
+  property_id: string;
+  utility_type: UtilityType;
+  provider: string;
+  amount: number | null;
+  currency: string | null;
+  period_from: string | null;
+  period_to: string | null;
+  issue_date: string | null;
+  due_date: string | null;
+  kwh_billed: number | null;
+  m3_billed: number | null;
+  account_number: string | null;
+  invoice_number: string | null;
+  inbound_email_id: string | null;
+  pdf_path: string | null;
+};
+
+async function upsertBill(
+  admin: SupabaseClient,
+  fields: BillInsertFields,
+): Promise<{
+  id: string | null;
+  action: "inserted" | "updated" | "error";
+  error?: string;
+}> {
+  if (fields.period_to) {
+    const { data: existing } = await admin
+      .from("utility_bills")
+      .select(
+        "id, amount, currency, period_from, issue_date, due_date, kwh_billed, m3_billed, account_number, invoice_number, pdf_path",
+      )
+      .eq("property_id", fields.property_id)
+      .eq("provider", fields.provider)
+      .eq("period_to", fields.period_to)
+      .maybeSingle();
+    if (existing) {
+      // Coalesce-style merge: new value wins when present, existing
+      // value wins when the new parse returned null. The inbound_email_id
+      // is overwritten to the latest one so traceability stays current.
+      const merged = {
+        amount: fields.amount ?? existing.amount,
+        currency: fields.currency ?? existing.currency,
+        period_from: fields.period_from ?? existing.period_from,
+        issue_date: fields.issue_date ?? existing.issue_date,
+        due_date: fields.due_date ?? existing.due_date,
+        kwh_billed: fields.kwh_billed ?? existing.kwh_billed,
+        m3_billed: fields.m3_billed ?? existing.m3_billed,
+        account_number: fields.account_number ?? existing.account_number,
+        invoice_number: fields.invoice_number ?? existing.invoice_number,
+        pdf_path: fields.pdf_path ?? existing.pdf_path,
+        inbound_email_id: fields.inbound_email_id,
+      };
+      const { error } = await admin
+        .from("utility_bills")
+        .update(merged)
+        .eq("id", existing.id);
+      if (error) {
+        return { id: existing.id, action: "error", error: error.message };
+      }
+      return { id: existing.id, action: "updated" };
+    }
+  }
+  const { data, error } = await admin
+    .from("utility_bills")
+    .insert({ ...fields, status: "pending" })
+    .select("id")
+    .single();
+  if (error) return { id: null, action: "error", error: error.message };
+  return { id: data?.id ?? null, action: "inserted" };
+}
+
 async function resolveProperty(
   admin: SupabaseClient,
   currencyHint: string | null,
@@ -271,40 +355,36 @@ export async function handleBillInbound(
   }
 
   const firstPdf = pdfs[0]?.path ?? null;
-  const { data: billRow, error: billErr } = await admin
-    .from("utility_bills")
-    .insert({
-      property_id: property.id,
-      utility_type: parsed.utility_type,
-      provider: parsed.provider,
-      amount: parsed.amount,
-      currency: parsed.currency,
-      period_from: parsed.period_from,
-      period_to: parsed.period_to,
-      issue_date: parsed.issue_date,
-      due_date: parsed.due_date,
-      kwh_billed: parsed.kwh_billed,
-      m3_billed: parsed.m3_billed,
-      account_number: parsed.account_number,
-      invoice_number: parsed.invoice_number,
-      inbound_email_id: inboundRowId,
-      pdf_path: firstPdf,
-      status: "pending",
-    })
-    .select("id")
-    .single();
-  if (billErr) {
-    console.error("[inbound bills] insert utility_bills failed:", billErr.message);
-    return NextResponse.json({ ok: true, kind: parsed.kind, error: billErr.message });
+  const upsertResult = await upsertBill(admin, {
+    property_id: property.id,
+    utility_type: parsed.utility_type,
+    provider: parsed.provider,
+    amount: parsed.amount,
+    currency: parsed.currency,
+    period_from: parsed.period_from,
+    period_to: parsed.period_to,
+    issue_date: parsed.issue_date,
+    due_date: parsed.due_date,
+    kwh_billed: parsed.kwh_billed,
+    m3_billed: parsed.m3_billed,
+    account_number: parsed.account_number,
+    invoice_number: parsed.invoice_number,
+    inbound_email_id: inboundRowId,
+    pdf_path: firstPdf,
+  });
+  if (upsertResult.action === "error") {
+    console.error("[inbound bills] upsert utility_bills failed:", upsertResult.error);
+    return NextResponse.json({ ok: true, kind: parsed.kind, error: upsertResult.error });
   }
 
   console.log(
-    `[inbound bills] created ${parsed.provider}/${parsed.utility_type} → ${property.name} (kind=${parsed.kind})`,
+    `[inbound bills] ${upsertResult.action} ${parsed.provider}/${parsed.utility_type} → ${property.name} (kind=${parsed.kind})`,
   );
   return NextResponse.json({
     ok: true,
     kind: parsed.kind,
-    bill_id: billRow?.id ?? null,
+    bill_id: upsertResult.id,
+    action: upsertResult.action,
     provider: parsed.provider,
     property: property.name,
   });
@@ -408,52 +488,55 @@ async function handleMultiPdfBatch(args: {
     });
   }
 
-  // Insert one utility_bills row per PDF.
+  // Upsert one utility_bills row per PDF. The dedup is keyed on
+  // (property, provider, period_to) so reforwards / partial re-sends
+  // merge into the existing row instead of duplicating.
   const billIds: string[] = [];
+  let inserted = 0;
+  let updated = 0;
   for (let i = 0; i < pdfs.length; i++) {
     const pdf = pdfs[i];
     const parsed = perPdfParsed[i];
     if (parsed.kind === "unknown") continue; // shouldn't happen — rule is set
-    const { data: billRow, error: billErr } = await admin
-      .from("utility_bills")
-      .insert({
-        property_id: property.id,
-        utility_type: utility_type,
-        provider: rule.provider,
-        amount: parsed.amount,
-        currency: parsed.currency,
-        period_from: parsed.period_from,
-        period_to: parsed.period_to,
-        issue_date: parsed.issue_date,
-        due_date: parsed.due_date,
-        kwh_billed: parsed.kwh_billed,
-        m3_billed: parsed.m3_billed,
-        account_number: parsed.account_number,
-        invoice_number: parsed.invoice_number,
-        inbound_email_id: inboundRowId,
-        pdf_path: pdf.path,
-        status: "pending",
-      })
-      .select("id")
-      .single();
-    if (billErr) {
+    const upsertResult = await upsertBill(admin, {
+      property_id: property.id,
+      utility_type: utility_type,
+      provider: rule.provider,
+      amount: parsed.amount,
+      currency: parsed.currency,
+      period_from: parsed.period_from,
+      period_to: parsed.period_to,
+      issue_date: parsed.issue_date,
+      due_date: parsed.due_date,
+      kwh_billed: parsed.kwh_billed,
+      m3_billed: parsed.m3_billed,
+      account_number: parsed.account_number,
+      invoice_number: parsed.invoice_number,
+      inbound_email_id: inboundRowId,
+      pdf_path: pdf.path,
+    });
+    if (upsertResult.action === "error") {
       console.error(
-        `[inbound bills] multi-pdf insert failed for ${pdf.name}:`,
-        billErr.message,
+        `[inbound bills] multi-pdf upsert failed for ${pdf.name}:`,
+        upsertResult.error,
       );
       continue;
     }
-    if (billRow?.id) billIds.push(billRow.id);
+    if (upsertResult.action === "inserted") inserted++;
+    if (upsertResult.action === "updated") updated++;
+    if (upsertResult.id) billIds.push(upsertResult.id);
   }
 
   console.log(
-    `[inbound bills] multi-pdf: created ${billIds.length}/${pdfs.length} bills for ${rule.provider} → ${property.name}`,
+    `[inbound bills] multi-pdf: ${inserted} inserted + ${updated} updated of ${pdfs.length} PDFs for ${rule.provider} → ${property.name}`,
   );
   return NextResponse.json({
     ok: true,
     kind: aggregateKind,
     multi: true,
     bill_ids: billIds,
+    inserted,
+    updated,
     provider: rule.provider,
     property: property.name,
   });

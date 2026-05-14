@@ -40,3 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# claude code — keep settings.json if you want team-shared rules, but never
+# commit .local.json (it can reference local credential paths).
+.claude/settings.local.json
