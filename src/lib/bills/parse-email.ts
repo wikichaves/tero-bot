@@ -360,24 +360,30 @@ function extractAccountNumber(body: string, subject: string): string | null {
   //   "NUMERO DE CUENTA 25006163000108"(Antel PDF body)
   //   "NRO CLIENTE: 3317403"           (Prosegur)
   //   "Ref. Cobro: 329232040"          (OSE)
-  //   "Cuenta contrato 12345"          (Edenor — TBD)
+  //   "Cuenta 2 259 142 078"           (Edenor PDF — con espacios!)
   //   "Cuenta cliente: 1234567"
+  // Los patrones capturan dígitos separados por espacios opcionales; el
+  // caller hace `.replace(/\s/g, "")` para normalizar.
   const haystack = `${subject}\n${body}`;
   const candidates = [
     // "Numero de cuenta 25006163000108" / "Número de cuenta: …"
-    /n[uú]mero\s+de\s+cuenta\s*[:#°º.\-]*\s*(\d{5,15})/i,
+    /n[uú]mero\s+de\s+cuenta\s*[:#°º.\-]*\s*((?:\d[ \t]*){5,18})/i,
     // "Cuenta nº 4131911000" / "Cuenta n° X" / "Cuenta contrato 12345"
-    /\bcuenta\s+(?:contrato|cliente|n[uú]mero)?\s*[:#°ºn.\-]*\s*(\d{5,15})/i,
+    // / "Cuenta 2 259 142 078" (Edenor — dígitos con espacios)
+    /\bcuenta\s+(?:contrato|cliente|n[uú]mero)?\s*[:#°ºn.\-]*\s*((?:\d[ \t]*){5,18})/i,
     // "Nº de cuenta: 12345" / "N° de cuenta 12345"
-    /n[ºo°.]?\s*de\s+cuenta\s*:?\s*(\d{5,15})/i,
+    /n[ºo°.]?\s*de\s+cuenta\s*:?\s*((?:\d[ \t]*){5,18})/i,
     // "NRO CLIENTE: 3317403" / "Nro Cliente 12345" / "N° de cliente 12345"
-    /(?:nro\.?|n[ºo°.]?)\s*(?:de\s+)?cliente\s*:?\s*(\d{5,15})/i,
+    /(?:nro\.?|n[ºo°.]?)\s*(?:de\s+)?cliente\s*:?\s*((?:\d[ \t]*){5,18})/i,
     // "Ref. Cobro: 329232040" / "Referencia de cobro …"
-    /ref\.?\s*(?:de\s+)?cobro\s*:?\s*(\d{5,15})/i,
+    /ref\.?\s*(?:de\s+)?cobro\s*:?\s*((?:\d[ \t]*){5,18})/i,
   ];
   for (const rx of candidates) {
     const m = rx.exec(haystack);
-    if (m) return m[1];
+    if (m) {
+      const normalized = m[1].replace(/\s+/g, "");
+      if (normalized.length >= 5) return normalized;
+    }
   }
   return null;
 }
@@ -389,6 +395,49 @@ function extractKwh(body: string): number | null {
   // "CONSUMO KWH 550" / "Consumo kWh\n550" — label first, number after
   const b = /consumo\s+kwh[:\s\n]*(\d+(?:[.,]\d+)?)/i.exec(body);
   if (b) return parseAmount(b[1]);
+  return null;
+}
+
+/**
+ * Try to pull a period_to date from the body. Common landmarks:
+ *   "Hasta el 26/05/2026"                (Edenor)
+ *   "Período hasta: 05/05/2026"
+ *   "Fecha de cierre: 05/05/2026"
+ *   "07/04/2026-05/05/2026"              (OSE — range with hyphen)
+ *
+ * We deliberately don't try period_from here because most providers don't
+ * surface it cleanly; for now period_from stays manual.
+ */
+function extractPeriodTo(body: string): string | null {
+  const candidates = [
+    // "Hasta el 26/05/2026"
+    /\bhasta\s+el\s+(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
+    // "Período hasta" or "Periodo hasta"
+    /per[ií]odo\s+hasta\s*:?\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
+    // "Fecha de cierre 05/05/2026"
+    /fecha\s+de\s+cierre\s*:?\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
+    // "07/04/2026 - 05/05/2026" — date range; take the second
+    /\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}\s*[-–]\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/,
+  ];
+  for (const rx of candidates) {
+    const m = rx.exec(body);
+    if (m) {
+      const parsed = parseDate(m[1]);
+      if (parsed) return parsed;
+    }
+  }
+  return null;
+}
+
+/** Try to pull period_from from a date-range pattern like "07/04/2026 - 05/05/2026". */
+function extractPeriodFrom(body: string): string | null {
+  const m = /(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})\s*[-–]\s*\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/.exec(
+    body,
+  );
+  if (m) {
+    const parsed = parseDate(m[1]);
+    if (parsed) return parsed;
+  }
   return null;
 }
 
@@ -432,6 +481,8 @@ export function extractBillFields(
   const due_date = extractDueDate(body);
   const invoice_number = extractInvoiceNumber(body);
   const account_number = extractAccountNumber(body, subject);
+  const period_to = extractPeriodTo(body);
+  const period_from = extractPeriodFrom(body);
   const kwh_billed = rule.utility_type === "luz" ? extractKwh(body) : null;
   const m3_billed = rule.utility_type === "agua" ? extractM3(body) : null;
 
@@ -442,8 +493,8 @@ export function extractBillFields(
     utility_type: rule.utility_type,
     amount,
     currency: currency ?? rule.currency,
-    period_from: null,
-    period_to: null,
+    period_from,
+    period_to,
     issue_date: null,
     due_date,
     kwh_billed,
