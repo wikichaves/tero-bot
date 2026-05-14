@@ -412,6 +412,13 @@ function extractAccountNumber(body: string, subject: string): string | null {
     /n[ºo°.]?\s*de\s+cuenta\s*:?\s*((?:\d[ \t]*){5,18})/i,
     // "NRO CLIENTE: 3317403" / "Nro Cliente 12345" / "N° de cliente 12345"
     /(?:nro\.?|n[ºo°.]?)\s*(?:de\s+)?cliente\s*:?\s*((?:\d[ \t]*){5,18})/i,
+    // UTE (formato sin label explícito — usado por algunas variantes
+    // del e-Ticket Crédito): el número de cuenta aparece en la línea
+    // inmediatamente después de "e-Ticket Crédito" del header.
+    //   e-Ticket Crédito
+    //   3268599532          ← cuenta
+    //   23/03/2026
+    /e-?ticket\s+(?:cr[eé]dito|d[eé]bito)\s*\n+\s*(\d{8,12})/i,
     // OSE: el customer ID aparece sin label inmediatamente después de
     // la línea "INCENDIO:" (un campo del recibo que OSE siempre lista,
     // típicamente vacío). Es el ID estable de la cuenta — distinto de
@@ -454,10 +461,15 @@ function extractKwh(body: string): number | null {
 function extractPeriodTo(body: string): string | null {
   const candidates = [
     // "Período de consumo: 11/12/2025 al 13/01/2026"  (Edenor)
-    // "11/12/2025 AL 13/01/2026"                        (range with "al"/"AL")
-    /\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}\s+al\s+(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
+    // "06/02/2026 a 06/03/2026" / "11/12/2025 AL 13/01/2026"
+    //   — `a[l]?` permite tanto "a" (UTE) como "al"/"AL" (Edenor/OSE)
+    /\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}\s+a[l]?\s+(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
     // "07/04/2026 - 05/05/2026" — range with hyphen
     /\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}\s*[-–]\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/,
+    // UTE multi-PDF: "T 549700511/03/202622/04/2026" — dos fechas pegadas
+    // sin separador (excepto el código T XXXXX al inicio). Capturamos
+    // la segunda como period_to.
+    /T\s*\d{6,8}\s*\d{1,2}\/\d{1,2}\/\d{4}(\d{1,2}\/\d{1,2}\/\d{4})/,
     // "Período hasta" / "Periodo hasta"
     /per[ií]odo\s+hasta\s*:?\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
     // "Fecha de cierre 05/05/2026"
@@ -476,10 +488,12 @@ function extractPeriodTo(body: string): string | null {
 /** Try to pull period_from from a date-range pattern. */
 function extractPeriodFrom(body: string): string | null {
   const candidates = [
-    // "11/12/2025 al 13/01/2026" — left side of "al" range
-    /(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})\s+al\s+\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/i,
-    // "07/04/2026 - 05/05/2026" — left side of hyphen range
+    // "11/12/2025 al 13/01/2026" / "06/02/2026 a 06/03/2026"
+    /(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})\s+a[l]?\s+\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/i,
+    // "07/04/2026 - 05/05/2026"
     /(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})\s*[-–]\s*\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/,
+    // UTE multi-PDF: stuck dates after T XXXXXXX — capturamos la primera.
+    /T\s*\d{6,8}\s*(\d{1,2}\/\d{1,2}\/\d{4})\d{1,2}\/\d{1,2}\/\d{4}/,
   ];
   for (const rx of candidates) {
     const m = rx.exec(body);
