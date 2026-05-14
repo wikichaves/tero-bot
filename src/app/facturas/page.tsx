@@ -1,5 +1,3 @@
-import { format, parseISO } from "date-fns";
-import { es } from "date-fns/locale";
 import { requireRole } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -8,7 +6,6 @@ import {
   deltaLevel,
   type DeltaLevel,
 } from "@/lib/bills/tuya-comparison";
-import { formatMoney } from "@/lib/tuya/energy";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,17 +14,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import type { Property, UtilityBill, UtilityType } from "@/lib/types";
+import type { Property, UtilityBill } from "@/lib/types";
 import { BillFormDialog } from "./bill-form-dialog";
-import { BillRowActions } from "./bill-row-actions";
+import { PropertyBillsTable } from "./property-bills-table";
 
 /**
  * /facturas — listado de facturas de servicios (luz, agua, internet, alarma)
@@ -49,32 +38,70 @@ import { BillRowActions } from "./bill-row-actions";
  * desde el dialog si querés marcar manualmente algo cancelled.
  */
 
-const UTILITY_LABEL: Record<UtilityType, string> = {
-  luz: "Luz",
-  agua: "Agua",
-  internet: "Internet",
-  alarma: "Alarma",
-  otro: "Otro",
-};
-
 type BillRow = UtilityBill & {
   property: Pick<Property, "id" | "name" | "currency"> | null;
 };
 
-function formatPeriod(from: string | null, to: string | null): string {
-  if (!from && !to) return "—";
-  if (from && to) {
-    const f = format(parseISO(from), "d MMM", { locale: es });
-    const t = format(parseISO(to), "d MMM yy", { locale: es });
-    return `${f} → ${t}`;
-  }
-  const single = (from ?? to) as string;
-  return format(parseISO(single), "MMM yyyy", { locale: es });
-}
+/** A bill enriched with a derived period when the parser couldn't extract
+ *  one. The "effective" period is the window between the previous bill's
+ *  due_date and this bill's due_date — useful for Tuya comparison and
+ *  for showing a period in the UI even when the PDF didn't surface one. */
+type BillRowDerived = BillRow & {
+  effective_period_from: string | null;
+  effective_period_to: string | null;
+  period_inferred: boolean;
+};
 
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  return format(parseISO(iso), "d MMM yyyy", { locale: es });
+/**
+ * Group bills by (property_id, provider), sort each group by due_date asc
+ * (oldest first), then walk: for bill N without an explicit period, infer
+ * effective_period_from = due_date(N-1) and effective_period_to =
+ * due_date(N). The very-first bill of each group can't infer
+ * period_from (no previous neighbor) so it stays null there.
+ *
+ * Bills with an explicit period_from/to keep it; we just copy into the
+ * effective_* fields for uniform downstream code.
+ */
+function enrichWithEffectivePeriod(rows: BillRow[]): BillRowDerived[] {
+  const groups = new Map<string, BillRow[]>();
+  for (const b of rows) {
+    const key = `${b.property_id}|${b.provider}`;
+    const list = groups.get(key) ?? [];
+    list.push(b);
+    groups.set(key, list);
+  }
+  const derivedById = new Map<string, BillRowDerived>();
+  for (const list of groups.values()) {
+    // Sort by due_date asc; nulls last.
+    const sorted = [...list].sort((a, b) => {
+      const ad = a.due_date ?? "9999";
+      const bd = b.due_date ?? "9999";
+      return ad.localeCompare(bd);
+    });
+    for (let i = 0; i < sorted.length; i++) {
+      const bill = sorted[i];
+      const hasExplicit = !!(bill.period_from && bill.period_to);
+      let effFrom = bill.period_from;
+      let effTo = bill.period_to;
+      let inferred = false;
+      if (!hasExplicit && bill.due_date) {
+        effTo = effTo ?? bill.due_date;
+        const prev = sorted[i - 1];
+        if (!effFrom && prev?.due_date) {
+          effFrom = prev.due_date;
+        }
+        inferred = !!(effFrom && effTo);
+      }
+      derivedById.set(bill.id, {
+        ...bill,
+        effective_period_from: effFrom,
+        effective_period_to: effTo,
+        period_inferred: inferred,
+      });
+    }
+  }
+  // Preserve the original ordering from the SQL query.
+  return rows.map((b) => derivedById.get(b.id)!).filter(Boolean);
 }
 
 export default async function FacturasPage() {
@@ -85,20 +112,28 @@ export default async function FacturasPage() {
     supabase
       .from("utility_bills")
       .select("*, property:properties(id, name, currency)")
-      .order("period_to", { ascending: false, nullsFirst: false })
       .order("due_date", { ascending: false, nullsFirst: false })
+      .order("period_to", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false }),
     supabase
       .from("properties")
       .select("id, name, currency")
-      .order("name"),
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true }),
   ]);
 
-  const bills = (billsRes.data ?? []) as BillRow[];
+  const rawBills = (billsRes.data ?? []) as BillRow[];
   const properties = (propertiesRes.data ?? []) as Pick<
     Property,
     "id" | "name" | "currency"
   >[];
+
+  // Derive `effective_period_from / _to` for bills whose parser didn't
+  // surface a period. Heuristic (from user spec): the bill covers the
+  // window between the PREVIOUS bill's due_date and THIS bill's due_date,
+  // grouped per (property_id, provider). Bills that already have explicit
+  // period_from/to keep them as-is.
+  const bills: BillRowDerived[] = enrichWithEffectivePeriod(rawBills);
 
   // Tuya vs facturado: para cada `luz` con período + kWh completo,
   // computamos el consumo medido por Tuya y lo comparamos en el badge
@@ -119,15 +154,15 @@ export default async function FacturasPage() {
         (b) =>
           b.utility_type === "luz" &&
           b.kwh_billed != null &&
-          b.period_from &&
-          b.period_to,
+          b.effective_period_from &&
+          b.effective_period_to,
       )
       .map(async (b) => {
         const result = await computeTuyaConsumption(
           admin,
           b.property_id,
-          b.period_from!,
-          b.period_to!,
+          b.effective_period_from!,
+          b.effective_period_to!,
         );
         if (!result || result.kwh <= 0) return;
         const deltaPct = ((b.kwh_billed! - result.kwh) / result.kwh) * 100;
@@ -140,9 +175,9 @@ export default async function FacturasPage() {
       }),
   );
 
-  // Group bills by property. We iterate `properties` (alphabetical) so the
-  // sections render in a stable order even when one property has no bills.
-  const billsByProperty = new Map<string, BillRow[]>();
+  // Group bills by property. We iterate `properties` (sort_order asc) so
+  // the sections render in the order the admin set in /admin/properties.
+  const billsByProperty = new Map<string, BillRowDerived[]>();
   for (const b of bills) {
     const list = billsByProperty.get(b.property_id) ?? [];
     list.push(b);
@@ -225,7 +260,7 @@ function PropertyBillsCard({
   allProperties,
 }: {
   property: Pick<Property, "id" | "name" | "currency"> | null;
-  bills: BillRow[];
+  bills: BillRowDerived[];
   comparisons: Map<
     string,
     {
@@ -237,6 +272,19 @@ function PropertyBillsCard({
   >;
   allProperties: Pick<Property, "id" | "name" | "currency">[];
 }) {
+  // The table is a client component (needs useState for the "Mostrar más"
+  // toggle). We hand it a plain object instead of a Map — Maps don't
+  // serialize across the server→client boundary in Next.
+  const comparisonsObj: Record<
+    string,
+    {
+      tuyaKwh: number;
+      deltaPct: number;
+      level: DeltaLevel;
+      coverageFraction: number;
+    }
+  > = {};
+  for (const [k, v] of comparisons) comparisonsObj[k] = v;
   return (
     <Card>
       <CardHeader>
@@ -249,135 +297,13 @@ function PropertyBillsCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0 sm:px-6">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Proveedor</TableHead>
-                <TableHead>Período</TableHead>
-                <TableHead className="text-right">Importe</TableHead>
-                <TableHead className="text-right">Consumo</TableHead>
-                <TableHead>Vencimiento</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {bills.map((b) => {
-                const cmp = comparisons.get(b.id);
-                return (
-                  <TableRow key={b.id}>
-                    <TableCell>{UTILITY_LABEL[b.utility_type]}</TableCell>
-                    <TableCell>{b.provider}</TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {formatPeriod(b.period_from, b.period_to)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {b.amount != null
-                        ? formatMoney(b.amount, b.currency ?? "UYU")
-                        : "—"}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums whitespace-nowrap">
-                      <ConsumoCell bill={b} comparison={cmp} />
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {formatDate(b.due_date)}
-                    </TableCell>
-                    <TableCell>
-                      <BillRowActions bill={b} properties={allProperties} />
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+        <PropertyBillsTable
+          bills={bills}
+          comparisons={comparisonsObj}
+          allProperties={allProperties}
+        />
       </CardContent>
     </Card>
   );
 }
 
-/** When the Tuya snapshot range covers less than this fraction of the
- *  bill's period, we hide the colored ±% delta (it would be misleading)
- *  and show a gray "parcial XX%" pill instead. 70% chosen as the cutoff
- *  where the delta starts to be meaningful for a residential bill. */
-const FULL_COVERAGE_THRESHOLD = 0.7;
-
-function ConsumoCell({
-  bill,
-  comparison,
-}: {
-  bill: {
-    utility_type: UtilityType;
-    kwh_billed: number | null;
-    m3_billed: number | null;
-  };
-  comparison:
-    | {
-        tuyaKwh: number;
-        deltaPct: number;
-        level: DeltaLevel;
-        coverageFraction: number;
-      }
-    | undefined;
-}) {
-  if (bill.utility_type === "luz" && bill.kwh_billed != null) {
-    return (
-      <div className="flex flex-col items-end gap-0.5">
-        <span>{bill.kwh_billed.toLocaleString("es-UY")} kWh</span>
-        {comparison && <DeltaBadge {...comparison} />}
-      </div>
-    );
-  }
-  if (bill.utility_type === "agua" && bill.m3_billed != null) {
-    return <span>{bill.m3_billed.toLocaleString("es-UY")} m³</span>;
-  }
-  return <span className="text-muted-foreground">—</span>;
-}
-
-function DeltaBadge({
-  tuyaKwh,
-  deltaPct,
-  level,
-  coverageFraction,
-}: {
-  tuyaKwh: number;
-  deltaPct: number;
-  level: DeltaLevel;
-  coverageFraction: number;
-}) {
-  const tuyaLabel = `${tuyaKwh.toLocaleString("es-UY", {
-    maximumFractionDigits: 1,
-  })} kWh`;
-
-  // Partial coverage: show a neutral pill with coverage %. The exact ±%
-  // would be misleading because we're comparing different time windows.
-  if (coverageFraction < FULL_COVERAGE_THRESHOLD) {
-    const coveragePct = Math.round(coverageFraction * 100);
-    return (
-      <span
-        className="inline-flex items-center gap-1 rounded-full border border-muted-foreground/40 bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
-        title={`Tuya midió ${tuyaLabel} (cobertura ${coveragePct}% del período facturado). Δ% se mostrará cuando haya cobertura completa.`}
-      >
-        Tuya parcial {coveragePct}%
-      </span>
-    );
-  }
-
-  const sign = deltaPct > 0 ? "+" : "";
-  const className =
-    level === "ok"
-      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-      : level === "warn"
-        ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-        : "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-400";
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${className}`}
-      title={`Tuya midió ${tuyaLabel} en el período`}
-    >
-      Tuya {sign}
-      {deltaPct.toLocaleString("es-UY", { maximumFractionDigits: 1 })}%
-    </span>
-  );
-}

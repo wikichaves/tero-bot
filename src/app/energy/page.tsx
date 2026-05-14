@@ -47,7 +47,7 @@ export const dynamic = "force-dynamic";
 
 type PropertySummary = Pick<
   Property,
-  "id" | "name" | "currency" | "tariff_per_kwh"
+  "id" | "name" | "currency" | "tariff_per_kwh" | "sort_order"
 >;
 
 type DeviceWithContext = {
@@ -109,7 +109,9 @@ export default async function EnergyPage() {
   const [propertiesRes, deviceMap] = await Promise.all([
     supabase
       .from("properties")
-      .select("id, name, currency, tariff_per_kwh"),
+      .select("id, name, currency, tariff_per_kwh, sort_order")
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true }),
     listPropertyDeviceMap(),
   ]);
   const properties = (propertiesRes.data ?? []) as PropertySummary[];
@@ -166,6 +168,17 @@ export default async function EnergyPage() {
       };
     }),
   );
+
+  // Respect the admin's manual property order (the same one shown in
+  // /admin/properties via the ↑↓ arrows). Devices without an assigned
+  // property fall to the bottom. Within a property, keep device.name
+  // alphabetical for stability.
+  devicesWithContext.sort((a, b) => {
+    const aOrder = a.property?.sort_order ?? Number.MAX_SAFE_INTEGER;
+    const bOrder = b.property?.sort_order ?? Number.MAX_SAFE_INTEGER;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return (a.device.name ?? "").localeCompare(b.device.name ?? "");
+  });
 
   // Fetch USD exchange rates for all distinct currencies in parallel.
   const distinctCurrencies = new Set(
