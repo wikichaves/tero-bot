@@ -50,6 +50,29 @@ export type WhatsAppTemplate = {
 };
 
 /**
+ * Approval-state tracking for a template, as reported by Meta after we
+ * submit it through Kapso. Populated by the status-poll script — the
+ * authoritative state lives at Meta and we just cache it here so other
+ * parts of the code (UI, send guards) can know which templates are
+ * actually usable.
+ */
+export type WhatsAppTemplateState = {
+  /** Meta's template id (returned on creation, also used to fetch status). */
+  id: string;
+  /** Meta approval state. APPROVED is the only "use it" value. */
+  status:
+    | "PENDING"
+    | "APPROVED"
+    | "REJECTED"
+    | "PAUSED"
+    | "DISABLED";
+  /** ISO timestamp of the last status fetch — staleness indicator. */
+  checked_at: string;
+  /** Meta's reason text when REJECTED, otherwise null. */
+  rejected_reason?: string | null;
+};
+
+/**
  * Helper to fill template variables at send time.
  * Order of values must match {{1}}, {{2}}, … in the body.
  */

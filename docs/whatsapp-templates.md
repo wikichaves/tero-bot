@@ -8,6 +8,36 @@ es la fuente de verdad; este doc es una vista renderizada.
 
 ## Cómo submitir
 
+Dos caminos. **El automatizado es el recomendado** — usa los templates
+del código como source-of-truth, así si cambian acá se vuelven a
+submitir consistentes.
+
+### 1. Automatizado (Recommended)
+
+Requiere dos env vars:
+
+- `KAPSO_API_KEY` — el mismo que usa la app para enviar mensajes
+- `WHATSAPP_WABA_ID` — Meta Business Manager → Settings → Accounts →
+  WhatsApp Accounts → click tu cuenta → "Business Account ID"
+
+Después:
+
+```bash
+# Verificá primero qué se va a mandar (sin tocar Kapso)
+npm run wa:templates:submit:dry
+
+# Cuando estés OK, submit real (POST a /<WABA>/message_templates)
+npm run wa:templates:submit
+
+# 1-2 días después, pollear el approval status
+npm run wa:templates:status
+```
+
+Re-correr `:submit` es seguro: Meta rechaza nombres duplicados con un
+error claro y el script lo reporta sin abortar el resto.
+
+### 2. Manual (fallback)
+
 1. Ir al dashboard de Kapso → **Templates** (o **Plantillas de mensajes**)
 2. Crear una nueva por cada entrada de abajo, copiando:
    - **Nombre** (snake_case, exacto)
