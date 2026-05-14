@@ -226,40 +226,104 @@ function parseDate(raw: string): string | null {
   return null;
 }
 
+function symbolToCurrency(
+  symbol: string | null,
+  fallback: string,
+): string {
+  if (!symbol) return fallback;
+  const s = symbol.toUpperCase();
+  if (s === "U$S" || s === "US$") return "USD";
+  if (s === "$U") return "UYU";
+  if (s === "ARS" || s === "UYU" || s === "USD") return s;
+  return fallback;
+}
+
 function extractAmountAndCurrency(
   body: string,
   fallbackCurrency: string,
 ): { amount: number | null; currency: string | null } {
-  // Patterns we've seen, most specific first:
-  //   "Importe: $ 7.819"                 (UTE forwarded email body)
-  //   "Importe a pagar: $ 1.234,56"
-  //   "Total a pagar: ARS 1.234,56"
-  //   "Total: $U 1.234"
-  //   "Monto: $1234"
-  const candidates = [
-    /(?:importe(?:\s+a\s+pagar|\s+total)?|total(?:\s+a\s+pagar|\s+factura)?|monto(?:\s+a\s+pagar)?|saldo\s+a\s+pagar)\s*:?\s*(\$U|U\$S|US\$|ARS|UYU|\$)\s*([\d.,]+)/i,
-    /(\$U|U\$S|US\$|ARS|UYU|\$)\s*([\d.,]+)\s*(?:de\s+)?(?:total|importe)/i,
+  // Strategy: anchor on a *strong* "amount label" landmark (one of the
+  // phrases listed below), then read up to 80 chars of trailing text and
+  // pull the first amount. The trailing chunk lets us tolerate:
+  //   - colon + spaces           "Total a pagar: $ 1.234,56"
+  //   - nothing at all (glued)   "Total a pagar2,813.75"   (Prosegur PDF)
+  //   - newline before number    "Fecha de vencimiento\n20/2/2026" pattern
+  //   - currency embedded as     "Moneda UYU\n…Total a pagar 2.813,75"
+  //   - asterisks                "$***7.770,00"           (OSE PDF)
+  //   - uppercase                "TOTAL2.800,00"          (Antel PDF)
+  const strongLandmarks = [
+    /total\s+a\s+pagar/i,
+    /importe\s+a\s+pagar/i,
+    /saldo\s+a\s+pagar/i,
+    /monto\s+a\s+pagar/i,
+    /importe\s+total/i,
+    /total\s+factura(?:do)?/i,
+    /\bimporte\b(?!\s+(?:no\s+gravado|gravado|imponible))/i, // "Importe: $7.819" UTE
+    /\btotal\b(?!\s+(?:iva|gravado|no\s+gravado|imponible|monto))/i, // bare "TOTAL 2.800"
   ];
-  for (const rx of candidates) {
-    const m = rx.exec(body);
-    if (m) {
-      const amount = parseAmount(m[2]);
-      const symbol = m[1].toUpperCase();
-      let currency = fallbackCurrency;
-      if (symbol === "U$S" || symbol === "US$") currency = "USD";
-      else if (symbol === "$U") currency = "UYU";
-      else if (symbol === "ARS" || symbol === "UYU") currency = symbol;
+  const trailRx =
+    /[\s:]*(?:moneda\s+(UYU|ARS|USD)\s*)?(\$U|U\$S|US\$|ARS|UYU|\$)?\s*\*{0,5}\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/i;
+
+  for (const landmark of strongLandmarks) {
+    const m = landmark.exec(body);
+    if (!m) continue;
+    const tail = body.slice(
+      m.index + m[0].length,
+      m.index + m[0].length + 80,
+    );
+    const num = trailRx.exec(tail);
+    if (num) {
+      const amount = parseAmount(num[3]);
+      if (amount == null) continue;
+      // Currency priority: explicit "Moneda XXX" > symbol > nearby "$U/$" > fallback.
+      let currency = symbolToCurrency(num[2] ?? null, fallbackCurrency);
+      if (num[1]) currency = num[1].toUpperCase();
+      // Also scan a wider window around the landmark for "Moneda XXX".
+      const window = body.slice(
+        Math.max(0, m.index - 120),
+        m.index + m[0].length + 120,
+      );
+      const moneda = /moneda\s+(UYU|ARS|USD)\b/i.exec(window);
+      if (moneda) currency = moneda[1].toUpperCase();
       return { amount, currency };
     }
+  }
+
+  // Last-resort: bare "$ 1.234,56" / "UYU 1.234" anywhere.
+  const bare =
+    /(\$U|U\$S|US\$|ARS|UYU|\$)\s*\*{0,5}\s*([\d]{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/i.exec(
+      body,
+    );
+  if (bare) {
+    return {
+      amount: parseAmount(bare[2]),
+      currency: symbolToCurrency(bare[1], fallbackCurrency),
+    };
   }
   return { amount: null, currency: null };
 }
 
 function extractDueDate(body: string): string | null {
+  // Cases we want to catch:
+  //   "Vencimiento: 06/05/2026"            (UTE body)
+  //   "Fecha de Vencimiento25/05/2026"     (Prosegur PDF — no space)
+  //   "Fecha de vencimiento\n20/2/2026"    (Antel PDF — newline)
+  //   "VENCE: 19/05/2026"                  (OSE PDF — no "el")
+  //   "vence el 05/05/2026"                (Personal Flow subject)
+  //   "Vto. 15/05/2026" / "Vto: 15/05/2026"
+  //   "vence el 5 de mayo de 2026"         (written date)
+  //
+  // We use `[\s\S]{0,30}?` (non-greedy, includes newlines) between the
+  // landmark and the date so glued / newline-separated values both work.
   const candidates = [
-    /(?:fecha\s+de\s+)?vencimiento[^\n0-9]{0,30}(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
-    /vence\s+el[^\n0-9]{0,10}(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
-    /(?:fecha\s+de\s+)?vencimiento[^\n0-9]{0,30}(\d{1,2}\s+(?:de\s+)?[a-záé]+(?:\s+(?:de\s+)?\d{2,4})?)/i,
+    // "VTO PROXIMA FACTURA" or other VTO variants we explicitly DON'T want
+    // to catch (they're for the next bill, not this one) — order matters:
+    // we test specific positive patterns first.
+    /\bvencimiento\b(?!\s+pr[oó]xim)[\s\S]{0,30}?(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
+    /\bvence\b(?:\s+el)?\s*[:\s]*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
+    /\bvto\.?\b(?!\s+pr[oó]xim)\s*:?\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
+    /\bvencimiento\b(?!\s+pr[oó]xim)[\s\S]{0,30}?(\d{1,2}\s+(?:de\s+)?[a-záé]+(?:\s+(?:de\s+)?\d{2,4})?)/i,
+    /\bvence\b(?:\s+el)?\s*[:\s]*(\d{1,2}\s+(?:de\s+)?[a-záé]+(?:\s+(?:de\s+)?\d{2,4})?)/i,
   ];
   for (const rx of candidates) {
     const m = rx.exec(body);
@@ -283,13 +347,26 @@ function extractInvoiceNumber(body: string): string | null {
 }
 
 function extractAccountNumber(body: string, subject: string): string | null {
-  // "Cuenta n° 4131911000" (UTE), "Cuenta contrato 12345" (Edenor),
-  // "Cuenta cliente: 1234567" (Antel). Also the subject often carries it:
-  // "e-Ticket Crédito de la Cuenta 4131911000".
+  // Variantes vistas:
+  //   "Cuenta n° 4131911000"           (UTE)
+  //   "Cuenta nº 25006163000108"       (Antel subject)
+  //   "NUMERO DE CUENTA 25006163000108"(Antel PDF body)
+  //   "NRO CLIENTE: 3317403"           (Prosegur)
+  //   "Ref. Cobro: 329232040"          (OSE)
+  //   "Cuenta contrato 12345"          (Edenor — TBD)
+  //   "Cuenta cliente: 1234567"
   const haystack = `${subject}\n${body}`;
   const candidates = [
-    /cuenta(?:\s+(?:contrato|cliente|n[uú]mero))?\s*[:#°ºn.\-]*\s*(\d{5,15})/i,
+    // "Numero de cuenta 25006163000108" / "Número de cuenta: …"
+    /n[uú]mero\s+de\s+cuenta\s*[:#°º.\-]*\s*(\d{5,15})/i,
+    // "Cuenta nº 4131911000" / "Cuenta n° X" / "Cuenta contrato 12345"
+    /\bcuenta\s+(?:contrato|cliente|n[uú]mero)?\s*[:#°ºn.\-]*\s*(\d{5,15})/i,
+    // "Nº de cuenta: 12345" / "N° de cuenta 12345"
     /n[ºo°.]?\s*de\s+cuenta\s*:?\s*(\d{5,15})/i,
+    // "NRO CLIENTE: 3317403" / "Nro Cliente 12345" / "N° de cliente 12345"
+    /(?:nro\.?|n[ºo°.]?)\s*(?:de\s+)?cliente\s*:?\s*(\d{5,15})/i,
+    // "Ref. Cobro: 329232040" / "Referencia de cobro …"
+    /ref\.?\s*(?:de\s+)?cobro\s*:?\s*(\d{5,15})/i,
   ];
   for (const rx of candidates) {
     const m = rx.exec(haystack);
@@ -299,13 +376,23 @@ function extractAccountNumber(body: string, subject: string): string | null {
 }
 
 function extractKwh(body: string): number | null {
-  const m = /(\d+(?:[.,]\d+)?)\s*kwh/i.exec(body);
-  return m ? parseAmount(m[1]) : null;
+  // "550 kWh" / "550kWh" — number before unit
+  const a = /(\d+(?:[.,]\d+)?)\s*kwh\b/i.exec(body);
+  if (a) return parseAmount(a[1]);
+  // "CONSUMO KWH 550" / "Consumo kWh\n550" — label first, number after
+  const b = /consumo\s+kwh[:\s\n]*(\d+(?:[.,]\d+)?)/i.exec(body);
+  if (b) return parseAmount(b[1]);
+  return null;
 }
 
 function extractM3(body: string): number | null {
-  const m = /(\d+(?:[.,]\d+)?)\s*m[³3]\b/i.exec(body);
-  return m ? parseAmount(m[1]) : null;
+  // "34 m3" / "34 m³" — number before unit
+  const a = /(\d+(?:[.,]\d+)?)\s*m[³3]\b/i.exec(body);
+  if (a) return parseAmount(a[1]);
+  // "CONSUMO M3 34" / "CONSUMO M3\n34" (OSE)
+  const b = /consumo\s+m[³3][:\s\n]*(\d+(?:[.,]\d+)?)/i.exec(body);
+  if (b) return parseAmount(b[1]);
+  return null;
 }
 
 export function parseBillEmail({
