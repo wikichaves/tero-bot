@@ -205,3 +205,87 @@ export type WhatsAppMessage = {
   status: string | null;
   sent_at: string;
 };
+
+// ──────────────────────────────────────────────────────────────────────────
+// Utility bills (WIK-62)
+
+export type UtilityType = "luz" | "agua" | "internet" | "alarma" | "otro";
+
+export type BillStatus = "pending" | "paid" | "overdue" | "cancelled";
+
+/** Canonical provider key. We normalize to these — UI shows them as-is. */
+export type BillProvider =
+  | "UTE"
+  | "OSE"
+  | "Antel"
+  | "Prosegur"
+  | "Edenor"
+  | "AySA"
+  | "Telecentro"
+  | "Otro";
+
+export type UtilityBill = {
+  id: string;
+  property_id: string;
+  utility_type: UtilityType;
+  provider: string;
+  amount: number | null;
+  currency: string | null;
+  period_from: string | null;
+  period_to: string | null;
+  issue_date: string | null;
+  due_date: string | null;
+  paid_at: string | null;
+  status: BillStatus;
+  kwh_billed: number | null;
+  m3_billed: number | null;
+  account_number: string | null;
+  invoice_number: string | null;
+  inbound_email_id: string | null;
+  pdf_path: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Persisted raw + parsed payload of an inbound utility-bill email. */
+export type BillInboundEmail = {
+  id: string;
+  message_id: string | null;
+  parsed_kind: "matched" | "partial" | "unknown" | null;
+  provider_hint: string | null;
+  utility_type_hint: UtilityType | null;
+  property_hint: string | null;
+  parsed: unknown;
+  raw: unknown;
+  attachment_paths: string[] | null;
+  received_at: string;
+};
+
+/** Output of `parseBillEmail()`. `provider`+`utility_type` are present when we
+ *  recognized the sender; everything else is best-effort. The webhook fills
+ *  the gaps from the email body / subject. Discriminated by `kind`. */
+export type ParsedBillEmail =
+  | {
+      kind: "matched" | "partial";
+      provider: BillProvider;
+      utility_type: UtilityType;
+      amount: number | null;
+      currency: string | null;
+      period_from: string | null;
+      period_to: string | null;
+      issue_date: string | null;
+      due_date: string | null;
+      kwh_billed: number | null;
+      m3_billed: number | null;
+      account_number: string | null;
+      invoice_number: string | null;
+      /** Hint for which property this bill belongs to. Resolved by matching
+       *  `account_number` against `properties.<provider>_account` (future),
+       *  or by `currency` falling back to single-property-per-currency. */
+      property_id: string | null;
+    }
+  | {
+      kind: "unknown";
+      reason: string;
+    };

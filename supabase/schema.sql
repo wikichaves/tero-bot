@@ -441,3 +441,113 @@ alter table public.reservations
     check (check_in_time is null or check_in_time ~ '^[0-2][0-9]:[0-5][0-9]$'),
   add column if not exists check_out_time text
     check (check_out_time is null or check_out_time ~ '^[0-2][0-9]:[0-5][0-9]$');
+
+-- ────────────────────────────────────────────────────────────────────────
+-- Utility bills (WIK-62, added 2026-05-14). Forward facturas de luz/agua/
+-- internet/alarma a bills@inbound.example.com → Postmark inbound
+-- → /api/inbound (router) → /api/inbound/bills (handler). El parser hace
+-- best-effort por proveedor (UTE/OSE/Antel/Prosegur/Edenor/AySA/Telecentro)
+-- y deja el resto editable manual en /facturas.
+
+do $$ begin
+  create type utility_type as enum (
+    'luz', 'agua', 'internet', 'alarma', 'otro'
+  );
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type bill_status as enum (
+    'pending', 'paid', 'overdue', 'cancelled'
+  );
+exception when duplicate_object then null; end $$;
+
+create table if not exists public.bill_inbound_emails (
+  id uuid primary key default gen_random_uuid(),
+  message_id text unique,
+  parsed_kind text,         -- 'matched' | 'partial' | 'unknown'
+  provider_hint text,       -- detectado por sender domain (ute, ose, antel, ...)
+  utility_type_hint text,
+  property_hint uuid references public.properties(id) on delete set null,
+  parsed jsonb,
+  raw jsonb,
+  attachment_paths jsonb,   -- ["bills/<uuid>/factura.pdf", ...] en Storage
+  received_at timestamptz not null default now()
+);
+
+create index if not exists bill_inbound_emails_received_at_idx
+  on public.bill_inbound_emails(received_at desc);
+
+create table if not exists public.utility_bills (
+  id uuid primary key default gen_random_uuid(),
+  property_id uuid not null references public.properties(id) on delete cascade,
+  utility_type utility_type not null,
+  provider text not null,        -- 'UTE', 'OSE', 'Antel', 'Prosegur', 'Edenor', 'AySA', 'Telecentro', 'Otro'
+  amount numeric,                -- nullable hasta que se complete manual
+  currency text check (currency is null or currency ~ '^[A-Z]{3}$'),
+  period_from date,
+  period_to date,
+  issue_date date,
+  due_date date,
+  paid_at date,
+  status bill_status not null default 'pending',
+  kwh_billed numeric,            -- solo aplica a luz
+  m3_billed numeric,             -- solo aplica a agua
+  account_number text,           -- nº de cuenta / contrato del proveedor
+  invoice_number text,           -- nº de factura
+  inbound_email_id uuid references public.bill_inbound_emails(id) on delete set null,
+  pdf_path text,                 -- path en Storage (bucket 'bill-attachments')
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists utility_bills_property_idx
+  on public.utility_bills(property_id, period_to desc nulls last);
+create index if not exists utility_bills_type_idx
+  on public.utility_bills(utility_type);
+create index if not exists utility_bills_status_idx
+  on public.utility_bills(status, due_date);
+
+create or replace function public.utility_bills_set_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists utility_bills_updated_at_trg on public.utility_bills;
+create trigger utility_bills_updated_at_trg
+  before update on public.utility_bills
+  for each row execute function public.utility_bills_set_updated_at();
+
+alter table public.bill_inbound_emails enable row level security;
+alter table public.utility_bills enable row level security;
+
+drop policy if exists bill_inbound_emails_admin_read on public.bill_inbound_emails;
+create policy bill_inbound_emails_admin_read on public.bill_inbound_emails
+  for select using (public.current_role() in ('admin', 'gestor'));
+
+drop policy if exists utility_bills_read on public.utility_bills;
+create policy utility_bills_read on public.utility_bills
+  for select using (public.current_role() in ('admin', 'gestor'));
+
+drop policy if exists utility_bills_write on public.utility_bills;
+create policy utility_bills_write on public.utility_bills
+  for all using (public.current_role() in ('admin', 'gestor'))
+  with check (public.current_role() in ('admin', 'gestor'));
+
+-- Storage bucket para adjuntos (PDFs). Crear manualmente en Supabase
+-- Studio si esta línea falla (versiones viejas no exponen storage.buckets
+-- desde SQL editor):
+insert into storage.buckets (id, name, public)
+values ('bill-attachments', 'bill-attachments', false)
+on conflict (id) do nothing;
+
+-- Solo admin/gestor pueden bajar adjuntos.
+drop policy if exists bill_attachments_read on storage.objects;
+create policy bill_attachments_read on storage.objects
+  for select using (
+    bucket_id = 'bill-attachments'
+    and public.current_role() in ('admin', 'gestor')
+  );

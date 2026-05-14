@@ -95,6 +95,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
       },
       { href: "/whatsapp", label: "WhatsApp" },
       { href: "/energy", label: "Energía" },
+      { href: "/facturas", label: "Facturas" },
     );
   }
   const adminItems: NavItem[] =
