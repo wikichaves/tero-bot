@@ -240,6 +240,13 @@ const LOCALE = "es-UY";
 
 /**
  * Format a money amount in the given ISO 4217 currency (e.g. UYU, ARS, USD).
+ *
+ * We force `currencyDisplay: "code"` so the prefix is ALWAYS the ISO code
+ * (`UYU 4.441`, `ARS 120.518`, `USD 30`). Without it, Intl.NumberFormat
+ * with locale `es-UY` shows `$` for UYU but the literal "ARS" code for
+ * argentino (because `$` isn't recognized as ARS in the UY locale) —
+ * inconsistent and confusing when mixing properties.
+ *
  * Uses a per-currency cache so we don't re-instantiate the formatter on
  * every render.
  */
@@ -254,6 +261,7 @@ export function formatMoney(
       fmt = new Intl.NumberFormat(LOCALE, {
         style: "currency",
         currency,
+        currencyDisplay: "code",
         maximumFractionDigits: 0,
       });
     } catch {

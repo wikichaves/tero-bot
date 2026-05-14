@@ -167,9 +167,14 @@ export function toUsd(amount: number | null, rate: FxRate | undefined): number |
   return amount / rate.per_usd;
 }
 
+// `currencyDisplay: "code"` para que el prefix sea "USD" consistente con
+// formatMoney (ARS / UYU / USD). Sin esto Intl en es-UY devuelve "US$"
+// que rompe la uniformidad visual cuando mezclamos monedas en la misma
+// vista (p.ej. /energy mostrando local + USD).
 const usdFmt = new Intl.NumberFormat("es-UY", {
   style: "currency",
   currency: "USD",
+  currencyDisplay: "code",
   maximumFractionDigits: 2,
 });
 
