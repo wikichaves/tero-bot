@@ -141,7 +141,8 @@ export default async function FacturasPage() {
             <code className="rounded bg-muted px-1 py-0.5 text-xs">
               bills@inbound.example.com
             </code>{" "}
-            o cargá manual.
+            o cargá manual. Para backfills históricos, mandá hasta 3–4 PDFs por
+            email (Vercel limita el payload a 4.5 MB).
           </p>
         </div>
         <BillFormDialog
