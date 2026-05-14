@@ -12,6 +12,13 @@ import {
   type PostmarkInbound,
 } from "@/lib/inbound/postmark";
 
+// Multi-PDF emails (e.g. 7 Edenor bills in one batch) need extra runtime —
+// pdf-parse + storage uploads run concurrently but the function still has
+// to finish before Vercel kills it. 60s is the Hobby plan cap; Pro can go
+// higher. Postmark separately abandons us after 10s, so we still try to
+// stay well under that for the happy path.
+export const maxDuration = 60;
+
 /**
  * Single Postmark Inbound entrypoint. Postmark posts every email that
  * arrives at *@inbound.example.com here; we dispatch by the
@@ -43,11 +50,31 @@ export async function POST(req: NextRequest) {
   const recipient = extractRecipient(body);
   const alias = localPart(recipient);
 
-  if (alias === "airbnb") {
-    return handleAirbnbInbound(body, admin);
-  }
-  if (alias && BILL_ROUTE_ALIASES.has(alias)) {
-    return handleBillInbound(body, admin, alias);
+  // Wrap the dispatch in a top-level try/catch so internal bugs (a regex
+  // backtrack, a transient DB error, a malformed attachment) never bubble
+  // up as a 5xx — Postmark would retry forever on those, even though the
+  // retry can't fix the underlying problem. We always ack with 200 and
+  // rely on logs + DB rows for triage.
+  try {
+    if (alias === "airbnb") {
+      return await handleAirbnbInbound(body, admin);
+    }
+    if (alias && BILL_ROUTE_ALIASES.has(alias)) {
+      return await handleBillInbound(body, admin, alias);
+    }
+  } catch (err) {
+    console.error(
+      `[inbound] handler threw for alias="${alias}" recipient="${recipient}":`,
+      err,
+    );
+    return NextResponse.json(
+      {
+        ok: true,
+        internal_error: true,
+        message: (err as Error).message,
+      },
+      { status: 200 },
+    );
   }
 
   // Unrouted: probably a misconfigured forward. Log + ack so Postmark

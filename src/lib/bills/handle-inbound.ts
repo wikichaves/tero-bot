@@ -80,48 +80,49 @@ async function uploadAttachments(
   folder: string,
 ): Promise<ProcessedAttachment[]> {
   if (!attachments?.length) return [];
-  const processed: ProcessedAttachment[] = [];
-  for (const att of attachments) {
+
+  // Process every attachment in parallel: pdf-parse + storage upload happen
+  // concurrently. For 7 PDFs this drops total time from ~7×N seconds to
+  // about max(N) seconds, well inside Postmark's 10s webhook deadline.
+  const tasks = attachments.map(async (att): Promise<ProcessedAttachment | null> => {
     try {
-      // Skip inline tracking pixels / tiny content.
-      if (att.ContentLength != null && att.ContentLength < 200) continue;
+      if (att.ContentLength != null && att.ContentLength < 200) return null;
       const safeName = att.Name.replace(/[^A-Za-z0-9._\-]/g, "_").slice(0, 80);
       const path = `${folder}/${safeName}`;
       const buf = Buffer.from(att.Content, "base64");
       const isPdf = /pdf$/i.test(att.ContentType ?? safeName);
 
-      // Extract text BEFORE upload so a failed upload still lets us parse.
-      // PDF parsing is best-effort; on error we just skip this attachment's
-      // text and keep going.
-      let text: string | null = null;
-      if (isPdf) {
-        text = await extractPdfText(buf);
-        if (text) {
-          console.log(
-            `[inbound bills] extracted ${text.length} chars from ${att.Name}`,
-          );
-        }
-      }
+      const [text, uploadRes] = await Promise.all([
+        isPdf ? extractPdfText(buf) : Promise.resolve(null),
+        admin.storage
+          .from("bill-attachments")
+          .upload(path, buf, {
+            contentType: att.ContentType || "application/octet-stream",
+            upsert: true,
+          }),
+      ]);
 
-      const { error } = await admin.storage
-        .from("bill-attachments")
-        .upload(path, buf, {
-          contentType: att.ContentType || "application/octet-stream",
-          upsert: true,
-        });
-      if (error) {
+      if (uploadRes.error) {
         console.error(
           `[inbound bills] attachment upload failed (${safeName}):`,
-          error.message,
+          uploadRes.error.message,
         );
-        continue;
+        return null;
       }
-      processed.push({ path, name: att.Name, isPdf, text });
+      if (isPdf && text) {
+        console.log(
+          `[inbound bills] extracted ${text.length} chars from ${att.Name}`,
+        );
+      }
+      return { path, name: att.Name, isPdf, text };
     } catch (err) {
-      console.error("[inbound bills] attachment upload threw", err);
+      console.error("[inbound bills] attachment processing threw", err);
+      return null;
     }
-  }
-  return processed;
+  });
+
+  const results = await Promise.all(tasks);
+  return results.filter((r): r is ProcessedAttachment => r !== null);
 }
 
 async function resolveProperty(

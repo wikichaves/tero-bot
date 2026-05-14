@@ -20,12 +20,24 @@ import "server-only";
 // pdf-parse has no ESM build; CJS interop via the dynamic import works
 // inside server-only code paths.
 
+const PDF_PARSE_TIMEOUT_MS = 5_000;
+
 export async function extractPdfText(buffer: Buffer): Promise<string | null> {
   try {
     const pdf = (await import("pdf-parse/lib/pdf-parse.js")).default as (
       data: Buffer,
     ) => Promise<{ text: string; numpages: number }>;
-    const result = await pdf(buffer);
+    // Cap each PDF at 5s so one weird/corrupt attachment can't hang the
+    // whole inbound webhook (Postmark abandons us after 10s).
+    const result = await Promise.race([
+      pdf(buffer),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`pdf-parse timeout after ${PDF_PARSE_TIMEOUT_MS}ms`)),
+          PDF_PARSE_TIMEOUT_MS,
+        ),
+      ),
+    ]);
     return result.text ?? null;
   } catch (err) {
     console.error("[pdf-parse] failed", (err as Error).message);
