@@ -189,7 +189,7 @@ export default async function FacturasPage() {
           {bills.length === 0 ? (
             <div className="px-4 pb-4 text-sm text-muted-foreground sm:px-0">
               Reenviá el primer email de UTE / OSE / Antel / Edenor /
-              AySA / Telecentro / Prosegur a{" "}
+              AySA / Personal Flow / Prosegur a{" "}
               <code className="rounded bg-muted px-1 py-0.5 text-xs">
                 bills@inbound.example.com
               </code>{" "}

@@ -221,7 +221,7 @@ export type BillProvider =
   | "Prosegur"
   | "Edenor"
   | "AySA"
-  | "Telecentro"
+  | "Personal Flow"
   | "Otro";
 
 export type UtilityBill = {

@@ -76,11 +76,20 @@ const PROVIDER_RULES: ProviderRule[] = [
     fromNameKeywords: ["aysa"],
   },
   {
-    provider: "Telecentro",
+    provider: "Personal Flow",
     utility_type: "internet",
     currency: "ARS",
-    domains: ["telecentro.com.ar", "telecentro.net.ar"],
-    fromNameKeywords: ["telecentro"],
+    // Personal Flow es el provider AR (rebrand de Cablevisión Flow tras la
+    // fusión con Telecom). Los emails de facturación suelen venir de
+    // personal.com.ar / flow.com.ar / telecom.com.ar (corporativo).
+    domains: [
+      "personal.com.ar",
+      "flow.com.ar",
+      "telecom.com.ar",
+      "cablevisionflow.com.ar",
+      "cablevision.com.ar",
+    ],
+    fromNameKeywords: ["personal flow", "flow"],
   },
 ];
 
