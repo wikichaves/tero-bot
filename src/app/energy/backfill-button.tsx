@@ -20,12 +20,12 @@ export function BackfillButton() {
   function onClick() {
     if (
       !confirm(
-        "Esto va a pedir 12 meses de histórico a Tuya y crear ~365 snapshots por medidor. ¿Continuar?",
+        "Esto va a pedir ~30 días de logs históricos a Tuya y crear los snapshots correspondientes. ¿Continuar?",
       )
     )
       return;
     startTransition(async () => {
-      const result = await backfillSnapshots(12);
+      const result = await backfillSnapshots(1);
       if ("error" in result && result.error) {
         toast.error(result.error);
         return;
@@ -50,7 +50,7 @@ export function BackfillButton() {
 
   return (
     <Button variant="outline" size="sm" onClick={onClick} disabled={pending}>
-      {pending ? "Cargando histórico…" : "Backfill 12 meses"}
+      {pending ? "Cargando histórico…" : "Backfill 30 días"}
     </Button>
   );
 }
