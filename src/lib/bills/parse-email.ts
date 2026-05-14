@@ -319,6 +319,13 @@ function extractDueDate(body: string): string | null {
     // "VTO PROXIMA FACTURA" or other VTO variants we explicitly DON'T want
     // to catch (they're for the next bill, not this one) — order matters:
     // we test specific positive patterns first.
+
+    // Edenor uses an inverted construction: "el 27/04/2026 vence tu factura"
+    // — date comes BEFORE the verb. Match before any of the forward-order
+    // patterns so we don't accidentally pick up a different date downstream.
+    /\bel\s+(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})\s+vence\b/i,
+
+    // Standard forward-order patterns.
     /\bvencimiento\b(?!\s+pr[oó]xim)[\s\S]{0,30}?(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
     /\bvence\b(?:\s+el)?\s*[:\s]*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
     /\bvto\.?\b(?!\s+pr[oó]xim)\s*:?\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
