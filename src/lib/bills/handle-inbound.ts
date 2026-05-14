@@ -217,6 +217,10 @@ export async function handleBillInbound(
         parsed,
         raw: body,
         attachment_paths: attachmentPaths,
+        // Guardamos el texto crudo del PDF para iterar regex sin tener
+        // que descargar los PDFs uno por uno (queda detrás del RLS
+        // admin/gestor, no se expone públicamente).
+        pdf_text_extract: pdfText && pdfText.length > 0 ? pdfText : null,
       })
       .select("id")
       .single();

@@ -471,8 +471,16 @@ create table if not exists public.bill_inbound_emails (
   parsed jsonb,
   raw jsonb,
   attachment_paths jsonb,   -- ["bills/<uuid>/factura.pdf", ...] en Storage
+  /** Texto crudo extraído de los PDFs adjuntos (concatenado), para
+   *  iterar regex landmarks contra samples reales sin tener que
+   *  descargar los PDFs uno por uno. Nullable porque rows viejas
+   *  no lo tienen. */
+  pdf_text_extract text,
   received_at timestamptz not null default now()
 );
+
+alter table public.bill_inbound_emails
+  add column if not exists pdf_text_extract text;
 
 create index if not exists bill_inbound_emails_received_at_idx
   on public.bill_inbound_emails(received_at desc);
