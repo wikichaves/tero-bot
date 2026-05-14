@@ -167,27 +167,26 @@ export function toUsd(amount: number | null, rate: FxRate | undefined): number |
   return amount / rate.per_usd;
 }
 
-// `currencyDisplay: "code"` para que el prefix sea "USD" consistente con
-// formatMoney (ARS / UYU / USD). Sin esto Intl en es-UY devuelve "US$"
-// que rompe la uniformidad visual cuando mezclamos monedas en la misma
-// vista (p.ej. /energy mostrando local + USD).
-const usdFmt = new Intl.NumberFormat("es-UY", {
-  style: "currency",
-  currency: "USD",
-  currencyDisplay: "code",
-  maximumFractionDigits: 2,
-});
-
-/** Format a USD amount with `.` thousands and `,` decimals (Spanish). */
+/**
+ * Format a USD amount. Delegates to `formatMoney("USD")` so USD sigue la
+ * misma regla de decimales que las demás monedas: enteros sin decimales
+ * (`USD 30`), fraccionarios con dos (`USD 30,55`). Ver WIK-70.
+ */
+import { formatMoney } from "./format";
 export function formatUsd(amount: number | null): string {
-  if (amount == null) return "—";
-  return usdFmt.format(amount);
+  return formatMoney(amount, "USD");
 }
 
-/** Format a generic number (e.g. exchange rate) with Spanish locale. */
+/**
+ * Format a generic number (e.g. exchange rate) with Spanish locale.
+ *
+ * Decimal rule (WIK-70): si el número es entero, sin decimales; si tiene
+ * parte fraccionaria, SIEMPRE `digits` decimales (no `1.234,5`).
+ */
 export function formatRate(n: number, digits = 2): string {
+  const hasDecimals = Math.abs(n - Math.round(n)) >= Math.pow(10, -digits) / 2;
   return n.toLocaleString("es-UY", {
-    maximumFractionDigits: digits,
-    minimumFractionDigits: 0,
+    maximumFractionDigits: hasDecimals ? digits : 0,
+    minimumFractionDigits: hasDecimals ? digits : 0,
   });
 }

@@ -28,27 +28,39 @@ const LOCALE = "es-UY";
  * argentino (because `$` isn't recognized as ARS in the UY locale) —
  * inconsistent and confusing when mixing properties.
  *
- * Uses a per-currency cache so we don't re-instantiate the formatter on
- * every render.
+ * Decimal rule (WIK-70): enteros se muestran SIN decimales (`UYU 4.441`),
+ * fraccionarios SIEMPRE con dos (`ARS 1.391,50`). Antes mostrábamos
+ * `1.391,5` ARS cuando el monto venía con un decimal del parser, lo cual
+ * es confuso en una columna de plata.
+ *
+ * Uses a per-(currency, decimals) cache so we don't re-instantiate the
+ * formatter on every render.
  */
 export function formatMoney(
   amount: number | null,
   currency: string = "UYU",
 ): string {
   if (amount == null) return "—";
-  let fmt = formatterCache.get(currency);
+  const hasDecimals = Math.abs(amount - Math.round(amount)) >= 0.005;
+  const digits = hasDecimals ? 2 : 0;
+  const cacheKey = `${currency}|${digits}`;
+  let fmt = formatterCache.get(cacheKey);
   if (!fmt) {
     try {
       fmt = new Intl.NumberFormat(LOCALE, {
         style: "currency",
         currency,
         currencyDisplay: "code",
-        maximumFractionDigits: 0,
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
       });
     } catch {
-      fmt = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 0 });
+      fmt = new Intl.NumberFormat(LOCALE, {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
+      });
     }
-    formatterCache.set(currency, fmt);
+    formatterCache.set(cacheKey, fmt);
   }
   return fmt.format(amount);
 }
