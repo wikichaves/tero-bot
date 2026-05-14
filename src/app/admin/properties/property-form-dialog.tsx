@@ -319,7 +319,7 @@ function PropertyForm({
             sigue en la DB y los actions lo aceptan, por si hay rows
             existentes que ya lo tienen seteado. Reactivar el input cuando
             volvamos a usar Booking. */}
-        <div className="grid grid-cols-[1fr_2fr] gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <div className="grid gap-2">
             <Label htmlFor="country">País</Label>
             <select
