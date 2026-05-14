@@ -2,6 +2,13 @@
 -- Run in Supabase SQL editor (or via supabase CLI) on a fresh project.
 
 -- Roles enum
+--
+-- WIK-74: `limpieza` quedó DEPRECADO y unificado en `mantenimiento`. El valor
+-- sigue presente en el enum porque Postgres no permite removerlo sin
+-- recrear todas las columnas que lo usan; en cambio, hay un CHECK
+-- constraint en `profiles` que bloquea nuevas escrituras del valor viejo
+-- (ver más abajo). Los profiles existentes con role=limpieza fueron
+-- migrados a mantenimiento.
 do $$ begin
   create type user_role as enum ('admin', 'gestor', 'limpieza', 'mantenimiento');
 exception when duplicate_object then null; end $$;
@@ -27,6 +34,13 @@ create table if not exists public.profiles (
   whatsapp text,
   created_at timestamptz not null default now()
 );
+
+-- WIK-74: bloquea el valor 'limpieza' (deprecado, unificado en mantenimiento).
+alter table public.profiles
+  drop constraint if exists profiles_role_not_limpieza;
+alter table public.profiles
+  add constraint profiles_role_not_limpieza
+  check (role::text <> 'limpieza');
 
 -- IMPORTANT: do NOT read `role` from raw_user_meta_data here. That field is
 -- attacker-controlled at signup time (Supabase's public signup endpoint accepts

@@ -17,7 +17,7 @@ import type { Profile, UserRole } from "@/lib/types";
 import { deleteUser, updateRole } from "./actions";
 import { EditUserDialog } from "./edit-user-dialog";
 
-const ROLES: UserRole[] = ["admin", "gestor", "limpieza", "mantenimiento"];
+const ROLES: UserRole[] = ["admin", "gestor", "mantenimiento"];
 
 export function UserActions({
   profile,

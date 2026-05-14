@@ -1,4 +1,12 @@
-export type UserRole = "admin" | "gestor" | "limpieza" | "mantenimiento";
+/**
+ * UserRole (WIK-74): unificamos los dos roles operativos en un único
+ * "mantenimiento". El valor "limpieza" sigue existiendo en el enum de
+ * Postgres por compat (no se puede dropear sin recrear la columna), pero
+ * está bloqueado por un CHECK constraint y no aparece más en la UI ni
+ * en los validadores de input. Los profiles existentes con role=limpieza
+ * ya fueron migrados a mantenimiento.
+ */
+export type UserRole = "admin" | "gestor" | "mantenimiento";
 
 export type Profile = {
   id: string;

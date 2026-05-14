@@ -27,7 +27,7 @@ export default async function MisTareasPage({
     params.filter === "done" || params.filter === "all" ? params.filter : "open";
 
   // Use admin client because:
-  //  1. limpieza/mantenimiento profiles can't read `properties` directly per
+  //  1. mantenimiento profiles can't read `properties` directly per
   //     RLS (the table holds iCal URLs we don't want to leak), and we need
   //     the property name for the join.
   //  2. The query is explicitly scoped to `assigned_to = profile.id` so the

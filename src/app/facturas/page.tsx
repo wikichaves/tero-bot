@@ -1,11 +1,10 @@
 import { requireRole } from "@/lib/auth";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
-  computeTuyaConsumption,
-  deltaLevel,
-  type DeltaLevel,
-} from "@/lib/bills/tuya-comparison";
+  enrichWithEffectivePeriod,
+  type BillRow,
+  type BillRowDerived,
+} from "@/lib/bills/enrich-period";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { Property, UtilityBill } from "@/lib/types";
+import type { Property } from "@/lib/types";
 import { BillFormDialog } from "./bill-form-dialog";
 import { PropertyBillsTable } from "./property-bills-table";
 
@@ -37,72 +36,6 @@ import { PropertyBillsTable } from "./property-bills-table";
  * así que el seguimiento de pago no agrega valor visual. Sigue editable
  * desde el dialog si querés marcar manualmente algo cancelled.
  */
-
-type BillRow = UtilityBill & {
-  property: Pick<Property, "id" | "name" | "currency"> | null;
-};
-
-/** A bill enriched with a derived period when the parser couldn't extract
- *  one. The "effective" period is the window between the previous bill's
- *  due_date and this bill's due_date — useful for Tuya comparison and
- *  for showing a period in the UI even when the PDF didn't surface one. */
-type BillRowDerived = BillRow & {
-  effective_period_from: string | null;
-  effective_period_to: string | null;
-  period_inferred: boolean;
-};
-
-/**
- * Group bills by (property_id, provider), sort each group by due_date asc
- * (oldest first), then walk: for bill N without an explicit period, infer
- * effective_period_from = due_date(N-1) and effective_period_to =
- * due_date(N). The very-first bill of each group can't infer
- * period_from (no previous neighbor) so it stays null there.
- *
- * Bills with an explicit period_from/to keep it; we just copy into the
- * effective_* fields for uniform downstream code.
- */
-function enrichWithEffectivePeriod(rows: BillRow[]): BillRowDerived[] {
-  const groups = new Map<string, BillRow[]>();
-  for (const b of rows) {
-    const key = `${b.property_id}|${b.provider}`;
-    const list = groups.get(key) ?? [];
-    list.push(b);
-    groups.set(key, list);
-  }
-  const derivedById = new Map<string, BillRowDerived>();
-  for (const list of groups.values()) {
-    // Sort by due_date asc; nulls last.
-    const sorted = [...list].sort((a, b) => {
-      const ad = a.due_date ?? "9999";
-      const bd = b.due_date ?? "9999";
-      return ad.localeCompare(bd);
-    });
-    for (let i = 0; i < sorted.length; i++) {
-      const bill = sorted[i];
-      const hasExplicit = !!(bill.period_from && bill.period_to);
-      let effFrom = bill.period_from;
-      let effTo = bill.period_to;
-      let inferred = false;
-      if (!hasExplicit && bill.due_date) {
-        effTo = effTo ?? bill.due_date;
-        const prev = sorted[i - 1];
-        if (!effFrom && prev?.due_date) {
-          effFrom = prev.due_date;
-        }
-        inferred = !!(effFrom && effTo);
-      }
-      derivedById.set(bill.id, {
-        ...bill,
-        effective_period_from: effFrom,
-        effective_period_to: effTo,
-        period_inferred: inferred,
-      });
-    }
-  }
-  // Preserve the original ordering from the SQL query.
-  return rows.map((b) => derivedById.get(b.id)!).filter(Boolean);
-}
 
 export default async function FacturasPage() {
   await requireRole(["admin", "gestor"]);
@@ -133,47 +66,12 @@ export default async function FacturasPage() {
   // window between the PREVIOUS bill's due_date and THIS bill's due_date,
   // grouped per (property_id, provider). Bills that already have explicit
   // period_from/to keep them as-is.
+  //
+  // (WIK-75) Antes calculábamos también el delta Tuya vs facturado acá y
+  // lo mostrábamos en una columna "Consumo" — la mayoría de las filas
+  // (internet/alarma/agua) la dejaban vacía y ensuciaba la tabla. Ahora
+  // la comparativa vive en /energy junto a los devices Tuya.
   const bills: BillRowDerived[] = enrichWithEffectivePeriod(rawBills);
-
-  // Tuya vs facturado: para cada `luz` con período + kWh completo,
-  // computamos el consumo medido por Tuya y lo comparamos en el badge
-  // de la columna Consumo (parcial cuando coverage < 70%).
-  const admin = createAdminClient();
-  const comparisons = new Map<
-    string,
-    {
-      tuyaKwh: number;
-      deltaPct: number;
-      level: DeltaLevel;
-      coverageFraction: number;
-    }
-  >();
-  await Promise.all(
-    bills
-      .filter(
-        (b) =>
-          b.utility_type === "luz" &&
-          b.kwh_billed != null &&
-          b.effective_period_from &&
-          b.effective_period_to,
-      )
-      .map(async (b) => {
-        const result = await computeTuyaConsumption(
-          admin,
-          b.property_id,
-          b.effective_period_from!,
-          b.effective_period_to!,
-        );
-        if (!result || result.kwh <= 0) return;
-        const deltaPct = ((b.kwh_billed! - result.kwh) / result.kwh) * 100;
-        comparisons.set(b.id, {
-          tuyaKwh: result.kwh,
-          deltaPct,
-          level: deltaLevel(deltaPct),
-          coverageFraction: result.coverageFraction,
-        });
-      }),
-  );
 
   // Group bills by property. We iterate `properties` (sort_order asc) so
   // the sections render in the order the admin set in /admin/properties.
@@ -226,7 +124,6 @@ export default async function FacturasPage() {
                 key={property.id}
                 property={property}
                 bills={propBills}
-                comparisons={comparisons}
                 allProperties={properties}
               />
             );
@@ -242,7 +139,6 @@ export default async function FacturasPage() {
                 key="orphans"
                 property={null}
                 bills={orphans}
-                comparisons={comparisons}
                 allProperties={properties}
               />
             );
@@ -256,35 +152,12 @@ export default async function FacturasPage() {
 function PropertyBillsCard({
   property,
   bills,
-  comparisons,
   allProperties,
 }: {
   property: Pick<Property, "id" | "name" | "currency"> | null;
   bills: BillRowDerived[];
-  comparisons: Map<
-    string,
-    {
-      tuyaKwh: number;
-      deltaPct: number;
-      level: DeltaLevel;
-      coverageFraction: number;
-    }
-  >;
   allProperties: Pick<Property, "id" | "name" | "currency">[];
 }) {
-  // The table is a client component (needs useState for the "Mostrar más"
-  // toggle). We hand it a plain object instead of a Map — Maps don't
-  // serialize across the server→client boundary in Next.
-  const comparisonsObj: Record<
-    string,
-    {
-      tuyaKwh: number;
-      deltaPct: number;
-      level: DeltaLevel;
-      coverageFraction: number;
-    }
-  > = {};
-  for (const [k, v] of comparisons) comparisonsObj[k] = v;
   return (
     <Card>
       <CardHeader>
@@ -299,7 +172,6 @@ function PropertyBillsCard({
       <CardContent className="px-0 sm:px-6">
         <PropertyBillsTable
           bills={bills}
-          comparisons={comparisonsObj}
           allProperties={allProperties}
         />
       </CardContent>

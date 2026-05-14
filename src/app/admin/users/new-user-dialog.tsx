@@ -78,7 +78,6 @@ export function NewUserDialog() {
               >
                 <option value="admin">Admin</option>
                 <option value="gestor">Gestor</option>
-                <option value="limpieza">Limpieza</option>
                 <option value="mantenimiento">Mantenimiento</option>
               </select>
             </div>

@@ -6,7 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
 import { normalizePhone } from "@/lib/whatsapp";
 
-const ROLES = ["admin", "gestor", "limpieza", "mantenimiento"] as const;
+// WIK-74: "limpieza" deprecado, unificado en "mantenimiento".
+const ROLES = ["admin", "gestor", "mantenimiento"] as const;
 
 const createSchema = z.object({
   email: z.string().email("Email inválido."),

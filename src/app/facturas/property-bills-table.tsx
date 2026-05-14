@@ -13,8 +13,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatMoney } from "@/lib/format";
-import type { DeltaLevel } from "@/lib/bills/tuya-comparison";
-import type { Property, UtilityBill, UtilityType } from "@/lib/types";
+import type { Property, UtilityType } from "@/lib/types";
+import type { BillRowDerived } from "@/lib/bills/enrich-period";
 import { BillRowActions } from "./bill-row-actions";
 
 /**
@@ -22,6 +22,11 @@ import { BillRowActions } from "./bill-row-actions";
  * rows by default and a "Mostrar X más" button to expand. The card
  * itself stays a server component — only this inner table needs state
  * to toggle expand.
+ *
+ * (WIK-75) Antes mostrábamos una columna "Consumo" con el delta Tuya
+ * en cada fila. Pero como solo aplicaba a facturas de luz con período,
+ * la mayoría de las filas la dejaba vacía. La movimos a /energy, donde
+ * cae naturalmente junto al device Tuya que mide el consumo.
  */
 const PAGE_SIZE = 5;
 
@@ -31,25 +36,6 @@ const UTILITY_LABEL: Record<UtilityType, string> = {
   internet: "Internet",
   alarma: "Alarma",
   otro: "Otro",
-};
-
-/** When the Tuya snapshot range covers less than this fraction of the
- *  bill's period, we hide the colored ±% delta (it would be misleading)
- *  and show a gray "parcial XX%" pill instead. */
-const FULL_COVERAGE_THRESHOLD = 0.7;
-
-type BillRowDerived = UtilityBill & {
-  property: Pick<Property, "id" | "name" | "currency"> | null;
-  effective_period_from: string | null;
-  effective_period_to: string | null;
-  period_inferred: boolean;
-};
-
-type Comparison = {
-  tuyaKwh: number;
-  deltaPct: number;
-  level: DeltaLevel;
-  coverageFraction: number;
 };
 
 function formatPeriod(from: string | null, to: string | null): string {
@@ -70,11 +56,9 @@ function formatDate(iso: string | null): string {
 
 export function PropertyBillsTable({
   bills,
-  comparisons,
   allProperties,
 }: {
   bills: BillRowDerived[];
-  comparisons: Record<string, Comparison>;
   allProperties: Pick<Property, "id" | "name" | "currency">[];
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -91,14 +75,12 @@ export function PropertyBillsTable({
               <TableHead>Proveedor</TableHead>
               <TableHead>Período</TableHead>
               <TableHead className="text-right">Importe</TableHead>
-              <TableHead className="text-right">Consumo</TableHead>
               <TableHead>Vencimiento</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {visible.map((b) => {
-              const cmp = comparisons[b.id];
               const periodFrom = b.effective_period_from;
               const periodTo = b.effective_period_to;
               const periodLabel = formatPeriod(periodFrom, periodTo);
@@ -124,9 +106,6 @@ export function PropertyBillsTable({
                     {b.amount != null
                       ? formatMoney(b.amount, b.currency ?? "UYU")
                       : "—"}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums whitespace-nowrap">
-                    <ConsumoCell bill={b} comparison={cmp} />
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
                     {formatDate(b.due_date)}
@@ -154,68 +133,5 @@ export function PropertyBillsTable({
         </div>
       )}
     </>
-  );
-}
-
-function ConsumoCell({
-  bill,
-  comparison,
-}: {
-  bill: {
-    utility_type: UtilityType;
-    kwh_billed: number | null;
-    m3_billed: number | null;
-  };
-  comparison: Comparison | undefined;
-}) {
-  if (bill.utility_type === "luz" && bill.kwh_billed != null) {
-    return (
-      <div className="flex flex-col items-end gap-0.5">
-        <span>{bill.kwh_billed.toLocaleString("es-UY")} kWh</span>
-        {comparison && <DeltaBadge {...comparison} />}
-      </div>
-    );
-  }
-  if (bill.utility_type === "agua" && bill.m3_billed != null) {
-    return <span>{bill.m3_billed.toLocaleString("es-UY")} m³</span>;
-  }
-  return <span className="text-muted-foreground">—</span>;
-}
-
-function DeltaBadge({
-  tuyaKwh,
-  deltaPct,
-  level,
-  coverageFraction,
-}: Comparison) {
-  const tuyaLabel = `${tuyaKwh.toLocaleString("es-UY", {
-    maximumFractionDigits: 1,
-  })} kWh`;
-  if (coverageFraction < FULL_COVERAGE_THRESHOLD) {
-    const coveragePct = Math.round(coverageFraction * 100);
-    return (
-      <span
-        className="inline-flex items-center gap-1 rounded-full border border-muted-foreground/40 bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
-        title={`Tuya midió ${tuyaLabel} (cobertura ${coveragePct}% del período facturado). Δ% se mostrará cuando haya cobertura completa.`}
-      >
-        Tuya parcial {coveragePct}%
-      </span>
-    );
-  }
-  const sign = deltaPct > 0 ? "+" : "";
-  const className =
-    level === "ok"
-      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-      : level === "warn"
-        ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-        : "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-400";
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${className}`}
-      title={`Tuya midió ${tuyaLabel} en el período`}
-    >
-      Tuya {sign}
-      {deltaPct.toLocaleString("es-UY", { maximumFractionDigits: 1 })}%
-    </span>
   );
 }

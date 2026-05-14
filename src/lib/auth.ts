@@ -35,10 +35,12 @@ export async function requireRole(roles: UserRole[]): Promise<Profile> {
 
 /**
  * The default landing page for a given role. Admin/gestor see the
- * reservation dashboard; staff (limpieza/mantenimiento) only see their
- * own task list.
+ * reservation dashboard; mantenimiento only sees their own task list.
+ *
+ * (WIK-74) Antes había también un rol "limpieza" con el mismo home,
+ * unificado en mantenimiento.
  */
 export function homeForRole(role: UserRole): string {
-  if (role === "limpieza" || role === "mantenimiento") return "/mis-tareas";
+  if (role === "mantenimiento") return "/mis-tareas";
   return "/dashboard";
 }

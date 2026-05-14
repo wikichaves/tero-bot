@@ -141,7 +141,7 @@ export const staffTaskAssigned: WhatsAppTemplate = {
   language: "es",
   category: "UTILITY",
   description:
-    "Notificación a staff (limpieza/mantenimiento) cuando admin/gestor le asigna una tarea desde el panel. Variables: 1=título, 2=propiedad, 3=tipo (limpieza/mantenimiento/insumos), 4=cuándo, 5=descripción.",
+    "Notificación a staff (mantenimiento) cuando admin/gestor le asigna una tarea desde el panel. Variables: 1=título, 2=propiedad, 3=tipo (limpieza/mantenimiento/insumos), 4=cuándo, 5=descripción.",
   components: [
     {
       type: "BODY",

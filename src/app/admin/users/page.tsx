@@ -22,7 +22,6 @@ import type { Profile } from "@/lib/types";
 const ROLE_LABEL: Record<Profile["role"], string> = {
   admin: "Admin",
   gestor: "Gestor",
-  limpieza: "Limpieza",
   mantenimiento: "Mantenimiento",
 };
 

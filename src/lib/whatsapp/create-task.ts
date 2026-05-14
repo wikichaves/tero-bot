@@ -291,8 +291,8 @@ export async function createTaskFromWhatsApp(
     .join("\n\n");
 
   // Staff auto-assign to themselves; admin/gestor leave unassigned for triage.
-  const isStaff =
-    profile.role === "limpieza" || profile.role === "mantenimiento";
+  // WIK-74: "limpieza" se unificó en "mantenimiento".
+  const isStaff = profile.role === "mantenimiento";
   const assigned_to = isStaff ? profile.id : null;
 
   const { data: inserted, error } = await admin

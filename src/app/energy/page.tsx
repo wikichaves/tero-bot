@@ -1,3 +1,5 @@
+import { format, parseISO } from "date-fns";
+import { es } from "date-fns/locale";
 import { Zap } from "lucide-react";
 import {
   Card,
@@ -38,10 +40,37 @@ import {
   startOfDaysAgoIso,
   startOfTodayIso,
 } from "@/lib/tuya/snapshots";
+import {
+  computeTuyaConsumption,
+  deltaLevel,
+  type DeltaLevel,
+} from "@/lib/bills/tuya-comparison";
+import {
+  enrichWithEffectivePeriod,
+  type BillRow,
+  type BillRowDerived,
+} from "@/lib/bills/enrich-period";
+import { DeltaBadge } from "@/components/bills/delta-badge";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 import { SnapshotButton } from "./snapshot-button";
 import { BackfillButton } from "./backfill-button";
+
+/**
+ * Comparativa de una factura de luz contra el consumo medido por Tuya
+ * en el mismo período. Se renderiza dentro del DeviceEnergyCard cuando
+ * el device está asignado a una propiedad que tiene facturas con
+ * período + kWh facturado. (WIK-75 — antes esto vivía como columna en
+ * /facturas, pero la mayoría de las filas no aplicaba.)
+ */
+type BillComparison = {
+  bill: BillRowDerived;
+  tuyaKwh: number;
+  deltaPct: number;
+  level: DeltaLevel;
+  coverageFraction: number;
+};
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +95,9 @@ type DeviceWithContext = {
   todayKwh: number | null;
   /** Consumption over the last 7 days. */
   weekKwh: number | null;
+  /** Facturas de luz con período + kWh facturado para la propiedad del
+   *  device, comparadas contra el consumo Tuya en el mismo período. (WIK-75) */
+  billComparisons: BillComparison[];
 };
 
 export default async function EnergyPage() {
@@ -106,16 +138,39 @@ export default async function EnergyPage() {
   const energyDevices = flatRes.devices.filter(isEnergyDevice);
 
   const supabase = await createClient();
-  const [propertiesRes, deviceMap] = await Promise.all([
+  const [propertiesRes, deviceMap, billsRes] = await Promise.all([
     supabase
       .from("properties")
       .select("id, name, currency, tariff_per_kwh, sort_order")
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true }),
     listPropertyDeviceMap(),
+    // Solo facturas de luz con kWh facturado — son las únicas que tienen
+    // sentido contrastar con el medidor Tuya. Limitamos a las últimas
+    // ~12 por property al renderizar (la query no limita porque hay
+    // muchas properties; el cap está en el render).
+    supabase
+      .from("utility_bills")
+      .select("*, property:properties(id, name, currency)")
+      .eq("utility_type", "luz")
+      .not("kwh_billed", "is", null)
+      .order("due_date", { ascending: false, nullsFirst: false }),
   ]);
   const properties = (propertiesRes.data ?? []) as PropertySummary[];
   const propertyById = new Map(properties.map((p) => [p.id, p]));
+
+  // Enriquecemos con effective_period_from/to igual que /facturas, para que
+  // facturas sin período explícito puedan compararse usando el período
+  // inferido (due_date anterior → due_date actual). (WIK-75)
+  const rawBills = (billsRes.data ?? []) as BillRow[];
+  const enrichedBills = enrichWithEffectivePeriod(rawBills);
+  const billsByProperty = new Map<string, BillRowDerived[]>();
+  for (const b of enrichedBills) {
+    const list = billsByProperty.get(b.property_id) ?? [];
+    list.push(b);
+    billsByProperty.set(b.property_id, list);
+  }
+  const admin = createAdminClient();
 
   const todayIso = startOfTodayIso();
   const sevenDaysAgoIso = startOfDaysAgoIso(7);
@@ -154,6 +209,41 @@ export default async function EnergyPage() {
         weekKwh = week.delta_kwh;
       }
 
+      // Bill-vs-Tuya comparisons para esta propiedad (las últimas hasta 6
+      // facturas con período resolvible — más allá de eso la coverage del
+      // snapshot Tuya cae a 0% porque no teníamos historia).
+      let billComparisons: BillComparison[] = [];
+      if (property) {
+        const candidates = (billsByProperty.get(property.id) ?? [])
+          .filter(
+            (b) =>
+              b.effective_period_from &&
+              b.effective_period_to &&
+              b.kwh_billed != null,
+          )
+          .slice(0, 6);
+        const computed = await Promise.all(
+          candidates.map(async (bill) => {
+            const r = await computeTuyaConsumption(
+              admin,
+              bill.property_id,
+              bill.effective_period_from!,
+              bill.effective_period_to!,
+            );
+            if (!r || r.kwh <= 0) return null;
+            const deltaPct = ((bill.kwh_billed! - r.kwh) / r.kwh) * 100;
+            return {
+              bill,
+              tuyaKwh: r.kwh,
+              deltaPct,
+              level: deltaLevel(deltaPct),
+              coverageFraction: r.coverageFraction,
+            } satisfies BillComparison;
+          }),
+        );
+        billComparisons = computed.filter((x): x is BillComparison => x != null);
+      }
+
       return {
         device,
         homeName: homeNameByDeviceId.get(device.id) ?? null,
@@ -165,6 +255,7 @@ export default async function EnergyPage() {
         currency,
         todayKwh,
         weekKwh,
+        billComparisons,
       };
     }),
   );
@@ -400,6 +491,7 @@ function DeviceEnergyCard({
     currency,
     todayKwh,
     weekKwh,
+    billComparisons,
   } = ctx;
   const cost = reading
     ? estimateCost(reading, tariff, currency)
@@ -568,7 +660,97 @@ function DeviceEnergyCard({
             />
           </div>
         )}
+
+        {billComparisons.length > 0 && (
+          <BillComparisonsTable comparisons={billComparisons} />
+        )}
       </CardContent>
     </Card>
   );
+}
+
+/**
+ * Mini-tabla por device: facturas de luz vs consumo Tuya en el mismo
+ * período. (WIK-75 — antes era una columna en /facturas.)
+ *
+ * Si el snapshot Tuya cubre <70% del período facturado, mostramos un
+ * pill gris "parcial XX%" en vez del Δ% para no transmitir un error
+ * cuantitativo donde sólo tenemos una muestra parcial.
+ */
+function BillComparisonsTable({
+  comparisons,
+}: {
+  comparisons: BillComparison[];
+}) {
+  return (
+    <div className="mt-6 border-t pt-4">
+      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Facturado vs Tuya
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-xs text-muted-foreground">
+              <th className="pb-1 font-medium">Período</th>
+              <th className="pb-1 text-right font-medium">Facturado</th>
+              <th className="pb-1 text-right font-medium">Tuya</th>
+              <th className="pb-1 text-right font-medium">Δ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {comparisons.map((c) => (
+              <tr key={c.bill.id} className="border-t">
+                <td
+                  className={`py-1.5 pr-2 whitespace-nowrap ${
+                    c.bill.period_inferred
+                      ? "italic text-muted-foreground"
+                      : ""
+                  }`}
+                  title={
+                    c.bill.period_inferred
+                      ? "Período inferido a partir del vencimiento de la factura anterior."
+                      : undefined
+                  }
+                >
+                  {c.bill.period_inferred ? "≈ " : ""}
+                  {formatBillPeriod(
+                    c.bill.effective_period_from,
+                    c.bill.effective_period_to,
+                  )}
+                </td>
+                <td className="py-1.5 pr-2 text-right tabular-nums">
+                  {c.bill.kwh_billed!.toLocaleString("es-UY")} kWh
+                </td>
+                <td className="py-1.5 pr-2 text-right tabular-nums text-muted-foreground">
+                  {c.tuyaKwh.toLocaleString("es-UY", {
+                    maximumFractionDigits: 1,
+                  })}{" "}
+                  kWh
+                </td>
+                <td className="py-1.5 text-right">
+                  <DeltaBadge
+                    tuyaKwh={c.tuyaKwh}
+                    deltaPct={c.deltaPct}
+                    level={c.level}
+                    coverageFraction={c.coverageFraction}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function formatBillPeriod(from: string | null, to: string | null): string {
+  if (!from && !to) return "—";
+  if (from && to) {
+    const f = format(parseISO(from), "d MMM", { locale: es });
+    const t = format(parseISO(to), "d MMM yy", { locale: es });
+    return `${f} → ${t}`;
+  }
+  const single = (from ?? to) as string;
+  return format(parseISO(single), "MMM yyyy", { locale: es });
 }

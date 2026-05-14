@@ -49,8 +49,9 @@ type NavGroup = {
 };
 
 export async function SiteHeader({ profile }: { profile: Profile }) {
-  const isStaff =
-    profile.role === "limpieza" || profile.role === "mantenimiento";
+  // WIK-74: "limpieza" se unificó en "mantenimiento". Antes el chequeo
+  // era `role === "limpieza" || role === "mantenimiento"`.
+  const isStaff = profile.role === "mantenimiento";
   const homeHref = isStaff ? "/mis-tareas" : "/dashboard";
 
   // Counts for the nav badges. We track overdue separately so we can color
