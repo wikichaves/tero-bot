@@ -576,3 +576,10 @@ alter table public.properties
 
 create index if not exists properties_provider_accounts_idx
   on public.properties using gin (provider_accounts);
+
+-- ────────────────────────────────────────────────────────────────────────
+-- Property sort order (WIK-64). Permite al admin reordenar manualmente
+-- las propiedades en /admin/properties. Default 0; al insertar via UI
+-- se asigna max(sort_order)+1 para que las nuevas queden al final.
+alter table public.properties
+  add column if not exists sort_order int not null default 0;

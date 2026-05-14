@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { PropertyThumb } from "@/components/property-thumb";
 import { NewPropertyDialog } from "./property-form-dialog";
 import { PropertyActions } from "./property-actions";
+import { PropertySortControls } from "./property-sort-controls";
 import type { Property } from "@/lib/types";
 
 export default async function PropertiesPage() {
@@ -23,7 +24,8 @@ export default async function PropertiesPage() {
   const { data, error } = await supabase
     .from("properties")
     .select("*")
-    .order("created_at", { ascending: true });
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
   const properties = (data ?? []) as Property[];
 
   return (
@@ -52,9 +54,9 @@ export default async function PropertiesPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-20">Orden</TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Airbnb iCal</TableHead>
-                <TableHead>Booking iCal</TableHead>
                 <TableHead>Creada</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
@@ -71,8 +73,15 @@ export default async function PropertiesPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                properties.map((p) => (
+                properties.map((p, idx) => (
                   <TableRow key={p.id}>
+                    <TableCell>
+                      <PropertySortControls
+                        propertyId={p.id}
+                        isFirst={idx === 0}
+                        isLast={idx === properties.length - 1}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-3">
                         <PropertyThumb
@@ -86,13 +95,6 @@ export default async function PropertiesPage() {
                     </TableCell>
                     <TableCell>
                       {p.airbnb_ical_url ? (
-                        <Badge variant="default">configurada</Badge>
-                      ) : (
-                        <Badge variant="secondary">—</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {p.booking_ical_url ? (
                         <Badge variant="default">configurada</Badge>
                       ) : (
                         <Badge variant="secondary">—</Badge>

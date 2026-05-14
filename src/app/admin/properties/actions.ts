@@ -87,9 +87,19 @@ export async function upsertProperty(input: {
     if (error) return { error: error.message };
     id = parsed.data.id;
   } else {
+    // For new properties, push to the end of the manual sort order so
+    // the user sees them at the bottom of the list instead of randomly
+    // jumping in.
+    const { data: maxRow } = await supabase
+      .from("properties")
+      .select("sort_order")
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const nextSort = (maxRow?.sort_order ?? -1) + 1;
     const { data, error } = await supabase
       .from("properties")
-      .insert(payload)
+      .insert({ ...payload, sort_order: nextSort })
       .select("id")
       .single();
     if (error) return { error: error.message };
@@ -182,6 +192,75 @@ export async function deletePropertyThumbnail(propertyId: string) {
   if (error && !/not.*found/i.test(error.message)) {
     return { error: error.message };
   }
+  revalidatePath("/admin/properties");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+/**
+ * Move a property up or down in the manual sort order. Implemented as a
+ * neighbor swap: take the row's current sort_order, find the adjacent
+ * row (next-smaller for "up", next-bigger for "down"), and swap their
+ * sort_order values. No-op when the row is already at the boundary.
+ */
+export async function moveProperty(id: string, direction: "up" | "down") {
+  await requireRole(["admin"]);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) {
+    return { error: "ID inválido." };
+  }
+  const supabase = await createClient();
+  const { data: self, error: selfErr } = await supabase
+    .from("properties")
+    .select("id, sort_order")
+    .eq("id", id)
+    .maybeSingle();
+  if (selfErr || !self) {
+    return { error: selfErr?.message ?? "Propiedad no encontrada." };
+  }
+  // Find the neighbor.
+  const neighborQuery =
+    direction === "up"
+      ? supabase
+          .from("properties")
+          .select("id, sort_order")
+          .lt("sort_order", self.sort_order)
+          .order("sort_order", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : supabase
+          .from("properties")
+          .select("id, sort_order")
+          .gt("sort_order", self.sort_order)
+          .order("sort_order", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+  const { data: neighbor } = await neighborQuery;
+  if (!neighbor) {
+    // Already at the top/bottom — nothing to do.
+    return { ok: true, noop: true };
+  }
+
+  // Two-step swap via service role to avoid intermediate unique
+  // collisions (we don't have a unique constraint on sort_order, but
+  // we keep the pattern future-proof).
+  const admin = createAdminClient();
+  const SENTINEL = -1_000_000;
+  const { error: e1 } = await admin
+    .from("properties")
+    .update({ sort_order: SENTINEL })
+    .eq("id", self.id);
+  if (e1) return { error: e1.message };
+  const { error: e2 } = await admin
+    .from("properties")
+    .update({ sort_order: self.sort_order })
+    .eq("id", neighbor.id);
+  if (e2) return { error: e2.message };
+  const { error: e3 } = await admin
+    .from("properties")
+    .update({ sort_order: neighbor.sort_order })
+    .eq("id", self.id);
+  if (e3) return { error: e3.message };
+
   revalidatePath("/admin/properties");
   revalidatePath("/dashboard");
   return { ok: true };

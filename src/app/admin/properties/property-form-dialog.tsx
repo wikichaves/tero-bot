@@ -119,9 +119,10 @@ function PropertyForm({
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState(property?.name ?? "");
   const [airbnbUrl, setAirbnbUrl] = useState(property?.airbnb_ical_url ?? "");
-  const [bookingUrl, setBookingUrl] = useState(
-    property?.booking_ical_url ?? "",
-  );
+  // Booking iCal: held in state so submit can round-trip the existing
+  // value back to the DB without losing it (WIK-64 hid the UI input but
+  // didn't drop the column).
+  const [bookingUrl] = useState(property?.booking_ical_url ?? "");
   const [country, setCountry] = useState<CountryKey>(() =>
     countryFromCurrency(property?.currency),
   );
@@ -314,16 +315,10 @@ function PropertyForm({
             propiedad.
           </p>
         </div>
-        <div className="grid gap-2">
-          <Label htmlFor="booking_ical_url">URL iCal Booking (opcional)</Label>
-          <Input
-            id="booking_ical_url"
-            type="url"
-            value={bookingUrl}
-            onChange={(e) => setBookingUrl(e.target.value)}
-            placeholder="https://admin.booking.com/hotel/.../ical?..."
-          />
-        </div>
+        {/* Booking iCal: oculto del UI por ahora (WIK-64) pero el campo
+            sigue en la DB y los actions lo aceptan, por si hay rows
+            existentes que ya lo tienen seteado. Reactivar el input cuando
+            volvamos a usar Booking. */}
         <div className="grid grid-cols-[1fr_2fr] gap-3">
           <div className="grid gap-2">
             <Label htmlFor="country">País</Label>

@@ -23,6 +23,8 @@ export type Property = {
    *  utility bills to this property when multiple properties share the
    *  same currency. Shape: { "UTE": "4131911000", "OSE": "12345", ... }. */
   provider_accounts: Record<string, string>;
+  /** Manual ordering for /admin/properties. Lower = first. */
+  sort_order: number;
   created_at: string;
 };
 
