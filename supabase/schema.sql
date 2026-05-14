@@ -344,10 +344,14 @@ create index if not exists energy_snapshots_device_taken_idx
   on public.energy_snapshots(property_device_id, taken_at desc);
 
 -- Idempotency: at most one snapshot per device per hour.
+-- date_trunc on timestamptz is NOT marked IMMUTABLE in modern Postgres
+-- (because it depends on session timezone). Pinning to UTC explicitly
+-- via `timezone('UTC', taken_at)` makes the expression deterministic
+-- and indexable. Otherwise the CREATE INDEX fails with 42P17.
 create unique index if not exists energy_snapshots_unique_hourly
   on public.energy_snapshots(
     property_device_id,
-    date_trunc('hour', taken_at)
+    (date_trunc('hour', timezone('UTC', taken_at)))
   );
 
 alter table public.energy_snapshots enable row level security;
