@@ -41,6 +41,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 import { SnapshotButton } from "./snapshot-button";
+import { BackfillButton } from "./backfill-button";
 
 export const dynamic = "force-dynamic";
 
@@ -326,7 +327,10 @@ function Header() {
           .
         </p>
       </div>
-      <SnapshotButton />
+      <div className="flex flex-wrap items-center gap-2">
+        <SnapshotButton />
+        <BackfillButton />
+      </div>
     </div>
   );
 }
