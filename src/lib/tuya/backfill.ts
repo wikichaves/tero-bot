@@ -39,11 +39,25 @@ export type BackfillResult = {
 };
 
 const ENERGY_CODES = [
+  // Most common across TBCin / Smart Life / generic Tuya breakers.
   "forward_energy_total",
   "total_forward_energy",
   "energy_total",
   "total_energy",
   "add_ele",
+  // Less common variants we've seen on assorted firmwares — when a
+  // device's main meter doesn't surface logs under the common codes,
+  // expand here (or run /api/admin/tuya/inspect-logs to discover the
+  // actual code names this firmware emits).
+  "forward_energy",
+  "ele_total",
+  "forward_active_total_energy",
+  "total_active_energy",
+  "kwh_total",
+  "cur_total_energy",
+  "total_consume",
+  "elec_energy",
+  "active_energy_total",
 ];
 
 type LogEntry = {
