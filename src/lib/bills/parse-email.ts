@@ -386,14 +386,19 @@ function extractInvoiceNumber(body: string): string | null {
 }
 
 function extractAccountNumber(body: string, subject: string): string | null {
-  // Variantes vistas:
+  // Variantes vistas (en orden de prioridad de match):
   //   "Cuenta n° 4131911000"           (UTE)
   //   "Cuenta nº 25006163000108"       (Antel subject)
   //   "NUMERO DE CUENTA 25006163000108"(Antel PDF body)
   //   "NRO CLIENTE: 3317403"           (Prosegur)
-  //   "Ref. Cobro: 329232040"          (OSE)
   //   "Cuenta 2 259 142 078"           (Edenor PDF — con espacios!)
-  //   "Cuenta cliente: 1234567"
+  //   "INCENDIO:\n41898651"            (OSE — el customer ID sin label
+  //                                      explícito, aparece después de
+  //                                      la línea "INCENDIO:" del PDF)
+  //   "Ref. Cobro: 329232040"          (OSE — esto es PER-FACTURA y NO
+  //                                      sirve como identificador
+  //                                      permanente; lo dejamos al
+  //                                      final como fallback)
   // Los patrones capturan dígitos separados por espacios opcionales; el
   // caller hace `.replace(/\s/g, "")` para normalizar.
   const haystack = `${subject}\n${body}`;
@@ -407,7 +412,13 @@ function extractAccountNumber(body: string, subject: string): string | null {
     /n[ºo°.]?\s*de\s+cuenta\s*:?\s*((?:\d[ \t]*){5,18})/i,
     // "NRO CLIENTE: 3317403" / "Nro Cliente 12345" / "N° de cliente 12345"
     /(?:nro\.?|n[ºo°.]?)\s*(?:de\s+)?cliente\s*:?\s*((?:\d[ \t]*){5,18})/i,
-    // "Ref. Cobro: 329232040" / "Referencia de cobro …"
+    // OSE: el customer ID aparece sin label inmediatamente después de
+    // la línea "INCENDIO:" (un campo del recibo que OSE siempre lista,
+    // típicamente vacío). Es el ID estable de la cuenta — distinto de
+    // "Ref. Cobro" que cambia por factura.
+    /\bincendio\s*:\s*\n+\s*(\d{7,9})/i,
+    // "Ref. Cobro: 329232040" — OSE per-bill reference, último fallback.
+    // Si todo lo anterior falló, mejor este que nada.
     /ref\.?\s*(?:de\s+)?cobro\s*:?\s*((?:\d[ \t]*){5,18})/i,
   ];
   for (const rx of candidates) {
