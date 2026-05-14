@@ -24,6 +24,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { parseBillEmail } from "@/lib/bills/parse-email";
+import { extractPdfText } from "@/lib/bills/parse-pdf";
 import type {
   ParsedBillEmail,
   Property,
@@ -62,10 +63,11 @@ async function uploadAttachments(
   admin: SupabaseClient,
   attachments: PostmarkAttachment[] | undefined,
   folder: string,
-): Promise<{ paths: string[]; firstPdf: string | null }> {
-  if (!attachments?.length) return { paths: [], firstPdf: null };
+): Promise<{ paths: string[]; firstPdf: string | null; pdfText: string }> {
+  if (!attachments?.length) return { paths: [], firstPdf: null, pdfText: "" };
   const paths: string[] = [];
   let firstPdf: string | null = null;
+  const pdfTextChunks: string[] = [];
   for (const att of attachments) {
     try {
       // Skip inline tracking pixels / tiny content.
@@ -73,6 +75,21 @@ async function uploadAttachments(
       const safeName = att.Name.replace(/[^A-Za-z0-9._\-]/g, "_").slice(0, 80);
       const path = `${folder}/${safeName}`;
       const buf = Buffer.from(att.Content, "base64");
+      const isPdf = /pdf$/i.test(att.ContentType ?? safeName);
+
+      // Extract text BEFORE upload so a failed upload still lets us parse.
+      // PDF parsing is best-effort; on error we just skip this attachment's
+      // text and keep going.
+      if (isPdf) {
+        const text = await extractPdfText(buf);
+        if (text) {
+          pdfTextChunks.push(`--- ${att.Name} ---\n${text}`);
+          console.log(
+            `[inbound bills] extracted ${text.length} chars from ${att.Name}`,
+          );
+        }
+      }
+
       const { error } = await admin.storage
         .from("bill-attachments")
         .upload(path, buf, {
@@ -87,14 +104,14 @@ async function uploadAttachments(
         continue;
       }
       paths.push(path);
-      if (!firstPdf && /pdf$/i.test(att.ContentType ?? safeName)) {
+      if (!firstPdf && isPdf) {
         firstPdf = path;
       }
     } catch (err) {
       console.error("[inbound bills] attachment upload threw", err);
     }
   }
-  return { paths, firstPdf };
+  return { paths, firstPdf, pdfText: pdfTextChunks.join("\n\n") };
 }
 
 async function resolveProperty(
@@ -139,6 +156,16 @@ export async function handleBillInbound(
     ?.trim() ?? null;
   const fromName = body.FromFull?.Name ?? null;
 
+  // Process attachments first so we can hand the PDF text to the parser —
+  // most utilities ship the actual amount/period/account inside the PDF,
+  // not in the email body. The same regex landmarks work on both.
+  const folder = `inbound/${new Date().toISOString().slice(0, 10)}/${randomUUID()}`;
+  const { paths: attachmentPaths, firstPdf, pdfText } = await uploadAttachments(
+    admin,
+    body.Attachments,
+    folder,
+  );
+
   let parsed: ParsedBillEmail;
   try {
     parsed = parseBillEmail({
@@ -147,6 +174,7 @@ export async function handleBillInbound(
       subject: body.Subject ?? "",
       text: body.TextBody ?? "",
       html: body.HtmlBody,
+      pdfText,
     });
   } catch (err) {
     console.error("[inbound bills] parse threw", err);
@@ -165,14 +193,6 @@ export async function handleBillInbound(
   if (aliasUtility && parsed.kind !== "unknown") {
     parsed.utility_type = aliasUtility;
   }
-
-  // Upload attachments first so the inbound row references them.
-  const folder = `inbound/${new Date().toISOString().slice(0, 10)}/${randomUUID()}`;
-  const { paths: attachmentPaths, firstPdf } = await uploadAttachments(
-    admin,
-    body.Attachments,
-    folder,
-  );
 
   // Resolve property by currency (MVP heuristic: 1 property per currency).
   const currencyHint =

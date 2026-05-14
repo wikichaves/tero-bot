@@ -305,14 +305,22 @@ export function parseBillEmail({
   subject,
   text,
   html,
+  pdfText,
 }: {
   fromEmail: string | null;
   fromName: string | null;
   subject: string;
   text: string;
   html?: string | null;
+  /** Concatenated text content of attached PDF(s). Most utilities ship
+   *  the actual numbers inside the PDF rather than in the email body —
+   *  pass the PDF text in here when available so the same regex landmark
+   *  extractors get a richer haystack to work on. */
+  pdfText?: string | null;
 }): ParsedBillEmail {
-  const body = `${text}\n${stripHtml(html)}\n${subject}`;
+  const body = [text, stripHtml(html), pdfText ?? "", subject]
+    .filter((s) => s && s.length > 0)
+    .join("\n");
   const rule = detectProvider(fromEmail, fromName, subject, body);
   if (!rule) {
     return {
