@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { addDays, format, isSameDay, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
+import {
+  BadgeCheck,
+  CheckCircle2,
+  Clock,
+  MapPin,
+  Users,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PropertyThumb } from "@/components/property-thumb";
 import {
@@ -162,7 +169,7 @@ export default async function DashboardPage() {
           title="Mantenimiento pendiente"
           description="Reparaciones reportadas por el equipo."
           tasks={mantenimiento}
-          emptyText="Sin mantenimiento pendiente. ✨"
+          emptyText="Sin mantenimiento pendiente."
           filterHref="/tasks?kind=mantenimiento&status=pending"
           todayIso={todayIso}
         />
@@ -202,7 +209,10 @@ function KindTasksCard({
       </CardHeader>
       <CardContent>
         {tasks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{emptyText}</p>
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />
+            {emptyText}
+          </p>
         ) : (
           <ul className="flex flex-col gap-2 text-sm">
             {tasks.map((t) => {
@@ -279,8 +289,9 @@ function TodayTasksCard({
       </CardHeader>
       <CardContent>
         {tasks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Sin tareas vencidas ni para hoy. ✨
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />
+            Sin tareas vencidas ni para hoy.
           </p>
         ) : (
           <Table>
@@ -468,10 +479,11 @@ function ReservationRow({
           <span className="font-medium">{row.guest_name ?? "—"}</span>
           {row.guest_identity_verified && (
             <span
-              className="text-xs text-muted-foreground"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground"
               title="Identity Verified por Airbnb"
             >
-              ✓ verificado
+              <BadgeCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500" />
+              verificado
             </span>
           )}
           <Badge variant="secondary" className="text-xs">
@@ -479,15 +491,20 @@ function ReservationRow({
           </Badge>
         </div>
         {row.guest_location && (
-          <div className="text-xs text-muted-foreground">
-            📍 {row.guest_location}
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5" aria-hidden />
+            {row.guest_location}
           </div>
         )}
         {groupStr && (
-          <div className="text-xs text-muted-foreground">👥 {groupStr}</div>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Users className="h-3.5 w-3.5" aria-hidden />
+            {groupStr}
+          </div>
         )}
-        <div className="mt-0.5 text-xs text-muted-foreground">
-          🕐 {dateStr}
+        <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <Clock className="h-3.5 w-3.5" aria-hidden />
+          {dateStr}
           {timeStr ? ` · ${timeStr} hs` : ""}
         </div>
       </Link>
