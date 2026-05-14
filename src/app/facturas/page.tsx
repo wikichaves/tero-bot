@@ -132,7 +132,12 @@ export default async function FacturasPage() {
   const admin = createAdminClient();
   const comparisons = new Map<
     string,
-    { tuyaKwh: number; deltaPct: number; level: DeltaLevel }
+    {
+      tuyaKwh: number;
+      deltaPct: number;
+      level: DeltaLevel;
+      coverageFraction: number;
+    }
   >();
   await Promise.all(
     bills
@@ -156,6 +161,7 @@ export default async function FacturasPage() {
           tuyaKwh: result.kwh,
           deltaPct,
           level: deltaLevel(deltaPct),
+          coverageFraction: result.coverageFraction,
         });
       }),
   );
@@ -312,12 +318,25 @@ export default async function FacturasPage() {
  * The level → color mapping intentionally uses neutral tones (no hard
  * destructive red) for warn — the admin should NOTICE these, not panic.
  */
+/** When the Tuya snapshot range covers less than this fraction of the
+ *  bill's period, we hide the colored ±% delta (it would be misleading)
+ *  and show a gray "parcial XX%" pill instead. 70% chosen as the cutoff
+ *  where the delta starts to be meaningful for a residential bill. */
+const FULL_COVERAGE_THRESHOLD = 0.7;
+
 function ConsumoCell({
   bill,
   comparison,
 }: {
   bill: { utility_type: UtilityType; kwh_billed: number | null; m3_billed: number | null };
-  comparison: { tuyaKwh: number; deltaPct: number; level: DeltaLevel } | undefined;
+  comparison:
+    | {
+        tuyaKwh: number;
+        deltaPct: number;
+        level: DeltaLevel;
+        coverageFraction: number;
+      }
+    | undefined;
 }) {
   if (bill.utility_type === "luz" && bill.kwh_billed != null) {
     return (
@@ -337,11 +356,31 @@ function DeltaBadge({
   tuyaKwh,
   deltaPct,
   level,
+  coverageFraction,
 }: {
   tuyaKwh: number;
   deltaPct: number;
   level: DeltaLevel;
+  coverageFraction: number;
 }) {
+  const tuyaLabel = `${tuyaKwh.toLocaleString("es-UY", {
+    maximumFractionDigits: 1,
+  })} kWh`;
+
+  // Partial coverage: show a neutral pill with coverage %. The exact ±%
+  // would be misleading because we're comparing different time windows.
+  if (coverageFraction < FULL_COVERAGE_THRESHOLD) {
+    const coveragePct = Math.round(coverageFraction * 100);
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full border border-muted-foreground/40 bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+        title={`Tuya midió ${tuyaLabel} (cobertura ${coveragePct}% del período facturado). Δ% se mostrará cuando haya cobertura completa.`}
+      >
+        Tuya parcial {coveragePct}%
+      </span>
+    );
+  }
+
   const sign = deltaPct > 0 ? "+" : "";
   const className =
     level === "ok"
@@ -352,7 +391,7 @@ function DeltaBadge({
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${className}`}
-      title={`Tuya midió ${tuyaKwh.toLocaleString("es-UY", { maximumFractionDigits: 1 })} kWh en el período`}
+      title={`Tuya midió ${tuyaLabel} en el período`}
     >
       Tuya {sign}
       {deltaPct.toLocaleString("es-UY", { maximumFractionDigits: 1 })}%

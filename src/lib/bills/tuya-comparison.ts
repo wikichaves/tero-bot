@@ -24,12 +24,17 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  *     reads "low" in that case (admin can spot it from device count).
  */
 
-type ComparisonResult = {
+export type ComparisonResult = {
   /** Sum of (end − start) across all eligible devices, in kWh. */
   kwh: number;
   /** How many devices contributed (vs. how many exist for the property). */
   deviceCount: number;
   totalDevices: number;
+  /** Fraction of the bill's period that's actually covered by snapshots.
+   *  1.0 = full coverage, 0.5 = half the bill window has data, etc. We
+   *  use this to hide the misleading delta% when Tuya only has logs for
+   *  the tail of a longer billing period. */
+  coverageFraction: number;
 };
 
 export async function computeTuyaConsumption(
@@ -53,6 +58,8 @@ export async function computeTuyaConsumption(
 
   let totalKwh = 0;
   let contributingDevices = 0;
+  let earliestStartMs = Infinity;
+  let latestEndMs = 0;
   for (const device of deviceList) {
     const [startRes, endRes] = await Promise.all([
       admin
@@ -74,18 +81,44 @@ export async function computeTuyaConsumption(
     ]);
     const start = startRes.data?.total_energy_kwh;
     const end = endRes.data?.total_energy_kwh;
+    const startTakenAt = startRes.data?.taken_at;
+    const endTakenAt = endRes.data?.taken_at;
     if (start == null || end == null) continue;
     const delta = Number(end) - Number(start);
     if (!Number.isFinite(delta) || delta < 0) continue;
     totalKwh += delta;
     contributingDevices++;
+    if (startTakenAt) {
+      const ms = new Date(startTakenAt).getTime();
+      if (ms < earliestStartMs) earliestStartMs = ms;
+    }
+    if (endTakenAt) {
+      const ms = new Date(endTakenAt).getTime();
+      if (ms > latestEndMs) latestEndMs = ms;
+    }
   }
 
   if (contributingDevices === 0) return null;
+
+  // Coverage: how much of [periodFrom, periodTo] is actually spanned by
+  // our snapshots. 1.0 when our earliest snap ≤ periodFrom and latest
+  // snap ≥ periodTo; smaller when Tuya only has data for part of the
+  // window (typical for recently-paired devices or 30-day log retention).
+  const periodFromMs = new Date(fromTs).getTime();
+  const periodToMs = new Date(toTs).getTime();
+  const totalSpan = Math.max(1, periodToMs - periodFromMs);
+  const coveredFrom = Math.max(earliestStartMs, periodFromMs);
+  const coveredTo = Math.min(latestEndMs, periodToMs);
+  const coverageFraction = Math.max(
+    0,
+    Math.min(1, (coveredTo - coveredFrom) / totalSpan),
+  );
+
   return {
     kwh: totalKwh,
     deviceCount: contributingDevices,
     totalDevices: deviceList.length,
+    coverageFraction,
   };
 }
 
