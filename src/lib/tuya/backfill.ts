@@ -78,13 +78,17 @@ export async function fetchEnergyLogs(
   };
 
   const out: LogEntry[] = [];
+  const energySet = new Set(ENERGY_CODES);
   let lastRowKey: string | undefined;
   for (let page = 0; page < maxPages; page++) {
+    // Tuya's `codes=a,b,c` filter triggers "sign invalid" on our HMAC
+    // (likely a comma-encoding mismatch between client and server). We
+    // skip the filter and let Tuya return all DP report events, then
+    // discard the non-energy ones client-side.
     const query: Record<string, string | number> = {
       type: 7, // 7 = data point report event
       start_time: startMs,
       end_time: endMs,
-      codes: ENERGY_CODES.join(","),
       size: 100,
     };
     if (lastRowKey) query.last_row_key = lastRowKey;
@@ -96,6 +100,7 @@ export async function fetchEnergyLogs(
     );
     const logs = r.logs ?? [];
     for (const log of logs) {
+      if (!energySet.has(log.code)) continue;
       const raw = Number(log.value);
       if (!Number.isFinite(raw)) continue;
       out.push({
