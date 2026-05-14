@@ -19,7 +19,7 @@ import type { ParsedBillEmail, BillProvider, UtilityType } from "@/lib/types";
  * once we sit down with real samples we'll add per-provider PDF extractors.
  */
 
-type ProviderRule = {
+export type ProviderRule = {
   provider: BillProvider;
   utility_type: UtilityType;
   /** Default currency for bills from this provider. Properties.currency wins
@@ -402,6 +402,58 @@ function extractM3(body: string): number | null {
   return null;
 }
 
+/**
+ * Detect the bill's provider from sender + body + subject. Exposed so the
+ * inbound handler can run detection once for an email containing multiple
+ * PDFs (we want all of them to share the same provider, derived from the
+ * email envelope, instead of re-detecting per-PDF text).
+ */
+export function detectBillProvider(
+  fromEmail: string | null,
+  fromName: string | null,
+  subject: string,
+  body: string,
+): ProviderRule | null {
+  return detectProvider(fromEmail, fromName, subject, body);
+}
+
+/**
+ * Extract amount / due-date / account / etc. from a body string assuming
+ * the provider is already known. Used both by `parseBillEmail` (single-bill
+ * flow) and by the multi-PDF flow in the inbound handler, which calls this
+ * once per PDF so each PDF becomes its own utility_bills row.
+ */
+export function extractBillFields(
+  rule: ProviderRule,
+  body: string,
+  subject: string,
+): ParsedBillEmail {
+  const { amount, currency } = extractAmountAndCurrency(body, rule.currency);
+  const due_date = extractDueDate(body);
+  const invoice_number = extractInvoiceNumber(body);
+  const account_number = extractAccountNumber(body, subject);
+  const kwh_billed = rule.utility_type === "luz" ? extractKwh(body) : null;
+  const m3_billed = rule.utility_type === "agua" ? extractM3(body) : null;
+
+  const everythingGood = amount != null && currency != null;
+  return {
+    kind: everythingGood ? "matched" : "partial",
+    provider: rule.provider,
+    utility_type: rule.utility_type,
+    amount,
+    currency: currency ?? rule.currency,
+    period_from: null,
+    period_to: null,
+    issue_date: null,
+    due_date,
+    kwh_billed,
+    m3_billed,
+    account_number,
+    invoice_number,
+    property_id: null,
+  };
+}
+
 export function parseBillEmail({
   fromEmail,
   fromName,
@@ -431,32 +483,21 @@ export function parseBillEmail({
       reason: `provider not recognized (from="${fromEmail ?? "?"}", subject="${subject.slice(0, 60)}")`,
     };
   }
+  return extractBillFields(rule, body, subject);
+}
 
-  const { amount, currency } = extractAmountAndCurrency(body, rule.currency);
-  const due_date = extractDueDate(body);
-  const invoice_number = extractInvoiceNumber(body);
-  const account_number = extractAccountNumber(body, subject);
-  const kwh_billed = rule.utility_type === "luz" ? extractKwh(body) : null;
-  const m3_billed = rule.utility_type === "agua" ? extractM3(body) : null;
-
-  // We consider the parse "matched" only when we got the amount + currency
-  // out of the body. Otherwise it's "partial" — provider known, rest manual.
-  const everythingGood = amount != null && currency != null;
-
-  return {
-    kind: everythingGood ? "matched" : "partial",
-    provider: rule.provider,
-    utility_type: rule.utility_type,
-    amount,
-    currency: currency ?? rule.currency,
-    period_from: null,
-    period_to: null,
-    issue_date: null,
-    due_date,
-    kwh_billed,
-    m3_billed,
-    account_number,
-    invoice_number,
-    property_id: null,
-  };
+/**
+ * Build the same "body blob" that parseBillEmail uses internally, from raw
+ * email fields. Useful when the caller needs the haystack to feed to
+ * `detectBillProvider` directly (e.g. multi-PDF flow).
+ */
+export function buildBillBody(
+  text: string,
+  html: string | null | undefined,
+  pdfText: string | null | undefined,
+  subject: string,
+): string {
+  return [text, stripHtml(html), pdfText ?? "", subject]
+    .filter((s) => s && s.length > 0)
+    .join("\n");
 }
