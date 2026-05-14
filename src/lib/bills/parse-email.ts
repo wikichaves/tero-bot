@@ -119,6 +119,35 @@ function detectProvider(
   return null;
 }
 
+/**
+ * pdf-parse occasionally loses inter-token whitespace, producing strings
+ * like "FechadeVencimiento:14/01/2026" or "TOTALA PAGAR$ 164.356,36".
+ * That breaks our landmark regex (which uses `\b` word boundaries —
+ * those don't fire between two adjacent word chars).
+ *
+ * We restore probable boundaries by inserting a space at three transitions
+ * that almost always indicate a token boundary in Spanish utility bills:
+ *
+ *   1. lowercase → uppercase   "FechadeVencimiento" → "Fechade Vencimiento"
+ *   2. letter → digit          "Cuenta2"            → "Cuenta 2"
+ *   3. digit → letter          "14/01/2026Cuenta"   → "14/01/2026 Cuenta"
+ *
+ * Unit abbreviations like `kWh` would be incorrectly split by rule (1),
+ * so we re-glue them at the end. We deliberately don't try to split
+ * lowercase-only stuck words ("Fechade" → "Fecha de") — that needs a
+ * dictionary; the existing regex catalog tolerates it because every
+ * landmark we care about has a leading capital.
+ */
+function normalizePdfWhitespace(s: string): string {
+  return s
+    .replace(/([a-záéíóúñü])([A-ZÁÉÍÓÚÑÜ])/g, "$1 $2")
+    .replace(/([a-záéíóúñüA-ZÁÉÍÓÚÑÜ])(\d)/g, "$1 $2")
+    .replace(/(\d)([a-záéíóúñüA-ZÁÉÍÓÚÑÜ])/g, "$1 $2")
+    // Re-glue split unit abbreviations.
+    .replace(/\bk\s+Wh\b/g, "kWh")
+    .replace(/\bk\s+VA\b/g, "kVA");
+}
+
 /** Strip basic HTML tags + decode the handful of entities we actually
  *  care about. Identical to the trick in src/lib/airbnb/parse-email.ts —
  *  we just need a regex-friendly text blob. */
@@ -252,10 +281,13 @@ function extractAmountAndCurrency(
   //   - asterisks                "$***7.770,00"           (OSE PDF)
   //   - uppercase                "TOTAL2.800,00"          (Antel PDF)
   const strongLandmarks = [
-    /total\s+a\s+pagar/i,
-    /importe\s+a\s+pagar/i,
-    /saldo\s+a\s+pagar/i,
-    /monto\s+a\s+pagar/i,
+    // `\s*` (zero-or-more) instead of `\s+` so we also catch the stuck
+    // form "Totala pagar" / "TOTALA PAGAR" that survives normalization
+    // when both letters are uppercase (TOTAL+A) or share lowercase.
+    /total\s*a\s*pagar/i,
+    /importe\s*a\s*pagar/i,
+    /saldo\s*a\s*pagar/i,
+    /monto\s*a\s*pagar/i,
     /importe\s+total/i,
     /total\s+factura(?:do)?/i,
     /\bimporte\b(?!\s+(?:no\s+gravado|gravado|imponible))/i, // "Importe: $7.819" UTE
@@ -410,14 +442,15 @@ function extractKwh(body: string): number | null {
  */
 function extractPeriodTo(body: string): string | null {
   const candidates = [
-    // "Hasta el 26/05/2026"
-    /\bhasta\s+el\s+(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
-    // "Período hasta" or "Periodo hasta"
+    // "Período de consumo: 11/12/2025 al 13/01/2026"  (Edenor)
+    // "11/12/2025 AL 13/01/2026"                        (range with "al"/"AL")
+    /\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}\s+al\s+(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
+    // "07/04/2026 - 05/05/2026" — range with hyphen
+    /\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}\s*[-–]\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/,
+    // "Período hasta" / "Periodo hasta"
     /per[ií]odo\s+hasta\s*:?\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
     // "Fecha de cierre 05/05/2026"
     /fecha\s+de\s+cierre\s*:?\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
-    // "07/04/2026 - 05/05/2026" — date range; take the second
-    /\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}\s*[-–]\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/,
   ];
   for (const rx of candidates) {
     const m = rx.exec(body);
@@ -429,14 +462,20 @@ function extractPeriodTo(body: string): string | null {
   return null;
 }
 
-/** Try to pull period_from from a date-range pattern like "07/04/2026 - 05/05/2026". */
+/** Try to pull period_from from a date-range pattern. */
 function extractPeriodFrom(body: string): string | null {
-  const m = /(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})\s*[-–]\s*\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/.exec(
-    body,
-  );
-  if (m) {
-    const parsed = parseDate(m[1]);
-    if (parsed) return parsed;
+  const candidates = [
+    // "11/12/2025 al 13/01/2026" — left side of "al" range
+    /(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})\s+al\s+\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/i,
+    // "07/04/2026 - 05/05/2026" — left side of hyphen range
+    /(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})\s*[-–]\s*\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/,
+  ];
+  for (const rx of candidates) {
+    const m = rx.exec(body);
+    if (m) {
+      const parsed = parseDate(m[1]);
+      if (parsed) return parsed;
+    }
   }
   return null;
 }
@@ -477,14 +516,23 @@ export function extractBillFields(
   body: string,
   subject: string,
 ): ParsedBillEmail {
-  const { amount, currency } = extractAmountAndCurrency(body, rule.currency);
-  const due_date = extractDueDate(body);
-  const invoice_number = extractInvoiceNumber(body);
-  const account_number = extractAccountNumber(body, subject);
-  const period_to = extractPeriodTo(body);
-  const period_from = extractPeriodFrom(body);
-  const kwh_billed = rule.utility_type === "luz" ? extractKwh(body) : null;
-  const m3_billed = rule.utility_type === "agua" ? extractM3(body) : null;
+  // Normalize stuck pdf-parse output before running landmark regex. The
+  // operation is idempotent on already-spaced text (email bodies pass
+  // through unchanged).
+  const normalizedBody = normalizePdfWhitespace(body);
+  const normalizedSubject = normalizePdfWhitespace(subject);
+
+  const { amount, currency } = extractAmountAndCurrency(
+    normalizedBody,
+    rule.currency,
+  );
+  const due_date = extractDueDate(normalizedBody);
+  const invoice_number = extractInvoiceNumber(normalizedBody);
+  const account_number = extractAccountNumber(normalizedBody, normalizedSubject);
+  const period_to = extractPeriodTo(normalizedBody);
+  const period_from = extractPeriodFrom(normalizedBody);
+  const kwh_billed = rule.utility_type === "luz" ? extractKwh(normalizedBody) : null;
+  const m3_billed = rule.utility_type === "agua" ? extractM3(normalizedBody) : null;
 
   const everythingGood = amount != null && currency != null;
   return {
