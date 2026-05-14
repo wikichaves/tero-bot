@@ -1,7 +1,13 @@
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { requireRole } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import {
+  computeTuyaConsumption,
+  deltaLevel,
+  type DeltaLevel,
+} from "@/lib/bills/tuya-comparison";
 import { formatMoney } from "@/lib/tuya/energy";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -117,6 +123,43 @@ export default async function FacturasPage() {
     "id" | "name" | "currency"
   >[];
 
+  // Tuya vs facturado: for every `luz` bill with a complete period
+  // (period_from + period_to + kwh_billed) we compute the property's
+  // Tuya-measured kWh across that range and compare. The admin client
+  // is needed because the user's client doesn't see energy_snapshots
+  // for properties they're not directly granted (in practice it does,
+  // but we keep the abstraction).
+  const admin = createAdminClient();
+  const comparisons = new Map<
+    string,
+    { tuyaKwh: number; deltaPct: number; level: DeltaLevel }
+  >();
+  await Promise.all(
+    bills
+      .filter(
+        (b) =>
+          b.utility_type === "luz" &&
+          b.kwh_billed != null &&
+          b.period_from &&
+          b.period_to,
+      )
+      .map(async (b) => {
+        const result = await computeTuyaConsumption(
+          admin,
+          b.property_id,
+          b.period_from!,
+          b.period_to!,
+        );
+        if (!result || result.kwh <= 0) return;
+        const deltaPct = ((b.kwh_billed! - result.kwh) / result.kwh) * 100;
+        comparisons.set(b.id, {
+          tuyaKwh: result.kwh,
+          deltaPct,
+          level: deltaLevel(deltaPct),
+        });
+      }),
+  );
+
   // Totals: pending (or overdue) by currency. Cancelled / paid don't count.
   const totalsByCurrency = new Map<string, number>();
   for (const b of bills) {
@@ -206,6 +249,7 @@ export default async function FacturasPage() {
                     <TableHead>Proveedor</TableHead>
                     <TableHead>Período</TableHead>
                     <TableHead className="text-right">Importe</TableHead>
+                    <TableHead className="text-right">Consumo</TableHead>
                     <TableHead>Vencimiento</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
@@ -214,6 +258,7 @@ export default async function FacturasPage() {
                 <TableBody>
                   {bills.map((b) => {
                     const eff = effectiveStatus(b, todayIso);
+                    const cmp = comparisons.get(b.id);
                     return (
                       <TableRow key={b.id}>
                         {hasMultipleProperties && (
@@ -230,6 +275,9 @@ export default async function FacturasPage() {
                           {b.amount != null
                             ? formatMoney(b.amount, b.currency ?? "UYU")
                             : "—"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums whitespace-nowrap">
+                          <ConsumoCell bill={b} comparison={cmp} />
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
                           {formatDate(b.due_date)}
@@ -252,5 +300,62 @@ export default async function FacturasPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/**
+ * Render the consumption cell for a bill row. For luz/agua we show the
+ * facturado kWh/m³ value; for luz bills that have a complete period we
+ * also show the Tuya-measured delta as a colored badge. Everything else
+ * collapses to an em-dash.
+ *
+ * The level → color mapping intentionally uses neutral tones (no hard
+ * destructive red) for warn — the admin should NOTICE these, not panic.
+ */
+function ConsumoCell({
+  bill,
+  comparison,
+}: {
+  bill: { utility_type: UtilityType; kwh_billed: number | null; m3_billed: number | null };
+  comparison: { tuyaKwh: number; deltaPct: number; level: DeltaLevel } | undefined;
+}) {
+  if (bill.utility_type === "luz" && bill.kwh_billed != null) {
+    return (
+      <div className="flex flex-col items-end gap-0.5">
+        <span>{bill.kwh_billed.toLocaleString("es-UY")} kWh</span>
+        {comparison && <DeltaBadge {...comparison} />}
+      </div>
+    );
+  }
+  if (bill.utility_type === "agua" && bill.m3_billed != null) {
+    return <span>{bill.m3_billed.toLocaleString("es-UY")} m³</span>;
+  }
+  return <span className="text-muted-foreground">—</span>;
+}
+
+function DeltaBadge({
+  tuyaKwh,
+  deltaPct,
+  level,
+}: {
+  tuyaKwh: number;
+  deltaPct: number;
+  level: DeltaLevel;
+}) {
+  const sign = deltaPct > 0 ? "+" : "";
+  const className =
+    level === "ok"
+      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+      : level === "warn"
+        ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+        : "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-400";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${className}`}
+      title={`Tuya midió ${tuyaKwh.toLocaleString("es-UY", { maximumFractionDigits: 1 })} kWh en el período`}
+    >
+      Tuya {sign}
+      {deltaPct.toLocaleString("es-UY", { maximumFractionDigits: 1 })}%
+    </span>
   );
 }
