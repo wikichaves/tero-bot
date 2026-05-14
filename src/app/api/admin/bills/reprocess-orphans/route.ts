@@ -169,25 +169,29 @@ async function resolveProperty(
   admin: ReturnType<typeof createAdminClient>,
   parsed: Extract<ParsedBillEmail, { kind: "matched" | "partial" }>,
 ): Promise<{ id: string; name: string } | null> {
-  // Account-based first.
+  // Account-based first. When multiple properties share the same account
+  // (Casa Frente + Casa Fondo with one meter), pick the lowest sort_order.
   if (parsed.provider && parsed.account_number) {
     const { data } = await admin
       .from("properties")
-      .select("id, name")
+      .select("id, name, sort_order")
       .filter(
         `provider_accounts->>${parsed.provider}`,
         "eq",
         parsed.account_number,
-      );
+      )
+      .order("sort_order", { ascending: true });
     const rows = (data ?? []) as Array<{ id: string; name: string }>;
-    if (rows.length === 1) return rows[0];
+    if (rows.length >= 1) return rows[0];
   }
-  // Currency fallback.
+  // Currency fallback — strict (only when single property for that
+  // currency). Multiple-property currency match returns null on purpose.
   if (parsed.currency) {
     const { data } = await admin
       .from("properties")
-      .select("id, name, currency")
-      .eq("currency", parsed.currency);
+      .select("id, name, currency, sort_order")
+      .eq("currency", parsed.currency)
+      .order("sort_order", { ascending: true });
     const rows = (data ?? []) as Array<{ id: string; name: string }>;
     if (rows.length === 1) return rows[0];
   }

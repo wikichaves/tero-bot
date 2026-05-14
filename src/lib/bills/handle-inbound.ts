@@ -232,33 +232,43 @@ async function resolveProperty(
   if (provider && accountNumber) {
     // jsonb `?` operator + ->> for value match. Filter syntax in
     // PostgREST: `provider_accounts->>UTE=eq.4131911000`.
+    // When multiple properties share the same account (e.g. Casa Frente
+    // and Casa Fondo share one UTE meter), we deterministically pick the
+    // one with the LOWEST sort_order — the admin can put the "primary"
+    // unit first in /admin/properties.
     const { data } = await admin
       .from("properties")
-      .select("id, name, currency, provider_accounts")
-      .filter(`provider_accounts->>${provider}`, "eq", accountNumber);
+      .select("id, name, sort_order")
+      .filter(`provider_accounts->>${provider}`, "eq", accountNumber)
+      .order("sort_order", { ascending: true });
     const rows = (data ?? []) as Array<Pick<Property, "id" | "name">>;
-    if (rows.length === 1) {
-      console.log(
-        `[inbound bills] matched property by ${provider} account=${accountNumber} → ${rows[0].name}`,
-      );
+    if (rows.length >= 1) {
+      if (rows.length > 1) {
+        console.log(
+          `[inbound bills] ${rows.length} properties share ${provider} account=${accountNumber}; using lowest sort_order → ${rows[0].name}`,
+        );
+      } else {
+        console.log(
+          `[inbound bills] matched property by ${provider} account=${accountNumber} → ${rows[0].name}`,
+        );
+      }
       return rows[0];
-    }
-    if (rows.length > 1) {
-      console.warn(
-        `[inbound bills] ambiguous: ${rows.length} properties share ${provider} account=${accountNumber}`,
-      );
     }
   }
   if (!currencyHint) return null;
   const { data } = await admin
     .from("properties")
-    .select("id, name, currency")
-    .eq("currency", currencyHint);
+    .select("id, name, currency, sort_order")
+    .eq("currency", currencyHint)
+    .order("sort_order", { ascending: true });
   const rows = (data ?? []) as Array<
     Pick<Property, "id" | "name"> & { currency: string }
   >;
   if (rows.length === 1) return rows[0];
   if (rows.length > 1) {
+    // Currency-only fallback stays strict (returns null) — we don't want
+    // to silently route an unmatched bill to a random property. The fix
+    // is to fill in provider_accounts in /admin/properties.
     console.warn(
       `[inbound bills] ${rows.length} properties share currency ${currencyHint} — set provider_accounts to disambiguate`,
     );
