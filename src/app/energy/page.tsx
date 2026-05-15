@@ -718,16 +718,16 @@ function BillComparisonsTable({
                     c.bill.effective_period_to,
                   )}
                 </td>
-                <td className="py-1.5 pr-2 text-right tabular-nums">
+                <td className="whitespace-nowrap py-1.5 pr-2 text-right tabular-nums">
                   {c.bill.kwh_billed!.toLocaleString("es-UY")} kWh
                 </td>
-                <td className="py-1.5 pr-2 text-right tabular-nums text-muted-foreground">
+                <td className="whitespace-nowrap py-1.5 pr-2 text-right tabular-nums text-muted-foreground">
                   {c.tuyaKwh.toLocaleString("es-UY", {
                     maximumFractionDigits: 1,
                   })}{" "}
                   kWh
                 </td>
-                <td className="py-1.5 text-right">
+                <td className="whitespace-nowrap py-1.5 text-right">
                   <DeltaBadge
                     tuyaKwh={c.tuyaKwh}
                     deltaPct={c.deltaPct}

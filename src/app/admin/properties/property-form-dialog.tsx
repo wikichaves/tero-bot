@@ -71,8 +71,11 @@ const COUNTRIES: Array<{
   label: string;
   currency: string;
 }> = [
-  { key: "UY", label: "🇺🇾 Uruguay", currency: "UYU" },
-  { key: "AR", label: "🇦🇷 Argentina", currency: "ARS" },
+  // WIK-77: sacamos los emojis de bandera 🇺🇾/🇦🇷 porque renderean
+  // inconsistente entre OS (macOS los muestra como bandera, Windows como
+  // texto "UY"/"AR"). El nombre del país solo es suficientemente claro.
+  { key: "UY", label: "Uruguay", currency: "UYU" },
+  { key: "AR", label: "Argentina", currency: "ARS" },
 ];
 
 /** Bill providers by country. The `key` is the internal name used by

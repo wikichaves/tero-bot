@@ -35,7 +35,7 @@ export function DeltaBadge({
     const coveragePct = Math.round(coverageFraction * 100);
     return (
       <span
-        className="inline-flex items-center gap-1 rounded-full border border-muted-foreground/40 bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+        className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-muted-foreground/40 bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
         title={`Tuya midió ${tuyaLabel} (cobertura ${coveragePct}% del período facturado). Δ% se mostrará cuando haya cobertura completa.`}
       >
         Tuya parcial {coveragePct}%
@@ -51,7 +51,7 @@ export function DeltaBadge({
         : "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-400";
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${className}`}
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-medium ${className}`}
       title={`Tuya midió ${tuyaLabel} en el período`}
     >
       Tuya {sign}
