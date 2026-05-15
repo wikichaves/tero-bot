@@ -210,7 +210,12 @@ export default async function ReservationDetailPage({
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm">
-            <div className="flex items-start gap-4">
+            {/* En mobile la foto se stackea arriba para que la <dl> pueda
+                usar el ancho completo del card. Si la foto va al costado,
+                la columna de values queda demasiado angosta y el mensaje
+                del huésped (que suele ser largo) se rompe vertical-mente
+                con cada palabra cortada al borde. */}
+            <div className="flex flex-col items-start gap-4 sm:flex-row">
               {reservation.guest_photo_url && (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
@@ -224,7 +229,7 @@ export default async function ReservationDetailPage({
                   loading="lazy"
                 />
               )}
-              <dl className="grid flex-1 grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
+              <dl className="grid w-full flex-1 grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
                 {reservation.reservation_code && (
                   <>
                     <dt className="text-muted-foreground">Código</dt>
@@ -254,10 +259,13 @@ export default async function ReservationDetailPage({
                 )}
                 {reservation.guest_message && (
                   <>
-                    <dt className="text-muted-foreground self-start">
+                    {/* Mensaje del huésped: label arriba + value
+                        full-width abajo (col-span-full). Suele ser largo
+                        y forzarlo a 2 columnas lo rompe. */}
+                    <dt className="col-span-full text-muted-foreground">
                       Mensaje del huésped
                     </dt>
-                    <dd className="whitespace-pre-wrap">
+                    <dd className="col-span-full whitespace-pre-wrap break-words">
                       {reservation.guest_message}
                     </dd>
                   </>
