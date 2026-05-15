@@ -670,12 +670,17 @@ function DeviceEnergyCard({
 }
 
 /**
- * Mini-tabla por device: facturas de luz vs consumo Tuya en el mismo
+ * Comparativa por device: facturas de luz vs consumo Tuya en el mismo
  * período. (WIK-75 — antes era una columna en /facturas.)
  *
  * Si el snapshot Tuya cubre <70% del período facturado, mostramos un
  * pill gris "parcial XX%" en vez del Δ% para no transmitir un error
  * cuantitativo donde sólo tenemos una muestra parcial.
+ *
+ * (WIK-80) En mobile renderiza como card-list (cada factura una mini-card
+ * con label/value pairs), porque la tabla de 4 columnas hacía scroll
+ * horizontal y la columna "Δ" (donde está el badge importante) quedaba
+ * oculta sin que se note. En sm+ vuelve a tabla normal.
  */
 function BillComparisonsTable({
   comparisons,
@@ -687,7 +692,64 @@ function BillComparisonsTable({
       <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         Facturado vs Tuya
       </p>
-      <div className="overflow-x-auto">
+
+      {/* Mobile: card-list. Cada factura es un bloque label/value visible
+          sin scroll horizontal — el badge Δ queda siempre a la vista. */}
+      <ul className="flex flex-col gap-3 sm:hidden">
+        {comparisons.map((c) => (
+          <li
+            key={c.bill.id}
+            className="rounded-md border bg-muted/30 px-3 py-2 text-sm"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span
+                className={`whitespace-nowrap text-xs ${
+                  c.bill.period_inferred
+                    ? "italic text-muted-foreground"
+                    : "text-muted-foreground"
+                }`}
+                title={
+                  c.bill.period_inferred
+                    ? "Período inferido a partir del vencimiento de la factura anterior."
+                    : undefined
+                }
+              >
+                {c.bill.period_inferred ? "≈ " : ""}
+                {formatBillPeriod(
+                  c.bill.effective_period_from,
+                  c.bill.effective_period_to,
+                )}
+              </span>
+              <DeltaBadge
+                tuyaKwh={c.tuyaKwh}
+                deltaPct={c.deltaPct}
+                level={c.level}
+                coverageFraction={c.coverageFraction}
+              />
+            </div>
+            <div className="mt-1 flex justify-between gap-4 text-xs">
+              <span>
+                <span className="text-muted-foreground">Facturado: </span>
+                <span className="tabular-nums">
+                  {c.bill.kwh_billed!.toLocaleString("es-UY")} kWh
+                </span>
+              </span>
+              <span>
+                <span className="text-muted-foreground">Tuya: </span>
+                <span className="tabular-nums">
+                  {c.tuyaKwh.toLocaleString("es-UY", {
+                    maximumFractionDigits: 1,
+                  })}{" "}
+                  kWh
+                </span>
+              </span>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      {/* Desktop: tabla normal (sm+). */}
+      <div className="hidden overflow-x-auto sm:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs text-muted-foreground">
