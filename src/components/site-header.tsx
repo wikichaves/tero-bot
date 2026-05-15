@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -177,8 +178,12 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
                 <NavRow {...it} />
               </DropdownMenuItem>
             ))}
+            {/* Base UI exige que `DropdownMenuLabel` (Menu.GroupLabel) viva
+                dentro de un `DropdownMenuGroup` (Menu.Group). Sin el wrapper
+                tira "Base UI error #31: MenuGroupRootContext is missing" al
+                abrir el dropdown. */}
             {tareasGroup && (
-              <>
+              <DropdownMenuGroup>
                 <DropdownMenuLabel>{tareasGroup.label}</DropdownMenuLabel>
                 {tareasGroup.items.map((it) => (
                   <DropdownMenuItem
@@ -188,7 +193,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
                     <NavRow {...it} />
                   </DropdownMenuItem>
                 ))}
-              </>
+              </DropdownMenuGroup>
             )}
             {operationalLeaves.length > 0 && <DropdownMenuSeparator />}
             {operationalLeaves.map((it) => (
@@ -199,15 +204,17 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
             {configGroup && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuLabel>{configGroup.label}</DropdownMenuLabel>
-                {configGroup.items.map((it) => (
-                  <DropdownMenuItem
-                    key={it.href}
-                    render={<Link href={it.href} />}
-                  >
-                    <NavRow {...it} />
-                  </DropdownMenuItem>
-                ))}
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>{configGroup.label}</DropdownMenuLabel>
+                  {configGroup.items.map((it) => (
+                    <DropdownMenuItem
+                      key={it.href}
+                      render={<Link href={it.href} />}
+                    >
+                      <NavRow {...it} />
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
               </>
             )}
           </DropdownMenuContent>
