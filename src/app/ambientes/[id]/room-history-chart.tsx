@@ -60,8 +60,8 @@ export function RoomHistoryChart({ series }: { series: SensorSeries[] }) {
   const showLegend = series.length > 1;
 
   return (
-    <div className="h-72">
-      <ResponsiveContainer width="100%" height="100%">
+    <div style={{ width: "100%", height: 288, minHeight: 288 }}>
+      <ResponsiveContainer width="100%" height={288}>
         <LineChart
           data={data}
           margin={{ top: 8, right: 16, bottom: 8, left: 0 }}

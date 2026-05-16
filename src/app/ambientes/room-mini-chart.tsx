@@ -28,8 +28,12 @@ export function RoomMiniChart({ series }: { series: Snapshot[] }) {
   }));
 
   return (
-    <div className="h-12">
-      <ResponsiveContainer width="100%" height="100%">
+    // ResponsiveContainer tira warnings "width(-1) and height(-1)"
+    // durante el initial render si el parent no tiene dimensiones
+    // explícitas. Fix: setear width/height en px en el contenedor
+    // padre. minHeight como safeguard adicional.
+    <div style={{ width: "100%", height: 48, minHeight: 48 }}>
+      <ResponsiveContainer width="100%" height={48}>
         <LineChart data={data} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
           <YAxis yAxisId="t" hide domain={["dataMin - 1", "dataMax + 1"]} />
           <YAxis yAxisId="h" hide domain={["dataMin - 5", "dataMax + 5"]} />
