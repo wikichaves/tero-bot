@@ -21,17 +21,21 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#000000",
     orientation: "portrait",
     icons: [
-      // Solo `any` por ahora. El intento previo con `maskable` hizo que
-      // Android Material You aplicara themed icons (bg blanco con bird
-      // mint en launchers con light theme). Volviendo a `any` el PNG
-      // se sirve "as-is" — el container que aplique el launcher es
-      // legacy / no-themed.
+      // Chrome exige al menos un icon de 192×192 (criterio de PWA
+      // installability). Sin esto, Chrome ofrece "Add to Home Screen"
+      // (shortcut → icon decorado con container del launcher) en
+      // vez de "Install app" (PWA real → icon as-is, BG negro).
       //
-      // Trade-off: en algunos launchers el icon va a aparecer dentro
-      // de un círculo blanco (legacy container). Para evitar ese círculo
-      // y mantener BG negro, el user puede deshabilitar "Themed icons"
-      // en la configuración del launcher (Pixel Launcher → long-press
-      // home → Wallpaper & Style → Themed icons OFF).
+      // Ambas entries con `purpose: "any"` — `maskable` triggerea el
+      // themed-icon path de Android Material You (bg blanco con bird
+      // mint en launchers con light theme). Volviendo a `any` el PNG
+      // se sirve "as-is".
+      {
+        src: "/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
       {
         src: "/icon.png",
         sizes: "512x512",

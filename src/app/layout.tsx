@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Lora, IBM_Plex_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ServiceWorkerRegister } from "@/components/sw-register";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -91,6 +92,7 @@ export default function RootLayout({
         >
           {children}
           <Toaster />
+          <ServiceWorkerRegister />
         </ThemeProvider>
       </body>
     </html>
