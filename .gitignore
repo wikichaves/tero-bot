@@ -44,3 +44,8 @@ next-env.d.ts
 # claude code — keep settings.json if you want team-shared rules, but never
 # commit .local.json (it can reference local credential paths).
 .claude/settings.local.json
+.env*.local
+
+# Local-only working files — assets crudos antes de procesar, drafts, etc.
+# No subir al repo (typicamente PSDs, logos originales, samples).
+/_archive/
