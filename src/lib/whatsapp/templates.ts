@@ -252,9 +252,28 @@ export const sensorAlarmFired: WhatsAppTemplate = {
 
 // ────────────────────────────────────────────────────────────────────────
 
-/** Full registry — useful for iterating in scripts or admin UI. */
+/**
+ * Full registry — useful for iterating in scripts or admin UI.
+ *
+ * NOTA WIK-78: `guestCheckinCode` queda fuera del registry. Tuvimos
+ * 7 intentos de submit:
+ *   v1-v5 (UTILITY) → REJECTED · INCORRECT_CATEGORY (classifier ML
+ *       de Meta clasifica "código de acceso a huésped" como AUTH)
+ *   v6 (MARKETING) → REJECTED · INCORRECT_CATEGORY
+ *   v7 (AUTHENTICATION) → 400 · "WABA does not have permission to
+ *       create message template" (subcode 2388185)
+ *
+ * El WABA de Casa Bosque no tiene Authentication products habilitados
+ * — requiere upgrade en Meta Business Manager → Security Settings →
+ * OTP Configuration. Ver WIK-NN (creado al cerrar WIK-78).
+ *
+ * Workaround mientras: el código de check-in se manda como mensaje
+ * libre cuando el huésped escribe primero (dentro de la ventana 24h),
+ * o se le pide que escriba al WA antes del check-in. La info ya está
+ * en su email de confirmación de Airbnb de todas formas.
+ */
 export const allTemplates: WhatsAppTemplate[] = [
-  guestCheckinCode,
+  // guestCheckinCode → DESHABILITADO, ver nota arriba.
   guestCheckoutReminder,
   staffTaskAssigned,
   staffSupplyRequestReceived,
