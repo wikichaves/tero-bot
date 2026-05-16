@@ -137,6 +137,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
       ? [
           { href: "/facturas", label: "Facturas" },
           { href: "/energy", label: "Energía" },
+          { href: "/ambientes", label: "Ambientes" },
           { href: "/whatsapp", label: "WhatsApp" },
         ]
       : [];
