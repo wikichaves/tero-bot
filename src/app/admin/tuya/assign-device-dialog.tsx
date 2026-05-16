@@ -22,7 +22,7 @@ const KIND_OPTIONS: { value: DeviceKind; label: string }[] = [
   { value: "switch", label: "Switch / Toma" },
   { value: "camera", label: "Cámara" },
   { value: "sensor", label: "Sensor T/H" },
-  { value: "breaker", label: "Térmica / Breaker" },
+  { value: "breaker", label: "Llave de luz" },
   { value: "other", label: "Otro" },
 ];
 

@@ -24,7 +24,8 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { AssignDeviceButton } from "./assign-device-button";
 import { BulkAssignButton } from "./bulk-assign-button";
-import type { DeviceKind, Property } from "@/lib/types";
+import { SyncRoomsButton } from "./sync-rooms-button";
+import type { DeviceKind, Property, Room } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ const DEVICE_KIND_LABEL: Record<DeviceKind, string> = {
   switch: "Switch / Toma",
   camera: "Cámara",
   sensor: "Sensor T/H",
-  breaker: "Térmica",
+  breaker: "Llave de luz",
   other: "Otro",
 };
 
@@ -90,30 +91,42 @@ export default async function TuyaPage() {
 
   const { user, homes } = result;
 
-  // Properties + existing assignments in parallel.
+  // Properties + existing assignments + rooms in parallel.
   const supabase = await createClient();
-  const [propertiesRes, deviceMap] = await Promise.all([
+  const [propertiesRes, deviceMap, roomsRes] = await Promise.all([
     supabase
       .from("properties")
       .select("id, name")
       .order("name", { ascending: true }),
     listPropertyDeviceMap(),
+    supabase
+      .from("rooms")
+      .select("id, name, property_id")
+      .order("sort_order", { ascending: true }),
   ]);
   const properties = (propertiesRes.data ?? []) as Pick<
     Property,
     "id" | "name"
   >[];
   const propertyById = new Map(properties.map((p) => [p.id, p]));
+  const rooms = (roomsRes.data ?? []) as Pick<
+    Room,
+    "id" | "name" | "property_id"
+  >[];
+  const roomById = new Map(rooms.map((r) => [r.id, r]));
 
   const totalDevices = homes.reduce((acc, h) => acc + h.devices.length, 0);
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Tuya</h1>
-        <p className="text-sm text-muted-foreground">
-          Integración con Smart Life / Tuya Open API.
-        </p>
+      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
+        <div>
+          <h1 className="text-2xl font-semibold">Tuya</h1>
+          <p className="text-sm text-muted-foreground">
+            Integración con Smart Life / Tuya Open API.
+          </p>
+        </div>
+        <SyncRoomsButton />
       </div>
 
       <Card>
@@ -179,6 +192,7 @@ export default async function TuyaPage() {
           properties={properties}
           deviceMap={deviceMap}
           propertyById={propertyById}
+          roomById={roomById}
         />
       ))}
     </div>
@@ -191,12 +205,14 @@ function HomeCard({
   properties,
   deviceMap,
   propertyById,
+  roomById,
 }: {
   homeName: string;
   devices: TuyaDevice[];
   properties: Pick<Property, "id" | "name">[];
   deviceMap: Awaited<ReturnType<typeof listPropertyDeviceMap>>;
   propertyById: Map<string, Pick<Property, "id" | "name">>;
+  roomById: Map<string, Pick<Room, "id" | "name" | "property_id">>;
 }) {
   // Property summary: which properties already own devices in this home?
   const assignedPropertyIds = new Set<string>();
@@ -255,7 +271,7 @@ function HomeCard({
                 <TableHead>Nombre</TableHead>
                 <TableHead>Categoría</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead>Propiedad</TableHead>
+                <TableHead>Ambiente</TableHead>
                 <TableHead className="w-24" />
               </TableRow>
             </TableHeader>
@@ -265,6 +281,10 @@ function HomeCard({
                 const property = assignment
                   ? propertyById.get(assignment.property_id)
                   : null;
+                const room =
+                  assignment?.room_id != null
+                    ? roomById.get(assignment.room_id)
+                    : null;
                 return (
                   <TableRow key={d.id}>
                     <TableCell className="font-medium">{d.name}</TableCell>
@@ -279,8 +299,18 @@ function HomeCard({
                     <TableCell>
                       {assignment ? (
                         <div className="flex flex-col gap-0.5">
+                          {/* Ambiente (room.name). Si el device aún no
+                              tiene room asignado, mostramos el property.name
+                              en gris para preservar context. */}
                           <span>
-                            {property?.name ?? "(propiedad eliminada)"}
+                            {room?.name ?? (
+                              <span className="text-muted-foreground">
+                                {property?.name ?? "(propiedad eliminada)"}
+                                <span className="ml-1 text-xs italic">
+                                  · sin ambiente
+                                </span>
+                              </span>
+                            )}
                           </span>
                           <span className="text-xs text-muted-foreground">
                             {DEVICE_KIND_LABEL[assignment.device_kind] ??

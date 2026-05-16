@@ -206,6 +206,16 @@ export type PropertyDevice = {
   tuya_device_name: string | null;
   device_kind: DeviceKind;
   is_primary: boolean;
+  room_id: string | null;   // WIK-82: vínculo opcional a un Room (ambiente).
+  created_at: string;
+};
+
+export type Room = {
+  id: string;
+  property_id: string;
+  name: string;
+  tuya_room_id: string | null;
+  sort_order: number;
   created_at: string;
 };
 
