@@ -29,27 +29,47 @@ export function SyncRoomsButton() {
           toast.error(json.error ?? `Sync falló (${res.status})`);
           return;
         }
-        const inserted =
-          json.synced?.reduce(
-            (sum: number, s: { inserted: number }) => sum + s.inserted,
-            0,
-          ) ?? 0;
-        const skippedHomes = json.skipped?.length ?? 0;
-        const skippedDetail =
-          skippedHomes > 0
-            ? json.skipped
-                .map(
-                  (s: { home: string; reason: string }) =>
-                    `${s.home}: ${s.reason}`,
-                )
-                .join("; ")
-            : "";
-        toast.success(
-          `Sync OK · ${inserted} ambientes nuevos${
-            skippedHomes > 0 ? ` · ${skippedHomes} homes skip` : ""
-          }`,
-          skippedDetail ? { description: skippedDetail } : undefined,
+        type Synced = {
+          home: string;
+          property: string;
+          rooms_inserted: number;
+          rooms_existing: number;
+          devices_assigned: number;
+          devices_already_assigned: number;
+          devices_not_in_db: number;
+        };
+        type Skipped = { home: string; reason: string };
+
+        const synced: Synced[] = json.synced ?? [];
+        const skipped: Skipped[] = json.skipped ?? [];
+        const newRooms = synced.reduce(
+          (sum, s) => sum + s.rooms_inserted,
+          0,
         );
+        const devicesAssigned = synced.reduce(
+          (sum, s) => sum + s.devices_assigned,
+          0,
+        );
+
+        // Detalle por property en el description (truncado).
+        const detail = [
+          ...synced.map(
+            (s) =>
+              `${s.property}: +${s.rooms_inserted} amb, ${s.devices_assigned} devs asignados`,
+          ),
+          ...skipped.map((s) => `⚠ ${s.home}: ${s.reason}`),
+        ].join("\n");
+
+        if (newRooms === 0 && devicesAssigned === 0 && skipped.length > 0) {
+          toast.error("Sync sin cambios — revisar nombres de homes", {
+            description: detail,
+          });
+        } else {
+          toast.success(
+            `Sync OK · ${newRooms} ambientes nuevos · ${devicesAssigned} devices asignados`,
+            detail ? { description: detail } : undefined,
+          );
+        }
         router.refresh();
       } catch (e) {
         toast.error((e as Error).message);
