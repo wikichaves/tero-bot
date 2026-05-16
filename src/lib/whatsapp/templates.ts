@@ -87,16 +87,12 @@ export function templateBodyParameters(values: string[]) {
 // 1. Bienvenida / código de check-in para huésped
 
 /**
- * v4 — los 3 intentos previos (v1, v2, v3) fueron REJECTED con
- * INCORRECT_CATEGORY por el classifier ML de Meta. Probably el
- * Footer "Acme Rentals" + el patrón "código a huésped" lo
- * empujan a MARKETING. v4 saca el Footer y reorganiza para que el
- * código (lo más transaccional) sea lo más prominente al inicio.
+ * v5 — v4 falló con "Params Words Ratio Exceeds Limit" (body muy
+ * corto vs 5 variables). v5 alarga el body con texto fijo factual
+ * sin volver a sonar promocional.
  *
- * Nombre: `access_code_delivery` — neutral, sin "guest_" que puede
- * sesgar el classifier hacia categoría de hospitality/marketing.
- *
- * Si esto también es rejected, plan B definitivo es MARKETING.
+ * Mantenemos el nombre `access_code_delivery` (sin Footer, sin
+ * prefix guest_, sin saludos).
  */
 export const guestCheckinCode: WhatsAppTemplate = {
   name: "access_code_delivery",
@@ -107,7 +103,7 @@ export const guestCheckinCode: WhatsAppTemplate = {
   components: [
     {
       type: "BODY",
-      text: "Código de acceso: {{1}}\n\nActivación: {{2}}\nVencimiento: {{3}}\n\nProperty: {{4}}\nCheck-in: {{5}}",
+      text: "Detalles del código de acceso para tu reserva.\n\nEl código de la puerta principal es: {{1}}\n\nPeriodo de validez del código:\nInicio: {{2}}\nFin: {{3}}\n\nInformación de la reserva asociada:\nPropiedad reservada: {{4}}\nDía de check-in: {{5}}\n\nSi tenés problemas con el código, respondé a este mensaje.",
       example: {
         body_text: [
           [
