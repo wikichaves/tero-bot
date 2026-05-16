@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Droplet, Thermometer } from "lucide-react";
+import { AlertTriangle, Droplet, Thermometer } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { maybeSnapshotSensorsIfStale } from "@/lib/sensors/snapshots";
@@ -232,6 +232,13 @@ function RoomCard({
   // hint visual; el detalle tendrá selector por device si hay varios).
   const chartSeries = latestByDevice[0]?.series ?? [];
 
+  // Cuando el room tiene devices pero no hay snapshots en las últimas
+  // 24h, mostramos un warning en lugar de los valores. Esto cubre:
+  //   - Sensores recién agregados que aún no se capturaron
+  //   - Sensores con problemas (offline, sin batería, firmware que no
+  //     responde al endpoint /status — ver WIK-87 "Jugacion Temp")
+  const hasNoRecentReadings = latestByDevice.length === 0;
+
   const inner = (
     <Card className="h-full">
       <CardHeader className="pb-2">
@@ -248,24 +255,39 @@ function RoomCard({
         )}
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex items-baseline gap-6">
-          <div className="flex items-baseline gap-1.5">
-            <Thermometer className="h-4 w-4 self-center text-orange-500" />
-            <span className="text-2xl font-semibold tabular-nums">
-              {avgT != null ? avgT.toFixed(1) : "—"}
-            </span>
-            <span className="text-xs text-muted-foreground">°C</span>
+        {hasNoRecentReadings ? (
+          <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <div>
+              <p className="font-medium">Sin lecturas recientes</p>
+              <p className="opacity-80">
+                El sensor no respondió en las últimas 24h. Revisar
+                conexión / batería en Smart Life o forzá una captura.
+              </p>
+            </div>
           </div>
-          <div className="flex items-baseline gap-1.5">
-            <Droplet className="h-4 w-4 self-center text-blue-500" />
-            <span className="text-2xl font-semibold tabular-nums">
-              {avgH != null ? avgH.toFixed(0) : "—"}
-            </span>
-            <span className="text-xs text-muted-foreground">%</span>
-          </div>
-        </div>
-        {chartSeries.length >= 2 && (
-          <RoomMiniChart series={chartSeries} />
+        ) : (
+          <>
+            <div className="flex items-baseline gap-6">
+              <div className="flex items-baseline gap-1.5">
+                <Thermometer className="h-4 w-4 self-center text-orange-500" />
+                <span className="text-2xl font-semibold tabular-nums">
+                  {avgT != null ? avgT.toFixed(1) : "—"}
+                </span>
+                <span className="text-xs text-muted-foreground">°C</span>
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <Droplet className="h-4 w-4 self-center text-blue-500" />
+                <span className="text-2xl font-semibold tabular-nums">
+                  {avgH != null ? avgH.toFixed(0) : "—"}
+                </span>
+                <span className="text-xs text-muted-foreground">%</span>
+              </div>
+            </div>
+            {chartSeries.length >= 2 && (
+              <RoomMiniChart series={chartSeries} />
+            )}
+          </>
         )}
       </CardContent>
     </Card>
