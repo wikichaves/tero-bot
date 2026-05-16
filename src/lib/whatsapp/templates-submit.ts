@@ -54,7 +54,10 @@ async function submitOne(
       return {
         name: template.name,
         ok: false,
-        error: `HTTP ${res.status}: ${text.slice(0, 400)}`,
+        // Devolvemos el body completo (no truncado) — los errores de Meta
+        // muchas veces incluyen el motivo de rejection o trace_id en
+        // user_title / error_data y necesitamos verlos para debug.
+        error: `HTTP ${res.status}: ${text}`,
       };
     }
     return {
