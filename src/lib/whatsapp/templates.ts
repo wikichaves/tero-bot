@@ -86,8 +86,14 @@ export function templateBodyParameters(values: string[]) {
 // ────────────────────────────────────────────────────────────────────────
 // 1. Bienvenida / código de check-in para huésped
 
+/**
+ * v2 del template — Meta rejected v1 con INCORRECT_CATEGORY porque
+ * el saludo "¡Hola!" + emoji 🌲 + signature lo hacían "promocional".
+ * Reescrito a tono operacional/transaccional para pasar como UTILITY.
+ * No-exclamation, no-emoji, sin "marketing speak".
+ */
 export const guestCheckinCode: WhatsAppTemplate = {
-  name: "guest_checkin_code",
+  name: "guest_checkin_code_v2",
   language: "es",
   category: "UTILITY",
   description:
@@ -95,7 +101,7 @@ export const guestCheckinCode: WhatsAppTemplate = {
   components: [
     {
       type: "BODY",
-      text: "¡Hola {{1}}! 🌲\n\nTu reserva en *{{2}}* está confirmada para el {{3}}.\n\nTu código de acceso a la puerta principal es: *{{4}}*\n\nEl código se activa a partir de las {{5}} de tu día de check-in y vence en el momento del check-out.\n\nCualquier consulta nos escribís por acá.\n\n— Acme Rentals",
+      text: "Hola {{1}}. Tu reserva en {{2}} está confirmada para el {{3}}.\n\nCódigo de acceso a la puerta principal: {{4}}\nActivación: a partir de las {{5}} del día de check-in.\nVencimiento: al momento del check-out.\n\nPara consultas, respondé este mensaje.",
       example: {
         body_text: [
           [
@@ -191,6 +197,12 @@ export const staffSupplyRequestReceived: WhatsAppTemplate = {
 //    dispararse en cualquier momento (fuera de la ventana 24h donde Meta
 //    permite mensaje libre).
 
+/**
+ * v2 — el body original generaba `Params Words Ratio Exceeds Limit`:
+ * Meta exige que el texto fijo sea suficientemente más largo que las
+ * variables combinadas. Alargamos el body con contexto operacional
+ * que es genuinamente útil para el admin (sugerencia de acción).
+ */
 export const sensorAlarmFired: WhatsAppTemplate = {
   name: "sensor_alarm_fired",
   language: "es",
@@ -200,7 +212,7 @@ export const sensorAlarmFired: WhatsAppTemplate = {
   components: [
     {
       type: "BODY",
-      text: "🚨 Alarma de {{1}}\n\n*{{2}}* en *{{3}}*\nUmbral: {{4}}\n\nVer detalle: admin.example.com/ambientes",
+      text: "Alerta de sensor en Acme Rentals: la métrica {{1}} en {{3}} cruzó el umbral configurado.\n\nLectura actual: {{2}}\nUmbral establecido: {{4}}\n\nSi corresponde, verificá las condiciones del ambiente (ventilación, temperatura, batería del sensor). Podés ver el histórico completo en admin.example.com/ambientes.",
       example: {
         body_text: [["humedad", "81%", "Living · Casa Principal", "> 80%"]],
       },

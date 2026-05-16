@@ -51,6 +51,29 @@ async function submitOne(
       /* keep raw */
     }
     if (!res.ok) {
+      // Caso especial: "Content in This Language Already Exists" (subcode
+      // 2388024). Meta tira 400 cuando intentamos crear una template con
+      // el mismo nombre+language de una ya existente. NO es un error
+      // genuino — la template está OK en Meta, solo que ya la teníamos.
+      // Lo marcamos `ok: true` con status especial para que el UI no
+      // alarme al admin con un FAILED rojo.
+      type MetaError = {
+        error?: { error_subcode?: number };
+      };
+      const parsedErr = (() => {
+        try {
+          return JSON.parse(text) as MetaError;
+        } catch {
+          return null;
+        }
+      })();
+      if (parsedErr?.error?.error_subcode === 2388024) {
+        return {
+          name: template.name,
+          ok: true,
+          status: "ALREADY_EXISTS",
+        };
+      }
       return {
         name: template.name,
         ok: false,
