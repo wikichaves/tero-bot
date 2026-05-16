@@ -80,8 +80,9 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
   // properties — useful to spot stuff that needs triage.
   let teamOpen = 0;
   let teamOverdue = 0;
+  let alarmsActive = 0;
   if (profile.role === "admin" || profile.role === "gestor") {
-    const [openRes, overdueRes] = await Promise.all([
+    const [openRes, overdueRes, alarmsRes] = await Promise.all([
       supabase
         .from("tasks")
         .select("id", { count: "exact", head: true })
@@ -91,9 +92,14 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
         .select("id", { count: "exact", head: true })
         .in("status", ["pending", "in_progress"])
         .lt("due_date", todayIso),
+      supabase
+        .from("alarm_events")
+        .select("id", { count: "exact", head: true })
+        .is("resolved_at", null),
     ]);
     teamOpen = openRes.count ?? 0;
     teamOverdue = overdueRes.count ?? 0;
+    alarmsActive = alarmsRes.count ?? 0;
   }
 
   // Staff (limpieza/mantenimiento) ven solo "Mis tareas" como leaf,
@@ -137,7 +143,12 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
       ? [
           { href: "/facturas", label: "Facturas" },
           { href: "/energy", label: "Energía" },
-          { href: "/ambientes", label: "Ambientes" },
+          {
+            href: "/ambientes",
+            label: "Ambientes",
+            badge: alarmsActive,
+            urgent: alarmsActive > 0,
+          },
           { href: "/whatsapp", label: "WhatsApp" },
         ]
       : [];
@@ -151,6 +162,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
             { href: "/admin/users", label: "Usuarios" },
             { href: "/admin/tuya", label: "Tuya devices" },
             { href: "/admin/tuya/lock", label: "Cerraduras" },
+            { href: "/admin/alarmas", label: "Alarmas" },
           ],
         }
       : null;

@@ -2,6 +2,12 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getDeviceStatus } from "@/lib/tuya/energy";
 import { parseSensorReading, type SensorReading } from "@/lib/tuya/sensors";
+import {
+  evaluateAlarmsForSnapshot,
+  loadEnabledRules,
+  type AlarmDeviceContext,
+} from "./alarms";
+import { notifyAlarmEvent } from "./notify";
 
 /**
  * Snapshot horario de sensores T/H. Mirrorea el patrón de
@@ -70,15 +76,35 @@ export async function maybeSnapshotSensorsIfStale(
 export async function snapshotAllSensors(): Promise<{
   ranAt: string;
   results: SensorSnapshotResult[];
+  alarmsFired?: number;
+  alarmsResolved?: number;
 }> {
   const admin = createAdminClient();
+  // Cargamos todos los sensores + context (property + room) en una sola
+  // query para que la evaluación de alarmas no haga lookups extra.
   const { data: devices, error } = await admin
     .from("property_devices")
-    .select("id, tuya_device_id, tuya_device_name")
-    .eq("device_kind", "sensor");
+    .select(
+      "id, tuya_device_id, tuya_device_name, property_id, room_id, property:properties(name), room:rooms(name)",
+    )
+    .eq("device_kind", "sensor")
+    .overrideTypes<
+      Array<{
+        id: string;
+        tuya_device_id: string;
+        tuya_device_name: string | null;
+        property_id: string;
+        room_id: string | null;
+        property: { name: string } | null;
+        room: { name: string } | null;
+      }>
+    >();
   if (error) {
     throw new Error(`property_devices read failed: ${error.message}`);
   }
+
+  // Reglas activas (una sola query para todo el batch).
+  const rules = await loadEnabledRules(admin);
 
   const ranAt = new Date().toISOString();
   const results: SensorSnapshotResult[] = await Promise.all(
@@ -143,5 +169,51 @@ export async function snapshotAllSensors(): Promise<{
     }),
   );
 
-  return { ranAt, results };
+  // Evaluación de alarmas — corre después del INSERT por cada device que
+  // tuvo lectura válida. Evaluamos en secuencia (no en paralelo) para
+  // evitar race conditions en el chequeo de "alarm_event abierto".
+  let alarmsFired = 0;
+  let alarmsResolved = 0;
+  if (rules.length > 0) {
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (!r.reading) continue;
+      const d = (devices ?? [])[i];
+      if (!d) continue;
+      const ctx: AlarmDeviceContext = {
+        property_device_id: d.id,
+        property_id: d.property_id,
+        room_id: d.room_id,
+        device_name: d.tuya_device_name,
+        property_name: d.property?.name ?? null,
+        room_name: d.room?.name ?? null,
+      };
+      try {
+        const events = await evaluateAlarmsForSnapshot(
+          admin,
+          ctx,
+          r.reading,
+          rules,
+        );
+        for (const ev of events) {
+          if (ev.kind === "fired") alarmsFired++;
+          else alarmsResolved++;
+          // Notif WhatsApp best-effort.
+          notifyAlarmEvent(ev).catch((e) =>
+            console.warn(
+              "[snapshotAllSensors] notify failed:",
+              (e as Error).message,
+            ),
+          );
+        }
+      } catch (e) {
+        console.warn(
+          `[snapshotAllSensors] alarm eval failed device=${d.id}:`,
+          (e as Error).message,
+        );
+      }
+    }
+  }
+
+  return { ranAt, results, alarmsFired, alarmsResolved };
 }
