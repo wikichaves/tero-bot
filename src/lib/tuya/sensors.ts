@@ -29,20 +29,38 @@ export type SensorReading = {
 };
 
 /**
- * True si el device parece ser un sensor T/H. Match conservador: solo la
- * categoría oficial `wsdcg`. Si en el futuro aparecen variantes (sensores
- * de humedad solos, termómetros sin humedad), agregar las categorías acá.
+ * Tuya categories que sabemos que reportan temperatura y/o humedad:
+ *   - wsdcg: 温湿度感测器 (sensor T+H standalone, más común)
+ *   - wnykq: sensor T+H — variante usada en algunos modelos
+ *            (confirmado en cloud project Casa Bosque, WIK-82)
+ *   - wkcz / wk: termostatos que también publican temp_current
+ *   - ldcg:  sensor ambiental multi-métrica (CO2/TVOC/T/H, algunos modelos)
+ *
+ * Si aparece otra categoría, agregarla acá. Match por categoría es más
+ * confiable que por nombre porque sobrevive a renombres en la app.
+ */
+const SENSOR_CATEGORIES = new Set([
+  "wsdcg",
+  "wnykq",
+  "wkcz",
+  "ldcg",
+]);
+
+/**
+ * True si el device parece ser un sensor T/H. Match primero por categoría
+ * Tuya (lo más confiable), después por nombre como fallback.
  */
 export function isSensorDevice(d: TuyaDevice): boolean {
   const cat = (d.category ?? "").toLowerCase();
-  if (cat === "wsdcg") return true;
+  if (SENSOR_CATEGORIES.has(cat)) return true;
   // Fallback por nombre — algunos cloud projects omiten la categoría
-  // o usan strings raros. "termo", "humid", "sensor" en el name del device
-  // o product_name suele ser pista fuerte.
+  // o usan strings raros.
   const blob = `${d.name ?? ""} ${d.product_name ?? ""} ${
     d.category_name ?? ""
   }`.toLowerCase();
-  return /temp.*hum|humid.*temp|t\/h sensor|temperatura.*humedad/.test(blob);
+  return /temp.*hum|humid.*temp|t\/h sensor|temperatura.*humedad|sensor/.test(
+    blob,
+  );
 }
 
 const TEMP_KEYS = [
