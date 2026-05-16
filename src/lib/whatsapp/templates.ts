@@ -26,17 +26,35 @@ export type WhatsAppTemplateComponent =
       example?: { body_text: string[][] };
     }
   | {
+      /** AUTHENTICATION-only BODY: Meta provee texto fijo, no editable.
+       *  Solo configurable es `add_security_recommendation` que agrega
+       *  el sufijo "For your security, don't share this code." */
+      type: "BODY";
+      add_security_recommendation?: boolean;
+    }
+  | {
       type: "HEADER";
       format: "TEXT" | "IMAGE" | "DOCUMENT" | "VIDEO";
       text?: string;
     }
   | { type: "FOOTER"; text: string }
   | {
+      /** AUTHENTICATION-only FOOTER con expiration timer en lugar de texto. */
+      type: "FOOTER";
+      code_expiration_minutes: number;
+    }
+  | {
       type: "BUTTONS";
       buttons: Array<
         | { type: "QUICK_REPLY"; text: string }
         | { type: "URL"; text: string; url: string }
         | { type: "PHONE_NUMBER"; text: string; phone_number: string }
+        | {
+            /** AUTHENTICATION-only: botón para copiar el código al clipboard. */
+            type: "OTP";
+            otp_type: "COPY_CODE" | "ONE_TAP";
+            text: string;
+          }
       >;
     };
 
@@ -110,14 +128,21 @@ export const guestCheckinCode: WhatsAppTemplate = {
   language: "es",
   category: "AUTHENTICATION",
   description:
-    "Código de acceso a la propiedad. AUTHENTICATION category requiere formato Meta-prescribed (1 variable = el código). El contexto (propiedad/fecha) viene por email de Airbnb.",
+    "Código de acceso a la propiedad. AUTHENTICATION category con formato Meta-prescribed: body fijo provisto por Meta, footer con expiration, botón Copy Code. Variables: 1=código. El contexto (propiedad/fecha) viene por email de Airbnb.",
   components: [
+    // Body: Meta provee el texto fijo, no se pasa `text`. La security
+    // recommendation suma "Por tu seguridad, no compartas este código."
+    { type: "BODY", add_security_recommendation: true },
+    // Footer: en lugar de texto custom, AUTHENTICATION acepta una
+    // ventana de expiración (minutos). Casa Bosque: 720min = 12h
+    // (asume que el huésped lo usa el día del check-in).
+    { type: "FOOTER", code_expiration_minutes: 720 },
+    // Botón: el huésped tap → copia el código al clipboard.
     {
-      type: "BODY",
-      text: "{{1}} es tu código de acceso a la propiedad.",
-      example: {
-        body_text: [["8472193"]],
-      },
+      type: "BUTTONS",
+      buttons: [
+        { type: "OTP", otp_type: "COPY_CODE", text: "Copiar código" },
+      ],
     },
   ],
 };

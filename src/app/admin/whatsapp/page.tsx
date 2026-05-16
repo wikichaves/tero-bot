@@ -70,22 +70,61 @@ export default async function WhatsAppAdminPage() {
             <CardContent>
               {t.components.map((c, idx) => {
                 if (c.type === "BODY") {
+                  // AUTHENTICATION BODY no tiene `text` — Meta lo provee.
+                  if ("text" in c) {
+                    return (
+                      <pre
+                        key={idx}
+                        className="overflow-x-auto whitespace-pre-wrap rounded border bg-muted/40 p-2 text-xs"
+                      >
+                        {c.text}
+                      </pre>
+                    );
+                  }
                   return (
-                    <pre
+                    <p
                       key={idx}
-                      className="overflow-x-auto whitespace-pre-wrap rounded border bg-muted/40 p-2 text-xs"
+                      className="rounded border bg-muted/40 p-2 text-xs italic text-muted-foreground"
                     >
-                      {c.text}
-                    </pre>
+                      Body provisto por Meta (AUTHENTICATION)
+                      {c.add_security_recommendation
+                        ? " · con security recommendation"
+                        : ""}
+                    </p>
                   );
                 }
                 if (c.type === "FOOTER") {
+                  if ("text" in c) {
+                    return (
+                      <p
+                        key={idx}
+                        className="mt-2 text-xs italic text-muted-foreground"
+                      >
+                        Footer: {c.text}
+                      </p>
+                    );
+                  }
                   return (
                     <p
                       key={idx}
                       className="mt-2 text-xs italic text-muted-foreground"
                     >
-                      Footer: {c.text}
+                      Footer: código expira en {c.code_expiration_minutes} min
+                    </p>
+                  );
+                }
+                if (c.type === "BUTTONS") {
+                  return (
+                    <p
+                      key={idx}
+                      className="mt-2 text-xs italic text-muted-foreground"
+                    >
+                      Botones:{" "}
+                      {c.buttons
+                        .map((b) =>
+                          "text" in b ? b.text : "?",
+                        )
+                        .join(" · ")}
                     </p>
                   );
                 }
