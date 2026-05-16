@@ -163,6 +163,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
             { href: "/admin/tuya", label: "Tuya devices" },
             { href: "/admin/tuya/lock", label: "Cerraduras" },
             { href: "/admin/alarmas", label: "Alarmas" },
+            { href: "/admin/whatsapp", label: "WhatsApp Templates" },
           ],
         }
       : null;
