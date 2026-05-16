@@ -127,12 +127,13 @@ export function AlarmRuleRow({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem
-            onSelect={(e) => {
-              // No cerrar el menu sincrónicamente — el state update del
-              // dialog y el cierre del menu pisan eventos si pasan en
-              // el mismo tick. setTimeout 0 los separa.
-              e.preventDefault();
-              setTimeout(() => setEditOpen(true), 0);
+            onSelect={() => {
+              // Dejar que Base UI cierre el menu normal (sin preventDefault)
+              // y schedule el open del dialog DESPUÉS del paint para no
+              // pisar el cleanup del menu portal. WIK-91 fix: con setTimeout
+              // (0) el dialog no abría — requestAnimationFrame se ejecuta
+              // después del unmount del dropdown content portal.
+              requestAnimationFrame(() => setEditOpen(true));
             }}
           >
             Editar
@@ -148,16 +149,20 @@ export function AlarmRuleRow({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {/* Dialog controlado por editOpen — afuera del dropdown para evitar
-          nesting de Base UI primitives (WIK-88). */}
-      <NewAlarmRuleDialog
-        properties={properties}
-        rooms={rooms}
-        sensors={sensors}
-        initialRule={rule}
-        open={editOpen}
-        onOpenChange={setEditOpen}
-      />
+      {/* Conditional mount del dialog — solo lo metemos al DOM cuando
+          editOpen=true. Evita que cada row tenga un Dialog portal
+          permanentemente montado, lo cual confundía a Base UI cuando
+          había varias reglas (WIK-91). */}
+      {editOpen && (
+        <NewAlarmRuleDialog
+          properties={properties}
+          rooms={rooms}
+          sensors={sensors}
+          initialRule={rule}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+        />
+      )}
     </div>
   );
 }
