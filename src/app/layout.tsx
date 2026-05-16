@@ -43,14 +43,23 @@ export const metadata: Metadata = {
 };
 
 /**
- * Viewport con themeColor hardcoded a negro (WIK-92). Esto evita el
- * flash blanco cuando se abre la PWA en iOS / cuando un browser carga
- * la página por primera vez (mobile chrome / safari toolbar).
+ * Viewport (WIK-92): themeColor dinámico según prefers-color-scheme.
  *
- * También se aplica a status bar en Android / mobile browsers.
+ * - Light mode: matchea el background del theme light (rgb 253,253,253
+ *   = near-white). Status bar + chrome del browser quedan claros con
+ *   texto oscuro.
+ * - Dark mode: negro puro #000000. Status bar oscura con texto blanco.
+ *
+ * El splash de PWA (manifest.background_color) sí queda HARDCODED a
+ * negro — ese se elige por la composición visual del icon (bird mint
+ * sobre fondo negro). El fade icon→splash queda smooth solo si splash
+ * también es negro.
  */
 export const viewport: Viewport = {
-  themeColor: "#000000",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fdfdfd" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+  ],
   colorScheme: "dark light",
 };
 
@@ -66,11 +75,11 @@ export default function RootLayout({
     <html
       lang="es"
       className={`${jakartaSans.variable} ${lora.variable} ${ibmMono.variable} h-full antialiased`}
-      // WIK-92: forzamos el <html> con BG negro hardcodeado para que
-      // el splash de PWA y el primer paint no muestren flash blanco.
-      // Una vez que next-themes hidrata, la clase `dark` (o light)
-      // toma el control y bg-background del CSS theme actúa normal.
-      style={{ backgroundColor: "#000000" }}
+      // WIK-92: el BG inicial del <html> lo maneja globals.css via
+      // `prefers-color-scheme` CSS media query — sin inline style.
+      // Light OS → white-ish, Dark OS → black, antes que next-themes
+      // hidrate. Cuando hidrata, la clase `dark` toma over y los
+      // children usan `bg-background` del theme.
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">

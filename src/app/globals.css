@@ -147,5 +147,16 @@
        Tailwind's rem-based utilities (text sizes, spacing, gaps, radii,
        etc.) scale up ~12.5% uniformly. */
     font-size: 18px;
+    /* WIK-92: BG inicial dinámico via OS preference. Antes que next-themes
+       hidrate la clase `dark`, el browser ya pinta el HTML según el
+       prefers-color-scheme del sistema. Evita el flash blanco en dark
+       mode (y el flash negro en light mode). */
+    color-scheme: light dark;
+    background-color: rgb(253, 253, 253);
+  }
+  @media (prefers-color-scheme: dark) {
+    html {
+      background-color: rgb(0, 0, 0);
+    }
   }
 }
