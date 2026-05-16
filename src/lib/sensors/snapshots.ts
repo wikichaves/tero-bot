@@ -172,8 +172,16 @@ export async function snapshotAllSensors(): Promise<{
   // Evaluación de alarmas — corre después del INSERT por cada device que
   // tuvo lectura válida. Evaluamos en secuencia (no en paralelo) para
   // evitar race conditions en el chequeo de "alarm_event abierto".
+  //
+  // Recolectamos los notifies en una lista y los esperamos al final con
+  // Promise.allSettled. Antes hacíamos fire-and-forget (sin await) pero
+  // en Vercel serverless eso fallaba: la function termina antes de que
+  // se complete el send a Kapso y las promises pendientes se cortan,
+  // dejando los outbound messages sin persistir. Bug detectado al
+  // probar end-to-end con WIK-82.
   let alarmsFired = 0;
   let alarmsResolved = 0;
+  const notifyPromises: Promise<unknown>[] = [];
   if (rules.length > 0) {
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
@@ -198,11 +206,12 @@ export async function snapshotAllSensors(): Promise<{
         for (const ev of events) {
           if (ev.kind === "fired") alarmsFired++;
           else alarmsResolved++;
-          // Notif WhatsApp best-effort.
-          notifyAlarmEvent(ev).catch((e) =>
-            console.warn(
-              "[snapshotAllSensors] notify failed:",
-              (e as Error).message,
+          notifyPromises.push(
+            notifyAlarmEvent(ev).catch((e) =>
+              console.warn(
+                "[snapshotAllSensors] notify failed:",
+                (e as Error).message,
+              ),
             ),
           );
         }
@@ -213,6 +222,11 @@ export async function snapshotAllSensors(): Promise<{
         );
       }
     }
+  }
+  // Esperar todos los sends antes de devolver — garantiza que los
+  // outbound messages queden persisted aun en Vercel serverless.
+  if (notifyPromises.length > 0) {
+    await Promise.allSettled(notifyPromises);
   }
 
   return { ranAt, results, alarmsFired, alarmsResolved };
