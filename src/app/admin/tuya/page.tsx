@@ -24,6 +24,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { AssignDeviceButton } from "./assign-device-button";
 import { BulkAssignButton } from "./bulk-assign-button";
+import { SnapshotSensorsButton } from "./snapshot-sensors-button";
 import { SyncRoomsButton } from "./sync-rooms-button";
 import type { DeviceKind, Property, Room } from "@/lib/types";
 
@@ -126,7 +127,10 @@ export default async function TuyaPage() {
             Integración con Smart Life / Tuya Open API.
           </p>
         </div>
-        <SyncRoomsButton />
+        <div className="flex flex-wrap items-center gap-2">
+          <SyncRoomsButton />
+          <SnapshotSensorsButton />
+        </div>
       </div>
 
       <Card>
