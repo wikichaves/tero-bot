@@ -234,7 +234,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
         </DropdownMenu>
 
         <Link href={homeHref} className="shrink-0 font-semibold">
-          Admin
+          Tero Admin
         </Link>
 
         {/* Desktop inline nav. */}

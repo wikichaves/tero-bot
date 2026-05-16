@@ -41,6 +41,16 @@ const REPLY_GUEST = (name: string | null) =>
 const REPLY_UNKNOWN =
   "Hola, gracias por escribir a Acme Rentals. Te respondemos a la brevedad.";
 
+/**
+ * Reply para staff (admin/gestor/mantenimiento) cuando manda algo que no
+ * matchea ningún comando. Antes hacíamos silencio total — pero confunde
+ * al usuario porque no sabe si el bot lo escuchó. Ahora le respondemos
+ * recordándole que mande "ayuda" para ver las opciones. (WIK-89)
+ */
+const REPLY_STAFF_UNKNOWN_COMMAND =
+  "Hola, soy *Tero* 🐦, el bot de Acme Rentals. No entendí ese mensaje. " +
+  "Mandá `ayuda` para ver los comandos disponibles.";
+
 function isAutoReplyEnabled(): boolean {
   const v = process.env.WHATSAPP_AUTO_REPLY_ENABLED?.toLowerCase();
   // Default ON; only "false"/"0"/"no" disable it.
@@ -411,11 +421,16 @@ async function autoReply(opts: {
     }
   }
 
-  // Staff is silent for non-command messages — admin/gestor responds manually.
-  if (opts.audience === "staff") return;
-
+  // (WIK-89) Antes el staff caía en silencio total para mensajes
+  // no-comando — generaba confusión porque parecía que el bot no
+  // escuchaba. Ahora le respondemos con un hint para que sepa que
+  // recibimos pero no entendimos.
   const text =
-    opts.audience === "guest" ? REPLY_GUEST(opts.displayName) : REPLY_UNKNOWN;
+    opts.audience === "staff"
+      ? REPLY_STAFF_UNKNOWN_COMMAND
+      : opts.audience === "guest"
+        ? REPLY_GUEST(opts.displayName)
+        : REPLY_UNKNOWN;
 
   try {
     await sendAndPersist({

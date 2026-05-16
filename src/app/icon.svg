@@ -1,23 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
   <!--
-    Favicon: lucide "trees" (WIK-73).
+    Favicon: lucide "bird" (WIK-85, antes era trees WIK-73).
+    Brand "Tero Admin" — tero es un pájaro uruguayo emblemático.
 
-    Naranjas tomados del theme soft-orange (WIK-71) ajustados para
-    contraste sobre la pestaña del browser:
-      - Light:  #b85c1c  (orange-700 aprox — bien legible sobre blanco)
-      - Dark:   #f59e4a  (orange-400 aprox — pop sobre tab dark)
-
-    El `@media (prefers-color-scheme: dark)` dentro del SVG funciona en
-    Chrome / Firefox / Safari modernos para favicons SVG.
+    Colores actualizados al theme mint del WIK-84:
+      - Light: #0d9f5d  (mint primary, accent-foreground del theme)
+      - Dark:  #51f0a8  (primary del theme)
   -->
   <style>
-    path { stroke: #b85c1c; }
+    path { stroke: #0d9f5d; }
     @media (prefers-color-scheme: dark) {
-      path { stroke: #f59e4a; }
+      path { stroke: #51f0a8; }
     }
   </style>
-  <path d="M10 10v.2A3 3 0 0 1 8.9 16H5a3 3 0 0 1-1-5.8V10a3 3 0 0 1 6 0Z" />
-  <path d="M7 16v6" />
-  <path d="M13 19v3" />
-  <path d="M12 19h8.3a1 1 0 0 0 .7-1.7L18 14h.3a1 1 0 0 0 .7-1.7L16 9h.2a1 1 0 0 0 .8-1.7L13 3l-1.4 1.5" />
+  <path d="M16 7h.01" />
+  <path d="M3.4 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.28-2.3L2 20" />
+  <path d="m20 7 2 .5-2 .5" />
+  <path d="M10 18v3" />
+  <path d="M14 17.75V21" />
+  <path d="M7 18a6 6 0 0 0 3.84-10.61" />
 </svg>

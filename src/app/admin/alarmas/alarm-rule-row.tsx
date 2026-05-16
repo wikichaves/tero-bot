@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,10 @@ export function AlarmRuleRow({
   roomById: Map<string, Pick<Room, "id" | "name" | "property_id">>;
 }) {
   const [pending, startTransition] = useTransition();
+  // Dialog state controlled aquí (no en el dialog) para evitar el bug de
+  // Base UI cuando un DialogTrigger se renderea adentro de un
+  // DropdownMenuItem (WIK-88). El dropdown item solo setea editOpen=true.
+  const [editOpen, setEditOpen] = useState(false);
 
   const scopeLabel = (() => {
     if (rule.property_device_id) {
@@ -122,17 +126,17 @@ export function AlarmRuleRow({
           <MoreHorizontal className="h-4 w-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <NewAlarmRuleDialog
-            properties={properties}
-            rooms={rooms}
-            sensors={sensors}
-            initialRule={rule}
-            trigger={
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                Editar
-              </DropdownMenuItem>
-            }
-          />
+          <DropdownMenuItem
+            onSelect={(e) => {
+              // No cerrar el menu sincrónicamente — el state update del
+              // dialog y el cierre del menu pisan eventos si pasan en
+              // el mismo tick. setTimeout 0 los separa.
+              e.preventDefault();
+              setTimeout(() => setEditOpen(true), 0);
+            }}
+          >
+            Editar
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={onToggle}>
             {rule.enabled ? "Deshabilitar" : "Habilitar"}
           </DropdownMenuItem>
@@ -144,6 +148,16 @@ export function AlarmRuleRow({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      {/* Dialog controlado por editOpen — afuera del dropdown para evitar
+          nesting de Base UI primitives (WIK-88). */}
+      <NewAlarmRuleDialog
+        properties={properties}
+        rooms={rooms}
+        sensors={sensors}
+        initialRule={rule}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+      />
     </div>
   );
 }

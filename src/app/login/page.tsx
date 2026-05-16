@@ -16,7 +16,7 @@ export default function LoginPage() {
       </div>
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Admin</CardTitle>
+          <CardTitle>Tero Admin</CardTitle>
           <CardDescription>Iniciar sesión en el panel.</CardDescription>
         </CardHeader>
         <CardContent>

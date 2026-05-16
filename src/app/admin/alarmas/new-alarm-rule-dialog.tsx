@@ -27,6 +27,8 @@ export function NewAlarmRuleDialog({
   sensors,
   initialRule,
   trigger,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
 }: {
   properties: Pick<Property, "id" | "name">[];
   rooms: Pick<Room, "id" | "name" | "property_id">[];
@@ -43,8 +45,18 @@ export function NewAlarmRuleDialog({
     enabled: boolean;
   };
   trigger?: React.ReactNode;
+  /** Controlled open state. Si NO se pasa, el dialog gestiona su propio state
+   *  con un trigger interno (modo "Nueva regla" desde la card de Alarmas).
+   *  Si se pasa, el caller controla open/close — útil para abrir el dialog
+   *  desde un dropdown menu item sin nestear DialogTrigger adentro del
+   *  DropdownMenuItem (Base UI no se lleva bien con eso, ver WIK-88). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openProp ?? internalOpen;
+  const setOpen = onOpenChangeProp ?? setInternalOpen;
+  const isControlled = openProp !== undefined;
   const [pending, startTransition] = useTransition();
 
   const initialScope: ScopeType = initialRule
@@ -140,14 +152,20 @@ export function NewAlarmRuleDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={trigger ? <span /> : <Button size="sm" />}>
-        {trigger ?? (
-          <>
-            <Plus className="mr-1 h-4 w-4" />
-            Nueva regla
-          </>
-        )}
-      </DialogTrigger>
+      {/* En modo controlled (open/onOpenChange pasados por el caller) no
+          rendereamos trigger interno — el caller dispara el dialog desde
+          afuera. En modo uncontrolled, rendereamos "Nueva regla" o el
+          trigger custom que nos pasen. */}
+      {!isControlled && (
+        <DialogTrigger render={trigger ? <span /> : <Button size="sm" />}>
+          {trigger ?? (
+            <>
+              <Plus className="mr-1 h-4 w-4" />
+              Nueva regla
+            </>
+          )}
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-md">
         <form onSubmit={onSubmit}>
           <DialogHeader>
