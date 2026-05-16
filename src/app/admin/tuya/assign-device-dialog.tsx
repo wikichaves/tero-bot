@@ -21,6 +21,8 @@ const KIND_OPTIONS: { value: DeviceKind; label: string }[] = [
   { value: "light", label: "Luz" },
   { value: "switch", label: "Switch / Toma" },
   { value: "camera", label: "Cámara" },
+  { value: "sensor", label: "Sensor T/H" },
+  { value: "breaker", label: "Térmica / Breaker" },
   { value: "other", label: "Otro" },
 ];
 

@@ -9,6 +9,8 @@ const KIND_VALUES: DeviceKind[] = [
   "light",
   "switch",
   "camera",
+  "sensor",
+  "breaker",
   "other",
 ];
 
@@ -20,11 +22,29 @@ export function isDeviceKind(value: string): value is DeviceKind {
  * Best-effort mapping from a Tuya category (returned by `/v1.3/iot-03/devices`
  * or similar) to our internal DeviceKind. Used as a default suggestion when
  * the admin assigns a device — they can override.
+ *
+ * Categorías que reconocemos:
+ *   - lock / mc → cerradura
+ *   - dj / dc / dd / wgs (bulbs/lights) → light
+ *   - kt / wk / qn / mzj (acondicionadores / termostatos) → thermostat
+ *   - cz / kg / pc (sockets / switches) → switch
+ *   - dlq / pc (circuit breakers que ya monitorean energía) → breaker
+ *   - wsdcg / wnykq / wkcz / ldcg (sensores T+H) → sensor (WIK-82)
+ *   - sp / camera → camera
  */
 export function suggestDeviceKind(device: TuyaDevice): DeviceKind {
   const cat =
     device.category?.toLowerCase() ?? device.category_name?.toLowerCase() ?? "";
   const name = device.name?.toLowerCase() ?? "";
+  // Sensor T/H: match por categoría conocida primero (más confiable que name).
+  if (
+    cat === "wsdcg" ||
+    cat === "wnykq" ||
+    cat === "wkcz" ||
+    cat === "ldcg" ||
+    /temp.*hum|humid.*temp|sensor/.test(`${cat} ${name}`)
+  )
+    return "sensor";
   if (cat.includes("lock") || name.includes("puerta")) return "lock";
   if (cat.includes("camera") || cat.includes("cam")) return "camera";
   if (
@@ -40,15 +60,15 @@ export function suggestDeviceKind(device: TuyaDevice): DeviceKind {
     cat.includes("kt")
   )
     return "thermostat";
+  // Circuit breakers que reportan energía (dlq, algunos pc) → breaker
+  if (cat === "dlq" || /t[eé]rmica/.test(name)) return "breaker";
   if (
     cat.includes("socket") ||
     cat.includes("switch") ||
     cat.includes("breaker") ||
     cat === "cz" ||
     cat === "pc" ||
-    cat === "dlq" ||
-    cat === "kg" ||
-    /t[eé]rmica/.test(name)
+    cat === "kg"
   )
     return "switch";
   return "other";

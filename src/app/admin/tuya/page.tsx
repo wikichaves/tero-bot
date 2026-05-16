@@ -24,9 +24,20 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { AssignDeviceButton } from "./assign-device-button";
 import { BulkAssignButton } from "./bulk-assign-button";
-import type { Property } from "@/lib/types";
+import type { DeviceKind, Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+const DEVICE_KIND_LABEL: Record<DeviceKind, string> = {
+  lock: "Cerradura",
+  thermostat: "Termostato / AC",
+  light: "Luz",
+  switch: "Switch / Toma",
+  camera: "Cámara",
+  sensor: "Sensor T/H",
+  breaker: "Térmica",
+  other: "Otro",
+};
 
 export default async function TuyaPage() {
   const result = await listDevicesGroupedByHome().catch((err: Error) => ({
@@ -272,7 +283,8 @@ function HomeCard({
                             {property?.name ?? "(propiedad eliminada)"}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            {assignment.device_kind}
+                            {DEVICE_KIND_LABEL[assignment.device_kind] ??
+                              assignment.device_kind}
                             {assignment.is_primary && " · primaria"}
                           </span>
                         </div>

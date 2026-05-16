@@ -195,6 +195,8 @@ export type DeviceKind =
   | "light"
   | "switch"
   | "camera"
+  | "sensor"     // WIK-82: sensores T/H Tuya (categoría wnykq / wsdcg / etc.)
+  | "breaker"    // circuit breakers — antes eran "other"
   | "other";
 
 export type PropertyDevice = {
