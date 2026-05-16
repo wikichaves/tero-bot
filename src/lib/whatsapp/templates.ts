@@ -87,35 +87,43 @@ export function templateBodyParameters(values: string[]) {
 // 1. Bienvenida / código de check-in para huésped
 
 /**
- * v5 — v4 falló con "Params Words Ratio Exceeds Limit" (body muy
- * corto vs 5 variables). v5 alarga el body con texto fijo factual
- * sin volver a sonar promocional.
+ * v6 → MARKETING category (plan B).
  *
- * Mantenemos el nombre `access_code_delivery` (sin Footer, sin
- * prefix guest_, sin saludos).
+ * 5 intentos en UTILITY (v1-v5) fueron REJECTED con INCORRECT_CATEGORY.
+ * Meta ML classifier persiste en clasificar este tipo de mensaje (a un
+ * "guest" sobre su reserva) como MARKETING, independiente del texto.
+ *
+ * Cambiamos a MARKETING (aceptación casi automática, sin review de
+ * categoría). Trade-off: ~$0.0625 USD por mensaje saliente. Con
+ * 10-20 reservas/mes son centavos.
+ *
+ * Como el nombre anterior está REJECTED, usamos uno nuevo para evitar
+ * que Meta lo asocie con el historial. Body vuelve al formato más
+ * friendly/promotional que es el que Meta espera para MARKETING.
  */
 export const guestCheckinCode: WhatsAppTemplate = {
-  name: "access_code_delivery",
+  name: "checkin_access_code",
   language: "es",
-  category: "UTILITY",
+  category: "MARKETING",
   description:
-    "Mensaje al huésped el día del check-in con su código de cerradura. Variables: 1=código, 2=hora activación, 3=hora vencimiento (default 'check-out'), 4=propiedad, 5=fecha check-in.",
+    "Mensaje al huésped el día del check-in con su código de cerradura. Variables: 1=nombre, 2=propiedad, 3=fecha check-in, 4=código, 5=hora activación. MARKETING tras 5 rejections en UTILITY.",
   components: [
     {
       type: "BODY",
-      text: "Detalles del código de acceso para tu reserva.\n\nEl código de la puerta principal es: {{1}}\n\nPeriodo de validez del código:\nInicio: {{2}}\nFin: {{3}}\n\nInformación de la reserva asociada:\nPropiedad reservada: {{4}}\nDía de check-in: {{5}}\n\nSi tenés problemas con el código, respondé a este mensaje.",
+      text: "Hola {{1}} 🌲\n\nTu reserva en *{{2}}* está confirmada para el {{3}}.\n\nTu código de acceso a la puerta principal es: *{{4}}*\n\nEl código se activa desde las {{5}} del día de check-in y vence al momento del check-out.\n\nCualquier consulta nos escribís por acá. ¡Buena estadía!",
       example: {
         body_text: [
           [
-            "8472193",
-            "15:00 del viernes 15 de mayo",
-            "hora de check-out",
+            "Juan",
             "Acme Rentals",
             "viernes 15 de mayo",
+            "8472193",
+            "15:00",
           ],
         ],
       },
     },
+    { type: "FOOTER", text: "Acme Rentals" },
   ],
 };
 
