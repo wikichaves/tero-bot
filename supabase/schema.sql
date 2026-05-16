@@ -597,3 +597,115 @@ create index if not exists properties_provider_accounts_idx
 -- se asigna max(sort_order)+1 para que las nuevas queden al final.
 alter table public.properties
   add column if not exists sort_order int not null default 0;
+
+-- ────────────────────────────────────────────────────────────────────────
+-- WIK-82: Sensores Tuya T/H por ambiente + histórico + alarmas.
+--
+-- Esquema mínimo para el feature de sensores de temperatura/humedad.
+-- Mirror del patrón de energy_snapshots (Fase 1 del WIK-82):
+--
+--   - rooms: ambientes por propiedad (sembrados desde Tuya rooms,
+--     editables manualmente desde admin).
+--   - property_devices.room_id: opcional, vincula un device a un room.
+--   - sensor_snapshots: capturas horarias de T/H/battery.
+--   - alarm_rules: thresholds configurables (scope property/room/device).
+--   - alarm_events: incidencias firing/resolved.
+--
+-- También se extiende el check constraint de property_devices.device_kind
+-- para incluir 'sensor' y 'breaker' (este último era category implícita
+-- pero nunca estaba en el enum).
+
+-- Permitir kind='sensor' y 'breaker' en property_devices.
+alter table public.property_devices
+  drop constraint if exists property_devices_device_kind_check;
+alter table public.property_devices
+  add constraint property_devices_device_kind_check
+  check (device_kind in (
+    'lock', 'thermostat', 'light', 'switch',
+    'camera', 'sensor', 'breaker', 'other'
+  ));
+
+create table if not exists public.rooms (
+  id uuid primary key default gen_random_uuid(),
+  property_id uuid not null references public.properties(id) on delete cascade,
+  name text not null,
+  tuya_room_id text,
+  sort_order int not null default 0,
+  created_at timestamptz not null default now(),
+  unique (property_id, name)
+);
+create index if not exists rooms_property_idx on public.rooms(property_id);
+
+alter table public.property_devices
+  add column if not exists room_id uuid references public.rooms(id) on delete set null;
+create index if not exists property_devices_room_idx
+  on public.property_devices(room_id);
+
+create table if not exists public.sensor_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  property_device_id uuid not null references public.property_devices(id) on delete cascade,
+  taken_at timestamptz not null default now(),
+  temperature_c numeric(5,2),
+  humidity_pct numeric(5,2),
+  battery_pct int,
+  raw_dps jsonb,
+  unique (property_device_id, taken_at)
+);
+create index if not exists sensor_snapshots_device_time_idx
+  on public.sensor_snapshots(property_device_id, taken_at desc);
+
+create table if not exists public.alarm_rules (
+  id uuid primary key default gen_random_uuid(),
+  -- Scope: alguno de los 3 (validado en app code).
+  property_id uuid references public.properties(id) on delete cascade,
+  room_id uuid references public.rooms(id) on delete cascade,
+  property_device_id uuid references public.property_devices(id) on delete cascade,
+  metric text not null check (metric in ('temperature_c', 'humidity_pct')),
+  operator text not null check (operator in ('gt', 'lt')),
+  threshold numeric(5,2) not null,
+  debounce_minutes int not null default 15,
+  enabled boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.alarm_events (
+  id uuid primary key default gen_random_uuid(),
+  rule_id uuid not null references public.alarm_rules(id) on delete cascade,
+  property_device_id uuid not null references public.property_devices(id) on delete cascade,
+  fired_at timestamptz not null,
+  resolved_at timestamptz,
+  trigger_value numeric(5,2) not null,
+  notified_via_whatsapp boolean not null default false
+);
+create index if not exists alarm_events_active_idx
+  on public.alarm_events(resolved_at) where resolved_at is null;
+
+-- RLS: lectura admin/gestor/mantenimiento; escritura admin/gestor.
+alter table public.rooms enable row level security;
+alter table public.sensor_snapshots enable row level security;
+alter table public.alarm_rules enable row level security;
+alter table public.alarm_events enable row level security;
+
+drop policy if exists rooms_read on public.rooms;
+create policy rooms_read on public.rooms for select
+  using (public.current_role() in ('admin', 'gestor', 'mantenimiento'));
+drop policy if exists rooms_write on public.rooms;
+create policy rooms_write on public.rooms for all
+  using (public.current_role() in ('admin', 'gestor'))
+  with check (public.current_role() in ('admin', 'gestor'));
+
+drop policy if exists sensor_snapshots_read on public.sensor_snapshots;
+create policy sensor_snapshots_read on public.sensor_snapshots for select
+  using (public.current_role() in ('admin', 'gestor', 'mantenimiento'));
+
+drop policy if exists alarm_rules_read on public.alarm_rules;
+create policy alarm_rules_read on public.alarm_rules for select
+  using (public.current_role() in ('admin', 'gestor', 'mantenimiento'));
+drop policy if exists alarm_rules_write on public.alarm_rules;
+create policy alarm_rules_write on public.alarm_rules for all
+  using (public.current_role() in ('admin', 'gestor'))
+  with check (public.current_role() in ('admin', 'gestor'));
+
+drop policy if exists alarm_events_read on public.alarm_events;
+create policy alarm_events_read on public.alarm_events for select
+  using (public.current_role() in ('admin', 'gestor', 'mantenimiento'));
