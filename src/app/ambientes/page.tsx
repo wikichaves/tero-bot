@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { AlertTriangle, Droplet, Thermometer } from "lucide-react";
-import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { maybeSnapshotSensorsIfStale } from "@/lib/sensors/snapshots";
 import {
@@ -47,7 +46,7 @@ type Device = {
 const TWENTY_FOUR_H_MS = 24 * 60 * 60 * 1000;
 
 export default async function AmbientesPage() {
-  await requireRole(["admin", "gestor"]);
+  // requireRole se hace en el layout — no duplicar acá.
   // Best-effort: si la última lectura está vieja, dispara captura nueva.
   await maybeSnapshotSensorsIfStale(60).catch(() => null);
 

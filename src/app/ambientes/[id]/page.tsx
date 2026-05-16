@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,7 +41,7 @@ export default async function RoomDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ range?: string }>;
 }) {
-  await requireRole(["admin", "gestor"]);
+  // requireRole en el layout.
   const { id } = await params;
   const sp = await searchParams;
   const range: RangeKey = sp.range === "24h" || sp.range === "30d" ? sp.range : "7d";
