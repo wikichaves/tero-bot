@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Lora, IBM_Plex_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -32,6 +32,26 @@ const ibmMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Tero Admin",
   description: "Panel de administración.",
+  appleWebApp: {
+    capable: true,
+    title: "Tero Admin",
+    statusBarStyle: "black-translucent",
+  },
+  // iOS PWA splash: usa el apple-touch-icon + background del manifest.
+  // El theme-color de viewport (abajo) controla el chrome del browser.
+  manifest: "/manifest.webmanifest",
+};
+
+/**
+ * Viewport con themeColor hardcoded a negro (WIK-92). Esto evita el
+ * flash blanco cuando se abre la PWA en iOS / cuando un browser carga
+ * la página por primera vez (mobile chrome / safari toolbar).
+ *
+ * También se aplica a status bar en Android / mobile browsers.
+ */
+export const viewport: Viewport = {
+  themeColor: "#000000",
+  colorScheme: "dark light",
 };
 
 export default function RootLayout({
@@ -46,6 +66,11 @@ export default function RootLayout({
     <html
       lang="es"
       className={`${jakartaSans.variable} ${lora.variable} ${ibmMono.variable} h-full antialiased`}
+      // WIK-92: forzamos el <html> con BG negro hardcodeado para que
+      // el splash de PWA y el primer paint no muestren flash blanco.
+      // Una vez que next-themes hidrata, la clase `dark` (o light)
+      // toma el control y bg-background del CSS theme actúa normal.
+      style={{ backgroundColor: "#000000" }}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
