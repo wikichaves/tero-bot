@@ -87,38 +87,39 @@ export function templateBodyParameters(values: string[]) {
 // 1. Bienvenida / código de check-in para huésped
 
 /**
- * v3 — v1 (¡Hola! + 🌲) y v2 (Hola + para consultas) ambos rejected
- * con INCORRECT_CATEGORY. Meta classifier ML considera cualquier
- * saludo o frase de servicio como "promotional".
+ * v4 — los 3 intentos previos (v1, v2, v3) fueron REJECTED con
+ * INCORRECT_CATEGORY por el classifier ML de Meta. Probably el
+ * Footer "Acme Rentals" + el patrón "código a huésped" lo
+ * empujan a MARKETING. v4 saca el Footer y reorganiza para que el
+ * código (lo más transaccional) sea lo más prominente al inicio.
  *
- * v3: 100% factual transaccional. No saludo, no signature, no frases
- * de servicio. Solo "qué pediste + cuándo + el código". Si esto
- * también es rejected, próximo paso es cambiar la categoría a
- * MARKETING (aceptación automática).
+ * Nombre: `access_code_delivery` — neutral, sin "guest_" que puede
+ * sesgar el classifier hacia categoría de hospitality/marketing.
+ *
+ * Si esto también es rejected, plan B definitivo es MARKETING.
  */
 export const guestCheckinCode: WhatsAppTemplate = {
-  name: "guest_checkin_code_v3",
+  name: "access_code_delivery",
   language: "es",
   category: "UTILITY",
   description:
-    "Mensaje al huésped el día del check-in con su código de cerradura, instrucciones básicas y horarios. Variables: 1=nombre, 2=propiedad, 3=fecha check-in, 4=código, 5=hora check-in.",
+    "Mensaje al huésped el día del check-in con su código de cerradura. Variables: 1=código, 2=hora activación, 3=hora vencimiento (default 'check-out'), 4=propiedad, 5=fecha check-in.",
   components: [
     {
       type: "BODY",
-      text: "Reserva confirmada.\n\nHuésped: {{1}}\nPropiedad: {{2}}\nCheck-in: {{3}}\n\nCódigo de acceso a la puerta principal: {{4}}\nActivación del código: {{5}} del día de check-in.\nVencimiento del código: hora de check-out.",
+      text: "Código de acceso: {{1}}\n\nActivación: {{2}}\nVencimiento: {{3}}\n\nProperty: {{4}}\nCheck-in: {{5}}",
       example: {
         body_text: [
           [
-            "Juan",
+            "8472193",
+            "15:00 del viernes 15 de mayo",
+            "hora de check-out",
             "Acme Rentals",
             "viernes 15 de mayo",
-            "8472193",
-            "15:00",
           ],
         ],
       },
     },
-    { type: "FOOTER", text: "Acme Rentals" },
   ],
 };
 
