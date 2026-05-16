@@ -87,13 +87,17 @@ export function templateBodyParameters(values: string[]) {
 // 1. Bienvenida / código de check-in para huésped
 
 /**
- * v2 del template — Meta rejected v1 con INCORRECT_CATEGORY porque
- * el saludo "¡Hola!" + emoji 🌲 + signature lo hacían "promocional".
- * Reescrito a tono operacional/transaccional para pasar como UTILITY.
- * No-exclamation, no-emoji, sin "marketing speak".
+ * v3 — v1 (¡Hola! + 🌲) y v2 (Hola + para consultas) ambos rejected
+ * con INCORRECT_CATEGORY. Meta classifier ML considera cualquier
+ * saludo o frase de servicio como "promotional".
+ *
+ * v3: 100% factual transaccional. No saludo, no signature, no frases
+ * de servicio. Solo "qué pediste + cuándo + el código". Si esto
+ * también es rejected, próximo paso es cambiar la categoría a
+ * MARKETING (aceptación automática).
  */
 export const guestCheckinCode: WhatsAppTemplate = {
-  name: "guest_checkin_code_v2",
+  name: "guest_checkin_code_v3",
   language: "es",
   category: "UTILITY",
   description:
@@ -101,7 +105,7 @@ export const guestCheckinCode: WhatsAppTemplate = {
   components: [
     {
       type: "BODY",
-      text: "Hola {{1}}. Tu reserva en {{2}} está confirmada para el {{3}}.\n\nCódigo de acceso a la puerta principal: {{4}}\nActivación: a partir de las {{5}} del día de check-in.\nVencimiento: al momento del check-out.\n\nPara consultas, respondé este mensaje.",
+      text: "Reserva confirmada.\n\nHuésped: {{1}}\nPropiedad: {{2}}\nCheck-in: {{3}}\n\nCódigo de acceso a la puerta principal: {{4}}\nActivación del código: {{5}} del día de check-in.\nVencimiento del código: hora de check-out.",
       example: {
         body_text: [
           [
