@@ -128,3 +128,43 @@ export async function unassignDevice(tuyaDeviceId: string) {
   revalidatePath("/admin/tuya");
   return { ok: true };
 }
+
+/**
+ * WIK-95: upsert/remove de un override de Tuya home → property.
+ *
+ *   action="set"    + propertyId → setea el mapping
+ *   action="ignore"               → guarda con property_id=null (skip explícito)
+ *   action="remove"               → borra el row (vuelve a name-match auto)
+ *
+ * Solo admin (escritura en `tuya_home_overrides` por RLS).
+ */
+export async function saveTuyaHomeMapping(input: {
+  homeId: string;
+  action: "set" | "ignore" | "remove";
+  propertyId: string | null;
+}) {
+  await requireRole(["admin"]);
+  const admin = createAdminClient();
+  if (input.action === "remove") {
+    const { error } = await admin
+      .from("tuya_home_overrides")
+      .delete()
+      .eq("tuya_home_id", input.homeId);
+    if (error) return { error: error.message };
+  } else {
+    const propertyId = input.action === "ignore" ? null : input.propertyId;
+    const { error } = await admin
+      .from("tuya_home_overrides")
+      .upsert(
+        {
+          tuya_home_id: input.homeId,
+          property_id: propertyId,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "tuya_home_id" },
+      );
+    if (error) return { error: error.message };
+  }
+  revalidatePath("/admin/tuya");
+  return { ok: true };
+}

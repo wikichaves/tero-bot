@@ -744,3 +744,36 @@ drop policy if exists profile_properties_write on public.profile_properties;
 create policy profile_properties_write on public.profile_properties for all
   using (public.current_role() = 'admin')
   with check (public.current_role() = 'admin');
+
+-- ────────────────────────────────────────────────────────────────────────
+-- WIK-95: overrides manuales home Tuya → property.
+--
+-- Por default, el sync de /api/admin/tuya/sync-rooms matchea cada home
+-- de Smart Life con una property por nombre (substring case-insensitive).
+-- Funciona cuando hay 1 home Tuya = 1 property con nombres consistentes.
+--
+-- Cuando NO matchea (ej. home "Casa Bosque" que agrupa devices de varias
+-- casas físicas en Smart Life), el admin define un override manual acá.
+--   - property_id set → ese home mapea explícitamente a esa property.
+--   - property_id null → "ignorar este home" (skip silencioso, sin
+--     warning en el sync).
+
+create table if not exists public.tuya_home_overrides (
+  tuya_home_id text primary key,
+  property_id uuid references public.properties(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists tuya_home_overrides_property_idx
+  on public.tuya_home_overrides(property_id);
+
+alter table public.tuya_home_overrides enable row level security;
+
+drop policy if exists tuya_home_overrides_read on public.tuya_home_overrides;
+create policy tuya_home_overrides_read on public.tuya_home_overrides for select
+  using (public.current_role() in ('admin', 'gestor'));
+
+drop policy if exists tuya_home_overrides_write on public.tuya_home_overrides;
+create policy tuya_home_overrides_write on public.tuya_home_overrides for all
+  using (public.current_role() = 'admin')
+  with check (public.current_role() = 'admin');

@@ -24,6 +24,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { AssignDeviceButton } from "./assign-device-button";
 import { BulkAssignButton } from "./bulk-assign-button";
+import { HomeMappingsCard } from "./home-mappings-card";
 import { SnapshotSensorsButton } from "./snapshot-sensors-button";
 import { SyncRoomsButton } from "./sync-rooms-button";
 import type { DeviceKind, Property, Room } from "@/lib/types";
@@ -92,9 +93,9 @@ export default async function TuyaPage() {
 
   const { user, homes } = result;
 
-  // Properties + existing assignments + rooms in parallel.
+  // Properties + existing assignments + rooms + home overrides in parallel.
   const supabase = await createClient();
-  const [propertiesRes, deviceMap, roomsRes] = await Promise.all([
+  const [propertiesRes, deviceMap, roomsRes, overridesRes] = await Promise.all([
     supabase
       .from("properties")
       .select("id, name")
@@ -104,7 +105,17 @@ export default async function TuyaPage() {
       .from("rooms")
       .select("id, name, property_id")
       .order("sort_order", { ascending: true }),
+    supabase
+      .from("tuya_home_overrides")
+      .select("tuya_home_id, property_id"),
   ]);
+  const overrides = (overridesRes.data ?? []) as Array<{
+    tuya_home_id: string;
+    property_id: string | null;
+  }>;
+  const overrideByHomeId = new Map(
+    overrides.map((o) => [o.tuya_home_id, o.property_id] as const),
+  );
   const properties = (propertiesRes.data ?? []) as Pick<
     Property,
     "id" | "name"
@@ -177,6 +188,44 @@ export default async function TuyaPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* WIK-95: card de mapping manual home→property. Solo si hay homes. */}
+      {homes.length > 0 && (
+        <HomeMappingsCard
+          homes={homes.map(({ home }) => {
+            const homeIdStr = String(home.home_id);
+            const override = overrideByHomeId.get(homeIdStr);
+            const isOverride = overrideByHomeId.has(homeIdStr);
+            // Auto-match por nombre (mismo algoritmo simple que el sync —
+            // exact/substring case-insensitive sin tildes).
+            const norm = (s: string) =>
+              s
+                .toLowerCase()
+                .trim()
+                .normalize("NFD")
+                .replace(/[̀-ͯ]/g, "")
+                .replace(/\s+/g, " ");
+            const homeN = norm(home.name);
+            const autoMatch = properties.find((p) => {
+              const pn = norm(p.name);
+              return pn === homeN || pn.includes(homeN) || homeN.includes(pn);
+            });
+            const resolved = isOverride
+              ? override
+                ? properties.find((p) => p.id === override) ?? null
+                : null
+              : (autoMatch ?? null);
+            return {
+              tuya_home_id: homeIdStr,
+              home_name: home.name,
+              current_property_id: isOverride ? override ?? null : null,
+              is_override: isOverride,
+              resolved_property_name: resolved?.name ?? null,
+            };
+          })}
+          properties={properties}
+        />
+      )}
 
       {homes.length === 0 && (
         <Card>

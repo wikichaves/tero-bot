@@ -75,6 +75,21 @@ export async function POST() {
   }
   const propList = properties ?? [];
 
+  // WIK-95: overrides manuales home → property. Resuelven el caso donde
+  // el nombre del home Tuya no matchea ninguna property (ej. "Casa Bosque"
+  // que agrupa devices de varias casas físicas). Admin define el mapping
+  // en /admin/tuya y queda persistido acá.
+  const { data: overrideRows } = await admin
+    .from("tuya_home_overrides")
+    .select("tuya_home_id, property_id");
+  const overridesByHomeId = new Map<string, string | null>();
+  for (const row of (overrideRows ?? []) as Array<{
+    tuya_home_id: string;
+    property_id: string | null;
+  }>) {
+    overridesByHomeId.set(row.tuya_home_id, row.property_id);
+  }
+
   // Pre-cargamos property_devices para resolver tuya_device_id → property_device.id.
   const { data: allPDs } = await admin
     .from("property_devices")
@@ -95,11 +110,37 @@ export async function POST() {
   const skipped: Array<{ home: string; reason: string }> = [];
 
   for (const { home } of grouped.homes) {
-    const property = matchProperty(home.name, propList);
+    const homeIdStr = String(home.home_id);
+    // 1. Si hay un override manual para este home, usa eso.
+    //    - property_id set → mapea a esa property
+    //    - property_id null → "ignorar" explícito (skip silencioso)
+    let property: { id: string; name: string } | null = null;
+    if (overridesByHomeId.has(homeIdStr)) {
+      const overridePropertyId = overridesByHomeId.get(homeIdStr);
+      if (overridePropertyId == null) {
+        skipped.push({
+          home: home.name,
+          reason: "ignored by manual override",
+        });
+        continue;
+      }
+      property =
+        propList.find((p) => p.id === overridePropertyId) ?? null;
+      if (!property) {
+        skipped.push({
+          home: home.name,
+          reason: `override apunta a property inexistente (${overridePropertyId})`,
+        });
+        continue;
+      }
+    } else {
+      // 2. Sin override: intentar match por nombre (legacy).
+      property = matchProperty(home.name, propList);
+    }
     if (!property) {
       skipped.push({
         home: home.name,
-        reason: `no property name match (DB has: ${propList.map((p) => p.name).join(", ")})`,
+        reason: `no match (Tuya home_id: ${homeIdStr}). Asigná manualmente en /admin/tuya → mapping de homes.`,
       });
       continue;
     }
