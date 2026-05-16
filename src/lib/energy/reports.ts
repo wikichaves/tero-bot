@@ -10,6 +10,7 @@ import {
   startOfDaysAgoIso,
   startOfTodayIso,
 } from "@/lib/tuya/snapshots";
+import { buildSensorSummary } from "@/lib/sensors/reports";
 import type { Property } from "@/lib/types";
 
 type PropertyRow = Pick<
@@ -250,6 +251,14 @@ export async function buildConsumptionReport(opts?: {
     lines.push(`• *Total: ${formatUsd(totalWeekUsd)}*`);
   }
   lines.push("");
+
+  // Sensores T/H (WIK-82 F4) — min/max últimas 24h por property.
+  // Reusa el `propertyFilter` (substring) si el caller filtró por property.
+  const sensorLines = await buildSensorSummary(opts?.propertyFilter ?? undefined);
+  if (sensorLines.length > 0) {
+    for (const l of sensorLines) lines.push(l);
+    lines.push("");
+  }
 
   // Footer
   const arsRate = fxRates.get("ARS")?.per_usd;

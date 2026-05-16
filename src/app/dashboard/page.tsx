@@ -28,6 +28,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import type { Reservation, Task } from "@/lib/types";
 import { ReservationRowActions } from "./reservation-row-actions";
+import { SensorAlarmsCard } from "./sensor-alarms-card";
 
 const HORIZON_DAYS = 14;
 
@@ -149,6 +150,8 @@ export default async function DashboardPage() {
           showProperty={showProperty}
         />
       </div>
+
+      <SensorAlarmsCard />
 
       <TodayTasksCard tasks={tasks} todayIso={todayIso} />
 
