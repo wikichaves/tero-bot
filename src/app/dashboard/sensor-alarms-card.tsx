@@ -8,6 +8,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
+import { requireProfile } from "@/lib/auth";
+import { getAllowedPropertyIds } from "@/lib/auth/scope";
 
 /**
  * Widget de ambientes para /dashboard (WIK-82 Fase 4).
@@ -28,26 +30,41 @@ const UNIT: Record<"temperature_c" | "humidity_pct", string> = {
 };
 
 export async function SensorAlarmsCard() {
+  // WIK-94: scope por property en el widget — gestor solo ve alarmas
+  // y sensores de sus properties asignadas.
+  const profile = await requireProfile();
+  const allowedIds = await getAllowedPropertyIds(profile);
+
   const supabase = await createClient();
   const since = new Date(Date.now() - TWENTY_FOUR_H_MS).toISOString();
 
+  let eventsQ = supabase
+    .from("alarm_events")
+    .select(
+      "id, fired_at, trigger_value, rule:alarm_rules(metric, operator, threshold), property_device:property_devices!inner(property_id, tuya_device_name, property:properties(name), room:rooms(name))",
+    )
+    .is("resolved_at", null)
+    .order("fired_at", { ascending: false });
+  if (allowedIds !== null) {
+    eventsQ = eventsQ.in("property_device.property_id", allowedIds);
+  }
+  let sensorsQ = supabase
+    .from("property_devices")
+    .select("id, room_id, property_id")
+    .eq("device_kind", "sensor");
+  if (allowedIds !== null) {
+    sensorsQ = sensorsQ.in("property_id", allowedIds);
+  }
+  const snapsQ = supabase
+    .from("sensor_snapshots")
+    .select("property_device_id, taken_at")
+    .gte("taken_at", since)
+    .order("taken_at", { ascending: false });
+
   const [activeEventsRes, sensorsRes, recentSnapsRes] = await Promise.all([
-    supabase
-      .from("alarm_events")
-      .select(
-        "id, fired_at, trigger_value, rule:alarm_rules(metric, operator, threshold), property_device:property_devices(tuya_device_name, property:properties(name), room:rooms(name))",
-      )
-      .is("resolved_at", null)
-      .order("fired_at", { ascending: false }),
-    supabase
-      .from("property_devices")
-      .select("id, room_id")
-      .eq("device_kind", "sensor"),
-    supabase
-      .from("sensor_snapshots")
-      .select("property_device_id, taken_at")
-      .gte("taken_at", since)
-      .order("taken_at", { ascending: false }),
+    eventsQ,
+    sensorsQ,
+    snapsQ,
   ]);
 
   const events =

@@ -13,17 +13,23 @@ import { createAdminClient } from "@/lib/supabase/admin";
  */
 export async function buildSensorSummary(
   propertyFilter?: string,
+  /** WIK-94: scope opcional. null/undefined = sin restricción. */
+  allowedPropertyIds?: string[] | null,
 ): Promise<string[]> {
   const admin = createAdminClient();
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
   // Pull snapshots + device + property in one query for fast aggregation.
-  const { data, error } = await admin
+  let q = admin
     .from("sensor_snapshots")
     .select(
       "temperature_c, humidity_pct, taken_at, property_device:property_devices!inner(property_id, property:properties(name))",
     )
     .gte("taken_at", since);
+  if (allowedPropertyIds != null) {
+    q = q.in("property_device.property_id", allowedPropertyIds);
+  }
+  const { data, error } = await q;
   if (error || !data) return [];
 
   type Row = {

@@ -123,6 +123,45 @@ export async function updateRole(input: { id: string; role: string }) {
   return { ok: true };
 }
 
+/**
+ * WIK-94: setear las property scopes de un profile. Admin-only.
+ * Reemplaza el set completo (delete + insert) — no es incremental.
+ */
+const setPropertiesSchema = z.object({
+  profileId: z.string().uuid(),
+  propertyIds: z.array(z.string().uuid()),
+});
+
+export async function setProfileProperties(input: {
+  profileId: string;
+  propertyIds: string[];
+}) {
+  await requireRole(["admin"]);
+  const parsed = setPropertiesSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Input inválido." };
+  }
+  const admin = createAdminClient();
+  // Delete actuales del profile.
+  const { error: delErr } = await admin
+    .from("profile_properties")
+    .delete()
+    .eq("profile_id", parsed.data.profileId);
+  if (delErr) return { error: `delete falló: ${delErr.message}` };
+  if (parsed.data.propertyIds.length > 0) {
+    const rows = parsed.data.propertyIds.map((pid) => ({
+      profile_id: parsed.data.profileId,
+      property_id: pid,
+    }));
+    const { error: insErr } = await admin
+      .from("profile_properties")
+      .insert(rows);
+    if (insErr) return { error: `insert falló: ${insErr.message}` };
+  }
+  revalidatePath("/admin/users");
+  return { ok: true };
+}
+
 export async function deleteUser(id: string) {
   const me = await requireRole(["admin"]);
   if (id === me.id) {

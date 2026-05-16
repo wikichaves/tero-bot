@@ -709,3 +709,38 @@ create policy alarm_rules_write on public.alarm_rules for all
 drop policy if exists alarm_events_read on public.alarm_events;
 create policy alarm_events_read on public.alarm_events for select
   using (public.current_role() in ('admin', 'gestor', 'mantenimiento'));
+
+-- ────────────────────────────────────────────────────────────────────────
+-- WIK-94: scope por property para roles gestor / mantenimiento.
+--
+-- Admin tiene acceso global (no se mete en esta tabla — la lógica en
+-- el código TS asume "sin filas = admin scope = todas las properties").
+-- Gestor / mantenimiento solo ven/manejan las properties que un admin
+-- les asigna en esta tabla.
+--
+-- El filtro se aplica en lib/auth/scope.ts:getAllowedPropertyIds y se
+-- inyecta en cada query relevante con `.in("property_id", allowedIds)`.
+
+create table if not exists public.profile_properties (
+  profile_id uuid not null references public.profiles(id) on delete cascade,
+  property_id uuid not null references public.properties(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (profile_id, property_id)
+);
+create index if not exists profile_properties_profile_idx
+  on public.profile_properties(profile_id);
+create index if not exists profile_properties_property_idx
+  on public.profile_properties(property_id);
+
+alter table public.profile_properties enable row level security;
+
+-- Lectura: admin/gestor/mantenimiento (la app filtra por profile_id).
+drop policy if exists profile_properties_read on public.profile_properties;
+create policy profile_properties_read on public.profile_properties for select
+  using (public.current_role() in ('admin', 'gestor', 'mantenimiento'));
+
+-- Escritura: solo admin asigna scopes.
+drop policy if exists profile_properties_write on public.profile_properties;
+create policy profile_properties_write on public.profile_properties for all
+  using (public.current_role() = 'admin')
+  with check (public.current_role() = 'admin');

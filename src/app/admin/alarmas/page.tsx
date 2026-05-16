@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { requireRole } from "@/lib/auth";
+import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import { createClient } from "@/lib/supabase/server";
 import {
   Card,
@@ -68,32 +69,53 @@ type AlarmEventWithRel = {
 };
 
 export default async function AlarmasPage() {
-  await requireRole(["admin", "gestor"]);
+  const profile = await requireRole(["admin", "gestor"]);
+  // WIK-94: gestor solo ve reglas y eventos de SUS properties.
+  // Para alarm_rules, se filtra por property_id (las reglas con scope
+  // global, room o device se mantienen visibles para admin pero gestor
+  // solo ve las property-scoped que matcheen su scope).
+  const allowedIds = await getAllowedPropertyIds(profile);
   const supabase = await createClient();
 
+  let rulesQuery = supabase
+    .from("alarm_rules")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (allowedIds !== null) {
+    // Gestor: solo reglas con property_id en su scope. Las reglas
+    // globales (property_id null) son del admin.
+    rulesQuery = rulesQuery.in("property_id", allowedIds);
+  }
+
+  let eventsQuery = supabase
+    .from("alarm_events")
+    .select(
+      "id, rule_id, property_device_id, fired_at, resolved_at, trigger_value, notified_via_whatsapp, rule:alarm_rules(metric, operator, threshold), property_device:property_devices!inner(property_id, tuya_device_name, property:properties(name), room:rooms(name))",
+    )
+    .order("fired_at", { ascending: false })
+    .limit(50);
+  if (allowedIds !== null) {
+    // Foreign filter: events cuyo device pertenece a una property scoped.
+    eventsQuery = eventsQuery.in("property_device.property_id", allowedIds);
+  }
+
+  let propsQuery = supabase
+    .from("properties")
+    .select("id, name")
+    .order("sort_order", { ascending: true });
+  if (allowedIds !== null) propsQuery = propsQuery.in("id", allowedIds);
+
+  let roomsQuery = supabase.from("rooms").select("id, name, property_id");
+  if (allowedIds !== null) roomsQuery = roomsQuery.in("property_id", allowedIds);
+
+  let devicesQuery = supabase
+    .from("property_devices")
+    .select("id, tuya_device_name, property_id")
+    .eq("device_kind", "sensor");
+  if (allowedIds !== null) devicesQuery = devicesQuery.in("property_id", allowedIds);
+
   const [rulesRes, eventsRes, propsRes, roomsRes, devicesRes] =
-    await Promise.all([
-      supabase
-        .from("alarm_rules")
-        .select("*")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("alarm_events")
-        .select(
-          "id, rule_id, property_device_id, fired_at, resolved_at, trigger_value, notified_via_whatsapp, rule:alarm_rules(metric, operator, threshold), property_device:property_devices(tuya_device_name, property:properties(name), room:rooms(name))",
-        )
-        .order("fired_at", { ascending: false })
-        .limit(50),
-      supabase
-        .from("properties")
-        .select("id, name")
-        .order("sort_order", { ascending: true }),
-      supabase.from("rooms").select("id, name, property_id"),
-      supabase
-        .from("property_devices")
-        .select("id, tuya_device_name, property_id")
-        .eq("device_kind", "sensor"),
-    ]);
+    await Promise.all([rulesQuery, eventsQuery, propsQuery, roomsQuery, devicesQuery]);
 
   const rules = (rulesRes.data ?? []) as AlarmRuleRow[];
   const events = (eventsRes.data ?? []) as unknown as AlarmEventWithRel[];

@@ -53,6 +53,8 @@ import {
 import { DeltaBadge } from "@/components/bills/delta-badge";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { requireProfile } from "@/lib/auth";
+import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import type { Property } from "@/lib/types";
 import { SnapshotButton } from "./snapshot-button";
 import { BackfillButton } from "./backfill-button";
@@ -137,24 +139,30 @@ export default async function EnergyPage() {
 
   const energyDevices = flatRes.devices.filter(isEnergyDevice);
 
+  // WIK-94: scope por property — gestor solo ve sus properties.
+  const profile = await requireProfile();
+  const allowedIds = await getAllowedPropertyIds(profile);
+
   const supabase = await createClient();
+  let propsQuery = supabase
+    .from("properties")
+    .select("id, name, currency, tariff_per_kwh, sort_order")
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+  if (allowedIds !== null) propsQuery = propsQuery.in("id", allowedIds);
+
+  let billsQuery = supabase
+    .from("utility_bills")
+    .select("*, property:properties(id, name, currency)")
+    .eq("utility_type", "luz")
+    .not("kwh_billed", "is", null)
+    .order("due_date", { ascending: false, nullsFirst: false });
+  if (allowedIds !== null) billsQuery = billsQuery.in("property_id", allowedIds);
+
   const [propertiesRes, deviceMap, billsRes] = await Promise.all([
-    supabase
-      .from("properties")
-      .select("id, name, currency, tariff_per_kwh, sort_order")
-      .order("sort_order", { ascending: true })
-      .order("name", { ascending: true }),
+    propsQuery,
     listPropertyDeviceMap(),
-    // Solo facturas de luz con kWh facturado — son las únicas que tienen
-    // sentido contrastar con el medidor Tuya. Limitamos a las últimas
-    // ~12 por property al renderizar (la query no limita porque hay
-    // muchas properties; el cap está en el render).
-    supabase
-      .from("utility_bills")
-      .select("*, property:properties(id, name, currency)")
-      .eq("utility_type", "luz")
-      .not("kwh_billed", "is", null)
-      .order("due_date", { ascending: false, nullsFirst: false }),
+    billsQuery,
   ]);
   const properties = (propertiesRes.data ?? []) as PropertySummary[];
   const propertyById = new Map(properties.map((p) => [p.id, p]));

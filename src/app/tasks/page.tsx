@@ -3,6 +3,7 @@ import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
+import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import {
   Card,
   CardContent,
@@ -63,6 +64,8 @@ export default async function TasksPage({
   }>;
 }) {
   const profile = await requireRole(["admin", "gestor"]);
+  // WIK-94: gestor solo ve tareas de SUS properties asignadas.
+  const allowedIds = await getAllowedPropertyIds(profile);
   const params = await searchParams;
   const statusFilter = (params.status as StatusFilter) ?? "all";
   const propertyFilter = params.property ?? null;
@@ -99,10 +102,21 @@ export default async function TasksPage({
   if (kindFilter !== "all") {
     query = query.eq("kind", kindFilter);
   }
+  // WIK-94 scope: gestor solo SUS properties.
+  if (allowedIds !== null) {
+    query = query.in("property_id", allowedIds);
+  }
+
+  // El select de properties también se scopea — el filter UI no debería
+  // mostrar properties a las que el gestor no tiene acceso.
+  let propsQuery = supabase.from("properties").select("id, name").order("name");
+  if (allowedIds !== null) {
+    propsQuery = propsQuery.in("id", allowedIds);
+  }
 
   const [tasksRes, propertiesRes, assigneesRes] = await Promise.all([
     query,
-    supabase.from("properties").select("id, name").order("name"),
+    propsQuery,
     supabase
       .from("profiles")
       .select("id, full_name, email, role")

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronDown, Menu } from "lucide-react";
 import { signOut } from "@/app/login/actions";
+import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -77,25 +78,38 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
   const myOverdue = myOverdueRes.count ?? 0;
 
   // For admin/gestor, also show the count of open tasks across all
-  // properties — useful to spot stuff that needs triage.
+  // properties — useful to spot stuff that needs triage. WIK-94: gestor
+  // solo cuenta tasks/alarms de SUS properties.
   let teamOpen = 0;
   let teamOverdue = 0;
   let alarmsActive = 0;
   if (profile.role === "admin" || profile.role === "gestor") {
+    const allowedIds = await getAllowedPropertyIds(profile);
+    let openQ = supabase
+      .from("tasks")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["pending", "in_progress"]);
+    let overdueQ = supabase
+      .from("tasks")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["pending", "in_progress"])
+      .lt("due_date", todayIso);
+    let alarmsQ = supabase
+      .from("alarm_events")
+      .select("id, property_device:property_devices!inner(property_id)", {
+        count: "exact",
+        head: true,
+      })
+      .is("resolved_at", null);
+    if (allowedIds !== null) {
+      openQ = openQ.in("property_id", allowedIds);
+      overdueQ = overdueQ.in("property_id", allowedIds);
+      alarmsQ = alarmsQ.in("property_device.property_id", allowedIds);
+    }
     const [openRes, overdueRes, alarmsRes] = await Promise.all([
-      supabase
-        .from("tasks")
-        .select("id", { count: "exact", head: true })
-        .in("status", ["pending", "in_progress"]),
-      supabase
-        .from("tasks")
-        .select("id", { count: "exact", head: true })
-        .in("status", ["pending", "in_progress"])
-        .lt("due_date", todayIso),
-      supabase
-        .from("alarm_events")
-        .select("id", { count: "exact", head: true })
-        .is("resolved_at", null),
+      openQ,
+      overdueQ,
+      alarmsQ,
     ]);
     teamOpen = openRes.count ?? 0;
     teamOverdue = overdueRes.count ?? 0;

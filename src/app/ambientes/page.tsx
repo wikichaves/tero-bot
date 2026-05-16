@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { AlertTriangle, Droplet, Thermometer } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { requireProfile } from "@/lib/auth";
+import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import { maybeSnapshotSensorsIfStale } from "@/lib/sensors/snapshots";
 import {
   Card,
@@ -46,32 +48,50 @@ type Device = {
 const TWENTY_FOUR_H_MS = 24 * 60 * 60 * 1000;
 
 export default async function AmbientesPage() {
-  // requireRole se hace en el layout — no duplicar acá.
+  // requireRole se hace en el layout — pero necesitamos el profile
+  // para aplicar scope por property (WIK-94).
+  const profile = await requireProfile();
+  const allowedIds = await getAllowedPropertyIds(profile);
   // Best-effort: si la última lectura está vieja, dispara captura nueva.
   await maybeSnapshotSensorsIfStale(60).catch(() => null);
 
   const supabase = await createClient();
   const since = new Date(Date.now() - TWENTY_FOUR_H_MS).toISOString();
+
+  let propsQuery = supabase
+    .from("properties")
+    .select("id, name, sort_order")
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+  if (allowedIds !== null) propsQuery = propsQuery.in("id", allowedIds);
+
+  let roomsQuery = supabase
+    .from("rooms")
+    .select("id, property_id, name, sort_order")
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+  if (allowedIds !== null) roomsQuery = roomsQuery.in("property_id", allowedIds);
+
+  let devicesQuery = supabase
+    .from("property_devices")
+    .select("id, property_id, tuya_device_name, room_id")
+    .eq("device_kind", "sensor");
+  if (allowedIds !== null) devicesQuery = devicesQuery.in("property_id", allowedIds);
+
+  // snapshots no se filtran por property — se filtran indirectamente
+  // por property_device_id en el render (solo se muestran los devices
+  // que pasaron el scope arriba).
+  const snapshotsQuery = supabase
+    .from("sensor_snapshots")
+    .select("property_device_id, taken_at, temperature_c, humidity_pct, battery_pct")
+    .gte("taken_at", since)
+    .order("taken_at", { ascending: true });
+
   const [propsRes, roomsRes, devicesRes, snapshotsRes] = await Promise.all([
-    supabase
-      .from("properties")
-      .select("id, name, sort_order")
-      .order("sort_order", { ascending: true })
-      .order("name", { ascending: true }),
-    supabase
-      .from("rooms")
-      .select("id, property_id, name, sort_order")
-      .order("sort_order", { ascending: true })
-      .order("name", { ascending: true }),
-    supabase
-      .from("property_devices")
-      .select("id, property_id, tuya_device_name, room_id")
-      .eq("device_kind", "sensor"),
-    supabase
-      .from("sensor_snapshots")
-      .select("property_device_id, taken_at, temperature_c, humidity_pct, battery_pct")
-      .gte("taken_at", since)
-      .order("taken_at", { ascending: true }),
+    propsQuery,
+    roomsQuery,
+    devicesQuery,
+    snapshotsQuery,
   ]);
 
   const properties = (propsRes.data ?? []) as Pick<

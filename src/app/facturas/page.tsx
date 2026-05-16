@@ -1,4 +1,5 @@
 import { requireRole } from "@/lib/auth";
+import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import { createClient } from "@/lib/supabase/server";
 import {
   enrichWithEffectivePeriod,
@@ -38,22 +39,27 @@ import { PropertyBillsTable } from "./property-bills-table";
  */
 
 export default async function FacturasPage() {
-  await requireRole(["admin", "gestor"]);
+  const profile = await requireRole(["admin", "gestor"]);
+  // WIK-94: scope por property.
+  const allowedIds = await getAllowedPropertyIds(profile);
   const supabase = await createClient();
 
-  const [billsRes, propertiesRes] = await Promise.all([
-    supabase
-      .from("utility_bills")
-      .select("*, property:properties(id, name, currency)")
-      .order("due_date", { ascending: false, nullsFirst: false })
-      .order("period_to", { ascending: false, nullsFirst: false })
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("properties")
-      .select("id, name, currency")
-      .order("sort_order", { ascending: true })
-      .order("name", { ascending: true }),
-  ]);
+  let billsQuery = supabase
+    .from("utility_bills")
+    .select("*, property:properties(id, name, currency)")
+    .order("due_date", { ascending: false, nullsFirst: false })
+    .order("period_to", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
+  if (allowedIds !== null) billsQuery = billsQuery.in("property_id", allowedIds);
+
+  let propsQuery = supabase
+    .from("properties")
+    .select("id, name, currency")
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+  if (allowedIds !== null) propsQuery = propsQuery.in("id", allowedIds);
+
+  const [billsRes, propertiesRes] = await Promise.all([billsQuery, propsQuery]);
 
   const rawBills = (billsRes.data ?? []) as BillRow[];
   const properties = (propertiesRes.data ?? []) as Pick<

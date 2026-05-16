@@ -219,6 +219,16 @@ export type Room = {
   created_at: string;
 };
 
+/**
+ * Join table — qué properties puede ver/manejar cada profile (WIK-94).
+ * Admin no se mete acá (tiene acceso global).
+ */
+export type ProfileProperty = {
+  profile_id: string;
+  property_id: string;
+  created_at: string;
+};
+
 export type WhatsAppMessage = {
   id: string;
   conversation_id: string;

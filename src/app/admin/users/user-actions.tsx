@@ -13,20 +13,30 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import type { Profile, UserRole } from "@/lib/types";
+import type { Profile, Property, UserRole } from "@/lib/types";
 import { ALL_ROLES, ROLE_LABEL } from "@/lib/roles";
 import { deleteUser, updateRole } from "./actions";
 import { EditUserDialog } from "./edit-user-dialog";
+import { ScopeDialog } from "./scope-dialog";
 
 export function UserActions({
   profile,
   isSelf,
+  allProperties,
+  scopedPropertyIds,
 }: {
   profile: Profile;
   isSelf: boolean;
+  /** Lista completa de properties (para el scope dialog). */
+  allProperties: Pick<Property, "id" | "name">[];
+  /** IDs de las properties actualmente asignadas al profile. Empty array
+   *  si gestor/mantenimiento sin scope, o si es admin (admin no usa
+   *  scope — tiene acceso global). */
+  scopedPropertyIds: string[];
 }) {
   const [pending, startTransition] = useTransition();
   const [editOpen, setEditOpen] = useState(false);
+  const [scopeOpen, setScopeOpen] = useState(false);
 
   function changeRole(role: UserRole) {
     startTransition(async () => {
@@ -57,6 +67,13 @@ export function UserActions({
           <DropdownMenuItem onClick={() => setEditOpen(true)}>
             Editar
           </DropdownMenuItem>
+          {/* Scope solo aplica a gestor/mantenimiento. Admin tiene acceso
+              global. (WIK-94) */}
+          {profile.role !== "admin" && (
+            <DropdownMenuItem onClick={() => setScopeOpen(true)}>
+              Asignar propiedades
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuLabel>Cambiar rol</DropdownMenuLabel>
@@ -84,6 +101,17 @@ export function UserActions({
         open={editOpen}
         onOpenChange={setEditOpen}
       />
+      {/* Conditional mount — solo cuando scope dialog está abierto, igual
+          patrón que WIK-91 (alarm-rule-row). */}
+      {scopeOpen && (
+        <ScopeDialog
+          profile={profile}
+          allProperties={allProperties}
+          initialPropertyIds={scopedPropertyIds}
+          open={scopeOpen}
+          onOpenChange={setScopeOpen}
+        />
+      )}
     </>
   );
 }

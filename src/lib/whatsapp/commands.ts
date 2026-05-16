@@ -3,6 +3,7 @@ import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildConsumptionReport } from "@/lib/energy/reports";
+import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import type { Profile, Task } from "@/lib/types";
 import { normalizePhone } from "./index";
 
@@ -200,8 +201,15 @@ export async function runCommand(
       return HELP_TEXT_FULL;
     case "consumption":
       try {
+        // WIK-94: scope por property — gestor solo ve consumo de sus
+        // properties asignadas. Admin → null (sin filtro).
+        const profile = await getProfileByPhone(fromPhone);
+        const allowedIds = profile
+          ? await getAllowedPropertyIds(profile)
+          : null;
         return await buildConsumptionReport({
           propertyFilter: command.propertyFilter,
+          allowedPropertyIds: allowedIds,
         });
       } catch (e) {
         return `❌ No pude generar el reporte: ${(e as Error).message}`;

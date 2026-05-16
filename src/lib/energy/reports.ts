@@ -35,6 +35,9 @@ type DeviceRow = {
  */
 export async function buildConsumptionReport(opts?: {
   propertyFilter?: string | null;
+  /** WIK-94: si está set, restringe el reporte a esas property_ids. null
+   *  o undefined = sin restricción (admin / cron). Array vacío = nada. */
+  allowedPropertyIds?: string[] | null;
 }): Promise<string> {
   console.time("[consumo] total");
   const admin = createAdminClient();
@@ -74,9 +77,15 @@ export async function buildConsumptionReport(opts?: {
   const devices = allDevices.filter((d) => energyDeviceIds.has(d.id));
 
   const filter = opts?.propertyFilter?.trim().toLowerCase();
+  const scopeIds = opts?.allowedPropertyIds;
+  // 1. Aplicar scope si vino. 2. Después aplicar filter por nombre.
+  const afterScope =
+    scopeIds == null
+      ? properties
+      : properties.filter((p) => scopeIds.includes(p.id));
   const visible = filter
-    ? properties.filter((p) => p.name.toLowerCase().includes(filter))
-    : properties;
+    ? afterScope.filter((p) => p.name.toLowerCase().includes(filter))
+    : afterScope;
 
   if (visible.length === 0) {
     console.timeEnd("[consumo] total");
@@ -254,7 +263,10 @@ export async function buildConsumptionReport(opts?: {
 
   // Sensores T/H (WIK-82 F4) — min/max últimas 24h por property.
   // Reusa el `propertyFilter` (substring) si el caller filtró por property.
-  const sensorLines = await buildSensorSummary(opts?.propertyFilter ?? undefined);
+  const sensorLines = await buildSensorSummary(
+    opts?.propertyFilter ?? undefined,
+    opts?.allowedPropertyIds ?? null,
+  );
   if (sensorLines.length > 0) {
     for (const l of sensorLines) lines.push(l);
     lines.push("");

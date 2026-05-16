@@ -9,6 +9,8 @@ import {
   Users,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { requireProfile } from "@/lib/auth";
+import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import { PropertyThumb } from "@/components/property-thumb";
 import {
   Card,
@@ -49,54 +51,77 @@ const TASK_KIND_LABEL: Record<Task["kind"], string> = {
 };
 
 export default async function DashboardPage() {
+  // Scope por property (WIK-94): admin ve todo, gestor solo sus
+  // properties asignadas. Si gestor no tiene properties, todas las
+  // queries devuelven array vacío (el `.in("property_id", [])` filtra
+  // todo) — correcto, no debería ver nada.
+  const profile = await requireProfile();
+  const allowedIds = await getAllowedPropertyIds(profile);
+
   const supabase = await createClient();
   const today = new Date();
   const horizon = addDays(today, HORIZON_DAYS);
   const todayIso = today.toISOString().slice(0, 10);
 
+  // Build queries con el scope aplicado condicional.
+  let reservationsQuery = supabase
+    .from("reservations")
+    .select("*, property:properties(id, name)")
+    .or(
+      `and(check_in.gte.${todayIso},check_in.lte.${horizon.toISOString().slice(0, 10)}),and(check_out.gte.${todayIso},check_out.lte.${horizon.toISOString().slice(0, 10)})`,
+    )
+    .order("check_in", { ascending: true });
+  if (allowedIds !== null) {
+    reservationsQuery = reservationsQuery.in("property_id", allowedIds);
+  }
+
+  let tasksQuery = supabase
+    .from("tasks")
+    .select(
+      "*, property:properties(name), assignee:profiles!tasks_assigned_to_fkey(full_name, email)",
+    )
+    .in("status", ["pending", "in_progress"])
+    .or(`due_date.lte.${todayIso},due_date.is.null`)
+    .order("due_date", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (allowedIds !== null) {
+    tasksQuery = tasksQuery.in("property_id", allowedIds);
+  }
+
+  let insumosQuery = supabase
+    .from("tasks")
+    .select(
+      "*, property:properties(name), assignee:profiles!tasks_assigned_to_fkey(full_name, email)",
+    )
+    .eq("kind", "insumos")
+    .in("status", ["pending", "in_progress"])
+    .order("created_at", { ascending: false })
+    .limit(10);
+  if (allowedIds !== null) {
+    insumosQuery = insumosQuery.in("property_id", allowedIds);
+  }
+
+  let mantenimientoQuery = supabase
+    .from("tasks")
+    .select(
+      "*, property:properties(name), assignee:profiles!tasks_assigned_to_fkey(full_name, email)",
+    )
+    .eq("kind", "mantenimiento")
+    .in("status", ["pending", "in_progress"])
+    .order("created_at", { ascending: false })
+    .limit(10);
+  if (allowedIds !== null) {
+    mantenimientoQuery = mantenimientoQuery.in("property_id", allowedIds);
+  }
+
   const [reservationsRes, tasksRes, insumosRes, mantenimientoRes] =
     await Promise.all([
-    supabase
-      .from("reservations")
-      .select("*, property:properties(id, name)")
-      .or(
-        `and(check_in.gte.${todayIso},check_in.lte.${horizon.toISOString().slice(0, 10)}),and(check_out.gte.${todayIso},check_out.lte.${horizon.toISOString().slice(0, 10)})`,
-      )
-      .order("check_in", { ascending: true }),
-    // Open tasks (pending or in_progress) due today or earlier (overdue) —
-    // plus tasks with no due date so they stay visible.
-    supabase
-      .from("tasks")
-      .select(
-        "*, property:properties(name), assignee:profiles!tasks_assigned_to_fkey(full_name, email)",
-      )
-      .in("status", ["pending", "in_progress"])
-      .or(`due_date.lte.${todayIso},due_date.is.null`)
-      .order("due_date", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: false })
-      .limit(20),
-    // Insumos pendientes — separate widget so admins/gestores can see at a
-    // glance what supplies need to be bought across all properties.
-    supabase
-      .from("tasks")
-      .select(
-        "*, property:properties(name), assignee:profiles!tasks_assigned_to_fkey(full_name, email)",
-      )
-      .eq("kind", "insumos")
-      .in("status", ["pending", "in_progress"])
-      .order("created_at", { ascending: false })
-      .limit(10),
-    // Mantenimiento pendiente — same idea for repairs.
-    supabase
-      .from("tasks")
-      .select(
-        "*, property:properties(name), assignee:profiles!tasks_assigned_to_fkey(full_name, email)",
-      )
-      .eq("kind", "mantenimiento")
-      .in("status", ["pending", "in_progress"])
-      .order("created_at", { ascending: false })
-      .limit(10),
-  ]);
+      reservationsQuery,
+      tasksQuery,
+      insumosQuery,
+      mantenimientoQuery,
+    ]);
 
   const { data, error } = reservationsRes;
   const tasks = (tasksRes.data ?? []) as DashTask[];
