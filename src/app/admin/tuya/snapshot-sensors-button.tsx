@@ -46,7 +46,7 @@ export function SnapshotSensorsButton() {
         const inserted = results.filter((r) => r.inserted).length;
         const skipped = results.filter((r) => r.ok && !r.inserted).length;
         const failed = results.filter((r) => !r.ok).length;
-        const detail = results
+        const okDetail = results
           .filter((r) => r.reading)
           .map((r) => {
             const t = r.reading!.temperature_c;
@@ -54,8 +54,14 @@ export function SnapshotSensorsButton() {
             const tStr = t != null ? `${t.toFixed(1)}°C` : "—";
             const hStr = h != null ? `${h.toFixed(0)}%` : "—";
             return `${r.tuya_device_id.slice(-6)}: ${tStr} · ${hStr}`;
-          })
-          .join("\n");
+          });
+        const failedDetail = results
+          .filter((r) => !r.ok || (r.ok && !r.inserted))
+          .map(
+            (r) =>
+              `⚠ ${r.tuya_device_id.slice(-6)}: ${r.reason ?? "unknown"}`,
+          );
+        const detail = [...okDetail, ...failedDetail].join("\n");
         toast.success(
           `Capturado · ${inserted} insertados, ${skipped} omitidos, ${failed} errores`,
           detail ? { description: detail } : undefined,
