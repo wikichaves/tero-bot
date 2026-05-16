@@ -186,6 +186,30 @@ export const staffSupplyRequestReceived: WhatsAppTemplate = {
 };
 
 // ────────────────────────────────────────────────────────────────────────
+// 5. Alarma de sensor T/H (WIK-82). Notif admin/gestor cuando un sensor
+//    cruza un threshold. Necesita ser template porque las alarmas pueden
+//    dispararse en cualquier momento (fuera de la ventana 24h donde Meta
+//    permite mensaje libre).
+
+export const sensorAlarmFired: WhatsAppTemplate = {
+  name: "sensor_alarm_fired",
+  language: "es",
+  category: "UTILITY",
+  description:
+    "Notif al admin/gestor cuando un sensor Tuya cruza un umbral configurable (temperatura o humedad). Variables: 1=métrica (Temperatura/Humedad), 2=valor con unidad (ej. 81%), 3=ambiente (ej. Living · Casa Principal), 4=umbral con unidad (ej. > 80%).",
+  components: [
+    {
+      type: "BODY",
+      text: "🚨 Alarma de {{1}}\n\n*{{2}}* en *{{3}}*\nUmbral: {{4}}\n\nVer detalle: admin.example.com/ambientes",
+      example: {
+        body_text: [["humedad", "81%", "Living · Casa Principal", "> 80%"]],
+      },
+    },
+    { type: "FOOTER", text: "Acme Rentals · Sensores" },
+  ],
+};
+
+// ────────────────────────────────────────────────────────────────────────
 
 /** Full registry — useful for iterating in scripts or admin UI. */
 export const allTemplates: WhatsAppTemplate[] = [
@@ -193,4 +217,5 @@ export const allTemplates: WhatsAppTemplate[] = [
   guestCheckoutReminder,
   staffTaskAssigned,
   staffSupplyRequestReceived,
+  sensorAlarmFired,
 ];
