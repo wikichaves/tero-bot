@@ -29,13 +29,7 @@ import {
   type TuyaDevice,
 } from "@/lib/tuya/devices";
 import { listPropertyDeviceMap } from "@/lib/tuya/property-devices";
-import {
-  formatRate,
-  formatUsd,
-  getRatesToUsd,
-  toUsd,
-  type FxRate,
-} from "@/lib/fx";
+import { formatRate, getRatesToUsd, type FxRate } from "@/lib/fx";
 import {
   getConsumptionSince,
   maybeSnapshotIfStale,
@@ -60,6 +54,7 @@ import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import type { Property } from "@/lib/types";
 import { SnapshotButton } from "./snapshot-button";
 import { BackfillButton } from "./backfill-button";
+import { DeviceEnergyChart } from "./device-energy-chart";
 
 /**
  * Comparativa de una factura de luz contra el consumo medido por Tuya
@@ -86,6 +81,18 @@ const RANGES = {
 } as const;
 type RangeKey = keyof typeof RANGES;
 
+// WIK-99 F4: unidades del switch.
+//   - "kwh": muestra sólo el consumo en kWh (sin costos)
+//   - "UYU"/"ARS"/"USD": muestra costos en esa moneda (convertido vía FX)
+const UNITS = ["kwh", "UYU", "ARS", "USD"] as const;
+type UnitKey = (typeof UNITS)[number];
+const UNIT_LABELS: Record<UnitKey, string> = {
+  kwh: "kWh",
+  UYU: "UYU",
+  ARS: "ARS",
+  USD: "USD",
+};
+
 type PropertySummary = Pick<
   Property,
   "id" | "name" | "currency" | "tariff_per_kwh" | "sort_order"
@@ -110,6 +117,8 @@ type DeviceWithContext = {
   /** ISO timestamp of the first snapshot found within the range, if any.
    *  Used to detect partial history. */
   rangeFirstSnapshotIso: string | null;
+  /** Snapshots ordenados por timestamp para alimentar el mini-chart. */
+  rangeSnapshots: Array<{ ts: number; power_w: number | null }>;
   /** Facturas de luz con período + kWh facturado para la propiedad del
    *  device, comparadas contra el consumo Tuya en el mismo período. (WIK-75) */
   billComparisons: BillComparison[];
@@ -118,12 +127,19 @@ type DeviceWithContext = {
 export default async function EnergyPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ range?: string; unit?: string }>;
 }) {
   const defaultTariff = getDefaultTariff();
   const sp = await searchParams;
   const range: RangeKey =
     sp.range === "7d" || sp.range === "30d" ? sp.range : "24h";
+  const unit: UnitKey =
+    sp.unit === "kwh" ||
+    sp.unit === "UYU" ||
+    sp.unit === "ARS" ||
+    sp.unit === "USD"
+      ? sp.unit
+      : "UYU"; // default a la moneda local más común
   const rangeSinceIso = new Date(
     Date.now() - RANGES[range].hours * 60 * 60 * 1000,
   ).toISOString();
@@ -141,7 +157,7 @@ export default async function EnergyPage({
   if ("error" in flatRes) {
     return (
       <div className="flex flex-col gap-6">
-        <Header range={range} />
+        <Header range={range} unit={unit} />
         <Card>
           <CardContent className="pt-6 text-sm text-destructive">
             No se pudo hablar con Tuya: {flatRes.error}
@@ -202,6 +218,39 @@ export default async function EnergyPage({
     billsByProperty.set(b.property_id, list);
   }
   const admin = createAdminClient();
+
+  // Snapshots de todos los devices energéticos dentro del rango — única
+  // query, agrupamos in-memory por property_device_id. Limit explícito
+  // (mismo bug que /ambientes: el default de Supabase es 1000 y para
+  // 30d × varios devices ya nos pasamos).
+  const energyPropertyDeviceIds = energyDevices
+    .map((d) => deviceMap.get(d.id)?.id)
+    .filter((id): id is string => typeof id === "string");
+  const snapshotsByDeviceMap = new Map<
+    string,
+    Array<{ ts: number; power_w: number | null }>
+  >();
+  if (energyPropertyDeviceIds.length > 0) {
+    const { data: rangeSnaps } = await admin
+      .from("energy_snapshots")
+      .select("property_device_id, taken_at, power_w")
+      .in("property_device_id", energyPropertyDeviceIds)
+      .gte("taken_at", rangeSinceIso)
+      .order("taken_at", { ascending: true })
+      .limit(100_000);
+    for (const s of (rangeSnaps ?? []) as Array<{
+      property_device_id: string;
+      taken_at: string;
+      power_w: number | null;
+    }>) {
+      const list = snapshotsByDeviceMap.get(s.property_device_id) ?? [];
+      list.push({
+        ts: new Date(s.taken_at).getTime(),
+        power_w: s.power_w,
+      });
+      snapshotsByDeviceMap.set(s.property_device_id, list);
+    }
+  }
 
   const todayIso = startOfTodayIso();
 
@@ -288,6 +337,9 @@ export default async function EnergyPage({
         todayKwh,
         rangeKwh,
         rangeFirstSnapshotIso,
+        rangeSnapshots: assignment?.id
+          ? (snapshotsByDeviceMap.get(assignment.id) ?? [])
+          : [],
         billComparisons,
       };
     }),
@@ -304,15 +356,21 @@ export default async function EnergyPage({
     return (a.device.name ?? "").localeCompare(b.device.name ?? "");
   });
 
-  // Fetch USD exchange rates for all distinct currencies in parallel.
-  const distinctCurrencies = new Set(
-    devicesWithContext.map((d) => d.currency),
-  );
+  // Fetch USD exchange rates. Incluimos UYU+ARS+USD siempre (no sólo
+  // las monedas de properties) — el switch de unidad permite ver
+  // costos en cualquiera de las tres, independiente de cuál sea la
+  // moneda local de cada device.
+  const distinctCurrencies = new Set([
+    ...devicesWithContext.map((d) => d.currency),
+    "UYU",
+    "ARS",
+    "USD",
+  ]);
   const fxRates = await getRatesToUsd(distinctCurrencies);
 
   return (
     <div className="flex flex-col gap-6">
-      <Header range={range} />
+      <Header range={range} unit={unit} />
 
       {devicesWithContext.length === 0 ? (
         <Card>
@@ -336,7 +394,9 @@ export default async function EnergyPage({
               key={d.device.id}
               ctx={d}
               fx={fxRates.get(d.currency)}
+              fxRates={fxRates}
               range={range}
+              unit={unit}
             />
           ))}
 
@@ -347,7 +407,16 @@ export default async function EnergyPage({
   );
 }
 
-function Header({ range }: { range: RangeKey }) {
+function Header({ range, unit }: { range: RangeKey; unit: UnitKey }) {
+  // Helper para construir el href manteniendo el otro searchParam intacto.
+  function hrefWith(nextRange: RangeKey, nextUnit: UnitKey): string {
+    const params = new URLSearchParams();
+    if (nextRange !== "24h") params.set("range", nextRange);
+    if (nextUnit !== "UYU") params.set("unit", nextUnit);
+    const q = params.toString();
+    return q ? `/energy?${q}` : "/energy";
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -372,12 +441,21 @@ function Header({ range }: { range: RangeKey }) {
       </div>
       <div className="flex flex-wrap gap-2">
         {(Object.keys(RANGES) as RangeKey[]).map((r) => (
-          <Link key={r} href={r === "24h" ? "/energy" : `/energy?range=${r}`}>
+          <Link key={r} href={hrefWith(r, unit)}>
+            <Button variant={range === r ? "default" : "outline"} size="sm">
+              {RANGES[r].label}
+            </Button>
+          </Link>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {UNITS.map((u) => (
+          <Link key={u} href={hrefWith(range, u)}>
             <Button
-              variant={range === r ? "default" : "outline"}
+              variant={unit === u ? "default" : "outline"}
               size="sm"
             >
-              {RANGES[r].label}
+              {UNIT_LABELS[u]}
             </Button>
           </Link>
         ))}
@@ -424,12 +502,34 @@ function FxFooter({ rates }: { rates: Map<string, FxRate> }) {
 function DeviceEnergyCard({
   ctx,
   fx,
+  fxRates,
   range,
+  unit,
 }: {
   ctx: DeviceWithContext;
   fx: FxRate | undefined;
+  fxRates: Map<string, FxRate>;
   range: RangeKey;
+  unit: UnitKey;
 }) {
+  /**
+   * Convierte un monto en `fromCurrency` a la unidad seleccionada. Si
+   * `unit === "kwh"` retorna null (los costos no se muestran en modo kWh).
+   * Pasa por USD como bridge: local → USD → target.
+   */
+  function formatInUnit(
+    localAmount: number | null,
+    fromCurrency: string,
+  ): string | null {
+    if (localAmount == null) return null;
+    if (unit === "kwh") return null;
+    const fromFx = fxRates.get(fromCurrency.toUpperCase());
+    const toFx = fxRates.get(unit);
+    if (!fromFx || !toFx) return null;
+    const usd = localAmount / fromFx.per_usd;
+    const target = usd * toFx.per_usd;
+    return formatMoney(target, unit);
+  }
   const {
     device,
     homeName,
@@ -441,6 +541,7 @@ function DeviceEnergyCard({
     todayKwh,
     rangeKwh,
     rangeFirstSnapshotIso,
+    rangeSnapshots,
     billComparisons,
   } = ctx;
 
@@ -463,17 +564,6 @@ function DeviceEnergyCard({
         tariff_per_kwh: tariff,
         currency,
       };
-
-  function moneyHint(amount: number | null, suffix?: string) {
-    const usd = toUsd(amount, fx);
-    if (usd == null) return suffix;
-    return (
-      <>
-        ≈ {formatUsd(usd)}
-        {suffix && <span className="block">{suffix}</span>}
-      </>
-    );
-  }
 
   return (
     <Card>
@@ -534,6 +624,24 @@ function DeviceEnergyCard({
           <p className="text-sm text-muted-foreground">
             Tuya no devolvió datos de potencia/energía para este device.
           </p>
+        ) : unit === "kwh" ? (
+          // Modo kWh: ocultamos los stats de costo y mostramos sólo las
+          // métricas energéticas crudas.
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Stat
+              label="Potencia"
+              value={formatPower(reading.power_w)}
+              hint={
+                reading.voltage_v != null && reading.current_a != null
+                  ? `${formatNumeric(reading.voltage_v, "V", 0)} · ${formatNumeric(reading.current_a, "A", 1)}`
+                  : undefined
+              }
+            />
+            <Stat
+              label="Acumulado total"
+              value={formatKwh(reading.total_energy_kwh)}
+            />
+          </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
             <Stat
@@ -546,32 +654,32 @@ function DeviceEnergyCard({
               }
             />
             <Stat
-              label="Costo / hora"
-              value={formatMoney(cost.hourly_cost_at_current, currency)}
-              hint={moneyHint(cost.hourly_cost_at_current)}
+              label={`Costo / hora · ${unit}`}
+              value={
+                formatInUnit(cost.hourly_cost_at_current, currency) ?? "—"
+              }
             />
             <Stat
-              label="Proyección 24 h"
-              value={formatMoney(cost.daily_cost_at_current, currency)}
-              hint={moneyHint(
-                cost.daily_cost_at_current,
-                "si se mantiene este consumo",
-              )}
+              label={`Proyección 24 h · ${unit}`}
+              value={
+                formatInUnit(cost.daily_cost_at_current, currency) ?? "—"
+              }
+              hint="si se mantiene este consumo"
             />
             <Stat
               label="Acumulado total"
               value={formatKwh(reading.total_energy_kwh)}
-              hint={
-                <>
-                  {formatMoney(cost.total_cost, currency)}
-                  {fx && cost.total_cost != null && (
-                    <span className="block opacity-70">
-                      ≈ {formatUsd(toUsd(cost.total_cost, fx))}
-                    </span>
-                  )}
-                </>
-              }
+              hint={formatInUnit(cost.total_cost, currency) ?? undefined}
             />
+          </div>
+        )}
+
+        {rangeSnapshots.length >= 2 && (
+          <div className="mt-6 border-t pt-4">
+            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Potencia · {RANGES[range].label}
+            </p>
+            <DeviceEnergyChart data={rangeSnapshots} />
           </div>
         )}
 
@@ -581,20 +689,8 @@ function DeviceEnergyCard({
               label="Consumo hoy"
               value={formatKwh(todayKwh)}
               hint={
-                todayKwh != null
-                  ? (() => {
-                      const localCost = todayKwh * tariff;
-                      return (
-                        <>
-                          {formatMoney(localCost, currency)}
-                          {fx && (
-                            <span className="block opacity-70">
-                              ≈ {formatUsd(toUsd(localCost, fx))}
-                            </span>
-                          )}
-                        </>
-                      );
-                    })()
+                todayKwh != null && unit !== "kwh"
+                  ? (formatInUnit(todayKwh * tariff, currency) ?? undefined)
                   : undefined
               }
             />
@@ -602,20 +698,8 @@ function DeviceEnergyCard({
               label={`Consumo últim${RANGES[range].shortLabel === "24h" ? "as" : "os"} ${RANGES[range].label}`}
               value={formatKwh(rangeKwh)}
               hint={
-                rangeKwh != null
-                  ? (() => {
-                      const localCost = rangeKwh * tariff;
-                      return (
-                        <>
-                          {formatMoney(localCost, currency)}
-                          {fx && (
-                            <span className="block opacity-70">
-                              ≈ {formatUsd(toUsd(localCost, fx))}
-                            </span>
-                          )}
-                        </>
-                      );
-                    })()
+                rangeKwh != null && unit !== "kwh"
+                  ? (formatInUnit(rangeKwh * tariff, currency) ?? undefined)
                   : undefined
               }
             />
