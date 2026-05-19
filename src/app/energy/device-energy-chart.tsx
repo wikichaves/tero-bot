@@ -12,42 +12,127 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { formatMoney } from "@/lib/format";
+import type { FxRate } from "@/lib/fx";
 
 /**
- * Histórico de potencia (W) de un device dentro del rango seleccionado.
+ * Histórico del device (WIK-99 v6) — métrica seleccionable + línea de
+ * gasto en moneda elegida.
  *
- * Diseño igual al chart de /ambientes/[id]:
- *   - Eje X = tiempo, dominio fijo al rango (24h/7d/30d) — los huecos
- *     de data se ven como franja vacía en vez de "saltar".
- *   - Eje Y izquierdo en W con padding visual ±10W.
- *   - connectNulls=false: la curva se corta donde el device estuvo
- *     offline en vez de pretender continuidad.
+ *   - Línea principal (sólida, naranja): corriente (A) o consumo
+ *     por hora (kWh/h), según el toggle del card.
+ *   - Línea secundaria (punteada, azul): gasto por hora en la moneda
+ *     elegida (USD o local). Comparable visualmente con humedad en
+ *     /ambientes — mismo styling dashed.
+ *
+ * Eje X = tiempo, dominio fijo al rango seleccionado para que los
+ * huecos de data se vean como franja vacía y no como "salto".
  */
 
-type Point = { ts: number; power_w: number | null };
+export type ChartMetric = "amperes" | "kwh";
+
+type Point = {
+  ts: number;
+  power_w: number | null;
+  current_a: number | null;
+  total_energy_kwh: number | null;
+};
 
 export function DeviceEnergyChart({
   data,
+  metric,
   windowStartMs,
   windowEndMs,
+  tariff,
+  localCurrency,
+  displayCurrency,
+  fxRates,
 }: {
   data: Point[];
+  metric: ChartMetric;
   windowStartMs: number;
   windowEndMs: number;
+  tariff: number;
+  localCurrency: string;
+  displayCurrency: string;
+  fxRates: Map<string, FxRate>;
 }) {
-  // Anchors en los extremos para forzar el eje X completo aunque la
-  // data esté incompleta.
+  // Convierte un valor en `localCurrency` a `displayCurrency` via USD.
+  // Memoizado afuera del useMemo de chartData para evitar churn.
+  const convertCost = useMemo(() => {
+    const fromFx = fxRates.get(localCurrency.toUpperCase());
+    const toFx = fxRates.get(displayCurrency.toUpperCase());
+    if (!fromFx || !toFx) return null;
+    const factor = toFx.per_usd / fromFx.per_usd;
+    return (amount: number): number => amount * factor;
+  }, [fxRates, localCurrency, displayCurrency]);
+
+  // Computar datos derivados para el chart:
+  //   - `metricValue`: corriente (A) o consumo por hora (kWh delta).
+  //   - `cost`: gasto por hora en la moneda mostrada.
+  //
+  // El kWh por hora se calcula como delta entre snapshots consecutivos
+  // (no es total_energy_kwh, que es acumulado). Anchor al inicio y fin
+  // del rango con nulls para forzar eje X completo.
   const chartData = useMemo(() => {
-    const byTs = new Map<number, { ts: number; power_w: number | null }>();
-    byTs.set(windowStartMs, { ts: windowStartMs, power_w: null });
-    if (!byTs.has(windowEndMs)) {
-      byTs.set(windowEndMs, { ts: windowEndMs, power_w: null });
+    const sorted = data
+      .slice()
+      .sort((a, b) => a.ts - b.ts);
+
+    type Row = {
+      ts: number;
+      metricValue: number | null;
+      cost: number | null;
+    };
+    const rows: Row[] = [];
+
+    // Anchor inicial.
+    rows.push({ ts: windowStartMs, metricValue: null, cost: null });
+
+    for (let i = 0; i < sorted.length; i++) {
+      const p = sorted[i];
+      let metricValue: number | null = null;
+      let costLocal: number | null = null;
+
+      if (metric === "amperes") {
+        metricValue = p.current_a;
+        // Costo horario al consumo actual = (W → kW) × tariff.
+        if (p.power_w != null) {
+          costLocal = (p.power_w / 1000) * tariff;
+        }
+      } else {
+        // kWh por hora = delta con snapshot anterior, normalizado por
+        // las horas transcurridas. Si no hay anterior o el delta es
+        // negativo (reset del medidor), dejar null.
+        const prev = sorted[i - 1];
+        if (
+          prev &&
+          p.total_energy_kwh != null &&
+          prev.total_energy_kwh != null
+        ) {
+          const deltaKwh = p.total_energy_kwh - prev.total_energy_kwh;
+          const deltaHours = (p.ts - prev.ts) / (60 * 60 * 1000);
+          if (deltaKwh >= 0 && deltaHours > 0) {
+            metricValue = deltaKwh / deltaHours; // kWh/h
+            costLocal = (deltaKwh / deltaHours) * tariff;
+          }
+        }
+      }
+
+      const cost =
+        costLocal != null && convertCost ? convertCost(costLocal) : null;
+      rows.push({ ts: p.ts, metricValue, cost });
     }
-    for (const p of data) {
-      byTs.set(p.ts, { ts: p.ts, power_w: p.power_w });
+
+    // Anchor final.
+    if (rows[rows.length - 1].ts !== windowEndMs) {
+      rows.push({ ts: windowEndMs, metricValue: null, cost: null });
     }
-    return Array.from(byTs.values()).sort((a, b) => a.ts - b.ts);
-  }, [data, windowStartMs, windowEndMs]);
+    return rows;
+  }, [data, metric, windowStartMs, windowEndMs, tariff, convertCost]);
+
+  const metricUnit = metric === "amperes" ? "A" : "kWh/h";
+  const metricLabel = metric === "amperes" ? "Corriente" : "Consumo";
 
   return (
     <div style={{ width: "100%", height: 200, minHeight: 200 }}>
@@ -72,16 +157,36 @@ export function DeviceEnergyChart({
             }
             minTickGap={60}
           />
+          {/* Eje izquierdo: métrica (A o kWh/h) */}
           <YAxis
+            yAxisId="metric"
+            orientation="left"
             tick={{ fontSize: 11 }}
-            tickFormatter={(v) => `${v}W`}
-            // Padding dinámico ±10W de los extremos.
+            tickFormatter={(v) => `${v}${metricUnit === "A" ? "A" : ""}`}
             domain={[
               (dataMin: number) =>
-                Math.max(0, Math.floor((dataMin ?? 0) - 10)),
-              (dataMax: number) => Math.ceil((dataMax ?? 0) + 10),
+                Math.max(0, Number(((dataMin ?? 0) * 0.9).toFixed(1))),
+              (dataMax: number) =>
+                Number(((dataMax ?? 0) * 1.1).toFixed(1)),
             ]}
-            allowDecimals={false}
+            allowDecimals={metric === "kwh"}
+            width={48}
+          />
+          {/* Eje derecho: costo */}
+          <YAxis
+            yAxisId="cost"
+            orientation="right"
+            tick={{ fontSize: 11 }}
+            tickFormatter={(v) =>
+              `${displayCurrency === "USD" ? "$" : ""}${v}`
+            }
+            domain={[
+              (dataMin: number) =>
+                Math.max(0, Number(((dataMin ?? 0) * 0.9).toFixed(2))),
+              (dataMax: number) =>
+                Number(((dataMax ?? 0) * 1.1).toFixed(2)),
+            ]}
+            allowDecimals
             width={52}
           />
           <Tooltip
@@ -96,16 +201,36 @@ export function DeviceEnergyChart({
                 locale: es,
               })
             }
-            formatter={(value) => [
-              `${(value as number).toFixed(0)} W`,
-              "Potencia",
-            ]}
+            formatter={(value, name) => {
+              const v = value as number;
+              if (name === "Costo") {
+                return [formatMoney(v, displayCurrency), name];
+              }
+              if (metricUnit === "A") {
+                return [`${v.toFixed(2)} A`, metricLabel];
+              }
+              return [`${v.toFixed(3)} kWh/h`, metricLabel];
+            }}
           />
           <Line
+            yAxisId="metric"
             type="monotone"
-            dataKey="power_w"
+            dataKey="metricValue"
+            name={metricLabel}
             stroke="oklch(0.7 0.22 45)"
             strokeWidth={2.5}
+            dot={false}
+            connectNulls={false}
+            isAnimationActive={false}
+          />
+          <Line
+            yAxisId="cost"
+            type="monotone"
+            dataKey="cost"
+            name="Costo"
+            stroke="oklch(0.62 0.22 245)"
+            strokeWidth={2.5}
+            strokeDasharray="5 3"
             dot={false}
             connectNulls={false}
             isAnimationActive={false}

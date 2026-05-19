@@ -54,22 +54,11 @@ import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import type { Property } from "@/lib/types";
 import { SnapshotButton } from "./snapshot-button";
 import { BackfillButton } from "./backfill-button";
-import { DeviceEnergyChart } from "./device-energy-chart";
+import { DeviceEnergyCard } from "./device-energy-card";
+import type { BillComparison } from "./bill-comparisons-table";
 
-/**
- * Comparativa de una factura de luz contra el consumo medido por Tuya
- * en el mismo período. Se renderiza dentro del DeviceEnergyCard cuando
- * el device está asignado a una propiedad que tiene facturas con
- * período + kWh facturado. (WIK-75 — antes esto vivía como columna en
- * /facturas, pero la mayoría de las filas no aplicaba.)
- */
-type BillComparison = {
-  bill: BillRowDerived;
-  tuyaKwh: number;
-  deltaPct: number;
-  level: DeltaLevel;
-  coverageFraction: number;
-};
+// El tipo `BillComparison` ahora vive en `bill-comparisons-table.tsx`
+// junto con el componente que lo consume — se importa arriba.
 
 export const dynamic = "force-dynamic";
 
@@ -81,20 +70,9 @@ const RANGES = {
 } as const;
 type RangeKey = keyof typeof RANGES;
 
-// WIK-99 F4: unidades del switch.
-//   - "kwh": muestra sólo el consumo en kWh (sin costos)
-//   - "UYU"/"ARS"/"USD": muestra costos en esa moneda (convertido vía FX)
-// Orden visual del switch (de izquierda a derecha): kWh primero (default,
-// muestra solo el consumo crudo sin costos), después USD como segunda
-// referencia comparable globalmente, luego UYU y ARS locales.
-const UNITS = ["kwh", "USD", "UYU", "ARS"] as const;
-type UnitKey = (typeof UNITS)[number];
-const UNIT_LABELS: Record<UnitKey, string> = {
-  kwh: "kWh",
-  USD: "USD",
-  UYU: "UYU",
-  ARS: "ARS",
-};
+// El switch de moneda ahora vive POR CARD (cada device tiene su currency
+// según property). El de métrica (Amperes/kWh) también es per-card. Acá
+// arriba sólo queda el toggle de rango (24h/7d/30d).
 
 type PropertySummary = Pick<
   Property,
@@ -120,29 +98,29 @@ type DeviceWithContext = {
   /** ISO timestamp of the first snapshot found within the range, if any.
    *  Used to detect partial history. */
   rangeFirstSnapshotIso: string | null;
-  /** Snapshots ordenados por timestamp para alimentar el mini-chart. */
-  rangeSnapshots: Array<{ ts: number; power_w: number | null }>;
+  /** Snapshots ordenados por timestamp para alimentar el chart. */
+  rangeSnapshots: Array<{
+    ts: number;
+    power_w: number | null;
+    current_a: number | null;
+    total_energy_kwh: number | null;
+  }>;
   /** Facturas de luz con período + kWh facturado para la propiedad del
    *  device, comparadas contra el consumo Tuya en el mismo período. (WIK-75) */
   billComparisons: BillComparison[];
+  /** True si la property no tiene tariff configurada y usamos el default. */
+  isDefaultTariff: boolean;
 };
 
 export default async function EnergyPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; unit?: string }>;
+  searchParams: Promise<{ range?: string }>;
 }) {
   const defaultTariff = getDefaultTariff();
   const sp = await searchParams;
   const range: RangeKey =
     sp.range === "7d" || sp.range === "30d" ? sp.range : "24h";
-  const unit: UnitKey =
-    sp.unit === "kwh" ||
-    sp.unit === "UYU" ||
-    sp.unit === "ARS" ||
-    sp.unit === "USD"
-      ? sp.unit
-      : "kwh"; // default: consumo crudo en kWh, sin conversión a moneda
   const rangeSinceIso = new Date(
     Date.now() - RANGES[range].hours * 60 * 60 * 1000,
   ).toISOString();
@@ -160,7 +138,7 @@ export default async function EnergyPage({
   if ("error" in flatRes) {
     return (
       <div className="flex flex-col gap-6">
-        <Header range={range} unit={unit} />
+        <Header range={range} />
         <Card>
           <CardContent className="pt-6 text-sm text-destructive">
             No se pudo hablar con Tuya: {flatRes.error}
@@ -231,12 +209,19 @@ export default async function EnergyPage({
     .filter((id): id is string => typeof id === "string");
   const snapshotsByDeviceMap = new Map<
     string,
-    Array<{ ts: number; power_w: number | null }>
+    Array<{
+      ts: number;
+      power_w: number | null;
+      current_a: number | null;
+      total_energy_kwh: number | null;
+    }>
   >();
   if (energyPropertyDeviceIds.length > 0) {
     const { data: rangeSnaps } = await admin
       .from("energy_snapshots")
-      .select("property_device_id, taken_at, power_w")
+      .select(
+        "property_device_id, taken_at, power_w, current_a, total_energy_kwh",
+      )
       .in("property_device_id", energyPropertyDeviceIds)
       .gte("taken_at", rangeSinceIso)
       .order("taken_at", { ascending: true })
@@ -245,11 +230,15 @@ export default async function EnergyPage({
       property_device_id: string;
       taken_at: string;
       power_w: number | null;
+      current_a: number | null;
+      total_energy_kwh: number | null;
     }>) {
       const list = snapshotsByDeviceMap.get(s.property_device_id) ?? [];
       list.push({
         ts: new Date(s.taken_at).getTime(),
         power_w: s.power_w,
+        current_a: s.current_a,
+        total_energy_kwh: s.total_energy_kwh,
       });
       snapshotsByDeviceMap.set(s.property_device_id, list);
     }
@@ -344,6 +333,8 @@ export default async function EnergyPage({
           ? (snapshotsByDeviceMap.get(assignment.id) ?? [])
           : [],
         billComparisons,
+        isDefaultTariff:
+          !property?.tariff_per_kwh || property.tariff_per_kwh <= 0,
       };
     }),
   );
@@ -373,7 +364,7 @@ export default async function EnergyPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <Header range={range} unit={unit} />
+      <Header range={range} />
 
       {devicesWithContext.length === 0 ? (
         <Card>
@@ -396,10 +387,10 @@ export default async function EnergyPage({
             <DeviceEnergyCard
               key={d.device.id}
               ctx={d}
-              fx={fxRates.get(d.currency)}
               fxRates={fxRates}
-              range={range}
-              unit={unit}
+              rangeMs={RANGES[range].hours * 60 * 60 * 1000}
+              rangeLabel={RANGES[range].label}
+              rangeShortLabel={RANGES[range].shortLabel}
             />
           ))}
 
@@ -410,16 +401,7 @@ export default async function EnergyPage({
   );
 }
 
-function Header({ range, unit }: { range: RangeKey; unit: UnitKey }) {
-  // Helper para construir el href manteniendo el otro searchParam intacto.
-  function hrefWith(nextRange: RangeKey, nextUnit: UnitKey): string {
-    const params = new URLSearchParams();
-    if (nextRange !== "24h") params.set("range", nextRange);
-    if (nextUnit !== "kwh") params.set("unit", nextUnit);
-    const q = params.toString();
-    return q ? `/energy?${q}` : "/energy";
-  }
-
+function Header({ range }: { range: RangeKey }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -442,37 +424,20 @@ function Header({ range, unit }: { range: RangeKey; unit: UnitKey }) {
           <BackfillButton />
         </div>
       </div>
-      {/*
-        Toggles unificados en una sola fila (rango + unidad), separados
-        por un divider sutil. Antes eran dos rows separadas y daban
-        sensación de desbalance vs /ambientes que tiene sólo una.
-      */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap gap-2">
-          {(Object.keys(RANGES) as RangeKey[]).map((r) => (
-            <Link key={r} href={hrefWith(r, unit)}>
-              <Button
-                variant={range === r ? "default" : "outline"}
-                size="sm"
-              >
-                {RANGES[r].label}
-              </Button>
-            </Link>
-          ))}
-        </div>
-        <div className="h-5 w-px bg-border" aria-hidden />
-        <div className="flex flex-wrap gap-2">
-          {UNITS.map((u) => (
-            <Link key={u} href={hrefWith(range, u)}>
-              <Button
-                variant={unit === u ? "default" : "outline"}
-                size="sm"
-              >
-                {UNIT_LABELS[u]}
-              </Button>
-            </Link>
-          ))}
-        </div>
+      <div className="flex flex-wrap gap-2">
+        {(Object.keys(RANGES) as RangeKey[]).map((r) => (
+          <Link
+            key={r}
+            href={r === "24h" ? "/energy" : `/energy?range=${r}`}
+          >
+            <Button
+              variant={range === r ? "default" : "outline"}
+              size="sm"
+            >
+              {RANGES[r].label}
+            </Button>
+          </Link>
+        ))}
       </div>
     </div>
   );
@@ -511,399 +476,4 @@ function FxFooter({ rates }: { rates: Map<string, FxRate> }) {
       </em>
     </p>
   );
-}
-
-function DeviceEnergyCard({
-  ctx,
-  fx,
-  fxRates,
-  range,
-  unit,
-}: {
-  ctx: DeviceWithContext;
-  fx: FxRate | undefined;
-  fxRates: Map<string, FxRate>;
-  range: RangeKey;
-  unit: UnitKey;
-}) {
-  /**
-   * Convierte un monto en `fromCurrency` a la unidad seleccionada. Si
-   * `unit === "kwh"` retorna null (los costos no se muestran en modo kWh).
-   * Pasa por USD como bridge: local → USD → target.
-   */
-  function formatInUnit(
-    localAmount: number | null,
-    fromCurrency: string,
-  ): string | null {
-    if (localAmount == null) return null;
-    if (unit === "kwh") return null;
-    const fromFx = fxRates.get(fromCurrency.toUpperCase());
-    const toFx = fxRates.get(unit);
-    if (!fromFx || !toFx) return null;
-    const usd = localAmount / fromFx.per_usd;
-    const target = usd * toFx.per_usd;
-    return formatMoney(target, unit);
-  }
-  const {
-    device,
-    homeName,
-    property,
-    reading,
-    readError,
-    tariff,
-    currency,
-    todayKwh,
-    rangeKwh,
-    rangeFirstSnapshotIso,
-    rangeSnapshots,
-    billComparisons,
-  } = ctx;
-
-  // Histórico parcial: threshold proporcional (10% del rango). Para 24h
-  // pita si faltan >2.4h, para 7d si faltan >17h, para 30d si faltan
-  // >3d. Threshold mínimo de 1h para que no pite por gaps insignificantes.
-  const rangeMs = RANGES[range].hours * 60 * 60 * 1000;
-  const rangeStartTs = Date.now() - rangeMs;
-  const HISTORICAL_GAP_THRESHOLD_MS = Math.max(
-    60 * 60 * 1000,
-    rangeMs * 0.1,
-  );
-  const hasIncompleteHistory =
-    rangeFirstSnapshotIso != null &&
-    new Date(rangeFirstSnapshotIso).getTime() - rangeStartTs >
-      HISTORICAL_GAP_THRESHOLD_MS;
-  const cost = reading
-    ? estimateCost(reading, tariff, currency)
-    : {
-        total_cost: null,
-        daily_cost_at_current: null,
-        hourly_cost_at_current: null,
-        tariff_per_kwh: tariff,
-        currency,
-      };
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <CardTitle className="flex items-center gap-2">
-              {device.name}
-              <Badge variant={device.online ? "default" : "secondary"}>
-                {device.online ? "online" : "offline"}
-              </Badge>
-            </CardTitle>
-            <CardDescription>
-              {homeName && (
-                <>
-                  Home: <strong>{homeName}</strong>
-                </>
-              )}
-              {homeName && property && " · "}
-              {property && (
-                <>
-                  Propiedad: <strong>{property.name}</strong>
-                </>
-              )}
-              {!homeName && !property && (
-                <span className="text-muted-foreground">Sin asignar</span>
-              )}
-            </CardDescription>
-          </div>
-          <p className="text-xs text-muted-foreground text-right">
-            Tarifa:
-            <br />
-            <span className="font-mono">
-              {formatRate(tariff, 2)} {currency}/kWh
-            </span>
-            {(!property?.tariff_per_kwh || property.tariff_per_kwh <= 0) && (
-              <>
-                <br />
-                <span className="text-amber-700 dark:text-amber-300">
-                  (default)
-                </span>
-              </>
-            )}
-          </p>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {/* Stats en vivo: sólo cuando el device está online con lectura.
-            Si está offline o no hay reading, ocultamos este bloque pero
-            seguimos mostrando histórico abajo. */}
-        {readError ? (
-          <p className="text-sm text-destructive">
-            No se pudo leer el estado en vivo: {readError}
-          </p>
-        ) : !device.online ? (
-          <p className="text-sm text-muted-foreground">
-            🔌 Device offline — sin lectura en vivo. Los datos históricos
-            siguen abajo.
-          </p>
-        ) : !reading ||
-          (reading.power_w == null && reading.total_energy_kwh == null) ? (
-          <p className="text-sm text-muted-foreground">
-            Tuya no devolvió datos de potencia/energía en vivo.
-          </p>
-        ) : unit === "kwh" ? (
-          // Modo kWh: ocultamos los stats de costo y mostramos sólo las
-          // métricas energéticas crudas.
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Stat
-              label="Potencia"
-              value={formatPower(reading.power_w)}
-              hint={
-                reading.voltage_v != null && reading.current_a != null
-                  ? `${formatNumeric(reading.voltage_v, "V", 0)} · ${formatNumeric(reading.current_a, "A", 1)}`
-                  : undefined
-              }
-            />
-            <Stat
-              label="Acumulado total"
-              value={formatKwh(reading.total_energy_kwh)}
-            />
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-            <Stat
-              label="Potencia"
-              value={formatPower(reading.power_w)}
-              hint={
-                reading.voltage_v != null && reading.current_a != null
-                  ? `${formatNumeric(reading.voltage_v, "V", 0)} · ${formatNumeric(reading.current_a, "A", 1)}`
-                  : undefined
-              }
-            />
-            <Stat
-              label={`Costo / hora · ${unit}`}
-              value={
-                formatInUnit(cost.hourly_cost_at_current, currency) ?? "—"
-              }
-            />
-            <Stat
-              label={`Proyección 24 h · ${unit}`}
-              value={
-                formatInUnit(cost.daily_cost_at_current, currency) ?? "—"
-              }
-              hint="si se mantiene este consumo"
-            />
-            <Stat
-              label="Acumulado total"
-              value={formatKwh(reading.total_energy_kwh)}
-              hint={formatInUnit(cost.total_cost, currency) ?? undefined}
-            />
-          </div>
-        )}
-
-        {/* Chart histórico — independiente del estado online del device.
-            Si la llave está offline ahora pero capturamos snapshots
-            mientras estaba conectada, los seguimos mostrando. La parte
-            del rango sin data queda como franja vacía (eje X fijo). */}
-        {rangeSnapshots.length >= 1 && (
-          <div className="mt-6 border-t pt-4">
-            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Potencia · {RANGES[range].label}
-            </p>
-            <DeviceEnergyChart
-              data={rangeSnapshots}
-              windowStartMs={rangeStartTs}
-              windowEndMs={Date.now()}
-            />
-          </div>
-        )}
-
-        {(todayKwh != null || rangeKwh != null) && (
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 border-t pt-4">
-            <Stat
-              label="Consumo hoy"
-              value={formatKwh(todayKwh)}
-              hint={
-                todayKwh != null && unit !== "kwh"
-                  ? (formatInUnit(todayKwh * tariff, currency) ?? undefined)
-                  : undefined
-              }
-            />
-            <Stat
-              label={`Consumo últim${RANGES[range].shortLabel === "24h" ? "as" : "os"} ${RANGES[range].label}`}
-              value={formatKwh(rangeKwh)}
-              hint={
-                rangeKwh != null && unit !== "kwh"
-                  ? (formatInUnit(rangeKwh * tariff, currency) ?? undefined)
-                  : undefined
-              }
-            />
-          </div>
-        )}
-
-        {hasIncompleteHistory && rangeFirstSnapshotIso && (
-          <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">
-            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <div>
-              <p className="font-medium">Histórico parcial</p>
-              <p className="opacity-80">
-                Sólo tenemos datos desde el{" "}
-                {format(new Date(rangeFirstSnapshotIso), "d MMM HH:mm", {
-                  locale: es,
-                })}
-                . Las capturas horarias arrancaron hace poco; el rango
-                de {RANGES[range].label} se irá llenando.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {billComparisons.length > 0 && (
-          <BillComparisonsTable comparisons={billComparisons} />
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-/**
- * Comparativa por device: facturas de luz vs consumo Tuya en el mismo
- * período. (WIK-75 — antes era una columna en /facturas.)
- *
- * Si el snapshot Tuya cubre <70% del período facturado, mostramos un
- * pill gris "parcial XX%" en vez del Δ% para no transmitir un error
- * cuantitativo donde sólo tenemos una muestra parcial.
- *
- * (WIK-80) En mobile renderiza como card-list (cada factura una mini-card
- * con label/value pairs), porque la tabla de 4 columnas hacía scroll
- * horizontal y la columna "Δ" (donde está el badge importante) quedaba
- * oculta sin que se note. En sm+ vuelve a tabla normal.
- */
-function BillComparisonsTable({
-  comparisons,
-}: {
-  comparisons: BillComparison[];
-}) {
-  return (
-    <div className="mt-6 border-t pt-4">
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Facturado vs Tuya
-      </p>
-
-      {/* Mobile: card-list. Cada factura es un bloque label/value visible
-          sin scroll horizontal — el badge Δ queda siempre a la vista. */}
-      <ul className="flex flex-col gap-3 sm:hidden">
-        {comparisons.map((c) => (
-          <li
-            key={c.bill.id}
-            className="rounded-md border bg-muted/30 px-3 py-2 text-sm"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span
-                className={`whitespace-nowrap text-xs ${
-                  c.bill.period_inferred
-                    ? "italic text-muted-foreground"
-                    : "text-muted-foreground"
-                }`}
-                title={
-                  c.bill.period_inferred
-                    ? "Período inferido a partir del vencimiento de la factura anterior."
-                    : undefined
-                }
-              >
-                {c.bill.period_inferred ? "≈ " : ""}
-                {formatBillPeriod(
-                  c.bill.effective_period_from,
-                  c.bill.effective_period_to,
-                )}
-              </span>
-              <DeltaBadge
-                tuyaKwh={c.tuyaKwh}
-                deltaPct={c.deltaPct}
-                level={c.level}
-                coverageFraction={c.coverageFraction}
-              />
-            </div>
-            <div className="mt-1 flex justify-between gap-4 text-xs">
-              <span>
-                <span className="text-muted-foreground">Facturado: </span>
-                <span className="tabular-nums">
-                  {c.bill.kwh_billed!.toLocaleString("es-UY")} kWh
-                </span>
-              </span>
-              <span>
-                <span className="text-muted-foreground">Tuya: </span>
-                <span className="tabular-nums">
-                  {c.tuyaKwh.toLocaleString("es-UY", {
-                    maximumFractionDigits: 1,
-                  })}{" "}
-                  kWh
-                </span>
-              </span>
-            </div>
-          </li>
-        ))}
-      </ul>
-
-      {/* Desktop: tabla normal (sm+). */}
-      <div className="hidden overflow-x-auto sm:block">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs text-muted-foreground">
-              <th className="pb-1 font-medium">Período</th>
-              <th className="pb-1 text-right font-medium">Facturado</th>
-              <th className="pb-1 text-right font-medium">Tuya</th>
-              <th className="pb-1 text-right font-medium">Δ</th>
-            </tr>
-          </thead>
-          <tbody>
-            {comparisons.map((c) => (
-              <tr key={c.bill.id} className="border-t">
-                <td
-                  className={`py-1.5 pr-2 whitespace-nowrap ${
-                    c.bill.period_inferred
-                      ? "italic text-muted-foreground"
-                      : ""
-                  }`}
-                  title={
-                    c.bill.period_inferred
-                      ? "Período inferido a partir del vencimiento de la factura anterior."
-                      : undefined
-                  }
-                >
-                  {c.bill.period_inferred ? "≈ " : ""}
-                  {formatBillPeriod(
-                    c.bill.effective_period_from,
-                    c.bill.effective_period_to,
-                  )}
-                </td>
-                <td className="whitespace-nowrap py-1.5 pr-2 text-right tabular-nums">
-                  {c.bill.kwh_billed!.toLocaleString("es-UY")} kWh
-                </td>
-                <td className="whitespace-nowrap py-1.5 pr-2 text-right tabular-nums text-muted-foreground">
-                  {c.tuyaKwh.toLocaleString("es-UY", {
-                    maximumFractionDigits: 1,
-                  })}{" "}
-                  kWh
-                </td>
-                <td className="whitespace-nowrap py-1.5 text-right">
-                  <DeltaBadge
-                    tuyaKwh={c.tuyaKwh}
-                    deltaPct={c.deltaPct}
-                    level={c.level}
-                    coverageFraction={c.coverageFraction}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function formatBillPeriod(from: string | null, to: string | null): string {
-  if (!from && !to) return "—";
-  if (from && to) {
-    const f = format(parseISO(from), "d MMM", { locale: es });
-    const t = format(parseISO(to), "d MMM yy", { locale: es });
-    return `${f} → ${t}`;
-  }
-  const single = (from ?? to) as string;
-  return format(parseISO(single), "MMM yyyy", { locale: es });
 }
