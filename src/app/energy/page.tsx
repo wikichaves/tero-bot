@@ -545,12 +545,15 @@ function DeviceEnergyCard({
     billComparisons,
   } = ctx;
 
-  // Histórico parcial: si el primer snapshot dentro del rango es de >12h
-  // *después* del inicio teórico del rango, mostramos un banner. Útil
-  // ahora que el cron horario arrancó hace poco y las ventanas de 7d/30d
-  // todavía no tienen data completa.
-  const rangeStartTs = Date.now() - RANGES[range].hours * 60 * 60 * 1000;
-  const HISTORICAL_GAP_THRESHOLD_MS = 12 * 60 * 60 * 1000;
+  // Histórico parcial: threshold proporcional (10% del rango). Para 24h
+  // pita si faltan >2.4h, para 7d si faltan >17h, para 30d si faltan
+  // >3d. Threshold mínimo de 1h para que no pite por gaps insignificantes.
+  const rangeMs = RANGES[range].hours * 60 * 60 * 1000;
+  const rangeStartTs = Date.now() - rangeMs;
+  const HISTORICAL_GAP_THRESHOLD_MS = Math.max(
+    60 * 60 * 1000,
+    rangeMs * 0.1,
+  );
   const hasIncompleteHistory =
     rangeFirstSnapshotIso != null &&
     new Date(rangeFirstSnapshotIso).getTime() - rangeStartTs >

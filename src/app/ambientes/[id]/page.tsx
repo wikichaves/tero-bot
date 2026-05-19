@@ -128,14 +128,19 @@ export default async function RoomDetailPage({
   // después del `since` esperado, el chart sólo cubre parte de la
   // ventana — mostramos un banner para que el user no piense que la
   // curva plana inicial es real, sino falta de data.
-  // Threshold: 12h. Snapshots horarios → cualquier "hueco" mayor a 12h
-  // al inicio del rango indica que el sensor no había arrancado.
+  // Threshold proporcional: 10% del rango. Para 24h son ~2.4h, para
+  // 7d son ~17h, para 30d son ~3d. Threshold mínimo de 1h para que no
+  // pite por gaps insignificantes.
   const firstSnapshot = snapshots[0];
   const firstSnapshotTs = firstSnapshot
     ? new Date(firstSnapshot.taken_at).getTime()
     : null;
   const sinceTs = new Date(since).getTime();
-  const HISTORICAL_GAP_THRESHOLD_MS = 12 * 60 * 60 * 1000;
+  const rangeMs = RANGES[range].hours * 60 * 60 * 1000;
+  const HISTORICAL_GAP_THRESHOLD_MS = Math.max(
+    60 * 60 * 1000,
+    rangeMs * 0.1,
+  );
   const hasIncompleteHistory =
     firstSnapshotTs != null &&
     firstSnapshotTs - sinceTs > HISTORICAL_GAP_THRESHOLD_MS;
