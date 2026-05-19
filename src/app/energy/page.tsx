@@ -84,13 +84,16 @@ type RangeKey = keyof typeof RANGES;
 // WIK-99 F4: unidades del switch.
 //   - "kwh": muestra sólo el consumo en kWh (sin costos)
 //   - "UYU"/"ARS"/"USD": muestra costos en esa moneda (convertido vía FX)
-const UNITS = ["kwh", "UYU", "ARS", "USD"] as const;
+// Orden visual del switch (de izquierda a derecha): kWh primero (default,
+// muestra solo el consumo crudo sin costos), después USD como segunda
+// referencia comparable globalmente, luego UYU y ARS locales.
+const UNITS = ["kwh", "USD", "UYU", "ARS"] as const;
 type UnitKey = (typeof UNITS)[number];
 const UNIT_LABELS: Record<UnitKey, string> = {
   kwh: "kWh",
+  USD: "USD",
   UYU: "UYU",
   ARS: "ARS",
-  USD: "USD",
 };
 
 type PropertySummary = Pick<
@@ -139,7 +142,7 @@ export default async function EnergyPage({
     sp.unit === "ARS" ||
     sp.unit === "USD"
       ? sp.unit
-      : "UYU"; // default a la moneda local más común
+      : "kwh"; // default: consumo crudo en kWh, sin conversión a moneda
   const rangeSinceIso = new Date(
     Date.now() - RANGES[range].hours * 60 * 60 * 1000,
   ).toISOString();
@@ -412,7 +415,7 @@ function Header({ range, unit }: { range: RangeKey; unit: UnitKey }) {
   function hrefWith(nextRange: RangeKey, nextUnit: UnitKey): string {
     const params = new URLSearchParams();
     if (nextRange !== "24h") params.set("range", nextRange);
-    if (nextUnit !== "UYU") params.set("unit", nextUnit);
+    if (nextUnit !== "kwh") params.set("unit", nextUnit);
     const q = params.toString();
     return q ? `/energy?${q}` : "/energy";
   }
