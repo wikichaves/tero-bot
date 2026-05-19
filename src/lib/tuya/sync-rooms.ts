@@ -53,9 +53,19 @@ export type SyncRoomsResult = {
     devices_assigned: number;
     devices_already_assigned: number;
     devices_not_in_db: number;
-    // Para debug: el `sort` que vino de Tuya por room. Útil para
-    // detectar si Tuya está mandando 0 para todos o valores reales.
-    tuya_sort_values: Array<{ name: string; sort: number | null }>;
+    // Para debug: cómo Tuya nos mandó el array de rooms y qué
+    // sort_order le aplicamos. Si el orden visual en Smart Life no
+    // coincide con `tuya_idx`, significa que la API de Tuya está
+    // devolviendo en algún orden interno (creación) y no podemos
+    // usar el índice.
+    tuya_order: Array<{
+      tuya_idx: number;
+      name: string;
+      tuya_sort: number | null;
+      computed_sort: number;
+      previous_sort_in_db: number | null;
+      action: "inserted" | "updated" | "noop";
+    }>;
   }>;
   skipped: Array<{ home: string; reason: string }>;
 };
@@ -173,7 +183,14 @@ export async function runSyncRooms(): Promise<SyncRoomsResult> {
     let devicesAssigned = 0;
     let devicesAlreadyAssigned = 0;
     let devicesNotInDb = 0;
-    const tuyaSortValues: Array<{ name: string; sort: number | null }> = [];
+    const tuyaOrder: Array<{
+      tuya_idx: number;
+      name: string;
+      tuya_sort: number | null;
+      computed_sort: number;
+      previous_sort_in_db: number | null;
+      action: "inserted" | "updated" | "noop";
+    }> = [];
 
     // Orden = índice del array × 10. Smart Life devuelve los rooms en
     // el orden visual del usuario, así que confiar en el índice es
@@ -187,11 +204,15 @@ export async function runSyncRooms(): Promise<SyncRoomsResult> {
       if (!trName) continue;
       const tuyaRoomId = String(tr.room_id);
       const tuyaSort = typeof tr.sort === "number" ? tr.sort : null;
-      tuyaSortValues.push({ name: trName, sort: tuyaSort });
 
       // Increments de 10 deja espacio para inserts manuales futuros sin
       // tener que renumerar todo.
       const computedSort = (idx + 1) * 10;
+      const previousSortInDb =
+        existingByTuyaId.get(tuyaRoomId)?.sort_order ??
+        existingByName.get(normalize(trName))?.sort_order ??
+        null;
+      let trAction: "inserted" | "updated" | "noop" = "noop";
 
       const byTuyaId = existingByTuyaId.get(tuyaRoomId);
       const byName = byTuyaId
@@ -213,6 +234,7 @@ export async function runSyncRooms(): Promise<SyncRoomsResult> {
         if (insErr || !inserted) continue;
         roomRow = inserted;
         roomsInserted++;
+        trAction = "inserted";
         existingByTuyaId.set(tuyaRoomId, roomRow);
         existingByName.set(normalize(roomRow.name), roomRow);
       } else {
@@ -253,9 +275,19 @@ export async function runSyncRooms(): Promise<SyncRoomsResult> {
           if (!updErr) {
             Object.assign(roomRow, updates);
             existingByTuyaId.set(tuyaRoomId, roomRow);
+            trAction = "updated";
           }
         }
       }
+
+      tuyaOrder.push({
+        tuya_idx: idx,
+        name: trName,
+        tuya_sort: tuyaSort,
+        computed_sort: computedSort,
+        previous_sort_in_db: previousSortInDb,
+        action: trAction,
+      });
 
       // Pull devices del room y asignar property_devices.room_id.
       type TuyaRoomDevice = { id?: string; device_id?: string };
@@ -305,7 +337,7 @@ export async function runSyncRooms(): Promise<SyncRoomsResult> {
       devices_assigned: devicesAssigned,
       devices_already_assigned: devicesAlreadyAssigned,
       devices_not_in_db: devicesNotInDb,
-      tuya_sort_values: tuyaSortValues,
+      tuya_order: tuyaOrder,
     });
   }
 

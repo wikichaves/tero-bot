@@ -29,6 +29,14 @@ export function SyncRoomsButton() {
           toast.error(json.error ?? `Sync falló (${res.status})`);
           return;
         }
+        type TuyaOrderRow = {
+          tuya_idx: number;
+          name: string;
+          tuya_sort: number | null;
+          computed_sort: number;
+          previous_sort_in_db: number | null;
+          action: "inserted" | "updated" | "noop";
+        };
         type Synced = {
           home: string;
           property: string;
@@ -39,7 +47,7 @@ export function SyncRoomsButton() {
           devices_assigned: number;
           devices_already_assigned: number;
           devices_not_in_db: number;
-          tuya_sort_values: Array<{ name: string; sort: number | null }>;
+          tuya_order: TuyaOrderRow[];
         };
         type Skipped = { home: string; reason: string };
 
@@ -59,16 +67,21 @@ export function SyncRoomsButton() {
           0,
         );
 
-        // Log los sort values de Tuya en consola — útil para debug.
-        // Si todos vienen `null`, sabemos que estamos usando el
-        // fallback por índice y no hay nada que hacer del lado app.
+        // Log de debug. Usamos console.table porque .info colapsa el
+        // array y no se ve nada. Lo importante a chequear:
+        //   - tuya_idx vs nombre: confirma que Smart Life devuelve los
+        //     rooms en el orden visual real
+        //   - computed_sort vs previous_sort_in_db: confirma que
+        //     estamos persistiendo el orden nuevo
+        //   - action="updated" o "noop"
         if (typeof window !== "undefined") {
           for (const s of synced) {
             // eslint-disable-next-line no-console
-            console.info(
-              `[sync-rooms] ${s.property} → Tuya sort values:`,
-              s.tuya_sort_values,
-            );
+            console.group(`[sync-rooms] ${s.property} (home: ${s.home})`);
+            // eslint-disable-next-line no-console
+            console.table(s.tuya_order);
+            // eslint-disable-next-line no-console
+            console.groupEnd();
           }
         }
 
