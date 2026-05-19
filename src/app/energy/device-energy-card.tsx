@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Info } from "lucide-react";
@@ -37,8 +38,34 @@ function formatRate(n: number, digits = 2): string {
     minimumFractionDigits: hasDecimals ? digits : 0,
   });
 }
-import { DeviceEnergyChart, type ChartMetric } from "./device-energy-chart";
-import { BillComparisonsTable, type BillComparison } from "./bill-comparisons-table";
+import type { ChartMetric } from "./device-energy-chart";
+import {
+  BillComparisonsTable,
+  type BillComparison,
+} from "./bill-comparisons-table";
+
+/**
+ * Lazy-load del chart con SSR deshabilitado.
+ *
+ * Recharts genera SVG durante el render y mide el DOM via
+ * `ResponsiveContainer`. En SSR el ancho/alto inicial es 0; al hidratar
+ * en cliente con dimensiones reales el HTML difiere y React tira #418
+ * (hydration mismatch). Saltarse el SSR del chart elimina el problema
+ * sin afectar la funcionalidad — durante el primer render se ve un
+ * skeleton del mismo alto para evitar layout shift.
+ */
+const DeviceEnergyChart = dynamic(
+  () => import("./device-energy-chart").then((m) => m.DeviceEnergyChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="w-full animate-pulse rounded-md bg-muted/40"
+        style={{ height: 200 }}
+      />
+    ),
+  },
+);
 
 /**
  * Card client component que maneja los toggles per-device (WIK-99 v6):
