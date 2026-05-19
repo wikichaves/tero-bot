@@ -49,3 +49,8 @@ next-env.d.ts
 # Local-only working files — assets crudos antes de procesar, drafts, etc.
 # No subir al repo (typicamente PSDs, logos originales, samples).
 /_archive/
+
+# Reserved para un futuro mecanismo de debug autenticado (MCP server
+# local u otro). Hoy NO se usa — el archivo puede estar presente con
+# un token random pero no hay código que lo lea. NUNCA committear.
+/.claude-debug-token
