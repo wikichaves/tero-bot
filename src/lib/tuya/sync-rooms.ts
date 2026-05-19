@@ -8,11 +8,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
  *   - `/api/admin/tuya/sync-rooms` (botón manual, admin)
  *   - `/api/cron/sync` (cron diario)
  *
- * Source of truth = Tuya. En cada corrida:
- *   - INSERT rooms nuevos
- *   - UPDATE `name` y `sort_order` de rooms que matchean por
- *     `tuya_room_id` (orden y nombre vienen de Smart Life)
- *   - UPDATE `room_id` de los `property_devices` que cambiaron de room
+ * Source of truth para `name` = Tuya. Para `sort_order` = nuestra DB
+ * (Tuya Cloud API no expone el orden visual de Smart Life — solo
+ * devuelve `room_id` y `name`, en orden de creación). En cada corrida:
+ *   - INSERT rooms nuevos con `sort_order = (max existente) + 10`
+ *   - UPDATE `name` de rooms que matchean por `tuya_room_id`
+ *   - UPDATE `room_id` de `property_devices` que cambiaron de room
+ *   - NO toca `sort_order` de rooms existentes (preserva el orden
+ *     manual que el admin estableció en /ambientes con el dropdown)
  *
  * Lo único que el sync NO machaca es `room_id` de devices con
  * asignación manual divergente, ni rooms creados a mano (matcheo por
@@ -192,12 +195,17 @@ export async function runSyncRooms(): Promise<SyncRoomsResult> {
       action: "inserted" | "updated" | "noop";
     }> = [];
 
-    // Orden = índice del array × 10. Smart Life devuelve los rooms en
-    // el orden visual del usuario, así que confiar en el índice es
-    // siempre correcto. Probamos antes con `tr.sort` numérico de Tuya
-    // pero es poco confiable (a veces 0 para todos, a veces números
-    // arbitrarios que no reflejan el orden visual). El index siempre
-    // gana.
+    // Orden inicial para rooms nuevos = max(existing sort_order) + 10.
+    // No usamos el índice del array de Tuya porque la API ordena por
+    // creation date (room_id ascending), no por orden visual. Para
+    // rooms ya existentes en DB, NO machacamos sort_order — el admin
+    // controla el orden manualmente en /ambientes.
+    const maxExistingSort = (existingRooms ?? []).reduce(
+      (max, r) => Math.max(max, (r.sort_order as number) ?? 0),
+      0,
+    );
+    let nextNewSort = maxExistingSort + 10;
+
     for (let idx = 0; idx < rooms.length; idx++) {
       const tr = rooms[idx];
       const trName = String(tr.name ?? "").trim();
@@ -205,13 +213,13 @@ export async function runSyncRooms(): Promise<SyncRoomsResult> {
       const tuyaRoomId = String(tr.room_id);
       const tuyaSort = typeof tr.sort === "number" ? tr.sort : null;
 
-      // Increments de 10 deja espacio para inserts manuales futuros sin
-      // tener que renumerar todo.
-      const computedSort = (idx + 1) * 10;
+      // Sort para rooms nuevos: siguiente bucket libre arriba de los
+      // existentes. Para existentes, no se toca (queda el manual).
       const previousSortInDb =
         existingByTuyaId.get(tuyaRoomId)?.sort_order ??
         existingByName.get(normalize(trName))?.sort_order ??
         null;
+      const computedSort = previousSortInDb ?? nextNewSort;
       let trAction: "inserted" | "updated" | "noop" = "noop";
 
       const byTuyaId = existingByTuyaId.get(tuyaRoomId);
@@ -227,7 +235,7 @@ export async function runSyncRooms(): Promise<SyncRoomsResult> {
             property_id: property.id,
             name: trName,
             tuya_room_id: tuyaRoomId,
-            sort_order: computedSort,
+            sort_order: nextNewSort,
           })
           .select("id, name, tuya_room_id, sort_order")
           .single();
@@ -235,6 +243,7 @@ export async function runSyncRooms(): Promise<SyncRoomsResult> {
         roomRow = inserted;
         roomsInserted++;
         trAction = "inserted";
+        nextNewSort += 10;
         existingByTuyaId.set(tuyaRoomId, roomRow);
         existingByName.set(normalize(roomRow.name), roomRow);
       } else {
@@ -261,11 +270,10 @@ export async function runSyncRooms(): Promise<SyncRoomsResult> {
           updates.name = trName;
           roomsRenamed++;
         }
-        // UPDATE sort_order con la misma lógica.
-        if (willHaveTuyaId && roomRow.sort_order !== computedSort) {
-          updates.sort_order = computedSort;
-          roomsReordered++;
-        }
+        // NO tocamos sort_order: Tuya Cloud API no expone el orden
+        // visual de Smart Life, así que la única fuente de truth para
+        // el orden es nuestra UI manual (/ambientes con el dropdown
+        // de mover izq/der). Machacar acá borraría ese orden.
 
         if (Object.keys(updates).length > 0) {
           const { error: updErr } = await admin
