@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncAirbnb, type SyncResult } from "@/lib/airbnb";
+import { runSyncRooms, type SyncRoomsResult } from "@/lib/tuya/sync-rooms";
 
 /**
- * Daily sync of all properties' Airbnb iCal feeds. Triggered by Vercel cron
- * (see vercel.json) and protected by CRON_SECRET — Vercel sends it as a
- * Bearer token automatically when the env var is set on the project.
+ * Daily sync (Vercel cron). Hace:
+ *   1. Pull de iCal de Airbnb por cada property (reservas)
+ *   2. Sync de rooms + device→room mappings desde Tuya Smart Life
+ *      (nombres y orden de Tuya pisan los de la DB — WIK-98 v3)
+ *
+ * Protegido por CRON_SECRET (Bearer automático de Vercel).
  */
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -17,6 +21,7 @@ export async function GET(request: Request) {
     );
   }
 
+  // 1. Airbnb iCal sync.
   const admin = createAdminClient();
   const { data: properties, error } = await admin
     .from("properties")
@@ -26,18 +31,28 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const results: Record<string, SyncResult | { error: string }> = {};
+  const airbnbResults: Record<string, SyncResult | { error: string }> = {};
   for (const p of properties ?? []) {
     if (!p.airbnb_ical_url) continue;
     try {
-      results[p.name] = await syncAirbnb(p.id, p.airbnb_ical_url);
+      airbnbResults[p.name] = await syncAirbnb(p.id, p.airbnb_ical_url);
     } catch (e) {
-      results[p.name] = { error: (e as Error).message };
+      airbnbResults[p.name] = { error: (e as Error).message };
     }
+  }
+
+  // 2. Tuya rooms sync (name + sort_order). Best-effort — un fallo acá
+  // no debe romper el sync de Airbnb.
+  let tuyaRooms: SyncRoomsResult | { error: string };
+  try {
+    tuyaRooms = await runSyncRooms();
+  } catch (e) {
+    tuyaRooms = { error: (e as Error).message };
   }
 
   return NextResponse.json({
     ranAt: new Date().toISOString(),
-    properties: results,
+    airbnb: airbnbResults,
+    tuyaRooms,
   });
 }

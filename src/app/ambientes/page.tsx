@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import type { Property, Room } from "@/lib/types";
 import { SnapshotSensorsButton } from "@/app/admin/tuya/snapshot-sensors-button";
 import { RoomMiniChart } from "./room-mini-chart";
-import { RoomSortControls } from "./room-sort-controls";
 
 /**
  * /ambientes — vista por room/ambiente con la última lectura de cada
@@ -175,9 +174,6 @@ export default async function AmbientesPage({
     );
   }
 
-  // Determinar si el user puede reordenar (admin/gestor).
-  const canReorder = profile.role === "admin" || profile.role === "gestor";
-
   return (
     <div className="flex flex-col gap-6">
       <Header range={range} />
@@ -186,8 +182,6 @@ export default async function AmbientesPage({
         const noRoomKey = `__no_room_${property.id}`;
         const hasOrphans = (devicesByRoom.get(noRoomKey)?.length ?? 0) > 0;
         if (propRooms.length === 0 && !hasOrphans) return null;
-        // Sólo cuento como "reorderable" los rooms que aparecen en el grid
-        // (los que tienen devices). El "Sin ambiente" no se mueve.
         const visibleRooms = propRooms.filter(
           (r) => (devicesByRoom.get(r.id)?.length ?? 0) > 0,
         );
@@ -195,7 +189,7 @@ export default async function AmbientesPage({
           <section key={property.id} className="flex flex-col gap-3">
             <h2 className="text-lg font-semibold">{property.name}</h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {visibleRooms.map((room, idx) => {
+              {visibleRooms.map((room) => {
                 const roomDevices = devicesByRoom.get(room.id) ?? [];
                 return (
                   <RoomCard
@@ -205,9 +199,6 @@ export default async function AmbientesPage({
                     devices={roomDevices}
                     snapshotsByDevice={snapshotsByDevice}
                     range={range}
-                    canReorder={canReorder}
-                    isFirst={idx === 0}
-                    isLast={idx === visibleRooms.length - 1}
                   />
                 );
               })}
@@ -219,9 +210,6 @@ export default async function AmbientesPage({
                   devices={devicesByRoom.get(noRoomKey) ?? []}
                   snapshotsByDevice={snapshotsByDevice}
                   range={range}
-                  canReorder={false}
-                  isFirst={false}
-                  isLast={false}
                 />
               )}
             </div>
@@ -267,18 +255,12 @@ function RoomCard({
   devices,
   snapshotsByDevice,
   range,
-  canReorder,
-  isFirst,
-  isLast,
 }: {
   roomId: string | null;
   roomName: string;
   devices: Device[];
   snapshotsByDevice: Map<string, Snapshot[]>;
   range: RangeKey;
-  canReorder: boolean;
-  isFirst: boolean;
-  isLast: boolean;
 }) {
   // Tomamos la lectura más reciente entre todos los sensores del room.
   // Si hay varios, promediamos (típicamente un room tiene 1, pero el
@@ -324,18 +306,9 @@ function RoomCard({
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center justify-between gap-2 text-base">
           <span className="min-w-0 flex-1 truncate">{roomName}</span>
-          <div className="flex items-center gap-1.5">
-            <Badge variant="secondary" className="text-[10px] font-normal">
-              {devices.length} sensor{devices.length === 1 ? "" : "es"}
-            </Badge>
-            {canReorder && roomId && (
-              <RoomSortControls
-                roomId={roomId}
-                isFirst={isFirst}
-                isLast={isLast}
-              />
-            )}
-          </div>
+          <Badge variant="secondary" className="text-[10px] font-normal">
+            {devices.length} sensor{devices.length === 1 ? "" : "es"}
+          </Badge>
         </CardTitle>
         {lastTs && (
           <CardDescription className="text-xs">
