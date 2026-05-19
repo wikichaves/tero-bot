@@ -21,10 +21,15 @@ import { createAdminClient } from "@/lib/supabase/admin";
  *      para obtener device_ids y UPDATE `property_devices.room_id`
  *      del row matcheante.
  *
- * No machaca rooms editados a mano (no UPDATE de name). Tampoco machaca
- * room_id de un property_device que ya tenga una asignación manual
- * distinta de la que dice Tuya (manual override gana — el admin es el
- * source of truth post-sync inicial).
+ * Cuando matcheamos un room existente por `tuya_room_id` (no por
+ * fuzzy-name), sincronizamos el `name` desde Smart Life — Tuya es el
+ * source of truth para el nombre. El fuzzy-name match no machaca name,
+ * porque si llegamos por ahí significa que el room fue creado a mano
+ * antes de sincronizar y no queremos pisarlo.
+ *
+ * No machaca room_id de un property_device que ya tenga una asignación
+ * manual distinta de la que dice Tuya (manual override gana — el admin
+ * es el source of truth para device→room post-sync inicial).
  */
 
 function normalize(s: string): string {
@@ -194,12 +199,12 @@ export async function POST() {
       if (!trName) continue;
       const tuyaRoomId = String(tr.room_id);
 
-      // Resolver el room en DB: por tuya_room_id primero, después por
-      // nombre normalizado (para reusar rooms creados a mano).
+      // Resolver el room en DB: por tuya_room_id primero (match estable),
+      // después por nombre normalizado (para reusar rooms creados a mano
+      // pre-sync inicial).
+      const byTuyaId = existingByTuyaId.get(tuyaRoomId);
       let roomRow =
-        existingByTuyaId.get(tuyaRoomId) ??
-        existingByName.get(normalize(trName)) ??
-        null;
+        byTuyaId ?? existingByName.get(normalize(trName)) ?? null;
 
       if (!roomRow) {
         const { data: inserted, error: insErr } = await admin
@@ -219,8 +224,18 @@ export async function POST() {
         existingByName.set(normalize(roomRow.name), roomRow);
       } else {
         roomsExisting++;
-        // Si el room existía sin tuya_room_id, completarlo ahora para
-        // que próximos syncs lo encuentren por id (más estable que name).
+        // Si lo matcheamos por tuya_room_id (no por fuzzy-name) y el
+        // nombre cambió en Smart Life, propagar el cambio a la DB.
+        // Tuya es source of truth para el name de rooms sincronizados.
+        if (byTuyaId && roomRow.name !== trName) {
+          const { error: updNameErr } = await admin
+            .from("rooms")
+            .update({ name: trName })
+            .eq("id", roomRow.id);
+          if (!updNameErr) roomRow.name = trName;
+        }
+        // Si el room existía sin tuya_room_id (creado manualmente),
+        // completarlo ahora para que próximos syncs lo encuentren por id.
         if (!roomRow.tuya_room_id) {
           await admin
             .from("rooms")

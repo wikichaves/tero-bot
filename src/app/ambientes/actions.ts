@@ -13,9 +13,11 @@ import { requireRole } from "@/lib/auth";
  * "down") dentro de la *misma property*, y swappear los valores. No-op
  * cuando el room ya está en el borde.
  *
- * El swap se hace en 3 pasos vía service role para evitar colisiones
- * intermedias si en el futuro agregamos un unique constraint en
- * (property_id, sort_order).
+ * Antes del swap: si los rooms de esta property tienen sort_order
+ * degenerado (todos en 0 o con duplicados), los renumeramos en
+ * increments de 10 según el orden visual actual (sort_order ASC,
+ * name ASC). Esto cubre el caso típico — el sync de Tuya graba
+ * `sort_order = 0` para todos porque la API no manda `sort` confiable.
  */
 export async function moveRoom(id: string, direction: "up" | "down") {
   await requireRole(["admin", "gestor"]);
@@ -25,15 +27,51 @@ export async function moveRoom(id: string, direction: "up" | "down") {
   const supabase = await createClient();
   const { data: self, error: selfErr } = await supabase
     .from("rooms")
-    .select("id, property_id, sort_order")
+    .select("id, property_id, sort_order, name")
     .eq("id", id)
     .maybeSingle();
   if (selfErr || !self) {
     return { error: selfErr?.message ?? "Ambiente no encontrado." };
   }
 
-  // Buscar el vecino dentro de la misma property — el orden es por
-  // property, no global.
+  const admin = createAdminClient();
+
+  // Paso 0: normalizar sort_orders de la property si están degenerados.
+  // Sin esto, dos rooms con sort_order=0 se "swappean" pero ambos quedan
+  // en 0 — el orden visual no cambia.
+  const { data: siblings } = await admin
+    .from("rooms")
+    .select("id, sort_order, name")
+    .eq("property_id", self.property_id)
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+  const sibs = (siblings ?? []) as Array<{
+    id: string;
+    sort_order: number;
+    name: string;
+  }>;
+  const orders = sibs.map((s) => s.sort_order);
+  const hasDuplicates = new Set(orders).size !== orders.length;
+  if (hasDuplicates) {
+    // Renumeramos a 10, 20, 30, ... en increments de 10 respetando el
+    // orden actual (que ya viene ordenado por sort_order ASC, name ASC).
+    // increments de 10 deja espacio para inserts manuales futuros sin
+    // tener que renumerar todo.
+    for (let i = 0; i < sibs.length; i++) {
+      const newOrder = (i + 1) * 10;
+      if (sibs[i].sort_order === newOrder) continue;
+      const { error } = await admin
+        .from("rooms")
+        .update({ sort_order: newOrder })
+        .eq("id", sibs[i].id);
+      if (error) return { error: error.message };
+      sibs[i].sort_order = newOrder;
+      // Si el room que estamos moviendo es este, refrescar el local.
+      if (sibs[i].id === self.id) self.sort_order = newOrder;
+    }
+  }
+
+  // Buscar el vecino dentro de la misma property.
   const neighborQuery =
     direction === "up"
       ? supabase
@@ -57,7 +95,8 @@ export async function moveRoom(id: string, direction: "up" | "down") {
     return { ok: true, noop: true };
   }
 
-  const admin = createAdminClient();
+  // Swap en 3 pasos vía service role — sentinel para evitar colisiones
+  // si en el futuro agregamos unique(property_id, sort_order).
   const SENTINEL = -1_000_000;
   const { error: e1 } = await admin
     .from("rooms")

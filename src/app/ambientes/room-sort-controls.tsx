@@ -1,19 +1,28 @@
 "use client";
 
 import { useTransition } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreVertical } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { moveRoom } from "./actions";
 
 /**
- * Chevrons arriba/abajo para reordenar un room en /ambientes (WIK-98).
- * Cada click swappea el `sort_order` con el vecino dentro de la misma
- * property. Disabled en el borde para feedback visual.
+ * 3-dots dropdown para reordenar un room en /ambientes (WIK-98 v2).
  *
- * Diseño: el wrapper en page.tsx posiciona estos chevrons absolute en
- * el corner de la card. `stopPropagation` + `preventDefault` evitan
- * que el click bubble al Link que envuelve la card.
+ * El primer intento usaba chevrons absolute en el corner — pero tapaban
+ * el badge de "N sensores" y los clicks se confundían con el Link
+ * wrapper de la card.
+ *
+ * Solución: dropdown trigger al lado del badge en el CardTitle (no
+ * dentro del Link). Items "Mover izquierda" / "Mover derecha" se mapean
+ * a moveRoom("up"|"down") en la action (el grid es row-major
+ * left-to-right, así que "izquierda" == sort_order menor).
  */
 export function RoomSortControls({
   roomId,
@@ -26,10 +35,7 @@ export function RoomSortControls({
 }) {
   const [pending, startTransition] = useTransition();
 
-  function move(e: React.MouseEvent, direction: "up" | "down") {
-    // El wrapper Link captura el click — paramos el bubble + nav.
-    e.preventDefault();
-    e.stopPropagation();
+  function move(direction: "up" | "down") {
     startTransition(async () => {
       const result = await moveRoom(roomId, direction);
       if ("error" in result && result.error) {
@@ -39,29 +45,44 @@ export function RoomSortControls({
   }
 
   return (
-    <div className="flex flex-col gap-0.5 rounded-md bg-background/80 p-0.5 shadow-sm backdrop-blur">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="h-6 w-6"
-        aria-label="Subir"
-        disabled={pending || isFirst}
-        onClick={(e) => move(e, "up")}
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        // base-ui usa `render={<...>}` para componer el trigger sobre un
+        // elemento custom (en Radix sería `asChild`). El onClick evita
+        // que el click navegue al detalle (la card está envuelta en Link).
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            aria-label="Reordenar"
+            disabled={pending}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          />
+        }
       >
-        <ChevronUp className="h-3.5 w-3.5" />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="h-6 w-6"
-        aria-label="Bajar"
-        disabled={pending || isLast}
-        onClick={(e) => move(e, "down")}
-      >
-        <ChevronDown className="h-3.5 w-3.5" />
-      </Button>
-    </div>
+        <MoreVertical className="h-3.5 w-3.5" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          disabled={isFirst || pending}
+          onClick={() => move("up")}
+        >
+          <ChevronLeft className="mr-2 h-4 w-4" />
+          Mover a la izquierda
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={isLast || pending}
+          onClick={() => move("down")}
+        >
+          <ChevronRight className="mr-2 h-4 w-4" />
+          Mover a la derecha
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

@@ -90,6 +90,16 @@ export function RoomHistoryChart({ series }: { series: SensorSeries[] }) {
             orientation="left"
             tick={{ fontSize: 11 }}
             tickFormatter={(v) => `${v}°C`}
+            // Dominio dinámico: ±1°C arriba/abajo de los extremos de la
+            // serie. Antes el default era [0, auto] y para data en
+            // 13-14°C la curva quedaba aplastada contra el top. Ahora
+            // ocupa todo el alto del chart y la diferencia entre 14 y
+            // 18 grados se ve clara.
+            domain={[
+              (dataMin: number) => Math.floor((dataMin ?? 0) - 1),
+              (dataMax: number) => Math.ceil((dataMax ?? 0) + 1),
+            ]}
+            allowDecimals={false}
             width={48}
           />
           <YAxis
@@ -97,6 +107,12 @@ export function RoomHistoryChart({ series }: { series: SensorSeries[] }) {
             orientation="right"
             tick={{ fontSize: 11 }}
             tickFormatter={(v) => `${v}%`}
+            // Humedad: ±5% de margen visual. Igual razón que temp.
+            domain={[
+              (dataMin: number) => Math.max(0, Math.floor((dataMin ?? 0) - 5)),
+              (dataMax: number) => Math.min(100, Math.ceil((dataMax ?? 0) + 5)),
+            ]}
+            allowDecimals={false}
             width={40}
           />
           <Tooltip

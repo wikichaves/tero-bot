@@ -18,7 +18,7 @@
     },
     {
       "path": "/api/cron/sensor-snapshot",
-      "schedule": "0 6 * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }

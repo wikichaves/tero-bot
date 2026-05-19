@@ -322,11 +322,20 @@ function RoomCard({
   const inner = (
     <Card className="h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center justify-between text-base">
-          <span>{roomName}</span>
-          <Badge variant="secondary" className="text-[10px] font-normal">
-            {devices.length} sensor{devices.length === 1 ? "" : "es"}
-          </Badge>
+        <CardTitle className="flex items-center justify-between gap-2 text-base">
+          <span className="min-w-0 flex-1 truncate">{roomName}</span>
+          <div className="flex items-center gap-1.5">
+            <Badge variant="secondary" className="text-[10px] font-normal">
+              {devices.length} sensor{devices.length === 1 ? "" : "es"}
+            </Badge>
+            {canReorder && roomId && (
+              <RoomSortControls
+                roomId={roomId}
+                isFirst={isFirst}
+                isLast={isLast}
+              />
+            )}
+          </div>
         </CardTitle>
         {lastTs && (
           <CardDescription className="text-xs">
@@ -382,20 +391,9 @@ function RoomCard({
 
   if (roomId) {
     return (
-      <div className="relative">
-        <Link href={detailHref} className="block">
-          {inner}
-        </Link>
-        {canReorder && (
-          <div className="absolute right-1 top-1 z-10">
-            <RoomSortControls
-              roomId={roomId}
-              isFirst={isFirst}
-              isLast={isLast}
-            />
-          </div>
-        )}
-      </div>
+      <Link href={detailHref} className="block">
+        {inner}
+      </Link>
     );
   }
   return inner;
