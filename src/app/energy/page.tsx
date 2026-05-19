@@ -121,9 +121,13 @@ export default async function EnergyPage({
   const sp = await searchParams;
   const range: RangeKey =
     sp.range === "7d" || sp.range === "30d" ? sp.range : "24h";
-  const rangeSinceIso = new Date(
-    Date.now() - RANGES[range].hours * 60 * 60 * 1000,
-  ).toISOString();
+  // Capturamos `nowMs` UNA sola vez en el server y lo pasamos al cliente
+  // como prop. Si lo calculáramos en el client (durante SSR + después en
+  // hydration) daría timestamps distintos → React #418 hydration mismatch.
+  const nowMs = Date.now();
+  const rangeMs = RANGES[range].hours * 60 * 60 * 1000;
+  const rangeStartMs = nowMs - rangeMs;
+  const rangeSinceIso = new Date(rangeStartMs).toISOString();
 
   // Take a fresh snapshot if the latest is over an hour old. This is the
   // primary capture mechanism on Vercel's Hobby plan (cron is daily-only).
@@ -388,7 +392,8 @@ export default async function EnergyPage({
               key={d.device.id}
               ctx={d}
               fxRates={fxRates}
-              rangeMs={RANGES[range].hours * 60 * 60 * 1000}
+              nowMs={nowMs}
+              rangeStartMs={rangeStartMs}
               rangeLabel={RANGES[range].label}
               rangeShortLabel={RANGES[range].shortLabel}
             />

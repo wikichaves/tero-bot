@@ -85,7 +85,11 @@ export type DeviceCardCtx = {
 type Props = {
   ctx: DeviceCardCtx;
   fxRates: Map<string, FxRate>;
-  rangeMs: number;
+  /** Timestamp `Date.now()` capturado en el SERVER para evitar mismatch
+   *  de hidratación (React #418). */
+  nowMs: number;
+  /** Inicio de la ventana del rango — también del server. */
+  rangeStartMs: number;
   rangeLabel: string;
   rangeShortLabel: string;
 };
@@ -93,7 +97,8 @@ type Props = {
 export function DeviceEnergyCard({
   ctx,
   fxRates,
-  rangeMs,
+  nowMs,
+  rangeStartMs,
   rangeLabel,
   rangeShortLabel,
 }: Props) {
@@ -140,14 +145,14 @@ export function DeviceEnergyCard({
   }
 
   // Histórico parcial: threshold proporcional (10% del rango).
-  const rangeStartTs = Date.now() - rangeMs;
+  const rangeMs = nowMs - rangeStartMs;
   const HISTORICAL_GAP_THRESHOLD_MS = Math.max(
     60 * 60 * 1000,
     rangeMs * 0.1,
   );
   const hasIncompleteHistory =
     rangeFirstSnapshotIso != null &&
-    new Date(rangeFirstSnapshotIso).getTime() - rangeStartTs >
+    new Date(rangeFirstSnapshotIso).getTime() - rangeStartMs >
       HISTORICAL_GAP_THRESHOLD_MS;
 
   // Cost estimate inline (mismo cálculo que `estimateCost()` en
@@ -306,8 +311,8 @@ export function DeviceEnergyCard({
             <DeviceEnergyChart
               data={rangeSnapshots}
               metric={metric}
-              windowStartMs={rangeStartTs}
-              windowEndMs={Date.now()}
+              windowStartMs={rangeStartMs}
+              windowEndMs={nowMs}
               tariff={tariff}
               localCurrency={localCurrency}
               displayCurrency={costCurrency}
