@@ -20,13 +20,16 @@ import { Badge } from "@/components/ui/badge";
  * con los gaps entre ellos. Útil para confirmar si el cron horario
  * está corriendo o si los snapshots se capturan solo on-demand.
  *
- * Status:
- *   - 🟢 OK: avg gap entre 50-70min (cron horario funcionando)
- *   - 🟡 Irregular: avg gap razonable pero max >2h
- *   - 🔴 Caído: avg gap >2h o sin snapshots en últimas 4h
+ * Status (mirando solo las ÚLTIMAS 24h para evitar contaminación con
+ * historia vieja, ej. cuando el cron era diario o estaba en Hobby):
+ *   - 🟢 OK: avg gap reciente entre 45-75min
+ *   - 🟡 Irregular: gap razonable pero algún hueco >3h
+ *   - 🔴 Caído: último snapshot >4h o gap reciente >2h
  */
 
 export const dynamic = "force-dynamic";
+
+const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 function diagnoseDevice(timestamps: string[]): {
   status: "ok" | "irregular" | "down" | "no_data";
@@ -44,14 +47,35 @@ function diagnoseDevice(timestamps: string[]): {
       reason: `Último snapshot hace ${Math.round(sinceLastMin / 60)}h`,
     };
   }
-  if (sorted.length < 2) {
-    return { status: "irregular", reason: "Solo 1 snapshot — sin suficiente historial" };
+
+  // Sólo miramos los snapshots de las ÚLTIMAS 24h para evaluar status.
+  // El avg global incluye historia de cuando el cron era diario (Hobby)
+  // y sesga la lectura hacia "caído" aunque el cron horario ya funcione.
+  const recentCutoff = Date.now() - RECENT_WINDOW_MS;
+  const recent = sorted.filter(
+    (t) => new Date(t).getTime() >= recentCutoff,
+  );
+
+  if (recent.length < 2) {
+    if (sinceLastMin < 75) {
+      // El último snapshot es reciente pero no hay suficiente historia
+      // en 24h para evaluar — el cron quizás arrancó hace poco.
+      return {
+        status: "irregular",
+        reason: `Solo ${recent.length} snapshot${recent.length === 1 ? "" : "s"} en últimas 24h — esperá unas horas`,
+      };
+    }
+    return {
+      status: "down",
+      reason: `Solo ${recent.length} snapshot${recent.length === 1 ? "" : "s"} en últimas 24h`,
+    };
   }
-  // Gap entre snapshots consecutivos (en minutos).
+
+  // Gap entre snapshots recientes (minutos).
   const gaps: number[] = [];
-  for (let i = 1; i < sorted.length; i++) {
+  for (let i = 1; i < recent.length; i++) {
     gaps.push(
-      (new Date(sorted[i]).getTime() - new Date(sorted[i - 1]).getTime()) /
+      (new Date(recent[i]).getTime() - new Date(recent[i - 1]).getTime()) /
         60000,
     );
   }
@@ -60,13 +84,13 @@ function diagnoseDevice(timestamps: string[]): {
   if (avgGap > 120) {
     return {
       status: "down",
-      reason: `Gap promedio ${Math.round(avgGap)}min — esperado ~60min`,
+      reason: `Gap promedio (24h) ${Math.round(avgGap)}min — esperado ~60min`,
     };
   }
   if (maxGap > 180) {
     return {
       status: "irregular",
-      reason: `Hubo un gap de ${Math.round(maxGap / 60)}h — quizás el cron se atrasó`,
+      reason: `Gap reciente máximo ${Math.round(maxGap / 60)}h — algún fallo aislado`,
     };
   }
   if (avgGap >= 45 && avgGap <= 75) {
@@ -74,7 +98,7 @@ function diagnoseDevice(timestamps: string[]): {
   }
   return {
     status: "irregular",
-    reason: `Gap promedio ${Math.round(avgGap)}min`,
+    reason: `Gap promedio (24h) ${Math.round(avgGap)}min`,
   };
 }
 
@@ -111,10 +135,15 @@ type DeviceStat = {
   property_device_id: string;
   name: string | null;
   count: number;
+  countRecent: number;
   first: string | null;
   last: string | null;
-  avgGap: number | null;
-  maxGap: number | null;
+  /** Avg/max gap mirando SOLO las últimas 24h. Estos son los que matter. */
+  avgGapRecent: number | null;
+  maxGapRecent: number | null;
+  /** Avg/max gap global (todos los snapshots). Para contexto histórico. */
+  avgGapGlobal: number | null;
+  maxGapGlobal: number | null;
   status: ReturnType<typeof diagnoseDevice>["status"];
   reason: string;
   recent: Array<{ taken_at: string; gap_to_previous_min: number | null }>;
@@ -141,19 +170,40 @@ function summarize(
   }
   return Array.from(byDevice.entries()).map(([id, info]) => {
     const sorted = info.timestamps.slice().sort();
-    const gaps: number[] = [];
+    // Stats globales.
+    const gapsGlobal: number[] = [];
     for (let i = 1; i < sorted.length; i++) {
-      gaps.push(
+      gapsGlobal.push(
         (new Date(sorted[i]).getTime() -
           new Date(sorted[i - 1]).getTime()) /
           60000,
       );
     }
-    const avgGap =
-      gaps.length > 0
-        ? gaps.reduce((a, b) => a + b, 0) / gaps.length
+    const avgGapGlobal =
+      gapsGlobal.length > 0
+        ? gapsGlobal.reduce((a, b) => a + b, 0) / gapsGlobal.length
         : null;
-    const maxGap = gaps.length > 0 ? Math.max(...gaps) : null;
+    const maxGapGlobal =
+      gapsGlobal.length > 0 ? Math.max(...gapsGlobal) : null;
+    // Stats recientes (últimas 24h).
+    const recentCutoff = Date.now() - RECENT_WINDOW_MS;
+    const recentSorted = sorted.filter(
+      (t) => new Date(t).getTime() >= recentCutoff,
+    );
+    const gapsRecent: number[] = [];
+    for (let i = 1; i < recentSorted.length; i++) {
+      gapsRecent.push(
+        (new Date(recentSorted[i]).getTime() -
+          new Date(recentSorted[i - 1]).getTime()) /
+          60000,
+      );
+    }
+    const avgGapRecent =
+      gapsRecent.length > 0
+        ? gapsRecent.reduce((a, b) => a + b, 0) / gapsRecent.length
+        : null;
+    const maxGapRecent =
+      gapsRecent.length > 0 ? Math.max(...gapsRecent) : null;
     const diag = diagnoseDevice(info.timestamps);
     const recent = sorted
       .slice(-15)
@@ -169,10 +219,13 @@ function summarize(
       property_device_id: id,
       name: info.name,
       count: info.timestamps.length,
+      countRecent: recentSorted.length,
       first: sorted[0] ?? null,
       last: sorted[sorted.length - 1] ?? null,
-      avgGap,
-      maxGap,
+      avgGapRecent,
+      maxGapRecent,
+      avgGapGlobal,
+      maxGapGlobal,
       status: diag.status,
       reason: diag.reason,
       recent,
@@ -239,19 +292,31 @@ export default async function DiagnosticoPage() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <p>
-            <strong>OK</strong>: gap promedio entre 45 y 75 min — el cron
-            Pro horario (<code>0 * * * *</code>) está corriendo bien.
+            El status se calcula con los snapshots de las{" "}
+            <strong>últimas 24h</strong>, no con todo el historial. Esto
+            evita que historia vieja (ej. cuando el cron era diario en
+            Hobby) sesgue el diagnóstico hacia &ldquo;caído&rdquo;
+            aunque el cron horario ya funcione.
           </p>
           <p>
-            <strong>Irregular</strong>: gap promedio razonable pero hubo
-            algún hueco mayor a 3h — puede ser un fallo aislado del cron.
+            <strong>OK</strong>: gap promedio reciente entre 45 y 75 min
+            — el cron Pro horario (<code>0 * * * *</code>) está corriendo
+            bien.
+          </p>
+          <p>
+            <strong>Irregular</strong>: gap razonable pero algún hueco
+            &gt;3h — puede ser un fallo aislado del cron.
           </p>
           <p>
             <strong>Caído</strong>: último snapshot hace &gt;4h o gap
-            promedio &gt;2h. Si todos los devices están caídos, revisá
-            Vercel → Settings → Cron Jobs → <code>sensor-snapshot</code> /{" "}
-            <code>energy-snapshot</code> para ver si el plan permite ese
-            schedule.
+            reciente &gt;2h. Si todos los devices están caídos, revisá
+            Vercel → Settings → Cron Jobs → <code>sensor-snapshot</code>{" "}
+            / <code>energy-snapshot</code> para ver si está activo.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Los stats <em>globales</em> (línea pequeña) incluyen toda la
+            historia — son útiles para ver cuánto tiempo lleva acumulando
+            data.
           </p>
         </CardContent>
       </Card>
@@ -305,7 +370,10 @@ function Section({
             <div className="grid gap-3 text-xs text-muted-foreground sm:grid-cols-4">
               <div>
                 <p className="text-[10px] uppercase">Snapshots</p>
-                <p className="text-foreground tabular-nums">{d.count}</p>
+                <p className="text-foreground tabular-nums">
+                  {d.countRecent} <span className="opacity-50">/ {d.count}</span>
+                </p>
+                <p className="text-[10px] opacity-60">últ. 24h / total</p>
               </div>
               <div>
                 <p className="text-[10px] uppercase">Último</p>
@@ -319,15 +387,31 @@ function Section({
                 </p>
               </div>
               <div>
-                <p className="text-[10px] uppercase">Gap promedio</p>
+                <p className="text-[10px] uppercase">Gap prom (24h)</p>
                 <p className="text-foreground tabular-nums">
-                  {d.avgGap != null ? `${Math.round(d.avgGap)} min` : "—"}
+                  {d.avgGapRecent != null
+                    ? `${Math.round(d.avgGapRecent)} min`
+                    : "—"}
+                </p>
+                <p className="text-[10px] opacity-60">
+                  global:{" "}
+                  {d.avgGapGlobal != null
+                    ? `${Math.round(d.avgGapGlobal)} min`
+                    : "—"}
                 </p>
               </div>
               <div>
-                <p className="text-[10px] uppercase">Gap máximo</p>
+                <p className="text-[10px] uppercase">Gap máx (24h)</p>
                 <p className="text-foreground tabular-nums">
-                  {d.maxGap != null ? `${Math.round(d.maxGap)} min` : "—"}
+                  {d.maxGapRecent != null
+                    ? `${Math.round(d.maxGapRecent)} min`
+                    : "—"}
+                </p>
+                <p className="text-[10px] opacity-60">
+                  global:{" "}
+                  {d.maxGapGlobal != null
+                    ? `${Math.round(d.maxGapGlobal)} min`
+                    : "—"}
                 </p>
               </div>
             </div>
