@@ -67,25 +67,24 @@ export function SyncRoomsButton() {
           0,
         );
 
-        // Log de debug. Usamos console.table porque .info colapsa el
-        // array y no se ve nada. Lo importante a chequear:
-        //   - tuya_idx vs nombre: confirma que Smart Life devuelve los
-        //     rooms en el orden visual real
-        //   - computed_sort vs previous_sort_in_db: confirma que
-        //     estamos persistiendo el orden nuevo
-        //   - action="updated" o "noop"
-        if (typeof window !== "undefined") {
-          for (const s of synced) {
-            // eslint-disable-next-line no-console
-            console.group(`[sync-rooms] ${s.property} (home: ${s.home})`);
-            // eslint-disable-next-line no-console
-            console.table(s.tuya_order);
-            // eslint-disable-next-line no-console
-            console.groupEnd();
-          }
-        }
+        // Debug: incluimos el orden completo en el toast description.
+        // Antes lo logueábamos a console pero el JS bundle queda
+        // cacheado en mobile y el user no veía la versión nueva.
+        // En pantalla siempre se ve la última corrida.
+        const tuyaOrderDebug = synced
+          .map((s) => {
+            const order = (s.tuya_order ?? [])
+              .map(
+                (r) =>
+                  `${r.tuya_idx + 1}. ${r.name}${r.action !== "noop" ? ` (${r.action})` : ""}`,
+              )
+              .join("\n");
+            return `${s.property}:\n${order}`;
+          })
+          .join("\n\n");
 
-        // Detalle por property: incluye renames y reorders en el toast.
+        // Detalle por property: incluye renames y reorders en el toast,
+        // seguido del orden completo de Tuya para debug.
         const detail = [
           ...synced.map((s) => {
             const parts: string[] = [];
@@ -97,6 +96,9 @@ export function SyncRoomsButton() {
             return `${s.property}: ${parts.length ? parts.join(", ") : "sin cambios"}`;
           }),
           ...skipped.map((s) => `⚠ ${s.home}: ${s.reason}`),
+          "",
+          "Orden de Tuya:",
+          tuyaOrderDebug,
         ].join("\n");
 
         const totalChanges =
