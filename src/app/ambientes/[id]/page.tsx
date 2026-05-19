@@ -234,7 +234,11 @@ export default async function RoomDetailPage({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <RoomHistoryChart series={chartSeries} />
+              <RoomHistoryChart
+                series={chartSeries}
+                windowStartMs={sinceTs}
+                windowEndMs={Date.now()}
+              />
             </CardContent>
           </Card>
 

@@ -611,18 +611,22 @@ function DeviceEnergyCard({
         </div>
       </CardHeader>
       <CardContent>
+        {/* Stats en vivo: sólo cuando el device está online con lectura.
+            Si está offline o no hay reading, ocultamos este bloque pero
+            seguimos mostrando histórico abajo. */}
         {readError ? (
           <p className="text-sm text-destructive">
-            No se pudo leer el estado: {readError}
+            No se pudo leer el estado en vivo: {readError}
           </p>
         ) : !device.online ? (
           <p className="text-sm text-muted-foreground">
-            El device está offline — los valores en vivo no están disponibles.
+            🔌 Device offline — sin lectura en vivo. Los datos históricos
+            siguen abajo.
           </p>
         ) : !reading ||
           (reading.power_w == null && reading.total_energy_kwh == null) ? (
           <p className="text-sm text-muted-foreground">
-            Tuya no devolvió datos de potencia/energía para este device.
+            Tuya no devolvió datos de potencia/energía en vivo.
           </p>
         ) : unit === "kwh" ? (
           // Modo kWh: ocultamos los stats de costo y mostramos sólo las
@@ -674,12 +678,20 @@ function DeviceEnergyCard({
           </div>
         )}
 
-        {rangeSnapshots.length >= 2 && (
+        {/* Chart histórico — independiente del estado online del device.
+            Si la llave está offline ahora pero capturamos snapshots
+            mientras estaba conectada, los seguimos mostrando. La parte
+            del rango sin data queda como franja vacía (eje X fijo). */}
+        {rangeSnapshots.length >= 1 && (
           <div className="mt-6 border-t pt-4">
             <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Potencia · {RANGES[range].label}
             </p>
-            <DeviceEnergyChart data={rangeSnapshots} />
+            <DeviceEnergyChart
+              data={rangeSnapshots}
+              windowStartMs={rangeStartTs}
+              windowEndMs={Date.now()}
+            />
           </div>
         )}
 

@@ -43,10 +43,38 @@ const HUM_COLORS = [
   "oklch(0.7 0.16 200)",   // cyan
 ];
 
-export function RoomHistoryChart({ series }: { series: SensorSeries[] }) {
+export function RoomHistoryChart({
+  series,
+  windowStartMs,
+  windowEndMs,
+}: {
+  series: SensorSeries[];
+  /** Inicio de la ventana del rango (24h/7d/30d). El eje X arranca acá
+   *  aunque no haya data temprana — los huecos quedan visibles. */
+  windowStartMs: number;
+  /** Fin de la ventana (típicamente `Date.now()`). */
+  windowEndMs: number;
+}) {
   // Pivot: cada timestamp único es una fila con columnas por sensor.
+  // Anchors (start/end) con todos los valores null fuerzan al chart a
+  // renderizar el eje X completo aunque no haya data temprana.
   const data = useMemo(() => {
     const byTs = new Map<number, Record<string, number | null>>();
+    // Anchor inicial del rango.
+    const startRow: Record<string, number | null> = { ts: windowStartMs };
+    for (const s of series) {
+      startRow[`t_${s.deviceId}`] = null;
+      startRow[`h_${s.deviceId}`] = null;
+    }
+    byTs.set(windowStartMs, startRow);
+    // Anchor final.
+    const endRow: Record<string, number | null> = { ts: windowEndMs };
+    for (const s of series) {
+      endRow[`t_${s.deviceId}`] = null;
+      endRow[`h_${s.deviceId}`] = null;
+    }
+    if (!byTs.has(windowEndMs)) byTs.set(windowEndMs, endRow);
+
     for (const s of series) {
       for (const p of s.points) {
         const row = byTs.get(p.ts) ?? { ts: p.ts };
@@ -58,7 +86,7 @@ export function RoomHistoryChart({ series }: { series: SensorSeries[] }) {
     return Array.from(byTs.values()).sort(
       (a, b) => (a.ts as number) - (b.ts as number),
     );
-  }, [series]);
+  }, [series, windowStartMs, windowEndMs]);
 
   const showLegend = series.length > 1;
 
@@ -78,7 +106,11 @@ export function RoomHistoryChart({ series }: { series: SensorSeries[] }) {
             dataKey="ts"
             type="number"
             scale="time"
-            domain={["dataMin", "dataMax"]}
+            // Dominio fijo al rango seleccionado (24h/7d/30d). Si no hay
+            // data en parte del rango, esa franja queda visible vacía —
+            // el user percibe el "histórico parcial" directamente en
+            // el chart, sin necesidad de leer el banner.
+            domain={[windowStartMs, windowEndMs]}
             tick={{ fontSize: 11 }}
             tickFormatter={(ms) =>
               format(new Date(ms as number), "d MMM HH:mm", { locale: es })
@@ -154,7 +186,10 @@ export function RoomHistoryChart({ series }: { series: SensorSeries[] }) {
               stroke={TEMP_COLORS[idx % TEMP_COLORS.length]}
               strokeWidth={2.5}
               dot={false}
-              connectNulls
+              // connectNulls=false: si hay gaps de data dentro del rango
+              // (sensor offline esa hora), la línea queda cortada en
+              // vez de "saltar" sobre el hueco. Más honesto visualmente.
+              connectNulls={false}
               isAnimationActive={false}
             />
           ))}
@@ -169,7 +204,10 @@ export function RoomHistoryChart({ series }: { series: SensorSeries[] }) {
               strokeWidth={2.5}
               strokeDasharray="5 3"
               dot={false}
-              connectNulls
+              // connectNulls=false: si hay gaps de data dentro del rango
+              // (sensor offline esa hora), la línea queda cortada en
+              // vez de "saltar" sobre el hueco. Más honesto visualmente.
+              connectNulls={false}
               isAnimationActive={false}
             />
           ))}

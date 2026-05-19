@@ -175,10 +175,12 @@ export async function runSyncRooms(): Promise<SyncRoomsResult> {
     let devicesNotInDb = 0;
     const tuyaSortValues: Array<{ name: string; sort: number | null }> = [];
 
-    // Fallback de orden: si Tuya no manda `sort` confiable, usamos el
-    // índice del array como sort_order. La API de Smart Life devuelve
-    // los rooms en el orden visual del usuario, así que el índice ya
-    // es un orden razonable.
+    // Orden = índice del array × 10. Smart Life devuelve los rooms en
+    // el orden visual del usuario, así que confiar en el índice es
+    // siempre correcto. Probamos antes con `tr.sort` numérico de Tuya
+    // pero es poco confiable (a veces 0 para todos, a veces números
+    // arbitrarios que no reflejan el orden visual). El index siempre
+    // gana.
     for (let idx = 0; idx < rooms.length; idx++) {
       const tr = rooms[idx];
       const trName = String(tr.name ?? "").trim();
@@ -187,11 +189,9 @@ export async function runSyncRooms(): Promise<SyncRoomsResult> {
       const tuyaSort = typeof tr.sort === "number" ? tr.sort : null;
       tuyaSortValues.push({ name: trName, sort: tuyaSort });
 
-      // Source of truth para sort_order: el `sort` que manda Tuya si
-      // tiene un valor numérico distinto de 0; sino, el índice del
-      // array. Multiplicamos por 10 para dejar espacio entre valores.
-      const computedSort =
-        tuyaSort != null && tuyaSort > 0 ? tuyaSort : (idx + 1) * 10;
+      // Increments de 10 deja espacio para inserts manuales futuros sin
+      // tener que renumerar todo.
+      const computedSort = (idx + 1) * 10;
 
       const byTuyaId = existingByTuyaId.get(tuyaRoomId);
       const byName = byTuyaId
