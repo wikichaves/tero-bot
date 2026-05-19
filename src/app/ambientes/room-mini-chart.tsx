@@ -41,8 +41,8 @@ export function RoomMiniChart({ series }: { series: Snapshot[] }) {
             yAxisId="t"
             type="monotone"
             dataKey="t"
-            stroke="oklch(0.72 0.18 55)"
-            strokeWidth={1.5}
+            stroke="oklch(0.7 0.22 45)"
+            strokeWidth={2}
             dot={false}
             isAnimationActive={false}
           />
@@ -50,8 +50,8 @@ export function RoomMiniChart({ series }: { series: Snapshot[] }) {
             yAxisId="h"
             type="monotone"
             dataKey="h"
-            stroke="oklch(0.65 0.18 240)"
-            strokeWidth={1.5}
+            stroke="oklch(0.62 0.22 245)"
+            strokeWidth={2}
             dot={false}
             isAnimationActive={false}
           />

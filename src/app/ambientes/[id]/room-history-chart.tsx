@@ -29,15 +29,18 @@ type SensorSeries = {
   points: Array<{ ts: number; t: number | null; h: number | null }>;
 };
 
+// WIK-98: colores más saturados (chroma 0.22 vs 0.18) y lightness más
+// definida para que las curvas se distingan mejor del background del
+// chart y del grid. Vivian más en pantallas OLED / dark mode también.
 const TEMP_COLORS = [
-  "oklch(0.72 0.18 55)",   // orange primary
-  "oklch(0.65 0.18 35)",   // deeper orange
-  "oklch(0.78 0.16 75)",   // amber
+  "oklch(0.7 0.22 45)",    // orange primary, más saturado
+  "oklch(0.6 0.22 25)",    // deeper red-orange
+  "oklch(0.78 0.2 75)",    // amber bright
 ];
 const HUM_COLORS = [
-  "oklch(0.65 0.18 240)",  // blue
-  "oklch(0.55 0.15 220)",  // deeper blue
-  "oklch(0.7 0.12 200)",   // cyan
+  "oklch(0.62 0.22 245)",  // blue primary, más saturado
+  "oklch(0.52 0.2 225)",   // deeper blue
+  "oklch(0.7 0.16 200)",   // cyan
 ];
 
 export function RoomHistoryChart({ series }: { series: SensorSeries[] }) {
@@ -108,8 +111,15 @@ export function RoomHistoryChart({ series }: { series: SensorSeries[] }) {
                 locale: es,
               })
             }
-            formatter={(value, name) => {
-              const isTemp = String(name).startsWith("t_");
+            formatter={(value, name, item) => {
+              // `name` puede ser "Temperatura"/"Humedad" (single sensor)
+              // o `<label> · T`/`<label> · H` (multi). Usamos `dataKey`
+              // que siempre arranca con `t_` o `h_` — único discriminador
+              // confiable entre las dos métricas.
+              const dataKey = String(
+                (item as { dataKey?: string } | undefined)?.dataKey ?? "",
+              );
+              const isTemp = dataKey.startsWith("t_");
               return [
                 isTemp
                   ? `${(value as number).toFixed(1)}°C`
@@ -126,7 +136,7 @@ export function RoomHistoryChart({ series }: { series: SensorSeries[] }) {
               dataKey={`t_${s.deviceId}`}
               name={series.length > 1 ? `${s.label} · T` : "Temperatura"}
               stroke={TEMP_COLORS[idx % TEMP_COLORS.length]}
-              strokeWidth={2}
+              strokeWidth={2.5}
               dot={false}
               connectNulls
               isAnimationActive={false}
@@ -140,8 +150,8 @@ export function RoomHistoryChart({ series }: { series: SensorSeries[] }) {
               dataKey={`h_${s.deviceId}`}
               name={series.length > 1 ? `${s.label} · H` : "Humedad"}
               stroke={HUM_COLORS[idx % HUM_COLORS.length]}
-              strokeWidth={2}
-              strokeDasharray="4 2"
+              strokeWidth={2.5}
+              strokeDasharray="5 3"
               dot={false}
               connectNulls
               isAnimationActive={false}

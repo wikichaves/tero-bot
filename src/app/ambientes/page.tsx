@@ -12,9 +12,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { Property, Room } from "@/lib/types";
 import { SnapshotSensorsButton } from "@/app/admin/tuya/snapshot-sensors-button";
 import { RoomMiniChart } from "./room-mini-chart";
+import { RoomSortControls } from "./room-sort-controls";
 
 /**
  * /ambientes — vista por room/ambiente con la última lectura de cada
@@ -45,9 +47,20 @@ type Device = {
   room_id: string | null;
 };
 
-const TWENTY_FOUR_H_MS = 24 * 60 * 60 * 1000;
+// WIK-98: rango configurable por ?range=. Default 24h.
+const RANGES = {
+  "24h": { hours: 24, label: "24 horas" },
+  "7d": { hours: 7 * 24, label: "7 días" },
+  "30d": { hours: 30 * 24, label: "30 días" },
+} as const;
 
-export default async function AmbientesPage() {
+type RangeKey = keyof typeof RANGES;
+
+export default async function AmbientesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string }>;
+}) {
   // requireRole se hace en el layout — pero necesitamos el profile
   // para aplicar scope por property (WIK-94).
   const profile = await requireProfile();
@@ -55,8 +68,14 @@ export default async function AmbientesPage() {
   // Best-effort: si la última lectura está vieja, dispara captura nueva.
   await maybeSnapshotSensorsIfStale(60).catch(() => null);
 
+  const sp = await searchParams;
+  const range: RangeKey =
+    sp.range === "7d" || sp.range === "30d" ? sp.range : "24h";
+
   const supabase = await createClient();
-  const since = new Date(Date.now() - TWENTY_FOUR_H_MS).toISOString();
+  const since = new Date(
+    Date.now() - RANGES[range].hours * 60 * 60 * 1000,
+  ).toISOString();
 
   let propsQuery = supabase
     .from("properties")
@@ -81,11 +100,14 @@ export default async function AmbientesPage() {
   // snapshots no se filtran por property — se filtran indirectamente
   // por property_device_id en el render (solo se muestran los devices
   // que pasaron el scope arriba).
+  // Limit explícito (WIK-98): el default de Supabase es 1000, que se
+  // queda corto cuando seleccionan 30d con varios sensores.
   const snapshotsQuery = supabase
     .from("sensor_snapshots")
     .select("property_device_id, taken_at, temperature_c, humidity_pct, battery_pct")
     .gte("taken_at", since)
-    .order("taken_at", { ascending: true });
+    .order("taken_at", { ascending: true })
+    .limit(100_000);
 
   const [propsRes, roomsRes, devicesRes, snapshotsRes] = await Promise.all([
     propsQuery,
@@ -128,7 +150,7 @@ export default async function AmbientesPage() {
   if (propertiesWithSensors.length === 0) {
     return (
       <div className="flex flex-col gap-6">
-        <Header />
+        <Header range={range} />
         <Card>
           <CardContent className="pt-6 text-sm text-muted-foreground space-y-2">
             <p>
@@ -153,21 +175,28 @@ export default async function AmbientesPage() {
     );
   }
 
+  // Determinar si el user puede reordenar (admin/gestor).
+  const canReorder = profile.role === "admin" || profile.role === "gestor";
+
   return (
     <div className="flex flex-col gap-6">
-      <Header />
+      <Header range={range} />
       {propertiesWithSensors.map((property) => {
         const propRooms = rooms.filter((r) => r.property_id === property.id);
         const noRoomKey = `__no_room_${property.id}`;
         const hasOrphans = (devicesByRoom.get(noRoomKey)?.length ?? 0) > 0;
         if (propRooms.length === 0 && !hasOrphans) return null;
+        // Sólo cuento como "reorderable" los rooms que aparecen en el grid
+        // (los que tienen devices). El "Sin ambiente" no se mueve.
+        const visibleRooms = propRooms.filter(
+          (r) => (devicesByRoom.get(r.id)?.length ?? 0) > 0,
+        );
         return (
           <section key={property.id} className="flex flex-col gap-3">
             <h2 className="text-lg font-semibold">{property.name}</h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {propRooms.map((room) => {
+              {visibleRooms.map((room, idx) => {
                 const roomDevices = devicesByRoom.get(room.id) ?? [];
-                if (roomDevices.length === 0) return null;
                 return (
                   <RoomCard
                     key={room.id}
@@ -175,6 +204,10 @@ export default async function AmbientesPage() {
                     roomName={room.name}
                     devices={roomDevices}
                     snapshotsByDevice={snapshotsByDevice}
+                    range={range}
+                    canReorder={canReorder}
+                    isFirst={idx === 0}
+                    isLast={idx === visibleRooms.length - 1}
                   />
                 );
               })}
@@ -185,6 +218,10 @@ export default async function AmbientesPage() {
                   roomName="Sin ambiente"
                   devices={devicesByRoom.get(noRoomKey) ?? []}
                   snapshotsByDevice={snapshotsByDevice}
+                  range={range}
+                  canReorder={false}
+                  isFirst={false}
+                  isLast={false}
                 />
               )}
             </div>
@@ -195,17 +232,31 @@ export default async function AmbientesPage() {
   );
 }
 
-function Header() {
+function Header({ range }: { range: RangeKey }) {
   return (
-    <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
-      <div>
-        <h1 className="text-2xl font-semibold">Ambientes</h1>
-        <p className="text-sm text-muted-foreground">
-          Temperatura y humedad en vivo por ambiente. Captura horaria
-          desde Tuya. Tocá una card para ver el histórico.
-        </p>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
+        <div>
+          <h1 className="text-2xl font-semibold">Ambientes</h1>
+          <p className="text-sm text-muted-foreground">
+            Temperatura y humedad en vivo por ambiente. Captura horaria
+            desde Tuya. Tocá una card para ver el histórico.
+          </p>
+        </div>
+        <SnapshotSensorsButton />
       </div>
-      <SnapshotSensorsButton />
+      <div className="flex flex-wrap gap-2">
+        {(Object.keys(RANGES) as RangeKey[]).map((r) => (
+          <Link key={r} href={r === "24h" ? "/ambientes" : `/ambientes?range=${r}`}>
+            <Button
+              variant={range === r ? "default" : "outline"}
+              size="sm"
+            >
+              {RANGES[r].label}
+            </Button>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
@@ -215,11 +266,19 @@ function RoomCard({
   roomName,
   devices,
   snapshotsByDevice,
+  range,
+  canReorder,
+  isFirst,
+  isLast,
 }: {
   roomId: string | null;
   roomName: string;
   devices: Device[];
   snapshotsByDevice: Map<string, Snapshot[]>;
+  range: RangeKey;
+  canReorder: boolean;
+  isFirst: boolean;
+  isLast: boolean;
 }) {
   // Tomamos la lectura más reciente entre todos los sensores del room.
   // Si hay varios, promediamos (típicamente un room tiene 1, pero el
@@ -251,12 +310,14 @@ function RoomCard({
   // hint visual; el detalle tendrá selector por device si hay varios).
   const chartSeries = latestByDevice[0]?.series ?? [];
 
-  // Cuando el room tiene devices pero no hay snapshots en las últimas
-  // 24h, mostramos un warning en lugar de los valores. Esto cubre:
+  // Cuando el room tiene devices pero no hay snapshots en la ventana de
+  // tiempo seleccionada, mostramos un warning en lugar de los valores.
+  // Esto cubre:
   //   - Sensores recién agregados que aún no se capturaron
   //   - Sensores con problemas (offline, sin batería, firmware que no
   //     responde al endpoint /status — ver WIK-87 "Jugacion Temp")
   const hasNoRecentReadings = latestByDevice.length === 0;
+  const rangeLabel = RANGES[range].label;
 
   const inner = (
     <Card className="h-full">
@@ -280,7 +341,7 @@ function RoomCard({
             <div>
               <p className="font-medium">Sin lecturas recientes</p>
               <p className="opacity-80">
-                El sensor no respondió en las últimas 24h. Revisar
+                El sensor no respondió en {rangeLabel}. Revisar
                 conexión / batería en Smart Life o forzá una captura.
               </p>
             </div>
@@ -312,11 +373,29 @@ function RoomCard({
     </Card>
   );
 
+  // Layout:
+  //   - Si hay roomId, la card es un Link al detalle (heredando el ?range=)
+  //   - Si el user puede reordenar, los chevrons van *fuera* del Link
+  //     para que el click no navegue. Posicionados absolute arriba-derecha.
+  const detailHref =
+    range === "24h" ? `/ambientes/${roomId}` : `/ambientes/${roomId}?range=${range}`;
+
   if (roomId) {
     return (
-      <Link href={`/ambientes/${roomId}`} className="block">
-        {inner}
-      </Link>
+      <div className="relative">
+        <Link href={detailHref} className="block">
+          {inner}
+        </Link>
+        {canReorder && (
+          <div className="absolute right-1 top-1 z-10">
+            <RoomSortControls
+              roomId={roomId}
+              isFirst={isFirst}
+              isLast={isLast}
+            />
+          </div>
+        )}
+      </div>
     );
   }
   return inner;

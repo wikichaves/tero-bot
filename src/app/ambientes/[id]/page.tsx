@@ -15,8 +15,9 @@ import { RoomHistoryChart } from "./room-history-chart";
 /**
  * /ambientes/[id] — detalle de un room con histórico T+H.
  *
- * Rango por default: últimos 7 días. Query param `?range=7d|30d|24h`
- * cambia la ventana — chart re-render server-side al pasar otra link.
+ * Rango por default: últimas 24 horas (WIK-98). Query param
+ * `?range=24h|7d|30d` cambia la ventana — chart re-render server-side
+ * al pasar otra link.
  *
  * Si el room tiene múltiples sensores, mostramos cada uno con su propia
  * serie en el chart + cards de stats individuales. Por ahora promedio
@@ -44,7 +45,8 @@ export default async function RoomDetailPage({
   // requireRole en el layout.
   const { id } = await params;
   const sp = await searchParams;
-  const range: RangeKey = sp.range === "24h" || sp.range === "30d" ? sp.range : "7d";
+  const range: RangeKey =
+    sp.range === "7d" || sp.range === "30d" ? sp.range : "24h";
 
   const supabase = await createClient();
   const since = new Date(
@@ -77,6 +79,11 @@ export default async function RoomDetailPage({
     humidity_pct: number | null;
   }> = [];
   if (sensors.length > 0) {
+    // Limit explícito (WIK-98): Supabase default es 1000 rows. Para 30d
+    // con captura horaria, 1 sensor genera ~720 rows; con 2-3 sensores
+    // por room nos pasamos del default y la query trunca silenciosa —
+    // el chart muestra sólo el primer pedazo de la ventana. 100k cubre
+    // 30d × 12 sensores × 1 snapshot cada 5min con margen.
     const { data: snaps } = await supabase
       .from("sensor_snapshots")
       .select("property_device_id, taken_at, temperature_c, humidity_pct")
@@ -85,7 +92,8 @@ export default async function RoomDetailPage({
         sensors.map((s) => s.id),
       )
       .gte("taken_at", since)
-      .order("taken_at", { ascending: true });
+      .order("taken_at", { ascending: true })
+      .limit(100_000);
     snapshots = snaps ?? [];
   }
 
