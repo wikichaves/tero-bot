@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { Zap } from "lucide-react";
+import { Info } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -76,6 +78,14 @@ type BillComparison = {
 
 export const dynamic = "force-dynamic";
 
+// WIK-99: rangos seleccionables del histórico de consumo. Default 24h.
+const RANGES = {
+  "24h": { hours: 24, label: "24 horas", shortLabel: "24h" },
+  "7d": { hours: 7 * 24, label: "7 días", shortLabel: "7d" },
+  "30d": { hours: 30 * 24, label: "30 días", shortLabel: "30d" },
+} as const;
+type RangeKey = keyof typeof RANGES;
+
 type PropertySummary = Pick<
   Property,
   "id" | "name" | "currency" | "tariff_per_kwh" | "sort_order"
@@ -95,15 +105,28 @@ type DeviceWithContext = {
   currency: string;
   /** Consumption today (kWh delta) since 00:00 local. */
   todayKwh: number | null;
-  /** Consumption over the last 7 days. */
-  weekKwh: number | null;
+  /** Consumption over the selected range (24h / 7d / 30d). */
+  rangeKwh: number | null;
+  /** ISO timestamp of the first snapshot found within the range, if any.
+   *  Used to detect partial history. */
+  rangeFirstSnapshotIso: string | null;
   /** Facturas de luz con período + kWh facturado para la propiedad del
    *  device, comparadas contra el consumo Tuya en el mismo período. (WIK-75) */
   billComparisons: BillComparison[];
 };
 
-export default async function EnergyPage() {
+export default async function EnergyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string }>;
+}) {
   const defaultTariff = getDefaultTariff();
+  const sp = await searchParams;
+  const range: RangeKey =
+    sp.range === "7d" || sp.range === "30d" ? sp.range : "24h";
+  const rangeSinceIso = new Date(
+    Date.now() - RANGES[range].hours * 60 * 60 * 1000,
+  ).toISOString();
 
   // Take a fresh snapshot if the latest is over an hour old. This is the
   // primary capture mechanism on Vercel's Hobby plan (cron is daily-only).
@@ -118,7 +141,7 @@ export default async function EnergyPage() {
   if ("error" in flatRes) {
     return (
       <div className="flex flex-col gap-6">
-        <Header />
+        <Header range={range} />
         <Card>
           <CardContent className="pt-6 text-sm text-destructive">
             No se pudo hablar con Tuya: {flatRes.error}
@@ -181,7 +204,6 @@ export default async function EnergyPage() {
   const admin = createAdminClient();
 
   const todayIso = startOfTodayIso();
-  const sevenDaysAgoIso = startOfDaysAgoIso(7);
 
   const devicesWithContext: DeviceWithContext[] = await Promise.all(
     energyDevices.map(async (device) => {
@@ -207,14 +229,16 @@ export default async function EnergyPage() {
       // Pull historical consumption (only meaningful if device is assigned —
       // we key snapshots by property_device_id).
       let todayKwh: number | null = null;
-      let weekKwh: number | null = null;
+      let rangeKwh: number | null = null;
+      let rangeFirstSnapshotIso: string | null = null;
       if (assignment?.id) {
-        const [today, week] = await Promise.all([
+        const [today, rangeRes] = await Promise.all([
           getConsumptionSince(assignment.id, todayIso),
-          getConsumptionSince(assignment.id, sevenDaysAgoIso),
+          getConsumptionSince(assignment.id, rangeSinceIso),
         ]);
         todayKwh = today.delta_kwh;
-        weekKwh = week.delta_kwh;
+        rangeKwh = rangeRes.delta_kwh;
+        rangeFirstSnapshotIso = rangeRes.first?.taken_at ?? null;
       }
 
       // Bill-vs-Tuya comparisons para esta propiedad (las últimas hasta 6
@@ -262,7 +286,8 @@ export default async function EnergyPage() {
         tariff,
         currency,
         todayKwh,
-        weekKwh,
+        rangeKwh,
+        rangeFirstSnapshotIso,
         billComparisons,
       };
     }),
@@ -285,55 +310,9 @@ export default async function EnergyPage() {
   );
   const fxRates = await getRatesToUsd(distinctCurrencies);
 
-  // Aggregate Total in USD across ALL properties / currencies.
-  // Each device's local cost gets converted via its own currency's FX rate.
-  const aggregate = devicesWithContext.reduce(
-    (acc, ctx) => {
-      if (ctx.reading?.power_w != null) acc.power_w += ctx.reading.power_w;
-      if (ctx.reading?.total_energy_kwh != null) {
-        acc.energy_kwh += ctx.reading.total_energy_kwh;
-      }
-      if (ctx.todayKwh != null) acc.today_kwh += ctx.todayKwh;
-      if (ctx.weekKwh != null) acc.week_kwh += ctx.weekKwh;
-      const fx = fxRates.get(ctx.currency);
-      if (!fx) return acc;
-      if (ctx.reading) {
-        const cost = estimateCost(ctx.reading, ctx.tariff, ctx.currency);
-        const hourlyUsd = toUsd(cost.hourly_cost_at_current, fx);
-        const dailyUsd = toUsd(cost.daily_cost_at_current, fx);
-        const totalUsd = toUsd(cost.total_cost, fx);
-        if (hourlyUsd != null) acc.hourly_usd += hourlyUsd;
-        if (dailyUsd != null) acc.daily_usd += dailyUsd;
-        if (totalUsd != null) acc.total_usd += totalUsd;
-      }
-      // Historical costs use the same tariff (we don't track tariff changes
-      // over time yet — Phase 3).
-      if (ctx.todayKwh != null) {
-        const todayUsd = toUsd(ctx.todayKwh * ctx.tariff, fx);
-        if (todayUsd != null) acc.today_usd += todayUsd;
-      }
-      if (ctx.weekKwh != null) {
-        const weekUsd = toUsd(ctx.weekKwh * ctx.tariff, fx);
-        if (weekUsd != null) acc.week_usd += weekUsd;
-      }
-      return acc;
-    },
-    {
-      power_w: 0,
-      energy_kwh: 0,
-      hourly_usd: 0,
-      daily_usd: 0,
-      total_usd: 0,
-      today_kwh: 0,
-      today_usd: 0,
-      week_kwh: 0,
-      week_usd: 0,
-    },
-  );
-
   return (
     <div className="flex flex-col gap-6">
-      <Header />
+      <Header range={range} />
 
       {devicesWithContext.length === 0 ? (
         <Card>
@@ -352,66 +331,12 @@ export default async function EnergyPage() {
         </Card>
       ) : (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="h-5 w-5" />
-                Total · USD
-              </CardTitle>
-              <CardDescription>
-                Suma de los {devicesWithContext.length} medidores activos,
-                convertidos a USD al cambio del día.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-4 sm:grid-cols-4">
-                <Stat
-                  label="Potencia ahora"
-                  value={formatPower(aggregate.power_w || null)}
-                />
-                <Stat
-                  label="Costo / hora"
-                  value={formatUsd(aggregate.hourly_usd || null)}
-                />
-                <Stat
-                  label="Proyección 24 h"
-                  value={formatUsd(aggregate.daily_usd || null)}
-                  hint="al consumo actual"
-                />
-                <Stat
-                  label="Acumulado total"
-                  value={formatKwh(aggregate.energy_kwh || null)}
-                  hint={formatUsd(aggregate.total_usd || null)}
-                />
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2 border-t pt-4">
-                <Stat
-                  label="Consumo hoy"
-                  value={formatKwh(aggregate.today_kwh || null)}
-                  hint={
-                    aggregate.today_usd > 0
-                      ? formatUsd(aggregate.today_usd)
-                      : "necesita 2+ snapshots — apretá 'Snapshot ahora' para empezar"
-                  }
-                />
-                <Stat
-                  label="Consumo últimos 7 días"
-                  value={formatKwh(aggregate.week_kwh || null)}
-                  hint={
-                    aggregate.week_usd > 0
-                      ? formatUsd(aggregate.week_usd)
-                      : undefined
-                  }
-                />
-              </div>
-            </CardContent>
-          </Card>
-
           {devicesWithContext.map((d) => (
             <DeviceEnergyCard
               key={d.device.id}
               ctx={d}
               fx={fxRates.get(d.currency)}
+              range={range}
             />
           ))}
 
@@ -422,26 +347,40 @@ export default async function EnergyPage() {
   );
 }
 
-function Header() {
+function Header({ range }: { range: RangeKey }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 className="text-2xl font-semibold">Energía</h1>
-        <p className="text-sm text-muted-foreground">
-          Consumo en vivo por propiedad. Histórico vía snapshots horarios.
-          Tarifa y moneda se configuran por propiedad en{" "}
-          <a
-            href="/admin/properties"
-            className="underline hover:text-foreground"
-          >
-            /admin/properties
-          </a>
-          .
-        </p>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Energía</h1>
+          <p className="text-sm text-muted-foreground">
+            Consumo en vivo por propiedad. Histórico vía snapshots horarios.
+            Tarifa y moneda se configuran por propiedad en{" "}
+            <a
+              href="/admin/properties"
+              className="underline hover:text-foreground"
+            >
+              /admin/properties
+            </a>
+            .
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <SnapshotButton />
+          <BackfillButton />
+        </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <SnapshotButton />
-        <BackfillButton />
+      <div className="flex flex-wrap gap-2">
+        {(Object.keys(RANGES) as RangeKey[]).map((r) => (
+          <Link key={r} href={r === "24h" ? "/energy" : `/energy?range=${r}`}>
+            <Button
+              variant={range === r ? "default" : "outline"}
+              size="sm"
+            >
+              {RANGES[r].label}
+            </Button>
+          </Link>
+        ))}
       </div>
     </div>
   );
@@ -485,9 +424,11 @@ function FxFooter({ rates }: { rates: Map<string, FxRate> }) {
 function DeviceEnergyCard({
   ctx,
   fx,
+  range,
 }: {
   ctx: DeviceWithContext;
   fx: FxRate | undefined;
+  range: RangeKey;
 }) {
   const {
     device,
@@ -498,9 +439,21 @@ function DeviceEnergyCard({
     tariff,
     currency,
     todayKwh,
-    weekKwh,
+    rangeKwh,
+    rangeFirstSnapshotIso,
     billComparisons,
   } = ctx;
+
+  // Histórico parcial: si el primer snapshot dentro del rango es de >12h
+  // *después* del inicio teórico del rango, mostramos un banner. Útil
+  // ahora que el cron horario arrancó hace poco y las ventanas de 7d/30d
+  // todavía no tienen data completa.
+  const rangeStartTs = Date.now() - RANGES[range].hours * 60 * 60 * 1000;
+  const HISTORICAL_GAP_THRESHOLD_MS = 12 * 60 * 60 * 1000;
+  const hasIncompleteHistory =
+    rangeFirstSnapshotIso != null &&
+    new Date(rangeFirstSnapshotIso).getTime() - rangeStartTs >
+      HISTORICAL_GAP_THRESHOLD_MS;
   const cost = reading
     ? estimateCost(reading, tariff, currency)
     : {
@@ -622,7 +575,7 @@ function DeviceEnergyCard({
           </div>
         )}
 
-        {(todayKwh != null || weekKwh != null) && (
+        {(todayKwh != null || rangeKwh != null) && (
           <div className="mt-6 grid gap-4 sm:grid-cols-2 border-t pt-4">
             <Stat
               label="Consumo hoy"
@@ -646,12 +599,12 @@ function DeviceEnergyCard({
               }
             />
             <Stat
-              label="Consumo últimos 7 días"
-              value={formatKwh(weekKwh)}
+              label={`Consumo últim${RANGES[range].shortLabel === "24h" ? "as" : "os"} ${RANGES[range].label}`}
+              value={formatKwh(rangeKwh)}
               hint={
-                weekKwh != null
+                rangeKwh != null
                   ? (() => {
-                      const localCost = weekKwh * tariff;
+                      const localCost = rangeKwh * tariff;
                       return (
                         <>
                           {formatMoney(localCost, currency)}
@@ -666,6 +619,23 @@ function DeviceEnergyCard({
                   : undefined
               }
             />
+          </div>
+        )}
+
+        {hasIncompleteHistory && rangeFirstSnapshotIso && (
+          <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <div>
+              <p className="font-medium">Histórico parcial</p>
+              <p className="opacity-80">
+                Sólo tenemos datos desde el{" "}
+                {format(new Date(rangeFirstSnapshotIso), "d MMM HH:mm", {
+                  locale: es,
+                })}
+                . Las capturas horarias arrancaron hace poco; el rango
+                de {RANGES[range].label} se irá llenando.
+              </p>
+            </div>
           </div>
         )}
 
