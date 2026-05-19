@@ -3,6 +3,7 @@ import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildConsumptionReport } from "@/lib/energy/reports";
+import { buildRoomsReport } from "@/lib/sensors/reports";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import type { Profile, Task } from "@/lib/types";
 import { normalizePhone } from "./index";
@@ -10,6 +11,7 @@ import { normalizePhone } from "./index";
 export type ParsedCommand =
   | { type: "consumption"; propertyFilter: string | null }
   | { type: "my_tasks" }
+  | { type: "rooms" }
   | { type: "help" }
   | null;
 
@@ -19,6 +21,9 @@ const HELP_TEXT_FULL = `🌲 *Acme Rentals · Comandos*
 • \`consumo\` — resumen total (hoy + 7 días)
 • \`consumo merced\` — solo Acme Rentals
 • \`consumo 14 julio\` — solo Casa Secundaria
+
+🌡️ *Ambientes* (admin/gestor)
+• \`ambientes\` — T/H promedio últimas 24 h por ambiente
 
 📋 *Tareas*
 • \`tareas\` — tus tareas pendientes
@@ -65,6 +70,11 @@ export function parseCommand(text: string | null | undefined): ParsedCommand {
     const m = lower.match(/^[^\s]+\s+(.+)$/);
     const filter = m ? m[1].trim() : null;
     return { type: "consumption", propertyFilter: filter };
+  }
+
+  // "ambientes" / "ambiente" / "sensores" / "temperatura"
+  if (/^(ambientes?|sensores?|temperatura|humedad)\b/.test(lower)) {
+    return { type: "rooms" };
   }
 
   return null;
@@ -213,6 +223,17 @@ export async function runCommand(
         });
       } catch (e) {
         return `❌ No pude generar el reporte: ${(e as Error).message}`;
+      }
+    case "rooms":
+      try {
+        // WIK-90 / WIK-94: scope igual que consumption.
+        const profile = await getProfileByPhone(fromPhone);
+        const allowedIds = profile
+          ? await getAllowedPropertyIds(profile)
+          : null;
+        return await buildRoomsReport(allowedIds);
+      } catch (e) {
+        return `❌ No pude generar el reporte de ambientes: ${(e as Error).message}`;
       }
   }
 }

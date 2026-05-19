@@ -92,3 +92,166 @@ export async function buildSensorSummary(
   }
   return lines;
 }
+
+/**
+ * Build the response for the WhatsApp `ambientes` command (WIK-90).
+ *
+ * A diferencia de `buildSensorSummary` (que agrupa por property con
+ * min/max para el reporte diario), acá agrupamos por *room* y mostramos
+ * el promedio de las últimas 24h. La idea es que el admin pueda
+ * preguntar "ambientes" por chat y ver de un vistazo cómo está cada
+ * habitación.
+ *
+ * Format:
+ *   🌡️ Ambientes — últimas 24 h
+ *
+ *   📍 Acme Rentals
+ *   • Living · 18.2°C · 65%
+ *   • Kids · 19.5°C · 60%
+ *
+ *   📍 Casa Secundaria
+ *   • Master · ...
+ *
+ * Si no hay rooms con devices, mensaje guía. Si hay rooms pero ningún
+ * snapshot reciente, los lista igual indicando "_sin lecturas_".
+ */
+export async function buildRoomsReport(
+  /** WIK-94: scope. null = admin (sin filtro). */
+  allowedPropertyIds: string[] | null,
+): Promise<string> {
+  const admin = createAdminClient();
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  // 1. Properties (respetando scope).
+  let propsQuery = admin
+    .from("properties")
+    .select("id, name, sort_order")
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+  if (allowedPropertyIds != null) {
+    propsQuery = propsQuery.in("id", allowedPropertyIds);
+  }
+  const { data: propertiesData } = await propsQuery;
+  const properties = (propertiesData ?? []) as Array<{
+    id: string;
+    name: string;
+    sort_order: number;
+  }>;
+  if (properties.length === 0) {
+    return "📭 No tenés propiedades visibles con tu usuario.";
+  }
+  const propIds = properties.map((p) => p.id);
+
+  // 2. Rooms de esas properties.
+  const { data: roomsData } = await admin
+    .from("rooms")
+    .select("id, property_id, name, sort_order")
+    .in("property_id", propIds)
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+  const rooms = (roomsData ?? []) as Array<{
+    id: string;
+    property_id: string;
+    name: string;
+    sort_order: number;
+  }>;
+
+  // 3. Sensor devices asignados a esos rooms.
+  const { data: devicesData } = await admin
+    .from("property_devices")
+    .select("id, property_id, room_id")
+    .eq("device_kind", "sensor")
+    .in("property_id", propIds);
+  const devices = (devicesData ?? []) as Array<{
+    id: string;
+    property_id: string;
+    room_id: string | null;
+  }>;
+
+  if (devices.length === 0) {
+    return "📭 No hay sensores T/H asignados. Asignalos en admin.example.com/admin/tuya";
+  }
+
+  // 4. Snapshots últimas 24h para esos devices.
+  const sensorIds = devices.map((d) => d.id);
+  const { data: snapsData } = await admin
+    .from("sensor_snapshots")
+    .select("property_device_id, temperature_c, humidity_pct")
+    .in("property_device_id", sensorIds)
+    .gte("taken_at", since)
+    .limit(100_000);
+  const snaps = (snapsData ?? []) as Array<{
+    property_device_id: string;
+    temperature_c: number | null;
+    humidity_pct: number | null;
+  }>;
+
+  // Index snapshots por device_id.
+  const snapsByDevice = new Map<
+    string,
+    { temps: number[]; hums: number[] }
+  >();
+  for (const s of snaps) {
+    const acc = snapsByDevice.get(s.property_device_id) ?? {
+      temps: [],
+      hums: [],
+    };
+    if (s.temperature_c != null) acc.temps.push(Number(s.temperature_c));
+    if (s.humidity_pct != null) acc.hums.push(Number(s.humidity_pct));
+    snapsByDevice.set(s.property_device_id, acc);
+  }
+
+  // 5. Promediar por *room* (un room puede tener varios sensores; los
+  //    juntamos en un solo bucket).
+  const devicesByRoom = new Map<string, string[]>();
+  for (const d of devices) {
+    if (!d.room_id) continue;
+    const list = devicesByRoom.get(d.room_id) ?? [];
+    list.push(d.id);
+    devicesByRoom.set(d.room_id, list);
+  }
+
+  const avg = (arr: number[]): number | null =>
+    arr.length === 0 ? null : arr.reduce((a, b) => a + b, 0) / arr.length;
+
+  const lines: string[] = ["🌡️ *Ambientes — últimas 24 h*", ""];
+  let totalLines = 0;
+  for (const property of properties) {
+    const propRooms = rooms.filter((r) => r.property_id === property.id);
+    const roomsWithDevices = propRooms.filter(
+      (r) => (devicesByRoom.get(r.id)?.length ?? 0) > 0,
+    );
+    if (roomsWithDevices.length === 0) continue;
+
+    lines.push(`📍 *${property.name}*`);
+    for (const room of roomsWithDevices) {
+      const deviceIds = devicesByRoom.get(room.id) ?? [];
+      const temps: number[] = [];
+      const hums: number[] = [];
+      for (const did of deviceIds) {
+        const s = snapsByDevice.get(did);
+        if (!s) continue;
+        temps.push(...s.temps);
+        hums.push(...s.hums);
+      }
+      const t = avg(temps);
+      const h = avg(hums);
+      if (t == null && h == null) {
+        lines.push(`• ${room.name}: _sin lecturas_`);
+      } else {
+        const tPart = t != null ? `${t.toFixed(1)}°C` : "—";
+        const hPart = h != null ? `${Math.round(h)}%` : "—";
+        lines.push(`• ${room.name}: ${tPart} · ${hPart}`);
+      }
+      totalLines++;
+    }
+    lines.push("");
+  }
+
+  if (totalLines === 0) {
+    return "📭 Ningún ambiente tiene lecturas en las últimas 24h. Forzá una captura desde /admin/tuya.";
+  }
+
+  lines.push("_Detalle: admin.example.com/ambientes_");
+  return lines.join("\n").trim();
+}
