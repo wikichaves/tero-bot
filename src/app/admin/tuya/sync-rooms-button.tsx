@@ -34,16 +34,24 @@ export function SyncRoomsButton() {
           property: string;
           rooms_inserted: number;
           rooms_existing: number;
+          rooms_renamed: number;
+          rooms_reordered: number;
           devices_assigned: number;
           devices_already_assigned: number;
           devices_not_in_db: number;
+          tuya_sort_values: Array<{ name: string; sort: number | null }>;
         };
         type Skipped = { home: string; reason: string };
 
         const synced: Synced[] = json.synced ?? [];
         const skipped: Skipped[] = json.skipped ?? [];
-        const newRooms = synced.reduce(
-          (sum, s) => sum + s.rooms_inserted,
+        const newRooms = synced.reduce((sum, s) => sum + s.rooms_inserted, 0);
+        const renamed = synced.reduce(
+          (sum, s) => sum + (s.rooms_renamed ?? 0),
+          0,
+        );
+        const reordered = synced.reduce(
+          (sum, s) => sum + (s.rooms_reordered ?? 0),
           0,
         );
         const devicesAssigned = synced.reduce(
@@ -51,24 +59,55 @@ export function SyncRoomsButton() {
           0,
         );
 
-        // Detalle por property en el description (truncado).
+        // Log los sort values de Tuya en consola — útil para debug.
+        // Si todos vienen `null`, sabemos que estamos usando el
+        // fallback por índice y no hay nada que hacer del lado app.
+        if (typeof window !== "undefined") {
+          for (const s of synced) {
+            // eslint-disable-next-line no-console
+            console.info(
+              `[sync-rooms] ${s.property} → Tuya sort values:`,
+              s.tuya_sort_values,
+            );
+          }
+        }
+
+        // Detalle por property: incluye renames y reorders en el toast.
         const detail = [
-          ...synced.map(
-            (s) =>
-              `${s.property}: +${s.rooms_inserted} amb, ${s.devices_assigned} devs asignados`,
-          ),
+          ...synced.map((s) => {
+            const parts: string[] = [];
+            if (s.rooms_inserted) parts.push(`+${s.rooms_inserted} amb`);
+            if (s.rooms_renamed) parts.push(`${s.rooms_renamed} renombrados`);
+            if (s.rooms_reordered) parts.push(`${s.rooms_reordered} reordenados`);
+            if (s.devices_assigned)
+              parts.push(`${s.devices_assigned} devs asignados`);
+            return `${s.property}: ${parts.length ? parts.join(", ") : "sin cambios"}`;
+          }),
           ...skipped.map((s) => `⚠ ${s.home}: ${s.reason}`),
         ].join("\n");
 
-        if (newRooms === 0 && devicesAssigned === 0 && skipped.length > 0) {
+        const totalChanges =
+          newRooms + renamed + reordered + devicesAssigned;
+        if (totalChanges === 0 && skipped.length > 0) {
           toast.error("Sync sin cambios — revisar nombres de homes", {
             description: detail,
           });
+        } else if (totalChanges === 0) {
+          toast.success("Sync OK · sin cambios", {
+            description: detail || "Todo ya estaba sincronizado.",
+          });
         } else {
-          toast.success(
-            `Sync OK · ${newRooms} ambientes nuevos · ${devicesAssigned} devices asignados`,
-            detail ? { description: detail } : undefined,
-          );
+          const headline = [
+            newRooms && `${newRooms} nuevos`,
+            renamed && `${renamed} renombrados`,
+            reordered && `${reordered} reordenados`,
+            devicesAssigned && `${devicesAssigned} devices`,
+          ]
+            .filter(Boolean)
+            .join(" · ");
+          toast.success(`Sync OK · ${headline}`, {
+            description: detail,
+          });
         }
         router.refresh();
       } catch (e) {

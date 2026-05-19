@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Info } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import {
@@ -122,6 +124,22 @@ export default async function RoomDetailPage({
     };
   });
 
+  // ¿Cuál es el primer snapshot disponible? Si está significativamente
+  // después del `since` esperado, el chart sólo cubre parte de la
+  // ventana — mostramos un banner para que el user no piense que la
+  // curva plana inicial es real, sino falta de data.
+  // Threshold: 12h. Snapshots horarios → cualquier "hueco" mayor a 12h
+  // al inicio del rango indica que el sensor no había arrancado.
+  const firstSnapshot = snapshots[0];
+  const firstSnapshotTs = firstSnapshot
+    ? new Date(firstSnapshot.taken_at).getTime()
+    : null;
+  const sinceTs = new Date(since).getTime();
+  const HISTORICAL_GAP_THRESHOLD_MS = 12 * 60 * 60 * 1000;
+  const hasIncompleteHistory =
+    firstSnapshotTs != null &&
+    firstSnapshotTs - sinceTs > HISTORICAL_GAP_THRESHOLD_MS;
+
   // Series para chart: una serie por sensor en este room (para no
   // promediar y esconder outliers).
   const chartSeries = sensors.map((s, idx) => ({
@@ -190,6 +208,24 @@ export default async function RoomDetailPage({
         </Card>
       ) : (
         <>
+          {hasIncompleteHistory && firstSnapshotTs && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <div>
+                <p className="font-medium">
+                  Histórico parcial
+                </p>
+                <p className="opacity-80">
+                  Sólo tenemos datos desde el{" "}
+                  {format(new Date(firstSnapshotTs), "d MMM HH:mm", {
+                    locale: es,
+                  })}
+                  . El sensor no estaba capturando antes de esa fecha
+                  (snapshot horario activado hace poco).
+                </p>
+              </div>
+            </div>
+          )}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Histórico</CardTitle>

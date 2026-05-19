@@ -194,8 +194,10 @@ export async function runSyncRooms(): Promise<SyncRoomsResult> {
         tuyaSort != null && tuyaSort > 0 ? tuyaSort : (idx + 1) * 10;
 
       const byTuyaId = existingByTuyaId.get(tuyaRoomId);
-      let roomRow =
-        byTuyaId ?? existingByName.get(normalize(trName)) ?? null;
+      const byName = byTuyaId
+        ? null
+        : (existingByName.get(normalize(trName)) ?? null);
+      let roomRow = byTuyaId ?? byName ?? null;
 
       if (!roomRow) {
         const { data: inserted, error: insErr } = await admin
@@ -217,22 +219,30 @@ export async function runSyncRooms(): Promise<SyncRoomsResult> {
         roomsExisting++;
         const updates: Record<string, string | number> = {};
 
-        // UPDATE name si lo matcheamos por tuya_room_id (estable) y
-        // cambió en Smart Life. Por fuzzy-name no machacamos para no
-        // pisar rooms creados a mano.
-        if (byTuyaId && roomRow.name !== trName) {
+        // Cuando llegamos por fuzzy-name (no por tuya_room_id), siempre
+        // completamos el `tuya_room_id` en DB — desde el próximo sync
+        // el match va a ser estable por id. Esto cubre el caso WIK-82
+        // inicial donde los rooms se crearon sin tuya_room_id.
+        const willHaveTuyaId = byTuyaId != null || !roomRow.tuya_room_id;
+        if (!roomRow.tuya_room_id) {
+          updates.tuya_room_id = tuyaRoomId;
+        }
+
+        // UPDATE name si:
+        //   - matcheamos por tuya_room_id (estable), o
+        //   - matcheamos por name pero el room nunca tuvo tuya_room_id
+        //     (lo estamos linkeando recién ahora — Tuya gana).
+        // El único caso donde NO updateamos es si el room en DB ya
+        // tenía otro tuya_room_id y matcheó por name por casualidad
+        // (eso indica que son rooms distintos, dejarlo quieto).
+        if (willHaveTuyaId && roomRow.name !== trName) {
           updates.name = trName;
           roomsRenamed++;
         }
-        // UPDATE sort_order siempre que matcheemos por tuya_room_id.
-        // Tuya es source of truth para el orden (WIK-98 v3).
-        if (byTuyaId && roomRow.sort_order !== computedSort) {
+        // UPDATE sort_order con la misma lógica.
+        if (willHaveTuyaId && roomRow.sort_order !== computedSort) {
           updates.sort_order = computedSort;
           roomsReordered++;
-        }
-        // Completar tuya_room_id si era null (creado a mano).
-        if (!roomRow.tuya_room_id) {
-          updates.tuya_room_id = tuyaRoomId;
         }
 
         if (Object.keys(updates).length > 0) {
@@ -242,6 +252,7 @@ export async function runSyncRooms(): Promise<SyncRoomsResult> {
             .eq("id", roomRow.id);
           if (!updErr) {
             Object.assign(roomRow, updates);
+            existingByTuyaId.set(tuyaRoomId, roomRow);
           }
         }
       }
