@@ -317,12 +317,37 @@ function RoomCard({
   const hasNoRecentReadings = latestByDevice.length === 0;
   const rangeLabel = RANGES[range].label;
 
+  // Layout (WIK-101 fix):
+  //   - La card es `position: relative` y contiene un Link absolute
+  //     que cubre toda la superficie (z-10).
+  //   - El CardHeader (con dropdown) tiene `position: relative` + z-20
+  //     para quedar ENCIMA del Link absolute → los clicks en el
+  //     dropdown trigger e items no triggerean navegación.
+  //   - El CardContent NO tiene z → el click pasa al Link.
+  const detailHref = roomId
+    ? range === "24h"
+      ? `/ambientes/${roomId}`
+      : `/ambientes/${roomId}?range=${range}`
+    : null;
+
   const inner = (
-    <Card className="h-full">
+    <Card className="relative h-full">
+      {detailHref && (
+        <Link
+          href={detailHref}
+          className="absolute inset-0 z-10 rounded-[inherit]"
+          aria-label={`Ver detalle de ${roomName}`}
+        />
+      )}
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center justify-between gap-2 text-base">
           <span className="min-w-0 flex-1 truncate">{roomName}</span>
-          <div className="flex items-center gap-1.5">
+          {/*
+            z-20 SOLO en el cluster badge+dropdown, no en todo el header.
+            Así el TÍTULO sigue clickeable (pasa al Link absolute) y
+            el badge/dropdown quedan encima del Link.
+          */}
+          <div className="relative z-20 flex items-center gap-1.5">
             <Badge variant="secondary" className="text-[10px] font-normal">
               {devices.length} sensor{devices.length === 1 ? "" : "es"}
             </Badge>
@@ -380,20 +405,6 @@ function RoomCard({
     </Card>
   );
 
-  // Layout:
-  //   - Si hay roomId, la card es un Link al detalle (heredando el ?range=)
-  //   - Si el user puede reordenar, los chevrons van *fuera* del Link
-  //     para que el click no navegue. Posicionados absolute arriba-derecha.
-  const detailHref =
-    range === "24h" ? `/ambientes/${roomId}` : `/ambientes/${roomId}?range=${range}`;
-
-  if (roomId) {
-    return (
-      <Link href={detailHref} className="block">
-        {inner}
-      </Link>
-    );
-  }
   return inner;
 }
 

@@ -439,26 +439,37 @@ function Header({ range, unit }: { range: RangeKey; unit: UnitKey }) {
           <BackfillButton />
         </div>
       </div>
-      <div className="flex flex-wrap gap-2">
-        {(Object.keys(RANGES) as RangeKey[]).map((r) => (
-          <Link key={r} href={hrefWith(r, unit)}>
-            <Button variant={range === r ? "default" : "outline"} size="sm">
-              {RANGES[r].label}
-            </Button>
-          </Link>
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {UNITS.map((u) => (
-          <Link key={u} href={hrefWith(range, u)}>
-            <Button
-              variant={unit === u ? "default" : "outline"}
-              size="sm"
-            >
-              {UNIT_LABELS[u]}
-            </Button>
-          </Link>
-        ))}
+      {/*
+        Toggles unificados en una sola fila (rango + unidad), separados
+        por un divider sutil. Antes eran dos rows separadas y daban
+        sensación de desbalance vs /ambientes que tiene sólo una.
+      */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap gap-2">
+          {(Object.keys(RANGES) as RangeKey[]).map((r) => (
+            <Link key={r} href={hrefWith(r, unit)}>
+              <Button
+                variant={range === r ? "default" : "outline"}
+                size="sm"
+              >
+                {RANGES[r].label}
+              </Button>
+            </Link>
+          ))}
+        </div>
+        <div className="h-5 w-px bg-border" aria-hidden />
+        <div className="flex flex-wrap gap-2">
+          {UNITS.map((u) => (
+            <Link key={u} href={hrefWith(range, u)}>
+              <Button
+                variant={unit === u ? "default" : "outline"}
+                size="sm"
+              >
+                {UNIT_LABELS[u]}
+              </Button>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );

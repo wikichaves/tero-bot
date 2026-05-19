@@ -52,6 +52,10 @@ export function RoomMiniChart({ series }: { series: Snapshot[] }) {
             dataKey="h"
             stroke="oklch(0.62 0.22 245)"
             strokeWidth={2}
+            // Dashed para mantener consistencia visual con el chart
+            // grande del detalle (room-history-chart.tsx) — la línea
+            // de humedad siempre es punteada.
+            strokeDasharray="4 2"
             dot={false}
             isAnimationActive={false}
           />
