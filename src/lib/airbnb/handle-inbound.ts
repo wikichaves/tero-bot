@@ -118,6 +118,21 @@ export async function handleAirbnbInbound(
 
   if (parsed.kind === "unknown") {
     console.warn(`[inbound airbnb] unknown: ${parsed.reason}`);
+    // Loud alert if we see an "alteration accepted-like" template we
+    // don't yet know how to parse. Airbnb's actual variant name for the
+    // post-acceptance email is unknown — when it shows up in the wild,
+    // the raw is saved in `airbnb_inbound_emails`; this warning makes
+    // it easy to grep Vercel logs and surface the sample for parser
+    // updates without having to manually monitor the table.
+    if (
+      parsed.reason &&
+      /x-template=[^.]*alteration/i.test(parsed.reason) &&
+      /accepted|confirmed|approved|done|changed/i.test(parsed.reason)
+    ) {
+      console.error(
+        `[inbound airbnb] 🔔 ALTERATION-LIKE template seen — capture sample: ${parsed.reason}`,
+      );
+    }
     return NextResponse.json({ ok: true, kind: "unknown" });
   }
 

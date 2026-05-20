@@ -427,17 +427,23 @@ export function parseAirbnbEmail(input: {
   // Prefer the X-Template header (locale-agnostic, copy-agnostic) when
   // present. Fall back to subject/body regex for older payloads or when
   // Postmark doesn't pass through all original headers.
-  const templateKind = detectKindFromTemplate(
-    findHeader(input.headers, "x-template"),
-  );
+  const xTemplate = findHeader(input.headers, "x-template");
+  const templateKind = detectKindFromTemplate(xTemplate);
   const kind = templateKind ?? detectKind(subject, body, l);
+  // Always include the X-Template in the `unknown` reason so we can grep
+  // Vercel logs for new template names Airbnb introduces (e.g. eventual
+  // `alteration_accepted`, review requests, payout notifications…).
+  const templateNote = xTemplate ? ` x-template=${xTemplate}` : "";
   if (!kind) {
-    return { kind: "unknown", reason: "no airbnb landmark found" };
+    return { kind: "unknown", reason: `no airbnb landmark found.${templateNote}` };
   }
 
   const codeMatch = body.match(HM_CODE_RX) ?? subject.match(HM_CODE_RX);
   if (!codeMatch) {
-    return { kind: "unknown", reason: "no reservation code (HM…)" };
+    return {
+      kind: "unknown",
+      reason: `no reservation code (HM…).${templateNote}`,
+    };
   }
   const reservation_code = codeMatch[0];
 
