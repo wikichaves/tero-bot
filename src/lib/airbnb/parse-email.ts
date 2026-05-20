@@ -1,4 +1,7 @@
-import "server-only";
+// NOTE: no `import "server-only"` — this file is pure string processing
+// with no Node-specific imports, and removing the marker lets us test it
+// directly with tsx + node:test. It's still only reachable from server
+// routes (the only callers are `handle-inbound.ts` → API route handlers).
 import type { ParsedAirbnbEmail } from "@/lib/types";
 
 /**
@@ -40,7 +43,11 @@ type Landmarks = {
 
 const LANDMARKS: Record<Locale, Landmarks> = {
   es: {
-    cancellationSubject: /reserva\s+cancelada|cancelaci[oó]n\s+de\s+reserva/i,
+    // Airbnb es-AR uses both word orders: "Reserva cancelada" (older) and
+    // "Cancelada: reserva HM…" (current 2025+). Accept both, plus the
+    // legacy "cancelación de reserva" form.
+    cancellationSubject:
+      /reserva\s+cancelada|cancelaci[oó]n\s+de\s+reserva|^cancelada\s*[:\s]/i,
     modificationSubject:
       /reserva\s+modificada|cambio\s+en\s+la\s+reserva|nueva\s+fecha/i,
     confirmationSubject:
@@ -63,8 +70,13 @@ const LANDMARKS: Record<Locale, Landmarks> = {
       /(\d+)\s+viajeros?/i,
     ],
     payout: [
-      // "Pago total: $1.234,56 ARS" / "Total a recibir: USD 1.000"
-      /(?:pago\s+total|total\s+a\s+recibir|ganar[aá]s)[^\n$0-9]{0,40}([A-Z]{3}|\$|US\$|U\$S|€)\s*([\d.,]+)/i,
+      // "Pago total: $1.234,56 ARS" / "Total a recibir: USD 1.000" /
+      // "Ganás: $492,87" (es-AR voseo) / "Ganarás: $492,87" (neutral).
+      // The voseo form `gan[aá]s` is what Airbnb actually sends to AR
+      // hosts — the older regex only matched "ganarás", silently dropping
+      // the payout amount for every es-AR confirmation. The `(?:ar)?`
+      // group accepts both wordings.
+      /(?:pago\s+total|total\s+a\s+recibir|gan(?:ar)?[aá]s)[^\n$0-9]{0,40}([A-Z]{3}|\$|US\$|U\$S|€)\s*([\d.,]+)/i,
       /([A-Z]{3})\s*\$?\s*([\d.,]+)\s*(?:de\s+pago|de\s+ganancia)/i,
       // "Vas a recibir US$ 1.234,56" / "Recibirás US$ 1.234,56"
       /(?:vas\s+a\s+recibir|recibir[aá]s)[^\n$0-9]{0,30}(US\$|U\$S|\$|€|[A-Z]{3})\s*([\d.,]+)/i,
@@ -93,7 +105,8 @@ const LANDMARKS: Record<Locale, Landmarks> = {
     ],
   },
   en: {
-    cancellationSubject: /reservation\s+canceled|booking\s+canceled/i,
+    cancellationSubject:
+      /reservation\s+canceled|booking\s+canceled|^canceled\s*[:\s]/i,
     modificationSubject:
       /reservation\s+(changed|modified)|booking\s+(changed|modified)|date\s+change/i,
     confirmationSubject:
@@ -220,6 +233,61 @@ function detectKind(
   return null;
 }
 
+/**
+ * Airbnb's outgoing emails carry an `X-Template` header that identifies the
+ * email type independent of locale or wording changes. Examples seen in real
+ * payloads:
+ *   - `BOOKING_CONFIRMATION_TO_HOST` → confirmation
+ *   - `CANCELLATIONS_RESERVATION_CANCELED_BY_GUEST_TO_HOST` → cancellation
+ *   - `CANCELLATIONS_RESERVATION_CANCELED_BY_HOST_TO_HOST` → cancellation
+ *   - `reservation/alteration/alteration_requested` → no-op (no HM code)
+ *   - `reservation/alteration/alteration_accepted` → modification (future)
+ *
+ * This is the most reliable discriminator we have — much more stable than
+ * regex on the subject, which Airbnb tweaks per locale and over time. When
+ * the header is missing or unrecognized we fall back to the subject/body
+ * regex in `detectKind`.
+ */
+function detectKindFromTemplate(
+  template: string | null,
+): "confirmation" | "cancellation" | "modification" | null {
+  if (!template) return null;
+  const t = template.toLowerCase();
+  // Cancellations always carry "cancel" in the template name.
+  if (t.includes("cancel")) return "cancellation";
+  // Alterations: only the "accepted/confirmed/approved" variants are
+  // actionable (they carry an HM code). The "requested" variant has only
+  // a guest first-name + listing name + alteration_id, no reservation_code,
+  // so we deliberately return null and let the HM-code check turn it into
+  // `kind=unknown` — that ensures we log the email but don't try to
+  // mis-match it against a reservation.
+  if (t.includes("alteration")) {
+    if (/(accepted|confirmed|approved)/.test(t)) return "modification";
+    return null;
+  }
+  if (t.includes("confirmation")) return "confirmation";
+  return null;
+}
+
+/**
+ * Postmark exposes the original message's headers as `Headers: [{Name,Value}]`.
+ * Header lookup is case-insensitive per RFC 5322.
+ */
+function findHeader(
+  headers:
+    | ReadonlyArray<{ Name?: string; Value?: string }>
+    | null
+    | undefined,
+  name: string,
+): string | null {
+  if (!headers) return null;
+  const target = name.toLowerCase();
+  for (const h of headers) {
+    if ((h.Name ?? "").toLowerCase() === target) return h.Value ?? null;
+  }
+  return null;
+}
+
 function firstMatch(rxs: RegExp[], text: string): string | null {
   for (const rx of rxs) {
     const m = text.match(rx);
@@ -336,6 +404,10 @@ export function parseAirbnbEmail(input: {
   subject: string;
   text: string;
   html?: string | null;
+  /** Original message headers from Postmark (`body.Headers`). Optional —
+   *  the parser still works without them, falling back to subject/body
+   *  regex for kind detection. */
+  headers?: ReadonlyArray<{ Name?: string; Value?: string }> | null;
 }): ParsedAirbnbEmail {
   const subject = input.subject ?? "";
   const text = input.text ?? "";
@@ -349,7 +421,13 @@ export function parseAirbnbEmail(input: {
 
   const locale = detectLocale(subject, body);
   const l = LANDMARKS[locale];
-  const kind = detectKind(subject, body, l);
+  // Prefer the X-Template header (locale-agnostic, copy-agnostic) when
+  // present. Fall back to subject/body regex for older payloads or when
+  // Postmark doesn't pass through all original headers.
+  const templateKind = detectKindFromTemplate(
+    findHeader(input.headers, "x-template"),
+  );
+  const kind = templateKind ?? detectKind(subject, body, l);
   if (!kind) {
     return { kind: "unknown", reason: "no airbnb landmark found" };
   }
@@ -365,9 +443,20 @@ export function parseAirbnbEmail(input: {
   const listing_name =
     findListingNameInHtml(html) ?? firstMatch(l.listing, body);
 
-  // Numeric Airbnb listing id from URLs like `/rooms/1526467` — useful for
-  // robust property matching since the display name can change.
-  const listingIdMatch = body.match(/\/rooms\/(\d{4,})/) ?? html.match(/\/rooms\/(\d{4,})/);
+  // Numeric Airbnb listing id from URLs / body text — preferred over the
+  // display name for property matching since the name can be renamed by the
+  // host. Airbnb leaks it in several places depending on the template:
+  //   - Confirmation: `/rooms/1526467` link to the listing page
+  //   - Cancellation: HTML img URL `/im/pictures/hosting/Hosting-0000000/…`
+  //     plus body text "Anuncio n.º 1526467"
+  //   - en locale equivalent: "Listing #1526467"
+  // We try each pattern in order; first hit wins.
+  const listingIdMatch =
+    body.match(/\/rooms\/(\d{4,})/) ??
+    html.match(/\/rooms\/(\d{4,})/) ??
+    html.match(/\/Hosting-(\d{4,})\//) ??
+    body.match(/Anuncio\s*n\.?\s*[º°o]\s*(\d{4,})/i) ??
+    body.match(/Listing\s*#?\s*(\d{4,})/i);
   const airbnb_listing_id = listingIdMatch ? listingIdMatch[1] : null;
 
   // Guest profile photo on Airbnb's CDN. Pattern:
@@ -507,7 +596,14 @@ function extractTimeAfter(
   locale: Locale,
   which: "in" | "out",
 ): string | null {
-  const heading = which === "in" ? /Check-?in/i : /Check-?out/i;
+  // Match the "Check-in"/"Check-out" *heading*, not the same word used in
+  // prose. Airbnb's confirmation text starts with "Enviá un mensaje para
+  // confirmar los detalles del check-in o…" — the lowercase narrative
+  // occurrence would otherwise win over the actual table header, and the
+  // 200-char window from that position has no time. Anchor to start of
+  // line so only the heading qualifies.
+  const heading =
+    which === "in" ? /(?:^|\n)\s*Check-?in\b/i : /(?:^|\n)\s*Check-?out\b/i;
   const m = heading.exec(body);
   if (!m) return null;
   // Search a window after the heading for the first time-like pattern.

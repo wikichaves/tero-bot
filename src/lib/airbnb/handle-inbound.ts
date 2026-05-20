@@ -83,6 +83,9 @@ export async function handleAirbnbInbound(
       subject: body.Subject ?? "",
       text: body.TextBody ?? "",
       html: body.HtmlBody,
+      // X-Template + X-Locale headers let the parser discriminate the
+      // email type without depending on the localized subject copy.
+      headers: body.Headers,
     });
   } catch (err) {
     console.error("[inbound airbnb] parse threw", err);
