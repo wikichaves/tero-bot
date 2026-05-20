@@ -91,12 +91,34 @@ export async function snapshotAllDevices(): Promise<{
           inserted: true,
         };
       } catch (e) {
+        const msg = (e as Error).message;
+        // Devices that aren't power-monitoring outlets/meters return
+        // "function not supported" from Tuya — typically T/H sensors,
+        // locks, lights that ended up in property_devices alongside
+        // actual energy meters. "permission denied" usually means the
+        // device is in a different Tuya home outside this cloud
+        // project's scope (e.g. Oficina Agus devices owned by another
+        // account). Neither is an actionable error from the snapshot
+        // run's perspective — degrade to "skipped" so the toast count
+        // stays meaningful (truly broken devices vs. non-applicable).
+        if (/function\s+not\s+supported|permission\s+den/i.test(msg)) {
+          return {
+            property_device_id: d.id,
+            tuya_device_id: d.tuya_device_id,
+            device_name: d.tuya_device_name,
+            ok: true,
+            inserted: false,
+            reason: /permission/i.test(msg)
+              ? "sin permisos Tuya (otro home)"
+              : "no es energy meter",
+          };
+        }
         return {
           property_device_id: d.id,
           tuya_device_id: d.tuya_device_id,
           device_name: d.tuya_device_name,
           ok: false,
-          reason: (e as Error).message,
+          reason: msg,
         };
       }
     }),
