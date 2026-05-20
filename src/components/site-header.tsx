@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronDown, Menu } from "lucide-react";
+import { ChevronDown, Home, Menu } from "lucide-react";
 import { signOut } from "@/app/login/actions";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import { Button } from "@/components/ui/button";
@@ -77,23 +77,12 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
   const myOpen = myOpenRes.count ?? 0;
   const myOverdue = myOverdueRes.count ?? 0;
 
-  // For admin/gestor, also show the count of open tasks across all
-  // properties — useful to spot stuff that needs triage. WIK-94: gestor
-  // solo cuenta tasks/alarms de SUS properties.
-  let teamOpen = 0;
-  let teamOverdue = 0;
+  // WIK-109: ya no contamos teamOpen/teamOverdue — el badge del item
+  // "Tareas" en el nav ahora muestra solo `myOpen` (asignadas a mí).
+  // Solo necesitamos el count de alarmas activas (badge de Ambientes).
   let alarmsActive = 0;
   if (profile.role === "admin" || profile.role === "gestor") {
     const allowedIds = await getAllowedPropertyIds(profile);
-    let openQ = supabase
-      .from("tasks")
-      .select("id", { count: "exact", head: true })
-      .in("status", ["pending", "in_progress"]);
-    let overdueQ = supabase
-      .from("tasks")
-      .select("id", { count: "exact", head: true })
-      .in("status", ["pending", "in_progress"])
-      .lt("due_date", todayIso);
     let alarmsQ = supabase
       .from("alarm_events")
       .select("id, property_device:property_devices!inner(property_id)", {
@@ -102,76 +91,46 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
       })
       .is("resolved_at", null);
     if (allowedIds !== null) {
-      openQ = openQ.in("property_id", allowedIds);
-      overdueQ = overdueQ.in("property_id", allowedIds);
       alarmsQ = alarmsQ.in("property_device.property_id", allowedIds);
     }
-    const [openRes, overdueRes, alarmsRes] = await Promise.all([
-      openQ,
-      overdueQ,
-      alarmsQ,
-    ]);
-    teamOpen = openRes.count ?? 0;
-    teamOverdue = overdueRes.count ?? 0;
+    const alarmsRes = await alarmsQ;
     alarmsActive = alarmsRes.count ?? 0;
   }
 
-  // Staff (limpieza/mantenimiento) ven solo "Mis tareas" como leaf,
-  // sin agrupamiento — no tienen acceso al resto.
+  // WIK-109: una sola sección "Tareas" → /tasks para los 3 roles.
+  // El filtro de qué se muestra ahí depende del role (admin todas,
+  // gestor suyas+las que asignó, mantenimiento solo suyas).
+  //
+  // Badge en el menú = SOLO tareas asignadas a mí (`myOpen`). Si un
+  // admin ve N tareas pero ninguna le toca, no aparece badge — eso
+  // es lo que pidió el ticket: "Si sos Admin y ves 2 tareas pero
+  // ninguna está asignada a ti, no mostrar badge".
   const staffLeaves: NavLeaf[] = isStaff
     ? [
         {
-          href: "/mis-tareas",
-          label: "Mis tareas",
+          href: "/tasks",
+          label: "Tareas",
           badge: myOpen,
           urgent: myOverdue > 0,
         },
       ]
     : [];
 
-  // WIK-104: simplificación del menú.
-  //   - Admin: dropdown "Tareas" con "Todas" + "Mis tareas".
-  //   - Gestor: leaf único "Tareas" → /mis-tareas (sin dropdown,
-  //     /tasks es admin-only ahora).
-  const tareasGroup: NavGroup | null =
-    profile.role === "admin"
-      ? {
-          label: "Tareas",
-          items: [
-            {
-              href: "/tasks",
-              label: "Todas las tareas",
-              badge: teamOpen,
-              urgent: teamOverdue > 0,
-            },
-            {
-              href: "/mis-tareas",
-              label: "Mis tareas",
-              badge: myOpen,
-              urgent: myOverdue > 0,
-            },
-          ],
-        }
-      : null;
-  // Para gestor, sumamos un leaf "Tareas" directo en operationalLeaves
-  // (definido más abajo). Renderiza como item normal con badge.
+  // El dropdown "Tareas" desaparece — admin/gestor también usan un
+  // leaf directo. (El JSX que lo renderizaba se eliminó abajo.)
 
   const operationalLeaves: NavLeaf[] =
     profile.role === "admin" || profile.role === "gestor"
       ? [
-          // WIK-104: gestor ve "Tareas" como leaf directo a /mis-tareas
-          // (no dropdown). Admin no lo necesita acá porque tiene el
-          // dropdown completo arriba.
-          ...(profile.role === "gestor"
-            ? [
-                {
-                  href: "/mis-tareas",
-                  label: "Tareas",
-                  badge: myOpen,
-                  urgent: myOverdue > 0,
-                },
-              ]
-            : []),
+          // WIK-109: leaf "Tareas" para admin y gestor también
+          // (mantenimiento ya lo tiene en `staffLeaves`). Badge =
+          // tareas asignadas a mí — admin con 0 asignadas no ve badge.
+          {
+            href: "/tasks",
+            label: "Tareas",
+            badge: myOpen,
+            urgent: myOverdue > 0,
+          },
           { href: "/facturas", label: "Facturas" },
           { href: "/energy", label: "Energía" },
           {
@@ -180,10 +139,8 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
             badge: alarmsActive,
             urgent: alarmsActive > 0,
           },
-          // WIK-107: WhatsApp solo admin. Gestor no ve el inbox.
-          ...(profile.role === "admin"
-            ? [{ href: "/whatsapp", label: "WhatsApp" }]
-            : []),
+          // WIK-108: WhatsApp se movió al submenú Configuración (definido
+          // abajo) — antes vivía como leaf operacional para admin.
         ]
       : [];
 
@@ -197,6 +154,11 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
             { href: "/admin/tuya", label: "Tuya devices" },
             { href: "/admin/tuya/lock", label: "Cerraduras" },
             { href: "/admin/alarmas", label: "Alarmas" },
+            // WIK-108: WhatsApp inbox movido acá. Antes era un leaf
+            // del nav principal — el admin usa /whatsapp con poca
+            // frecuencia comparado con Energía/Ambientes, ubicación
+            // en submenu refleja mejor la frecuencia de uso.
+            { href: "/whatsapp", label: "WhatsApp Inbox" },
             { href: "/admin/whatsapp", label: "WhatsApp Templates" },
           ],
         }
@@ -221,28 +183,20 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
             <Menu className="h-5 w-5" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-60">
+            {/* WIK-110: link "Inicio" como primer item del menú,
+                navega al dashboard del usuario (admin/gestor → /dashboard,
+                staff → /mis-tareas). El icon Home da el affordance. */}
+            <DropdownMenuItem render={<Link href={homeHref} />}>
+              <Home className="mr-2 h-4 w-4" />
+              <span className="flex-1">Inicio</span>
+            </DropdownMenuItem>
             {staffLeaves.map((it) => (
               <DropdownMenuItem key={it.href} render={<Link href={it.href} />}>
                 <NavRow {...it} />
               </DropdownMenuItem>
             ))}
-            {/* Base UI exige que `DropdownMenuLabel` (Menu.GroupLabel) viva
-                dentro de un `DropdownMenuGroup` (Menu.Group). Sin el wrapper
-                tira "Base UI error #31: MenuGroupRootContext is missing" al
-                abrir el dropdown. */}
-            {tareasGroup && (
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>{tareasGroup.label}</DropdownMenuLabel>
-                {tareasGroup.items.map((it) => (
-                  <DropdownMenuItem
-                    key={it.href}
-                    render={<Link href={it.href} />}
-                  >
-                    <NavRow {...it} />
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuGroup>
-            )}
+            {/* WIK-109: el dropdown "Tareas" desapareció — ahora es
+                un leaf directo en operationalLeaves (más abajo). */}
             {operationalLeaves.length > 0 && <DropdownMenuSeparator />}
             {operationalLeaves.map((it) => (
               <DropdownMenuItem key={it.href} render={<Link href={it.href} />}>
@@ -274,10 +228,18 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
 
         {/* Desktop inline nav. */}
         <nav className="hidden min-w-0 items-center gap-4 overflow-x-auto text-sm text-muted-foreground md:flex">
+          {/* WIK-110: Inicio como primer item del nav, después del logo. */}
+          <Link
+            href={homeHref}
+            className="flex items-center gap-1 hover:text-foreground"
+            aria-label="Inicio"
+          >
+            <Home className="h-4 w-4" />
+            <span>Inicio</span>
+          </Link>
           {staffLeaves.map((it) => (
             <NavLink key={it.href} {...it} />
           ))}
-          {tareasGroup && <NavDropdown group={tareasGroup} />}
           {operationalLeaves.map((it) => (
             <NavLink key={it.href} {...it} />
           ))}

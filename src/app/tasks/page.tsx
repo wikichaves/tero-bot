@@ -2,7 +2,7 @@ import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/server";
-import { requireRole } from "@/lib/auth";
+import { requireProfile } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import {
   Card,
@@ -60,14 +60,14 @@ export default async function TasksPage({
     assignee?: string;
   }>;
 }) {
-  // WIK-104: /tasks es la vista global ("Todas las tareas") y queda
-  // restringida a admin. Gestor/mantenimiento ven sólo sus tareas en
-  // /mis-tareas. El item del menú "Todas las tareas" del dropdown
-  // del header también está oculto para no-admin.
-  const profile = await requireRole(["admin"]);
-  // Mantenemos `allowedIds` por compat — admin retorna `null` y no
-  // filtra. Si alguna vez expandimos /tasks a gestor, este filtro ya
-  // está listo.
+  // WIK-109: /tasks es ahora la ÚNICA vista de tareas — accesible a
+  // los 3 roles. El filtro de qué se muestra depende del role:
+  //   - admin: todas las tareas
+  //   - gestor: las asignadas a mí + las que yo reporté/asigné a otros
+  //   - mantenimiento: solo las asignadas a mí
+  const profile = await requireProfile();
+  // `allowedIds` aplica scope por property — admin tiene null y
+  // no filtra. Gestor / mantenimiento solo ven properties asignadas.
   const allowedIds = await getAllowedPropertyIds(profile);
   const params = await searchParams;
   const rawStatus = params.status;
@@ -102,6 +102,18 @@ export default async function TasksPage({
     query = query.is("assigned_to", null);
   } else if (assigneeFilter) {
     query = query.eq("assigned_to", assigneeFilter);
+  }
+
+  // WIK-109: filtro automático por role.
+  //   - mantenimiento: solo tareas asignadas a él
+  //   - gestor: tareas asignadas a él OR reportadas por él
+  //   - admin: sin filtro (ve todo lo que el scope de property permita)
+  if (profile.role === "mantenimiento") {
+    query = query.eq("assigned_to", profile.id);
+  } else if (profile.role === "gestor") {
+    query = query.or(
+      `assigned_to.eq.${profile.id},reported_by.eq.${profile.id}`,
+    );
   }
   // WIK-94 scope: gestor solo SUS properties.
   if (allowedIds !== null) {
