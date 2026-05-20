@@ -10,7 +10,8 @@
     "wa:templates:submit": "tsx scripts/whatsapp-templates-submit.ts",
     "wa:templates:submit:dry": "tsx scripts/whatsapp-templates-submit.ts --dry-run",
     "wa:templates:status": "tsx scripts/whatsapp-templates-status.ts",
-    "test:parse-email": "tsx --test scripts/test-parse-email.ts"
+    "test:parse-email": "tsx --test scripts/test-parse-email.ts",
+    "airbnb:status": "tsx scripts/airbnb-inbound-status.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
