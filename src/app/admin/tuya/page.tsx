@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity } from "lucide-react";
+import { Activity, Play } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -142,6 +142,12 @@ export default async function TuyaPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Link href="/admin/tuya/scenes">
+            <Button variant="outline" size="sm">
+              <Play className="mr-2 h-3.5 w-3.5" />
+              Tap-to-Run
+            </Button>
+          </Link>
           <Link href="/admin/tuya/diagnostico">
             <Button variant="outline" size="sm">
               <Activity className="mr-2 h-3.5 w-3.5" />
