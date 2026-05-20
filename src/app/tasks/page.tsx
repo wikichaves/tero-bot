@@ -22,6 +22,7 @@ import type { Property, Task } from "@/lib/types";
 import { extractPhotos } from "@/lib/whatsapp/create-task";
 import { NewTaskDialog } from "./task-form-dialog";
 import { TaskRowActions } from "./task-row-actions";
+import { PropertyFilterDropdown } from "./property-filter-dropdown";
 
 export const dynamic = "force-dynamic";
 
@@ -196,34 +197,24 @@ export default async function TasksPage({
             active={statusFilter === "done"}
           />
 
-          {properties.length > 1 && (
-            <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-              <span className="text-muted-foreground">Propiedad:</span>
-              <Link
-                href={buildTasksUrl({
-                  status:
-                    statusFilter === "all" ? null : statusFilter,
-                  property: null,
-                  assignee: assigneeFilter,
-                })}
-                className={`rounded-full px-3 py-1 ${propertyFilter ? "hover:bg-muted" : "bg-muted font-medium"}`}
-              >
-                Todas
-              </Link>
-              {properties.map((p) => (
-                <Link
-                  key={p.id}
-                  href={buildTasksUrl({
+          {/* WIK-116: dropdown reemplaza los pills horizontales.
+              Se muestra siempre que haya al menos 1 property (antes
+              requería >1 para mostrar — pero con dropdown queda
+              limpio incluso con 1 sola). */}
+          {properties.length > 0 && (
+            <div className="sm:ml-auto">
+              <PropertyFilterDropdown
+                properties={properties}
+                current={propertyFilter}
+                buildHref={(propertyId) =>
+                  buildTasksUrl({
                     status:
                       statusFilter === "all" ? null : statusFilter,
-                    property: p.id,
+                    property: propertyId,
                     assignee: assigneeFilter,
-                  })}
-                  className={`rounded-full px-3 py-1 ${propertyFilter === p.id ? "bg-muted font-medium" : "hover:bg-muted"}`}
-                >
-                  {p.name}
-                </Link>
-              ))}
+                  })
+                }
+              />
             </div>
           )}
         </div>

@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Reservation, Task } from "@/lib/types";
 import { ReservationRowActions } from "./reservation-row-actions";
 import { SensorAlarmsCard } from "./sensor-alarms-card";
+import { EnergySummaryCard } from "./energy-summary-card";
 
 const HORIZON_DAYS = 14;
 
@@ -89,18 +90,8 @@ export default async function DashboardPage() {
     tasksQuery = tasksQuery.in("property_id", allowedIds);
   }
 
-  let insumosQuery = supabase
-    .from("tasks")
-    .select(
-      "*, property:properties(name), assignee:profiles!tasks_assigned_to_fkey(full_name, email)",
-    )
-    .eq("kind", "insumos")
-    .in("status", ["pending", "in_progress"])
-    .order("created_at", { ascending: false })
-    .limit(10);
-  if (allowedIds !== null) {
-    insumosQuery = insumosQuery.in("property_id", allowedIds);
-  }
+  // WIK-117: card "Insumos a comprar" eliminada del dashboard — la
+  // query relacionada también.
 
   let mantenimientoQuery = supabase
     .from("tasks")
@@ -115,17 +106,14 @@ export default async function DashboardPage() {
     mantenimientoQuery = mantenimientoQuery.in("property_id", allowedIds);
   }
 
-  const [reservationsRes, tasksRes, insumosRes, mantenimientoRes] =
-    await Promise.all([
-      reservationsQuery,
-      tasksQuery,
-      insumosQuery,
-      mantenimientoQuery,
-    ]);
+  const [reservationsRes, tasksRes, mantenimientoRes] = await Promise.all([
+    reservationsQuery,
+    tasksQuery,
+    mantenimientoQuery,
+  ]);
 
   const { data, error } = reservationsRes;
   const tasks = (tasksRes.data ?? []) as DashTask[];
-  const insumos = (insumosRes.data ?? []) as DashTask[];
   const mantenimiento = (mantenimientoRes.data ?? []) as DashTask[];
 
   const reservations = (data ?? []) as ReservationWithProperty[];
@@ -177,32 +165,27 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <SensorAlarmsCard />
+      {/* WIK-117: cards de Ambientes + Energía con resumen y link.
+          Antes: Ambientes solo (alarmas). Ahora: ambas en grid 2x para
+          dar pulso rápido de las dos métricas críticas. */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <SensorAlarmsCard />
+        <EnergySummaryCard />
+      </div>
 
       <TodayTasksCard tasks={tasks} todayIso={todayIso} />
 
-      {/* Reportes del staff: dos columnas — insumos a comprar +
-          mantenimiento pendiente. Alimentadas por las tareas que el
-          equipo crea por WhatsApp o desde la app (kind=insumos /
-          kind=mantenimiento). */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <KindTasksCard
-          title="Insumos a comprar"
-          description="Reportes de staff que necesitan reposición."
-          tasks={insumos}
-          emptyText="Sin insumos pendientes."
-          filterHref="/tasks?kind=insumos&status=pending"
-          todayIso={todayIso}
-        />
-        <KindTasksCard
-          title="Mantenimiento pendiente"
-          description="Reparaciones reportadas por el equipo."
-          tasks={mantenimiento}
-          emptyText="Sin mantenimiento pendiente."
-          filterHref="/tasks?kind=mantenimiento&status=pending"
-          todayIso={todayIso}
-        />
-      </div>
+      {/* WIK-117: card "Insumos a comprar" eliminada (rara vez actionable
+          desde el dashboard). "Mantenimiento pendiente" se mantiene
+          porque sí es trigger común de planificación del día. */}
+      <KindTasksCard
+        title="Mantenimiento pendiente"
+        description="Reparaciones reportadas por el equipo."
+        tasks={mantenimiento}
+        emptyText="Sin mantenimiento pendiente."
+        filterHref="/tasks?status=pending"
+        todayIso={todayIso}
+      />
     </div>
   );
 }

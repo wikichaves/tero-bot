@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronDown, Home, Menu } from "lucide-react";
+import { Bird, ChevronDown, Menu } from "lucide-react";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import { Button } from "@/components/ui/button";
 import {
@@ -183,11 +183,9 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
             <Menu className="h-5 w-5" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-60">
-            {/* WIK-110: link "Inicio" como primer item del menú,
-                navega al dashboard del usuario (admin/gestor → /dashboard,
-                staff → /mis-tareas). El icon Home da el affordance. */}
+            {/* WIK-110: link "Inicio" como primer item del menú.
+                WIK-115: sin icono — solo texto. */}
             <DropdownMenuItem render={<Link href={homeHref} />}>
-              <Home className="mr-2 h-4 w-4" />
               <span className="flex-1">Inicio</span>
             </DropdownMenuItem>
             {staffLeaves.map((it) => (
@@ -222,20 +220,26 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Link href={homeHref} className="shrink-0 font-semibold">
+        {/* WIK-114: bird icon a la izquierda del título. Mismo color
+            que el texto para que se sienta una sola unidad. */}
+        <Link
+          href={homeHref}
+          className="flex shrink-0 items-center gap-1.5 font-semibold"
+        >
+          <Bird className="h-5 w-5" />
           Tero Admin
         </Link>
 
         {/* Desktop inline nav. */}
         <nav className="hidden min-w-0 items-center gap-4 overflow-x-auto text-sm text-muted-foreground md:flex">
-          {/* WIK-110: Inicio como primer item del nav, después del logo. */}
+          {/* WIK-110: Inicio como primer item del nav.
+              WIK-115: sin icono Home, solo el texto. */}
           <Link
             href={homeHref}
-            className="flex items-center gap-1 hover:text-foreground"
+            className="hover:text-foreground"
             aria-label="Inicio"
           >
-            <Home className="h-4 w-4" />
-            <span>Inicio</span>
+            Inicio
           </Link>
           {staffLeaves.map((it) => (
             <NavLink key={it.href} {...it} />

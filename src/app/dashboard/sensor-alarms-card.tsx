@@ -10,6 +10,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
+import { avg } from "@/lib/stats";
 
 /**
  * Widget de ambientes para /dashboard (WIK-82 Fase 4).
@@ -50,16 +51,19 @@ export async function SensorAlarmsCard() {
   }
   let sensorsQ = supabase
     .from("property_devices")
-    .select("id, room_id, property_id")
+    .select("id, room_id, property_id, property:properties(id, name)")
     .eq("device_kind", "sensor");
   if (allowedIds !== null) {
     sensorsQ = sensorsQ.in("property_id", allowedIds);
   }
+  // WIK-117: incluir temperature_c + humidity_pct para mostrar
+  // promedios por property en el dashboard.
   const snapsQ = supabase
     .from("sensor_snapshots")
-    .select("property_device_id, taken_at")
+    .select("property_device_id, taken_at, temperature_c, humidity_pct")
     .gte("taken_at", since)
-    .order("taken_at", { ascending: false });
+    .order("taken_at", { ascending: false })
+    .limit(100_000);
 
   const [activeEventsRes, sensorsRes, recentSnapsRes] = await Promise.all([
     eventsQ,
@@ -84,12 +88,16 @@ export async function SensorAlarmsCard() {
       } | null;
     }>;
 
-  const sensors = (sensorsRes.data ?? []) as Array<{
+  const sensors = (sensorsRes.data ?? []) as unknown as Array<{
     id: string;
     room_id: string | null;
+    property_id: string;
+    property: { id: string; name: string } | null;
   }>;
   const recentSnaps = (recentSnapsRes.data ?? []) as Array<{
     property_device_id: string;
+    temperature_c: number | null;
+    humidity_pct: number | null;
   }>;
   const reportingDeviceIds = new Set(
     recentSnaps.map((s) => s.property_device_id),
@@ -101,8 +109,35 @@ export async function SensorAlarmsCard() {
     reportingSensors.map((s) => s.room_id).filter(Boolean),
   );
 
-  // Si no hay sensores configurados, no renderear nada (el dashboard
-  // se queda igual sin esta sección).
+  // WIK-117: promedios T/H por property en 24h. Mapeo device→property
+  // para luego agrupar los snapshots.
+  const propertyByDevice = new Map<string, { id: string; name: string }>();
+  for (const s of sensors) {
+    if (s.property) propertyByDevice.set(s.id, s.property);
+  }
+  type PropStats = { name: string; temps: number[]; hums: number[] };
+  const propStats = new Map<string, PropStats>();
+  for (const snap of recentSnaps) {
+    const prop = propertyByDevice.get(snap.property_device_id);
+    if (!prop) continue;
+    const acc =
+      propStats.get(prop.id) ??
+      ({ name: prop.name, temps: [], hums: [] } as PropStats);
+    if (snap.temperature_c != null)
+      acc.temps.push(Number(snap.temperature_c));
+    if (snap.humidity_pct != null) acc.hums.push(Number(snap.humidity_pct));
+    propStats.set(prop.id, acc);
+  }
+  const propertyAverages = Array.from(propStats.entries())
+    .map(([id, s]) => ({
+      id,
+      name: s.name,
+      avgT: avg(s.temps),
+      avgH: avg(s.hums),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Si no hay sensores configurados, no renderear nada.
   if (sensors.length === 0) return null;
 
   const hasAlarms = events.length > 0;
@@ -193,6 +228,32 @@ export async function SensorAlarmsCard() {
                 </Link>
               </li>
             )}
+          </ul>
+        </CardContent>
+      )}
+      {/* WIK-117: cuando NO hay alarmas, mostrar promedios T/H por
+          property en 24h. Da un pulso rápido del estado de las casas
+          sin tener que entrar a /ambientes. */}
+      {!hasAlarms && propertyAverages.length > 0 && (
+        <CardContent>
+          <ul className="flex flex-col gap-2 text-sm">
+            {propertyAverages.map((p) => (
+              <li
+                key={p.id}
+                className="flex items-center justify-between gap-2"
+              >
+                <span className="font-medium">{p.name}</span>
+                <span className="tabular-nums text-muted-foreground">
+                  <span className="text-orange-600 dark:text-orange-400">
+                    {p.avgT != null ? `${p.avgT.toFixed(1)}°C` : "—"}
+                  </span>
+                  {" · "}
+                  <span className="text-blue-600 dark:text-blue-400">
+                    {p.avgH != null ? `${Math.round(p.avgH)}%` : "—"}
+                  </span>
+                </span>
+              </li>
+            ))}
           </ul>
         </CardContent>
       )}
