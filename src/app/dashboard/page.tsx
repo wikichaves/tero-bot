@@ -136,11 +136,12 @@ export default async function DashboardPage() {
     isOnOrAfter(parseISO(r.check_out), today),
   );
 
-  // Show the "Propiedad" column only when there's more than one distinct
-  // property in the visible window — for a single-property setup the column
-  // is just noise.
-  const distinctProperties = new Set(reservations.map((r) => r.property_id));
-  const showProperty = distinctProperties.size > 1;
+  // WIK-105: siempre mostrar el agrupamiento por propiedad en los
+  // cards de check-in/out, incluso si solo hay 1 property visible
+  // hoy. Cuando alguien tiene varias casas, conviene ver siempre
+  // de cuál es cada llegada/salida — el "noise" de mostrarlo con
+  // 1 sola es mínimo y simplifica el escaneo visual.
+  const showProperty = reservations.length > 0;
 
   return (
     <div className="flex flex-col gap-6">
