@@ -13,31 +13,30 @@ import {
 
 /**
  * Dropdown para filtrar tareas por propiedad (WIK-116). Reemplaza
- * los pills "Todas / Casa A / Casa B / ..." que se acumulaban
- * horizontalmente y no escalaban bien cuando había muchas properties.
+ * los pills horizontales que no escalaban con muchas properties.
  *
- * Default visual: "Propiedad: Todas". Cuando hay un filtro activo,
- * muestra el nombre de la property seleccionada.
- *
- * Cada item es un Link normal para preservar el patrón server-side
- * que usa el resto del page (filtros como query params).
+ * Recibe el listado de options pre-computadas en el server porque
+ * Next no permite pasar funciones de server → client component
+ * (las funciones no son serializables). Cada option incluye su
+ * `href` ya armado con los filtros que el padre conservó.
  */
+
+export type PropertyFilterOption = {
+  /** null = "Todas" (sin filtro). UUID si es una property específica. */
+  id: string | null;
+  label: string;
+  href: string;
+};
+
 export function PropertyFilterDropdown({
-  properties,
-  current,
-  buildHref,
+  options,
+  currentId,
 }: {
-  properties: Array<{ id: string; name: string }>;
-  current: string | null;
-  /** Helper que genera la URL para un property_id determinado
-   *  (null = "todas"). El padre lo arma con los demás filtros
-   *  preservados. */
-  buildHref: (propertyId: string | null) => string;
+  options: PropertyFilterOption[];
+  currentId: string | null;
 }) {
-  const currentName =
-    current == null
-      ? "Todas"
-      : (properties.find((p) => p.id === current)?.name ?? "Todas");
+  const currentLabel =
+    options.find((o) => o.id === currentId)?.label ?? "Todas";
 
   return (
     <div className="flex items-center gap-2">
@@ -53,28 +52,26 @@ export function PropertyFilterDropdown({
             />
           }
         >
-          <span>{currentName}</span>
+          <span>{currentLabel}</span>
           <ChevronDown className="h-3 w-3 opacity-60" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="min-w-[180px]">
-          <DropdownMenuItem render={<Link href={buildHref(null)} />}>
-            <Check
-              className={`mr-2 h-4 w-4 ${current == null ? "opacity-100" : "opacity-0"}`}
-            />
-            Todas
-          </DropdownMenuItem>
-          {properties.length > 0 && <DropdownMenuSeparator />}
-          {properties.map((p) => (
-            <DropdownMenuItem
-              key={p.id}
-              render={<Link href={buildHref(p.id)} />}
-            >
-              <Check
-                className={`mr-2 h-4 w-4 ${current === p.id ? "opacity-100" : "opacity-0"}`}
-              />
-              {p.name}
-            </DropdownMenuItem>
-          ))}
+          {options.map((opt, idx) => {
+            const key = opt.id ?? "__all__";
+            return (
+              <div key={key}>
+                <DropdownMenuItem render={<Link href={opt.href} />}>
+                  <Check
+                    className={`mr-2 h-4 w-4 ${
+                      currentId === opt.id ? "opacity-100" : "opacity-0"
+                    }`}
+                  />
+                  {opt.label}
+                </DropdownMenuItem>
+                {idx === 0 && options.length > 1 && <DropdownMenuSeparator />}
+              </div>
+            );
+          })}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

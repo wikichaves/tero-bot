@@ -197,23 +197,36 @@ export default async function TasksPage({
             active={statusFilter === "done"}
           />
 
-          {/* WIK-116: dropdown reemplaza los pills horizontales.
-              Se muestra siempre que haya al menos 1 property (antes
-              requería >1 para mostrar — pero con dropdown queda
-              limpio incluso con 1 sola). */}
+          {/* WIK-116: dropdown reemplaza los pills horizontales. Las
+              options se pre-computan en el server (URLs con los demás
+              filtros preservados) — no pasamos function al client
+              porque Next no las serializa. */}
           {properties.length > 0 && (
             <div className="sm:ml-auto">
               <PropertyFilterDropdown
-                properties={properties}
-                current={propertyFilter}
-                buildHref={(propertyId) =>
-                  buildTasksUrl({
-                    status:
-                      statusFilter === "all" ? null : statusFilter,
-                    property: propertyId,
-                    assignee: assigneeFilter,
-                  })
-                }
+                currentId={propertyFilter}
+                options={[
+                  {
+                    id: null,
+                    label: "Todas",
+                    href: buildTasksUrl({
+                      status:
+                        statusFilter === "all" ? null : statusFilter,
+                      property: null,
+                      assignee: assigneeFilter,
+                    }),
+                  },
+                  ...properties.map((p) => ({
+                    id: p.id,
+                    label: p.name,
+                    href: buildTasksUrl({
+                      status:
+                        statusFilter === "all" ? null : statusFilter,
+                      property: p.id,
+                      assignee: assigneeFilter,
+                    }),
+                  })),
+                ]}
               />
             </div>
           )}
