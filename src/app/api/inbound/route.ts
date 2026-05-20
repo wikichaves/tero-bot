@@ -12,6 +12,36 @@ import {
   type PostmarkInbound,
 } from "@/lib/inbound/postmark";
 
+/**
+ * When the recipient alias doesn't match a known route (e.g. the user is
+ * forwarding to the random Postmark-generated address like
+ * `719d26d1581cabce04938993c0a10c52@inbound.postmarkapp.com` instead of a
+ * custom alias such as `airbnb@inbound.example.com`), we fall
+ * back to inferring the sender. This keeps the dispatch working without
+ * requiring DNS setup for a custom inbound domain.
+ *
+ * Patterns are matched against `body.From` (and `FromFull.Email`) using
+ * domain-only substring — robust against display-name variants like
+ * `"Airbnb" <automated@airbnb.com>`.
+ */
+function inferRouteFromSender(
+  body: PostmarkInbound,
+): "airbnb" | null {
+  const from = (
+    body.FromFull?.Email ??
+    body.From ??
+    ""
+  ).toLowerCase();
+  if (from.includes("@airbnb.com") || from.includes("@email.airbnb.com") ||
+      from.includes("@automated.airbnb.com") || from.includes(".airbnb.com>")) {
+    return "airbnb";
+  }
+  // Bills are added by alias only — no fallback by sender, because utility
+  // companies use many different sender domains and we want explicit opt-in
+  // via the `bills@` / `luz@` / `agua@` aliases.
+  return null;
+}
+
 // Multi-PDF emails (e.g. 7 Edenor bills in one batch) need extra runtime —
 // pdf-parse + storage uploads run concurrently but the function still has
 // to finish before Vercel kills it. 60s is the Hobby plan cap; Pro can go
@@ -62,6 +92,16 @@ export async function POST(req: NextRequest) {
     if (alias && BILL_ROUTE_ALIASES.has(alias)) {
       return await handleBillInbound(body, admin, alias);
     }
+    // No alias hit — try sender fallback. Lets users forward to the
+    // default Postmark inbound address (no custom DNS) and still get
+    // their Airbnb emails routed correctly.
+    const inferred = inferRouteFromSender(body);
+    if (inferred === "airbnb") {
+      console.log(
+        `[inbound] inferred=airbnb from sender "${body.FromFull?.Email ?? body.From}" (alias="${alias}" didn't match)`,
+      );
+      return await handleAirbnbInbound(body, admin);
+    }
   } catch (err) {
     console.error(
       `[inbound] handler threw for alias="${alias}" recipient="${recipient}":`,
@@ -77,10 +117,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Unrouted: probably a misconfigured forward. Log + ack so Postmark
-  // doesn't retry — admin can inspect from Postmark's activity log.
+  // Unrouted: not a known alias and sender doesn't match any handler's
+  // signature. Log + ack so Postmark doesn't retry — admin can inspect
+  // from Postmark's activity log.
   console.warn(
-    `[inbound] unrouted recipient "${recipient}" (alias="${alias}")`,
+    `[inbound] unrouted recipient "${recipient}" (alias="${alias}") from "${body.From}"`,
   );
   return NextResponse.json({ ok: true, unrouted: true, recipient });
 }
