@@ -79,18 +79,44 @@ export async function buildSensorSummary(
     a.name.localeCompare(b.name),
   );
   for (const p of entries) {
+    // WIK-96: percentiles p5/p95 en vez de min/max raw. Filtra
+    // outliers (lecturas erráticas, sensor frío al arrancar) y da
+    // un rango representativo del día.
+    const tMin = percentile(p.temps, 5);
+    const tMax = percentile(p.temps, 95);
+    const hMin = percentile(p.hums, 5);
+    const hMax = percentile(p.hums, 95);
     const tPart =
-      p.temps.length > 0
-        ? `T ${Math.min(...p.temps).toFixed(1)}–${Math.max(...p.temps).toFixed(1)}°C`
+      tMin != null && tMax != null
+        ? `T ${tMin.toFixed(1)}–${tMax.toFixed(1)}°C`
         : null;
     const hPart =
-      p.hums.length > 0
-        ? `H ${Math.round(Math.min(...p.hums))}–${Math.round(Math.max(...p.hums))}%`
+      hMin != null && hMax != null
+        ? `H ${Math.round(hMin)}–${Math.round(hMax)}%`
         : null;
     const parts = [tPart, hPart].filter(Boolean).join(" · ");
     lines.push(`• ${p.name}: ${parts || "_sin datos_"}`);
   }
   return lines;
+}
+
+/**
+ * Percentil con interpolación lineal (WIK-96). Para series cortas
+ * (<20 muestras) cae al min/max raw porque no es estadísticamente
+ * significativo. Duplicado de `app/ambientes/[id]/page.tsx` —
+ * podría moverse a un util compartido si lo usamos en un 3er lugar.
+ */
+function percentile(arr: number[], p: number): number | null {
+  if (arr.length === 0) return null;
+  if (arr.length < 20) {
+    return p < 50 ? Math.min(...arr) : Math.max(...arr);
+  }
+  const sorted = arr.slice().sort((a, b) => a - b);
+  const rank = (p / 100) * (sorted.length - 1);
+  const lo = Math.floor(rank);
+  const hi = Math.ceil(rank);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (rank - lo) * (sorted[hi] - sorted[lo]);
 }
 
 /**

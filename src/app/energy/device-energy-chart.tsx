@@ -162,15 +162,23 @@ export function DeviceEnergyChart({
             yAxisId="metric"
             orientation="left"
             tick={{ fontSize: 11 }}
-            tickFormatter={(v) => `${v}${metricUnit === "A" ? "A" : ""}`}
+            tickFormatter={(v) => {
+              const n = Number(v);
+              if (metricUnit === "A") {
+                return `${n.toLocaleString("es-UY", { maximumFractionDigits: 1 })}A`;
+              }
+              // kWh/h con 2 decimales para que se distingan valores
+              // chicos como 0.05 vs 0.10.
+              return `${n.toLocaleString("es-UY", { maximumFractionDigits: 2 })}`;
+            }}
             domain={[
               (dataMin: number) =>
-                Math.max(0, Number(((dataMin ?? 0) * 0.9).toFixed(1))),
+                Math.max(0, Number(((dataMin ?? 0) * 0.9).toFixed(2))),
               (dataMax: number) =>
-                Number(((dataMax ?? 0) * 1.1).toFixed(1)),
+                Number(((dataMax ?? 0) * 1.1).toFixed(2)),
             ]}
-            allowDecimals={metric === "kwh"}
-            width={48}
+            allowDecimals
+            width={metric === "amperes" ? 48 : 56}
           />
           {/* Eje derecho: costo */}
           <YAxis
