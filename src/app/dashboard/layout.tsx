@@ -1,15 +1,20 @@
-import { requireRole } from "@/lib/auth";
+import { requireProfile } from "@/lib/auth";
 import { SiteHeader } from "@/components/site-header";
 
+/**
+ * WIK-119: /dashboard ahora accesible para los 3 roles.
+ *
+ *   - admin/gestor: reservas + alarmas + energía + mantenimiento
+ *     (vista business-wide scopeada por property)
+ *   - mantenimiento: solo sus tareas pendientes (el page condiciona
+ *     el render según role)
+ */
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Staff (mantenimiento) gets redirected to /mis-tareas by requireRole →
-  // homeForRole. The dashboard surfaces business-wide data (reservations,
-  // team-wide tasks, property names) that they shouldn't see anyway.
-  const profile = await requireRole(["admin", "gestor"]);
+  const profile = await requireProfile();
   return (
     <div className="flex flex-1 flex-col">
       <SiteHeader profile={profile} />

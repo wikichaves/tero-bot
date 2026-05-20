@@ -9,17 +9,39 @@ import { normalizePhone } from "@/lib/whatsapp";
 // WIK-74: "limpieza" deprecado, unificado en "mantenimiento".
 const ROLES = ["admin", "gestor", "mantenimiento"] as const;
 
+// WIK-118: teléfono obligatorio, email opcional. Si el user solo
+// tiene phone, sintetizamos un email fake `<phone>@phone.tero.local`
+// para satisfacer el requirement de Supabase Auth (que pide email
+// or phone+OTP — y queremos mantener password auth, no OTP).
+//
+// El login con phone (WIK-113) hace lookup en `profiles.whatsapp`
+// para resolver el email asociado, así que el user nunca ve ni usa
+// el email sintetizado.
 const createSchema = z.object({
-  email: z.string().email("Email inválido."),
-  password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres."),
-  full_name: z.string().min(1, "Falta el nombre.").max(100),
-  role: z.enum(ROLES),
-  whatsapp: z
+  // Email ahora opcional: si viene vacío, lo sintetizamos.
+  email: z
     .string()
+    .email("Email inválido.")
     .optional()
     .or(z.literal(""))
     .transform((v) => (v ? v : null)),
+  password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres."),
+  full_name: z.string().min(1, "Falta el nombre.").max(100),
+  role: z.enum(ROLES),
+  // Teléfono ahora obligatorio.
+  whatsapp: z.string().min(1, "El teléfono es obligatorio."),
 });
+
+/**
+ * Genera un email sintético determinístico desde un phone normalizado.
+ * Formato: `<phone-sin-+>@phone.tero.local`. El dominio `.local` no
+ * existe en internet — útil para detectar emails sintéticos en logs
+ * o en queries futuras.
+ */
+function synthesizeEmail(normalizedPhone: string): string {
+  const digits = normalizedPhone.replace(/^\+/, "");
+  return `${digits}@phone.tero.local`;
+}
 
 export async function createUser(formData: FormData) {
   await requireRole(["admin"]);
@@ -35,14 +57,21 @@ export async function createUser(formData: FormData) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
   }
 
-  const { email, password, full_name, role } = parsed.data;
+  const { password, full_name, role } = parsed.data;
   const whatsapp = normalizePhone(parsed.data.whatsapp);
+  if (!whatsapp) {
+    return { error: "Teléfono inválido. Usá formato +598... o 099..." };
+  }
+
+  // Si el admin dio email lo usamos. Sino sintetizamos uno desde phone
+  // para que Supabase pueda crear el auth user.
+  const email = parsed.data.email ?? synthesizeEmail(whatsapp);
+
   const admin = createAdminClient();
 
   // SECURITY: do NOT pass `role` in user_metadata. The DB trigger ignores it
   // (always assigns 'gestor' on insert) — we explicitly assign the requested
-  // role below using the service-role client, which bypasses RLS but only
-  // executes after this server action's requireRole(['admin']) check above.
+  // role below using the service-role client.
   const { data: created, error } = await admin.auth.admin.createUser({
     email,
     password,

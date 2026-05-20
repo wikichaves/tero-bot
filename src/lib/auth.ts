@@ -34,13 +34,18 @@ export async function requireRole(roles: UserRole[]): Promise<Profile> {
 }
 
 /**
- * The default landing page for a given role. Admin/gestor see the
- * reservation dashboard; mantenimiento only sees their own task list.
+ * The default landing page for a given role. Todos van a /dashboard
+ * — el page condiciona el render según role:
+ *   - admin/gestor: vista business-wide (reservas, sensors, energy)
+ *   - mantenimiento: solo sus tareas (WIK-119)
+ *
+ * Antes mantenimiento iba a /mis-tareas, pero ahora esa ruta redirige
+ * a /tasks (WIK-109) que tiene filtro por role. Es más natural que
+ * todos los users compartan la URL del home.
  *
  * (WIK-74) Antes había también un rol "limpieza" con el mismo home,
  * unificado en mantenimiento.
  */
-export function homeForRole(role: UserRole): string {
-  if (role === "mantenimiento") return "/mis-tareas";
+export function homeForRole(_role: UserRole): string {
   return "/dashboard";
 }

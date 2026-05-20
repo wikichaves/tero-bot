@@ -54,8 +54,12 @@ export function NewUserDialog() {
               <Input id="full_name" name="full_name" required autoFocus />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" required />
+              <Label htmlFor="email">Email (opcional)</Label>
+              <Input id="email" name="email" type="email" />
+              <p className="text-xs text-muted-foreground">
+                Si no lo cargás, el user solo va a poder loguearse con
+                teléfono.
+              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="password">Contraseña inicial</Label>
@@ -82,12 +86,17 @@ export function NewUserDialog() {
               </select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="whatsapp">WhatsApp (opcional)</Label>
+              <Label htmlFor="whatsapp">Teléfono (WhatsApp)</Label>
               <Input
                 id="whatsapp"
                 name="whatsapp"
+                type="tel"
+                required
                 placeholder="+598 99 123 456"
               />
+              <p className="text-xs text-muted-foreground">
+                Obligatorio. Usado para login y para mensajes del bot.
+              </p>
             </div>
           </div>
           <DialogFooter>

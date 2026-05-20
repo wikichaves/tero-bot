@@ -52,11 +52,18 @@ const TASK_KIND_LABEL: Record<Task["kind"], string> = {
 };
 
 export default async function DashboardPage() {
-  // Scope por property (WIK-94): admin ve todo, gestor solo sus
-  // properties asignadas. Si gestor no tiene properties, todas las
-  // queries devuelven array vacío (el `.in("property_id", [])` filtra
-  // todo) — correcto, no debería ver nada.
+  // Scope por property (WIK-94): admin ve todo, gestor/mantenimiento
+  // solo sus properties asignadas. Si gestor sin properties, queries
+  // devuelven array vacío — correcto.
   const profile = await requireProfile();
+
+  // WIK-119: rol mantenimiento ve un dashboard ultra-simplificado —
+  // solo sus tareas. No accede a reservations/sensors/energy (data
+  // business-wide que no le toca).
+  if (profile.role === "mantenimiento") {
+    return <MantenimientoDashboard profileId={profile.id} />;
+  }
+
   const allowedIds = await getAllowedPropertyIds(profile);
 
   const supabase = await createClient();
@@ -90,31 +97,16 @@ export default async function DashboardPage() {
     tasksQuery = tasksQuery.in("property_id", allowedIds);
   }
 
-  // WIK-117: card "Insumos a comprar" eliminada del dashboard — la
-  // query relacionada también.
+  // WIK-117/119: cards "Insumos" y "Mantenimiento pendiente" eliminadas
+  // del dashboard. Las tareas siguen accesibles desde /tasks.
 
-  let mantenimientoQuery = supabase
-    .from("tasks")
-    .select(
-      "*, property:properties(name), assignee:profiles!tasks_assigned_to_fkey(full_name, email)",
-    )
-    .eq("kind", "mantenimiento")
-    .in("status", ["pending", "in_progress"])
-    .order("created_at", { ascending: false })
-    .limit(10);
-  if (allowedIds !== null) {
-    mantenimientoQuery = mantenimientoQuery.in("property_id", allowedIds);
-  }
-
-  const [reservationsRes, tasksRes, mantenimientoRes] = await Promise.all([
+  const [reservationsRes, tasksRes] = await Promise.all([
     reservationsQuery,
     tasksQuery,
-    mantenimientoQuery,
   ]);
 
   const { data, error } = reservationsRes;
   const tasks = (tasksRes.data ?? []) as DashTask[];
-  const mantenimiento = (mantenimientoRes.data ?? []) as DashTask[];
 
   const reservations = (data ?? []) as ReservationWithProperty[];
   const checkIns = reservations.filter((r) =>
@@ -174,18 +166,41 @@ export default async function DashboardPage() {
       </div>
 
       <TodayTasksCard tasks={tasks} todayIso={todayIso} />
+    </div>
+  );
+}
 
-      {/* WIK-117: card "Insumos a comprar" eliminada (rara vez actionable
-          desde el dashboard). "Mantenimiento pendiente" se mantiene
-          porque sí es trigger común de planificación del día. */}
-      <KindTasksCard
-        title="Mantenimiento pendiente"
-        description="Reparaciones reportadas por el equipo."
-        tasks={mantenimiento}
-        emptyText="Sin mantenimiento pendiente."
-        filterHref="/tasks?status=pending"
-        todayIso={todayIso}
-      />
+/**
+ * WIK-119: dashboard para rol mantenimiento. Mínimo necesario —
+ * solo sus tareas asignadas pendientes. No accede a data
+ * business-wide (reservas, sensors, energy).
+ */
+async function MantenimientoDashboard({ profileId }: { profileId: string }) {
+  const supabase = await createClient();
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  const { data: rows } = await supabase
+    .from("tasks")
+    .select(
+      "*, property:properties(name), assignee:profiles!tasks_assigned_to_fkey(full_name, email)",
+    )
+    .eq("assigned_to", profileId)
+    .in("status", ["pending", "in_progress"])
+    .order("due_date", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: false });
+  const tasks = (rows ?? []) as DashTask[];
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-semibold">Mis tareas</h1>
+        <p className="text-sm text-muted-foreground">
+          {tasks.length === 0
+            ? "No tenés tareas pendientes."
+            : `${tasks.length} tarea${tasks.length === 1 ? "" : "s"} pendiente${tasks.length === 1 ? "" : "s"}.`}
+        </p>
+      </div>
+      <TodayTasksCard tasks={tasks} todayIso={todayIso} />
     </div>
   );
 }
