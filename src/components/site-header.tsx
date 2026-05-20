@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ChevronDown, Home, Menu } from "lucide-react";
-import { signOut } from "@/app/login/actions";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ModeToggle } from "@/components/mode-toggle";
+import { UserDropdown } from "@/components/user-dropdown";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 
@@ -246,16 +246,11 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
           {configGroup && <NavDropdown group={configGroup} />}
         </nav>
       </div>
-      <div className="flex shrink-0 items-center gap-2 text-sm sm:gap-3">
-        <span className="hidden text-muted-foreground lg:inline">
-          {profile.email}
-        </span>
+      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
         <ModeToggle />
-        <form action={signOut}>
-          <Button type="submit" variant="ghost" size="sm">
-            Salir
-          </Button>
-        </form>
+        {/* WIK-112: el span con email + form Salir se reemplazó por un
+            dropdown con info del user + Editar + Salir. */}
+        <UserDropdown profile={profile} />
       </div>
     </header>
   );

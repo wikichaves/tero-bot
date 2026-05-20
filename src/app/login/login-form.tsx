@@ -7,15 +7,21 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { signIn } from "./actions";
 
+/**
+ * Form de login (WIK-113): acepta email O teléfono en el mismo input.
+ * El server detecta cuál es según contenga "@" o solo dígitos, y si
+ * es teléfono hace lookup en `profiles.whatsapp` para resolver el
+ * email asociado antes de pasarle a Supabase auth.
+ */
 export function LoginForm() {
   const [pending, startTransition] = useTransition();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     startTransition(async () => {
-      const result = await signIn({ email, password });
+      const result = await signIn({ identifier, password });
       if (result?.error) toast.error(result.error);
     });
   }
@@ -23,14 +29,20 @@ export function LoginForm() {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="identifier">Email o teléfono</Label>
         <Input
-          id="email"
-          type="email"
-          autoComplete="email"
+          id="identifier"
+          // `type="text"` y no `email` — el browser rechazaría un
+          // teléfono con autocomplete email. `autoComplete="username"`
+          // funciona para ambos (es el convention de password
+          // managers para identificador de login).
+          type="text"
+          autoComplete="username"
+          inputMode="email"
           required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+          placeholder="tu@email.com  o  +598 99 123 456"
         />
       </div>
       <div className="flex flex-col gap-2">
