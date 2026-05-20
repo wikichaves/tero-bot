@@ -86,8 +86,10 @@ export function DeviceEnergyChart({
     };
     const rows: Row[] = [];
 
-    // Anchor inicial.
-    rows.push({ ts: windowStartMs, metricValue: null, cost: null });
+    // (No initial null anchor: the XAxis `domain` already pins the
+    // visible range to [windowStartMs, windowEndMs]. Snapshots fetched
+    // from one hour BEFORE windowStart (see `fetchSinceIso` in
+    // page.tsx) make the line enter from the axis edge naturally.)
 
     for (let i = 0; i < sorted.length; i++) {
       const p = sorted[i];
@@ -124,9 +126,30 @@ export function DeviceEnergyChart({
       rows.push({ ts: p.ts, metricValue, cost });
     }
 
-    // Anchor final.
-    if (rows[rows.length - 1].ts !== windowEndMs) {
-      rows.push({ ts: windowEndMs, metricValue: null, cost: null });
+    // Trailing anchor: if the latest snapshot is still recent (within
+    // the typical hourly cron cadence + slack), extend its value
+    // forward to "now". That eliminates the cosmetic gap between the
+    // last data point and the axis edge that confuses readers ("is
+    // the chart broken?"). If the latest snapshot is older than ~90
+    // min the device is likely offline / cron stalled — we deliberately
+    // leave a gap there because it's real information.
+    const last = rows[rows.length - 1];
+    if (last && last.ts < windowEndMs) {
+      const ageMs = windowEndMs - last.ts;
+      const FRESH_THRESHOLD_MS = 90 * 60 * 1000;
+      if (ageMs <= FRESH_THRESHOLD_MS) {
+        // Carry the last known value forward — visually flat line to
+        // "now", which matches the assumption that recent consumption
+        // is unchanged.
+        rows.push({
+          ts: windowEndMs,
+          metricValue: last.metricValue,
+          cost: last.cost,
+        });
+      } else {
+        // Old data: leave a real gap so the absence is visible.
+        rows.push({ ts: windowEndMs, metricValue: null, cost: null });
+      }
     }
     return rows;
   }, [data, metric, windowStartMs, windowEndMs, tariff, convertCost]);

@@ -128,6 +128,13 @@ export default async function EnergyPage({
   const rangeMs = RANGES[range].hours * 60 * 60 * 1000;
   const rangeStartMs = nowMs - rangeMs;
   const rangeSinceIso = new Date(rangeStartMs).toISOString();
+  // Fetch starting ONE HOUR before the range so the line in the chart
+  // enters from the axis edge instead of starting cleanly inside the
+  // window. Snapshots are taken on the hour, so without this the first
+  // snapshot inside a 24h window can be 30-60 min after the axis start,
+  // producing a visible gap. Recharts' XAxis `domain` keeps the visible
+  // range fixed; the extra leading point just extends the line.
+  const fetchSinceIso = new Date(rangeStartMs - 60 * 60 * 1000).toISOString();
 
   // Take a fresh snapshot if the latest is over an hour old. This is the
   // primary capture mechanism on Vercel's Hobby plan (cron is daily-only).
@@ -227,7 +234,7 @@ export default async function EnergyPage({
         "property_device_id, taken_at, power_w, current_a, total_energy_kwh",
       )
       .in("property_device_id", energyPropertyDeviceIds)
-      .gte("taken_at", rangeSinceIso)
+      .gte("taken_at", fetchSinceIso)
       .order("taken_at", { ascending: true })
       .limit(100_000);
     for (const s of (rangeSnaps ?? []) as Array<{
