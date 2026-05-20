@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { RoomHistoryChart } from "./room-history-chart";
+import { RoomHistoryChart } from "./room-history-chart-wrapper";
 
 /**
  * /ambientes/[id] — detalle de un room con histórico T+H.
