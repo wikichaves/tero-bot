@@ -129,10 +129,12 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
       ]
     : [];
 
-  // Admin/gestor: agrupamos Tareas como dropdown, Facturas/Energía/WhatsApp
-  // sueltos, y Configuración como dropdown final (solo admin).
+  // WIK-104: simplificación del menú.
+  //   - Admin: dropdown "Tareas" con "Todas" + "Mis tareas".
+  //   - Gestor: leaf único "Tareas" → /mis-tareas (sin dropdown,
+  //     /tasks es admin-only ahora).
   const tareasGroup: NavGroup | null =
-    profile.role === "admin" || profile.role === "gestor"
+    profile.role === "admin"
       ? {
           label: "Tareas",
           items: [
@@ -151,10 +153,25 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
           ],
         }
       : null;
+  // Para gestor, sumamos un leaf "Tareas" directo en operationalLeaves
+  // (definido más abajo). Renderiza como item normal con badge.
 
   const operationalLeaves: NavLeaf[] =
     profile.role === "admin" || profile.role === "gestor"
       ? [
+          // WIK-104: gestor ve "Tareas" como leaf directo a /mis-tareas
+          // (no dropdown). Admin no lo necesita acá porque tiene el
+          // dropdown completo arriba.
+          ...(profile.role === "gestor"
+            ? [
+                {
+                  href: "/mis-tareas",
+                  label: "Tareas",
+                  badge: myOpen,
+                  urgent: myOverdue > 0,
+                },
+              ]
+            : []),
           { href: "/facturas", label: "Facturas" },
           { href: "/energy", label: "Energía" },
           {

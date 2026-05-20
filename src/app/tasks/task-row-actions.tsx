@@ -65,17 +65,15 @@ export function TaskRowActions({
           <DropdownMenuItem onClick={() => setEditOpen(true)}>
             Editar
           </DropdownMenuItem>
-          {task.status !== "in_progress" && (
-            <DropdownMenuItem onClick={() => setStatus("in_progress")}>
-              Marcar en curso
-            </DropdownMenuItem>
-          )}
+          {/* WIK-104: simplificación a 2 estados visibles (pendiente /
+              hecha). "Marcar en curso" eliminado del menu — el dato
+              sigue en DB para tareas legacy pero el user no lo elige. */}
           {task.status !== "done" && (
             <DropdownMenuItem onClick={() => setStatus("done")}>
               Marcar hecha
             </DropdownMenuItem>
           )}
-          {task.status !== "pending" && (
+          {task.status === "done" && (
             <DropdownMenuItem onClick={() => setStatus("pending")}>
               Reabrir
             </DropdownMenuItem>

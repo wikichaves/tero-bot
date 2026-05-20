@@ -25,24 +25,24 @@ import { TaskRowActions } from "./task-row-actions";
 
 export const dynamic = "force-dynamic";
 
-type StatusFilter = "all" | Task["status"];
+// WIK-104: simplificado a 2 estados visibles (pending/done). Las
+// tareas con status="in_progress" en DB se renderizan como "Pendiente"
+// en la UI — el campo no se eliminó del schema para no perder data,
+// pero el dropdown de actions ya no permite ir a "en curso".
+type StatusFilter = "all" | "pending" | "done";
 
 const STATUS_LABEL: Record<Task["status"], string> = {
   pending: "Pendiente",
-  in_progress: "En curso",
+  in_progress: "Pendiente",
   done: "Hecha",
 };
 
-const KIND_LABEL: Record<Task["kind"], string> = {
-  limpieza: "Limpieza",
-  mantenimiento: "Mantenimiento",
-  insumos: "Insumos",
-  otro: "Otro",
-};
-
-const STATUS_BADGE: Record<Task["status"], "default" | "secondary" | "outline"> = {
+const STATUS_BADGE: Record<
+  Task["status"],
+  "default" | "secondary" | "outline"
+> = {
   pending: "secondary",
-  in_progress: "default",
+  in_progress: "secondary",
   done: "outline",
 };
 
@@ -51,8 +51,6 @@ type TaskWithJoins = Task & {
   assignee: { id: string; full_name: string | null; email: string } | null;
 };
 
-type KindFilter = "all" | Task["kind"];
-
 export default async function TasksPage({
   searchParams,
 }: {
@@ -60,24 +58,26 @@ export default async function TasksPage({
     status?: string;
     property?: string;
     assignee?: string;
-    kind?: string;
   }>;
 }) {
-  const profile = await requireRole(["admin", "gestor"]);
-  // WIK-94: gestor solo ve tareas de SUS properties asignadas.
+  // WIK-104: /tasks es la vista global ("Todas las tareas") y queda
+  // restringida a admin. Gestor/mantenimiento ven sólo sus tareas en
+  // /mis-tareas. El item del menú "Todas las tareas" del dropdown
+  // del header también está oculto para no-admin.
+  const profile = await requireRole(["admin"]);
+  // Mantenemos `allowedIds` por compat — admin retorna `null` y no
+  // filtra. Si alguna vez expandimos /tasks a gestor, este filtro ya
+  // está listo.
   const allowedIds = await getAllowedPropertyIds(profile);
   const params = await searchParams;
-  const statusFilter = (params.status as StatusFilter) ?? "all";
+  const rawStatus = params.status;
+  const statusFilter: StatusFilter =
+    rawStatus === "pending" || rawStatus === "done" ? rawStatus : "all";
   const propertyFilter = params.property ?? null;
   // assignee=unassigned → only tasks without an assignee
   // assignee=<uuid> → only that user's tasks
   // assignee absent / "all" → no filter
   const assigneeFilter = params.assignee ?? null;
-  const kindFilter: KindFilter = (
-    ["limpieza", "mantenimiento", "insumos", "otro"] as const
-  ).includes(params.kind as Task["kind"])
-    ? (params.kind as Task["kind"])
-    : "all";
 
   const supabase = await createClient();
   let query = supabase
@@ -88,8 +88,12 @@ export default async function TasksPage({
     .order("status", { ascending: true })
     .order("due_date", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });
-  if (statusFilter !== "all") {
-    query = query.eq("status", statusFilter);
+  if (statusFilter === "pending") {
+    // WIK-104: "Pendiente" engloba pending + in_progress en la UI
+    // simplificada — el user no debería ver dos estados distintos.
+    query = query.in("status", ["pending", "in_progress"]);
+  } else if (statusFilter === "done") {
+    query = query.eq("status", "done");
   }
   if (propertyFilter) {
     query = query.eq("property_id", propertyFilter);
@@ -98,9 +102,6 @@ export default async function TasksPage({
     query = query.is("assigned_to", null);
   } else if (assigneeFilter) {
     query = query.eq("assigned_to", assigneeFilter);
-  }
-  if (kindFilter !== "all") {
-    query = query.eq("kind", kindFilter);
   }
   // WIK-94 scope: gestor solo SUS properties.
   if (allowedIds !== null) {
@@ -131,23 +132,9 @@ export default async function TasksPage({
   const assignees = assigneesRes.data ?? [];
   const todayIso = new Date().toISOString().slice(0, 10);
 
-  const counts = {
-    all: 0,
-    pending: 0,
-    in_progress: 0,
-    done: 0,
-  };
-  // Count requires a separate query for accurate totals (the filter above
-  // narrowed the result). For MVP, derive from current set if status=all,
-  // otherwise show "(filtrado)".
-  if (statusFilter === "all") {
-    for (const t of tasks) {
-      counts.all++;
-      counts[t.status]++;
-    }
-  } else {
-    counts[statusFilter] = tasks.length;
-  }
+  // (Counts removidos en WIK-104 — la UI ya no muestra contadores por
+  // status, el filtro simple Pendientes/Hechas es suficiente para
+  // entender el estado del backlog.)
 
   return (
     <div className="flex flex-col gap-6">
@@ -174,7 +161,6 @@ export default async function TasksPage({
               status: null,
               property: propertyFilter,
               assignee: assigneeFilter,
-              kind: kindFilter === "all" ? null : kindFilter,
             })}
             label="Todas"
             active={statusFilter === "all"}
@@ -184,27 +170,15 @@ export default async function TasksPage({
               status: "pending",
               property: propertyFilter,
               assignee: assigneeFilter,
-              kind: kindFilter === "all" ? null : kindFilter,
             })}
             label="Pendientes"
             active={statusFilter === "pending"}
           />
           <FilterPill
             href={buildTasksUrl({
-              status: "in_progress",
-              property: propertyFilter,
-              assignee: assigneeFilter,
-              kind: kindFilter === "all" ? null : kindFilter,
-            })}
-            label="En curso"
-            active={statusFilter === "in_progress"}
-          />
-          <FilterPill
-            href={buildTasksUrl({
               status: "done",
               property: propertyFilter,
               assignee: assigneeFilter,
-              kind: kindFilter === "all" ? null : kindFilter,
             })}
             label="Hechas"
             active={statusFilter === "done"}
@@ -219,7 +193,6 @@ export default async function TasksPage({
                     statusFilter === "all" ? null : statusFilter,
                   property: null,
                   assignee: assigneeFilter,
-                  kind: kindFilter === "all" ? null : kindFilter,
                 })}
                 className={`rounded-full px-3 py-1 ${propertyFilter ? "hover:bg-muted" : "bg-muted font-medium"}`}
               >
@@ -233,7 +206,6 @@ export default async function TasksPage({
                       statusFilter === "all" ? null : statusFilter,
                     property: p.id,
                     assignee: assigneeFilter,
-                    kind: kindFilter === "all" ? null : kindFilter,
                   })}
                   className={`rounded-full px-3 py-1 ${propertyFilter === p.id ? "bg-muted font-medium" : "hover:bg-muted"}`}
                 >
@@ -253,7 +225,6 @@ export default async function TasksPage({
                   statusFilter === "all" ? null : statusFilter,
                 property: propertyFilter,
                 assignee: null,
-                kind: kindFilter === "all" ? null : kindFilter,
               })}
               className={`rounded-full px-3 py-1 ${assigneeFilter ? "hover:bg-muted" : "bg-muted font-medium"}`}
             >
@@ -265,7 +236,6 @@ export default async function TasksPage({
                   statusFilter === "all" ? null : statusFilter,
                 property: propertyFilter,
                 assignee: "unassigned",
-                kind: kindFilter === "all" ? null : kindFilter,
               })}
               className={`rounded-full px-3 py-1 ${assigneeFilter === "unassigned" ? "bg-muted font-medium" : "hover:bg-muted"}`}
             >
@@ -279,7 +249,6 @@ export default async function TasksPage({
                     statusFilter === "all" ? null : statusFilter,
                   property: propertyFilter,
                   assignee: a.id,
-                  kind: kindFilter === "all" ? null : kindFilter,
                 })}
                 className={`rounded-full px-3 py-1 ${assigneeFilter === a.id ? "bg-muted font-medium" : "hover:bg-muted"}`}
               >
@@ -288,39 +257,6 @@ export default async function TasksPage({
             ))}
           </div>
         )}
-
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-muted-foreground">Tipo:</span>
-          <Link
-            href={buildTasksUrl({
-              status:
-                statusFilter === "all" ? null : statusFilter,
-              property: propertyFilter,
-              assignee: assigneeFilter,
-              kind: null,
-            })}
-            className={`rounded-full px-3 py-1 ${kindFilter === "all" ? "bg-muted font-medium" : "hover:bg-muted"}`}
-          >
-            Todos
-          </Link>
-          {(["limpieza", "mantenimiento", "insumos", "otro"] as const).map(
-            (k) => (
-              <Link
-                key={k}
-                href={buildTasksUrl({
-                  status:
-                    statusFilter === "all" ? null : statusFilter,
-                  property: propertyFilter,
-                  assignee: assigneeFilter,
-                  kind: k,
-                })}
-                className={`rounded-full px-3 py-1 ${kindFilter === k ? "bg-muted font-medium" : "hover:bg-muted"}`}
-              >
-                {KIND_LABEL[k]}
-              </Link>
-            ),
-          )}
-        </div>
       </div>
 
       <Card>
@@ -332,7 +268,6 @@ export default async function TasksPage({
                 <TableHead className="hidden md:table-cell">
                   Propiedad
                 </TableHead>
-                <TableHead className="hidden lg:table-cell">Tipo</TableHead>
                 <TableHead className="hidden lg:table-cell">
                   Asignado
                 </TableHead>
@@ -345,7 +280,7 @@ export default async function TasksPage({
               {tasks.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={6}
                     className="text-center text-muted-foreground"
                   >
                     Sin tareas. Creá una con el botón <em>Nueva tarea</em>.
@@ -383,13 +318,10 @@ export default async function TasksPage({
                           {cleaned}
                         </div>
                       )}
-                      {/* On mobile we hide the Propiedad/Tipo/Asignado
-                          columns; surface them under the title so the info
-                          isn't lost. */}
+                      {/* On mobile we hide the Propiedad/Asignado columns;
+                          surface them under the title so la info no se
+                          pierde. */}
                       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground md:hidden">
-                        <Badge variant="outline" className="text-xs">
-                          {KIND_LABEL[t.kind]}
-                        </Badge>
                         <span>{t.property?.name ?? "—"}</span>
                         <span>·</span>
                         <span>
@@ -401,9 +333,6 @@ export default async function TasksPage({
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       {t.property?.name ?? "—"}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <Badge variant="outline">{KIND_LABEL[t.kind]}</Badge>
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
                       {t.assignee ? (
@@ -508,13 +437,11 @@ function buildTasksUrl(filters: {
   status: StatusFilter | null;
   property: string | null;
   assignee: string | null;
-  kind: KindFilter | null;
 }): string {
   const params = new URLSearchParams();
   if (filters.status) params.set("status", filters.status);
   if (filters.property) params.set("property", filters.property);
   if (filters.assignee) params.set("assignee", filters.assignee);
-  if (filters.kind && filters.kind !== "all") params.set("kind", filters.kind);
   const qs = params.toString();
   return qs ? `/tasks?${qs}` : "/tasks";
 }
