@@ -92,23 +92,33 @@ export async function snapshotAllDevices(): Promise<{
         };
       } catch (e) {
         const msg = (e as Error).message;
+        const lower = msg.toLowerCase();
         // Devices that aren't power-monitoring outlets/meters return
         // "function not supported" from Tuya — typically T/H sensors,
         // locks, lights that ended up in property_devices alongside
-        // actual energy meters. "permission denied" usually means the
-        // device is in a different Tuya home outside this cloud
-        // project's scope (e.g. Oficina Agus devices owned by another
-        // account). Neither is an actionable error from the snapshot
-        // run's perspective — degrade to "skipped" so the toast count
-        // stays meaningful (truly broken devices vs. non-applicable).
-        if (/function\s+not\s+supported|permission\s+den/i.test(msg)) {
+        // actual energy meters. "permission denied" / "no permission"
+        // usually means the device is in a different Tuya home outside
+        // this cloud project's scope (e.g. Oficina Agus devices owned
+        // by another account). Neither is an actionable error from the
+        // snapshot run's perspective — degrade to "skipped" so the
+        // toast count stays meaningful (truly broken devices vs.
+        // non-applicable). Match is lenient because Tuya's `msg` field
+        // varies between "function not supported", "function not support"
+        // (no -ed), "no permission", "permission denied" etc.
+        const isNotEnergyMeter =
+          lower.includes("function not support") ||
+          lower.includes("not supported"); // covers other "X not supported" variants
+        const isOtherTuyaHome =
+          lower.includes("permission den") ||
+          lower.includes("no permission");
+        if (isNotEnergyMeter || isOtherTuyaHome) {
           return {
             property_device_id: d.id,
             tuya_device_id: d.tuya_device_id,
             device_name: d.tuya_device_name,
             ok: true,
             inserted: false,
-            reason: /permission/i.test(msg)
+            reason: isOtherTuyaHome
               ? "sin permisos Tuya (otro home)"
               : "no es energy meter",
           };
