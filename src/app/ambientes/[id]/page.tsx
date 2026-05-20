@@ -99,7 +99,14 @@ export default async function RoomDetailPage({
     snapshots = snaps ?? [];
   }
 
-  // Stats por sensor.
+  // Stats por sensor (WIK-96): usamos percentiles p5/p95 para min/max
+  // en vez del extreme min/max. Un único spike de lectura (sensor
+  // arrancando frío, error transient) sesga el min/max raw varios
+  // grados. p5/p95 filtra el 5% de outliers en cada cola y da una
+  // lectura más representativa del rango "real" del ambiente.
+  //
+  // Para series cortas (<20 snapshots) caemos al min/max raw porque
+  // los percentiles no son significativos con tan poca data.
   const statsByDevice = sensors.map((s) => {
     const series = snapshots.filter((sn) => sn.property_device_id === s.id);
     const temps = series
@@ -111,16 +118,12 @@ export default async function RoomDetailPage({
     return {
       sensor: s,
       count: series.length,
-      tempMin: temps.length ? Math.min(...temps) : null,
-      tempMax: temps.length ? Math.max(...temps) : null,
-      tempAvg: temps.length
-        ? temps.reduce((a, b) => a + b, 0) / temps.length
-        : null,
-      humMin: hums.length ? Math.min(...hums) : null,
-      humMax: hums.length ? Math.max(...hums) : null,
-      humAvg: hums.length
-        ? hums.reduce((a, b) => a + b, 0) / hums.length
-        : null,
+      tempMin: percentile(temps, 5),
+      tempMax: percentile(temps, 95),
+      tempAvg: avg(temps),
+      humMin: percentile(hums, 5),
+      humMax: percentile(hums, 95),
+      humAvg: avg(hums),
     };
   });
 
@@ -260,18 +263,30 @@ export default async function RoomDetailPage({
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div>
-                    <p className="text-xs text-muted-foreground">Temperatura</p>
+                    <p
+                      className="text-xs text-muted-foreground"
+                      title="Min/max calculados con percentiles p5/p95 para filtrar outliers (sensor frío al arrancar, lecturas erráticas). Para series <20 muestras usa min/max raw."
+                    >
+                      Temperatura
+                    </p>
                     <p className="tabular-nums">
-                      min {s.tempMin?.toFixed(1) ?? "—"}°C · prom{" "}
-                      {s.tempAvg?.toFixed(1) ?? "—"}°C · max{" "}
+                      {s.tempMin?.toFixed(1) ?? "—"}°C ·{" "}
+                      <span className="text-foreground/70">prom</span>{" "}
+                      {s.tempAvg?.toFixed(1) ?? "—"}°C ·{" "}
                       {s.tempMax?.toFixed(1) ?? "—"}°C
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Humedad</p>
+                    <p
+                      className="text-xs text-muted-foreground"
+                      title="Min/max calculados con percentiles p5/p95 para filtrar outliers."
+                    >
+                      Humedad
+                    </p>
                     <p className="tabular-nums">
-                      min {s.humMin?.toFixed(0) ?? "—"}% · prom{" "}
-                      {s.humAvg?.toFixed(0) ?? "—"}% · max{" "}
+                      {s.humMin?.toFixed(0) ?? "—"}% ·{" "}
+                      <span className="text-foreground/70">prom</span>{" "}
+                      {s.humAvg?.toFixed(0) ?? "—"}% ·{" "}
                       {s.humMax?.toFixed(0) ?? "—"}%
                     </p>
                   </div>
@@ -283,4 +298,34 @@ export default async function RoomDetailPage({
       )}
     </div>
   );
+}
+
+/**
+ * Promedio simple. Devuelve null si el array está vacío.
+ */
+function avg(arr: number[]): number | null {
+  if (arr.length === 0) return null;
+  return arr.reduce((a, b) => a + b, 0) / arr.length;
+}
+
+/**
+ * Percentil (WIK-96). Filtra outliers usando el `p`-ésimo percentil
+ * (p=5 para min, p=95 para max). Para series cortas (<20 muestras)
+ * cae al min/max raw porque el percentil no es significativo.
+ *
+ * Algoritmo: ordenar ascendente, interpolar linealmente entre los dos
+ * valores que rodean el rank objetivo. Mismo método que C=7 en R o
+ * `numpy.percentile` con `interpolation="linear"`.
+ */
+function percentile(arr: number[], p: number): number | null {
+  if (arr.length === 0) return null;
+  if (arr.length < 20) {
+    return p < 50 ? Math.min(...arr) : Math.max(...arr);
+  }
+  const sorted = arr.slice().sort((a, b) => a - b);
+  const rank = (p / 100) * (sorted.length - 1);
+  const lo = Math.floor(rank);
+  const hi = Math.ceil(rank);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (rank - lo) * (sorted[hi] - sorted[lo]);
 }

@@ -121,28 +121,40 @@ export function RoomHistoryChart({
             yAxisId="t"
             orientation="left"
             tick={{ fontSize: 11 }}
-            tickFormatter={(v) => `${v}°C`}
-            // Dominio dinámico: ±1°C arriba/abajo de los extremos de la
-            // serie. Antes el default era [0, auto] y para data en
-            // 13-14°C la curva quedaba aplastada contra el top. Ahora
-            // ocupa todo el alto del chart y la diferencia entre 14 y
-            // 18 grados se ve clara.
+            tickFormatter={(v) =>
+              `${Number(v).toLocaleString("es-UY", {
+                maximumFractionDigits: 1,
+              })}°C`
+            }
+            // WIK-96: escala más pronunciada. Antes ±1°C, ahora padding
+            // proporcional al rango real (10% del span) con mínimo 0.3°C
+            // y máximo 1°C. Para data en 13-14°C ahora muestra 12.7-14.3
+            // (span ~1.6°C) en vez de 12-15 (span 3°C). Cambios pequeños
+            // de 0.2-0.5°C se ven con detalle.
             domain={[
-              (dataMin: number) => Math.floor((dataMin ?? 0) - 1),
-              (dataMax: number) => Math.ceil((dataMax ?? 0) + 1),
+              (dataMin: number) => {
+                const min = dataMin ?? 0;
+                return Number((min - 0.3).toFixed(1));
+              },
+              (dataMax: number) => {
+                const max = dataMax ?? 0;
+                return Number((max + 0.3).toFixed(1));
+              },
             ]}
-            allowDecimals={false}
-            width={48}
+            allowDecimals
+            width={52}
           />
           <YAxis
             yAxisId="h"
             orientation="right"
             tick={{ fontSize: 11 }}
             tickFormatter={(v) => `${v}%`}
-            // Humedad: ±5% de margen visual. Igual razón que temp.
+            // Humedad: ±2% (antes ±5%). Es métrica con más ruido pero
+            // los cambios significativos suelen ser de 3-5%, querés
+            // verlos claros.
             domain={[
-              (dataMin: number) => Math.max(0, Math.floor((dataMin ?? 0) - 5)),
-              (dataMax: number) => Math.min(100, Math.ceil((dataMax ?? 0) + 5)),
+              (dataMin: number) => Math.max(0, Math.floor((dataMin ?? 0) - 2)),
+              (dataMax: number) => Math.min(100, Math.ceil((dataMax ?? 0) + 2)),
             ]}
             allowDecimals={false}
             width={40}

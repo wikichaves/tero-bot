@@ -189,9 +189,38 @@ export default async function AmbientesPage({
         const visibleRooms = propRooms.filter(
           (r) => (devicesByRoom.get(r.id)?.length ?? 0) > 0,
         );
+
+        // WIK-96: promedio T/H a nivel property (todos los sensores
+        // últimas N horas del rango). Agregamos al header del section
+        // para que de un vistazo veas cómo está cada casa, sin tener
+        // que sumar room por room.
+        const propStats = computePropertyStats(
+          [...visibleRooms, ...(hasOrphans ? [{ id: noRoomKey, property_id: property.id, name: "Sin ambiente", sort_order: 0 } as Pick<Room, "id" | "property_id" | "name" | "sort_order">] : [])],
+          devicesByRoom,
+          snapshotsByDevice,
+        );
+
         return (
           <section key={property.id} className="flex flex-col gap-3">
-            <h2 className="text-lg font-semibold">{property.name}</h2>
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h2 className="text-lg font-semibold">{property.name}</h2>
+              {propStats && (
+                <span className="text-sm text-muted-foreground tabular-nums">
+                  prom{" "}
+                  <span className="text-orange-600 dark:text-orange-400">
+                    {propStats.avgT != null
+                      ? `${propStats.avgT.toFixed(1)}°C`
+                      : "—"}
+                  </span>{" "}
+                  ·{" "}
+                  <span className="text-blue-600 dark:text-blue-400">
+                    {propStats.avgH != null
+                      ? `${propStats.avgH.toFixed(0)}%`
+                      : "—"}
+                  </span>
+                </span>
+              )}
+            </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {visibleRooms.map((room, idx) => {
                 const roomDevices = devicesByRoom.get(room.id) ?? [];
@@ -406,6 +435,45 @@ function RoomCard({
   );
 
   return inner;
+}
+
+/**
+ * Promedio T/H a nivel property (WIK-96). Toma la última lectura de
+ * cada sensor de la property y promedia. Si no hay lecturas devuelve
+ * null.
+ */
+function computePropertyStats(
+  propRooms: Array<Pick<Room, "id" | "property_id" | "name">>,
+  devicesByRoom: Map<string | null, Device[]>,
+  snapshotsByDevice: Map<string, Snapshot[]>,
+): { avgT: number | null; avgH: number | null } | null {
+  const allDevices: Device[] = [];
+  for (const r of propRooms) {
+    const key = r.id;
+    const ds = devicesByRoom.get(key) ?? [];
+    allDevices.push(...ds);
+  }
+  if (allDevices.length === 0) return null;
+
+  const temps: number[] = [];
+  const hums: number[] = [];
+  for (const d of allDevices) {
+    const series = snapshotsByDevice.get(d.id) ?? [];
+    const last = series[series.length - 1];
+    if (!last) continue;
+    if (last.temperature_c != null) temps.push(last.temperature_c);
+    if (last.humidity_pct != null) hums.push(last.humidity_pct);
+  }
+  if (temps.length === 0 && hums.length === 0) return null;
+
+  return {
+    avgT:
+      temps.length > 0
+        ? temps.reduce((a, b) => a + b, 0) / temps.length
+        : null,
+    avgH:
+      hums.length > 0 ? hums.reduce((a, b) => a + b, 0) / hums.length : null,
+  };
 }
 
 function timeAgo(iso: string): string {
