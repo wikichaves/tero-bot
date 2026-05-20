@@ -72,14 +72,16 @@ const LANDMARKS: Record<Locale, Landmarks> = {
     payout: [
       // "Pago total: $1.234,56 ARS" / "Total a recibir: USD 1.000" /
       // "Ganás: $492,87" (es-AR voseo) / "Ganarás: $492,87" (neutral).
-      // The voseo form `gan[aá]s` is what Airbnb actually sends to AR
-      // hosts — the older regex only matched "ganarás", silently dropping
-      // the payout amount for every es-AR confirmation. The `(?:ar)?`
-      // group accepts both wordings.
-      /(?:pago\s+total|total\s+a\s+recibir|gan(?:ar)?[aá]s)[^\n$0-9]{0,40}([A-Z]{3}|\$|US\$|U\$S|€)\s*([\d.,]+)/i,
+      //
+      // Crucially the value can be on the NEXT line ("Ganás:\n$492,87")
+      // — Airbnb's text bodies wrap the label and amount across lines.
+      // The label-to-value gap therefore uses `[\s:]*` (whitespace +
+      // colons, including newlines) instead of the older `[^\n$0-9]{0,40}`
+      // which silently dropped every multi-line payout in production.
+      /(?:pago\s+total|total\s+a\s+recibir|gan(?:ar)?[aá]s)\b[\s:]*([A-Z]{3}|US\$|U\$S|\$|€)\s*([\d.,]+)/i,
       /([A-Z]{3})\s*\$?\s*([\d.,]+)\s*(?:de\s+pago|de\s+ganancia)/i,
       // "Vas a recibir US$ 1.234,56" / "Recibirás US$ 1.234,56"
-      /(?:vas\s+a\s+recibir|recibir[aá]s)[^\n$0-9]{0,30}(US\$|U\$S|\$|€|[A-Z]{3})\s*([\d.,]+)/i,
+      /(?:vas\s+a\s+recibir|recibir[aá]s)\b[\s:]*(US\$|U\$S|\$|€|[A-Z]{3})\s*([\d.,]+)/i,
     ],
     message: [
       // "Mensaje de Juan: hola..." (capture up to ~500 chars or paragraph end)
@@ -125,9 +127,10 @@ const LANDMARKS: Record<Locale, Landmarks> = {
       /(\d+)\s+travelers?/i,
     ],
     payout: [
-      /(?:total\s+payout|you'?ll\s+earn|payout)[^\n$0-9]{0,40}([A-Z]{3}|\$|US\$|€)\s*([\d.,]+)/i,
+      // Multi-line tolerant — see es comments above.
+      /(?:total\s+payout|you'?ll\s+earn|payout)\b[\s:]*([A-Z]{3}|\$|US\$|€)\s*([\d.,]+)/i,
       /([A-Z]{3})\s*\$?\s*([\d.,]+)\s*payout/i,
-      /you'?ll\s+receive[^\n$0-9]{0,30}(US\$|\$|€|[A-Z]{3})\s*([\d.,]+)/i,
+      /you'?ll\s+receive\b[\s:]*(US\$|\$|€|[A-Z]{3})\s*([\d.,]+)/i,
     ],
     message: [
       /Message\s+(?:from\s+\S+)?:?\s*\n?([\s\S]{1,500}?)(?:\n\s*\n|$)/i,

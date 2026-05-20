@@ -11,7 +11,9 @@
     "wa:templates:submit:dry": "tsx scripts/whatsapp-templates-submit.ts --dry-run",
     "wa:templates:status": "tsx scripts/whatsapp-templates-status.ts",
     "test:parse-email": "tsx --test scripts/test-parse-email.ts",
-    "airbnb:status": "tsx scripts/airbnb-inbound-status.ts"
+    "airbnb:status": "tsx scripts/airbnb-inbound-status.ts",
+    "airbnb:reprocess": "tsx scripts/airbnb-reprocess.ts",
+    "airbnb:reprocess:dry": "tsx scripts/airbnb-reprocess.ts --dry-run"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
