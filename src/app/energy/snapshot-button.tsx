@@ -15,16 +15,41 @@ export function SnapshotButton() {
         toast.error(result.error);
         return;
       }
-      if ("result" in result && result.result) {
-        const inserted = result.result.results.filter((r) => r.inserted).length;
-        const skipped = result.result.results.filter(
-          (r) => r.ok && !r.inserted,
-        ).length;
-        const failed = result.result.results.filter((r) => !r.ok).length;
-        toast.success(
-          `Snapshot OK · ${inserted} insertados, ${skipped} omitidos, ${failed} con error.`,
-        );
+      if (!("result" in result) || !result.result) return;
+
+      const inserted = result.result.results.filter((r) => r.inserted).length;
+      const skipped = result.result.results.filter(
+        (r) => r.ok && !r.inserted,
+      ).length;
+      const errors = result.result.results.filter((r) => !r.ok);
+      const summary = `${inserted} insertados, ${skipped} omitidos, ${errors.length} con error.`;
+
+      if (errors.length === 0) {
+        toast.success(`Snapshot OK · ${summary}`);
+        return;
       }
+
+      // Surface the failing devices in the toast description. Without
+      // this the user had to dig through Vercel logs to find out which
+      // device was failing — a frequent ask since some Tuya devices go
+      // offline intermittently and that's exactly what we need to act on.
+      // Group by reason so 4 timeouts collapse into 1 line.
+      const byReason = new Map<string, string[]>();
+      for (const e of errors) {
+        const reason = (e.reason ?? "unknown").slice(0, 80);
+        const name = e.device_name ?? e.tuya_device_id;
+        const arr = byReason.get(reason) ?? [];
+        arr.push(name);
+        byReason.set(reason, arr);
+      }
+      const description = Array.from(byReason.entries())
+        .map(([reason, names]) => `· ${names.join(", ")}: ${reason}`)
+        .join("\n");
+
+      toast.warning(`Snapshot parcial · ${summary}`, {
+        description,
+        duration: 10000,
+      });
     });
   }
 

@@ -5,6 +5,10 @@ import { getDeviceStatus, parseEnergyReading } from "./energy";
 export type SnapshotResult = {
   property_device_id: string;
   tuya_device_id: string;
+  /** Human-readable name from `property_devices.tuya_device_name`.
+   *  Populated so the UI toast can show which device failed without the
+   *  admin having to cross-reference cryptic Tuya IDs. */
+  device_name?: string | null;
   ok: boolean;
   inserted?: boolean;
   reason?: string;
@@ -44,6 +48,7 @@ export async function snapshotAllDevices(): Promise<{
           return {
             property_device_id: d.id,
             tuya_device_id: d.tuya_device_id,
+            device_name: d.tuya_device_name,
             ok: true,
             inserted: false,
             reason: "no energy data",
@@ -63,6 +68,7 @@ export async function snapshotAllDevices(): Promise<{
           return {
             property_device_id: d.id,
             tuya_device_id: d.tuya_device_id,
+            device_name: d.tuya_device_name,
             ok: true,
             inserted: false,
             reason: "already snapshotted this hour",
@@ -72,6 +78,7 @@ export async function snapshotAllDevices(): Promise<{
           return {
             property_device_id: d.id,
             tuya_device_id: d.tuya_device_id,
+            device_name: d.tuya_device_name,
             ok: false,
             reason: insertError.message,
           };
@@ -79,6 +86,7 @@ export async function snapshotAllDevices(): Promise<{
         return {
           property_device_id: d.id,
           tuya_device_id: d.tuya_device_id,
+          device_name: d.tuya_device_name,
           ok: true,
           inserted: true,
         };
@@ -86,6 +94,7 @@ export async function snapshotAllDevices(): Promise<{
         return {
           property_device_id: d.id,
           tuya_device_id: d.tuya_device_id,
+          device_name: d.tuya_device_name,
           ok: false,
           reason: (e as Error).message,
         };
