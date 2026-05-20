@@ -4,6 +4,7 @@ import { ArrowLeft, Info } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/server";
+import { avg, percentile } from "@/lib/stats";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -300,32 +301,3 @@ export default async function RoomDetailPage({
   );
 }
 
-/**
- * Promedio simple. Devuelve null si el array está vacío.
- */
-function avg(arr: number[]): number | null {
-  if (arr.length === 0) return null;
-  return arr.reduce((a, b) => a + b, 0) / arr.length;
-}
-
-/**
- * Percentil (WIK-96). Filtra outliers usando el `p`-ésimo percentil
- * (p=5 para min, p=95 para max). Para series cortas (<20 muestras)
- * cae al min/max raw porque el percentil no es significativo.
- *
- * Algoritmo: ordenar ascendente, interpolar linealmente entre los dos
- * valores que rodean el rank objetivo. Mismo método que C=7 en R o
- * `numpy.percentile` con `interpolation="linear"`.
- */
-function percentile(arr: number[], p: number): number | null {
-  if (arr.length === 0) return null;
-  if (arr.length < 20) {
-    return p < 50 ? Math.min(...arr) : Math.max(...arr);
-  }
-  const sorted = arr.slice().sort((a, b) => a - b);
-  const rank = (p / 100) * (sorted.length - 1);
-  const lo = Math.floor(rank);
-  const hi = Math.ceil(rank);
-  if (lo === hi) return sorted[lo];
-  return sorted[lo] + (rank - lo) * (sorted[hi] - sorted[lo]);
-}

@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { percentile } from "@/lib/stats";
 
 /**
  * Build the "Ambientes" section of the daily report (WIK-82 F4).
@@ -100,24 +101,6 @@ export async function buildSensorSummary(
   return lines;
 }
 
-/**
- * Percentil con interpolación lineal (WIK-96). Para series cortas
- * (<20 muestras) cae al min/max raw porque no es estadísticamente
- * significativo. Duplicado de `app/ambientes/[id]/page.tsx` —
- * podría moverse a un util compartido si lo usamos en un 3er lugar.
- */
-function percentile(arr: number[], p: number): number | null {
-  if (arr.length === 0) return null;
-  if (arr.length < 20) {
-    return p < 50 ? Math.min(...arr) : Math.max(...arr);
-  }
-  const sorted = arr.slice().sort((a, b) => a - b);
-  const rank = (p / 100) * (sorted.length - 1);
-  const lo = Math.floor(rank);
-  const hi = Math.ceil(rank);
-  if (lo === hi) return sorted[lo];
-  return sorted[lo] + (rank - lo) * (sorted[hi] - sorted[lo]);
-}
 
 /**
  * Build the response for the WhatsApp `ambientes` command (WIK-90).
