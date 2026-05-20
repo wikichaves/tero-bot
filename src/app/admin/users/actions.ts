@@ -173,3 +173,37 @@ export async function deleteUser(id: string) {
   revalidatePath("/admin/users");
   return { ok: true };
 }
+
+/**
+ * Resetear el password de cualquier usuario (WIK-106). Sólo admin.
+ * El user recibe el nuevo password en el chat con el admin — no se
+ * manda email automático ni nada (los users son staff conocido).
+ *
+ * Mínimo 8 chars (mismo schema que `createUser`). Para reset el
+ * propio password el user puede hacerlo desde Supabase, este endpoint
+ * está orientado al caso "se olvidó el password".
+ */
+const resetPasswordSchema = z.object({
+  id: z.string().uuid("ID inválido."),
+  password: z
+    .string()
+    .min(8, "La contraseña debe tener al menos 8 caracteres."),
+});
+
+export async function resetUserPassword(input: {
+  id: string;
+  password: string;
+}) {
+  await requireRole(["admin"]);
+  const parsed = resetPasswordSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.updateUserById(parsed.data.id, {
+    password: parsed.data.password,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/admin/users");
+  return { ok: true };
+}

@@ -19,7 +19,7 @@ export async function replyToConversation(input: {
   conversation_id: string;
   text: string;
 }) {
-  await requireRole(["admin", "gestor"]);
+  await requireRole(["admin"]);
   const parsed = replySchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
@@ -65,7 +65,7 @@ export async function replyToConversation(input: {
 }
 
 export async function markRead(conversationId: string) {
-  await requireRole(["admin", "gestor"]);
+  await requireRole(["admin"]);
   await markConversationRead(conversationId);
   revalidatePath("/whatsapp");
   revalidatePath(`/whatsapp/${conversationId}`);

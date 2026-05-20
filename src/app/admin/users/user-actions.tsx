@@ -18,6 +18,7 @@ import { ALL_ROLES, ROLE_LABEL } from "@/lib/roles";
 import { deleteUser, updateRole } from "./actions";
 import { EditUserDialog } from "./edit-user-dialog";
 import { ScopeDialog } from "./scope-dialog";
+import { ResetPasswordDialog } from "./reset-password-dialog";
 
 export function UserActions({
   profile,
@@ -37,6 +38,7 @@ export function UserActions({
   const [pending, startTransition] = useTransition();
   const [editOpen, setEditOpen] = useState(false);
   const [scopeOpen, setScopeOpen] = useState(false);
+  const [resetPwdOpen, setResetPwdOpen] = useState(false);
 
   function changeRole(role: UserRole) {
     startTransition(async () => {
@@ -74,6 +76,10 @@ export function UserActions({
               Asignar propiedades
             </DropdownMenuItem>
           )}
+          {/* WIK-106: reset password de cualquier user. */}
+          <DropdownMenuItem onClick={() => setResetPwdOpen(true)}>
+            Resetear password
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuLabel>Cambiar rol</DropdownMenuLabel>
@@ -110,6 +116,14 @@ export function UserActions({
           initialPropertyIds={scopedPropertyIds}
           open={scopeOpen}
           onOpenChange={setScopeOpen}
+        />
+      )}
+      {resetPwdOpen && (
+        <ResetPasswordDialog
+          userId={profile.id}
+          userEmail={profile.email}
+          open={resetPwdOpen}
+          onOpenChange={setResetPwdOpen}
         />
       )}
     </>

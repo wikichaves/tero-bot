@@ -26,7 +26,7 @@ export default async function ConversationPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireRole(["admin", "gestor"]);
+  await requireRole(["admin"]);
   const { id } = await params;
   const supabase = await createClient();
 

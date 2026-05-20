@@ -6,7 +6,9 @@ export default async function WhatsAppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const profile = await requireRole(["admin", "gestor"]);
+  // WIK-107: sólo admin. /whatsapp expone toda la conversación con
+  // huéspedes — gestor no necesita ese acceso.
+  const profile = await requireRole(["admin"]);
   return (
     <div className="flex flex-1 flex-col">
       <SiteHeader profile={profile} />

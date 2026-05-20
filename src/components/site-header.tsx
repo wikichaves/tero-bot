@@ -163,7 +163,10 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
             badge: alarmsActive,
             urgent: alarmsActive > 0,
           },
-          { href: "/whatsapp", label: "WhatsApp" },
+          // WIK-107: WhatsApp solo admin. Gestor no ve el inbox.
+          ...(profile.role === "admin"
+            ? [{ href: "/whatsapp", label: "WhatsApp" }]
+            : []),
         ]
       : [];
 

@@ -16,7 +16,7 @@ const AUDIENCE_LABEL: Record<WhatsAppConversation["audience"], string> = {
 };
 
 export default async function WhatsAppInboxPage() {
-  await requireRole(["admin", "gestor"]);
+  await requireRole(["admin"]);
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("whatsapp_conversations")
