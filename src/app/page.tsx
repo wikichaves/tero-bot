@@ -51,7 +51,9 @@ export default async function LandingPage() {
         }}
       />
 
-      {/* Header — minimal, just logo + theme toggle + sign-in. */}
+      {/* Header — logo + sign-in. WIK-131: ModeToggle moved to footer
+          so the header stays minimal (mirrors logged-in SiteHeader,
+          which doesn't host theme switching either). */}
       <header className="flex items-center justify-between px-5 py-4 sm:px-8">
         <Link
           href="/"
@@ -60,10 +62,7 @@ export default async function LandingPage() {
           <Bird className="h-5 w-5" />
           {APP_NAME}
         </Link>
-        <div className="flex items-center gap-2">
-          <ModeToggle />
-          <Button render={<Link href="/login" />}>Iniciar sesión</Button>
-        </div>
+        <Button render={<Link href="/login" />}>Iniciar sesión</Button>
       </header>
 
       <main className="flex flex-1 flex-col">
@@ -213,48 +212,6 @@ export default async function LandingPage() {
           </div>
         </section>
 
-        {/* The pipeline. */}
-        <section className="border-t border-border/60 px-5 py-16 sm:px-8 sm:py-20">
-          <div className="mx-auto flex max-w-2xl flex-col gap-6">
-            <h2 className="text-3xl font-semibold sm:text-4xl">
-              Idea → producción, en un loop.
-            </h2>
-            <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
-              Todo el producto corre sobre un pipeline de tres pasos:
-            </p>
-
-            <div className="my-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-2xl border border-border/60 bg-card px-6 py-5 text-sm font-medium sm:text-base">
-              <span>Linear</span>
-              <span className="text-muted-foreground" aria-hidden>
-                →
-              </span>
-              <span>Claude Code</span>
-              <span className="text-muted-foreground" aria-hidden>
-                →
-              </span>
-              <span>Vercel</span>
-              <span className="text-muted-foreground" aria-hidden>
-                →
-              </span>
-              <span>🚀 Boom</span>
-            </div>
-
-            <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
-              <em>Linear</em> guarda el backlog. Cada bug o idea abre un issue.{" "}
-              <em>Claude Code</em> lee el issue, escribe el patch, abre un
-              commit referenciándolo, y pushea. <em>Vercel</em> deploya cada
-              push en menos de un minuto — y Linear auto-cierra el issue vía
-              el link del commit.
-            </p>
-            <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
-              Lo que antes era un handoff multi-persona — grooming, dev, code
-              review, QA, ticket de deploy — colapsa en una sola conversación.
-              El costo por cambio shippeado baja lo suficiente como para que
-              la micro-iteración sea el default, no la excepción.
-            </p>
-          </div>
-        </section>
-
         {/* Source-available. */}
         <section className="border-t border-border/60 px-5 py-16 sm:px-8 sm:py-20">
           <div className="mx-auto flex max-w-2xl flex-col gap-6">
@@ -303,16 +260,32 @@ export default async function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-border/60 px-5 py-6 text-center text-xs text-muted-foreground sm:px-8">
-        Código abierto bajo licencia MIT.{" "}
-        <a
-          href="https://github.com/wikichaves/tero-bot"
-          target="_blank"
-          rel="noopener"
-          className="underline-offset-4 hover:text-foreground hover:underline"
-        >
-          github.com/wikichaves/tero-bot
-        </a>
+      {/* Footer — credits + repo link + theme toggle. WIK-131: moved
+          ModeToggle out of the header so the top stays minimal (a la
+          design portfolio); theme switching lives down here. */}
+      <footer className="flex flex-col items-center justify-between gap-3 border-t border-border/60 px-5 py-6 text-xs text-muted-foreground sm:flex-row sm:gap-4 sm:px-8">
+        <p className="text-center sm:text-left">
+          Creado por{" "}
+          <a
+            href="https://wikichaves.com/"
+            target="_blank"
+            rel="noopener"
+            className="underline-offset-4 hover:text-foreground hover:underline"
+          >
+            Wiki Chaves
+          </a>
+          {" · "}
+          Código abierto bajo licencia MIT.{" "}
+          <a
+            href="https://github.com/wikichaves/tero-bot"
+            target="_blank"
+            rel="noopener"
+            className="underline-offset-4 hover:text-foreground hover:underline"
+          >
+            github.com/wikichaves/tero-bot
+          </a>
+        </p>
+        <ModeToggle />
       </footer>
     </div>
   );
