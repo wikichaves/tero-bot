@@ -1,4 +1,4 @@
--- Tero Admin — schema
+-- tero.bot — schema
 -- Run in Supabase SQL editor (or via supabase CLI) on a fresh project.
 
 -- Roles enum

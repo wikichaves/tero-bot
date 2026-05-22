@@ -1,49 +1,54 @@
 /**
- * Brand / deployment configuration (WIK-126).
+ * Brand / deployment configuration.
  *
- * The project itself is called "Tero" (Tero Admin / Tero Bot). What
- * varies between deployments is the OPERATOR — the business actually
- * using the system (a short-term rental group, a hotel chain, an Airbnb
- * portfolio). All operator-specific strings + URLs come from
- * env vars so the codebase can be open-sourced without leaking branding
- * of any particular operator.
+ * Single product name: `tero.bot`. The previous operator/branding split
+ * (separate product name + per-operator name) was collapsed in WIK-131 —
+ * one product, one identity, used everywhere from page titles to
+ * WhatsApp footers.
+ *
+ * Functional locale config (timezone, country, currency) stays
+ * configurable via env because it's NOT branding — it's how date math
+ * and currency formatters behave for the deployment.
  *
  * Build-time vs run-time:
- *   - Anything prefixed `NEXT_PUBLIC_` is bundled into the client. Safe
- *     for branding, URLs, etc.
+ *   - Anything prefixed `NEXT_PUBLIC_` is bundled into the client.
  *   - Server-only constants don't need the prefix.
- *
- * Defaults are intentionally generic. In production each operator sets
- * their own values in Vercel / .env.local.
  */
 
-export const APP_NAME = "Tero Admin";
-export const APP_TAGLINE = "Multi-property short-term rental ops";
-export const BOT_NAME = "Tero Bot";
-
 /**
- * The business / property group that operates this instance. Used in
- * WhatsApp template footers, daily reports, manifest description, etc.
- * Required for production deploys; falls back to a placeholder during
- * local dev so the app boots without env config.
+ * The product name. Used everywhere user-facing: page titles, WhatsApp
+ * bot intro, template footers, daily report headers, etc. Stable.
  */
-export const OPERATOR_NAME =
-  process.env.NEXT_PUBLIC_OPERATOR_NAME ?? "Your Property Group";
+export const APP_NAME = "tero.bot";
 
 /**
- * Public admin URL (e.g. `https://admin.example.com`). Used to build
- * deeplinks from WhatsApp messages, email signatures, etc. No trailing
- * slash.
+ * One-line tagline. Used in metadata description and the public landing.
+ */
+export const APP_TAGLINE = "Property management for short-term rentals";
+
+/**
+ * Helper for the WhatsApp footers and daily-report subheaders.
+ * Returns `"tero.bot · Tareas"`, `"tero.bot · Sensores"`, etc.
+ */
+export function brandedFooter(subsystem: string): string {
+  return `${APP_NAME} · ${subsystem}`;
+}
+
+/**
+ * Public app URL (no trailing slash). Used to build deeplinks from
+ * WhatsApp messages, email signatures, etc. Defaults to the canonical
+ * `https://tero.bot`; override per deployment via env.
  */
 export const APP_URL = (
   process.env.NEXT_PUBLIC_APP_URL ??
   process.env.NEXT_PUBLIC_SITE_URL ??
-  "http://localhost:3000"
+  "https://tero.bot"
 ).replace(/\/$/, "");
 
 /**
- * Just the host portion of `APP_URL` (no scheme), useful for the body
- * of WhatsApp messages that link back here. E.g. "admin.example.com".
+ * Just the host portion of `APP_URL` (no scheme). Used in WhatsApp
+ * deeplinks where we want short `tero.bot/tasks/<id>` instead of the
+ * full URL. E.g. "tero.bot".
  */
 export const APP_HOST = APP_URL.replace(/^https?:\/\//, "");
 
@@ -65,7 +70,7 @@ export const DEFAULT_COUNTRY = (
 
 /**
  * Default currency (ISO 4217). UYU for UY, ARS for AR. Override via env
- * to support other currencies as the project gains operators.
+ * to support other currencies.
  */
 export const DEFAULT_CURRENCY = (
   process.env.DEFAULT_CURRENCY ??
@@ -73,28 +78,21 @@ export const DEFAULT_CURRENCY = (
 ).toUpperCase();
 
 /**
- * IANA timezone for the operator's local time. Used to determine quiet
- * hours for WhatsApp alerts (WIK-125), format dates in reports, etc.
+ * IANA timezone for the deployment. Used to determine quiet hours for
+ * WhatsApp alerts (WIK-125), format dates in reports, etc.
  *
- * We default to America/Montevideo (UTC-3 year-round, no DST) — the most
- * common case for the original operator. Argentina is the same offset.
+ * Env var name kept as OPERATOR_TIMEZONE for backward compat with
+ * existing Vercel configs even though the "operator" concept itself
+ * went away in WIK-131. Re-name freely if you don't care about migrating
+ * the env value.
  */
-export const OPERATOR_TIMEZONE =
+export const APP_TIMEZONE =
   process.env.OPERATOR_TIMEZONE ?? "America/Montevideo";
 
 /**
  * UTC offset in HOURS (e.g. -3 for Montevideo). Used by date-math code
- * that doesn't want a full tz library. Kept here so the offset is in
- * one place if/when we move to a tz-aware library.
+ * that doesn't want a full tz library.
  */
-export const OPERATOR_UTC_OFFSET_HOURS = Number(
+export const APP_UTC_OFFSET_HOURS = Number(
   process.env.OPERATOR_UTC_OFFSET_HOURS ?? "-3",
 );
-
-/**
- * Helper used by WhatsApp templates and notification messages.
- * Returns "<operator> · <subsystem>" — e.g. "Acme Rentals · Tareas".
- */
-export function brandedFooter(subsystem: string): string {
-  return `${OPERATOR_NAME} · ${subsystem}`;
-}

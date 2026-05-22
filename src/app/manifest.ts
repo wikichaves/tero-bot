@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { APP_NAME, OPERATOR_NAME } from "@/lib/brand";
+import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
 
 /**
  * Manifest PWA (WIK-92). Cuando el usuario "Add to Home Screen" en iOS
@@ -11,13 +11,13 @@ import { APP_NAME, OPERATOR_NAME } from "@/lib/brand";
  * Ambos colores hardcoded a #000000 para que el splash y la status bar
  * matcheen el fondo del icon (todo negro) — sin flash blanco al abrir.
  *
- * WIK-126: name + description now pull operator branding from env.
+ * WIK-131: collapsed product/operator branding into single APP_NAME.
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: APP_NAME,
-    short_name: "Tero",
-    description: `${APP_NAME} — panel de administración para ${OPERATOR_NAME}.`,
+    short_name: APP_NAME,
+    description: `${APP_NAME} — ${APP_TAGLINE}.`,
     start_url: "/dashboard",
     display: "standalone",
     background_color: "#000000",

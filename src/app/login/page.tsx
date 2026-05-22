@@ -16,7 +16,7 @@ export default function LoginPage() {
       </div>
       <Card className="w-full max-w-sm gap-6 py-7">
         <CardHeader>
-          <CardTitle className="text-2xl">Tero Admin</CardTitle>
+          <CardTitle className="text-2xl">tero.bot</CardTitle>
           <CardDescription>Iniciar sesión en el panel.</CardDescription>
         </CardHeader>
         <CardContent>

@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { buildConsumptionReport } from "@/lib/energy/reports";
 import { buildRoomsReport } from "@/lib/sensors/reports";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
-import { OPERATOR_NAME, APP_HOST } from "@/lib/brand";
+import { APP_NAME, APP_HOST } from "@/lib/brand";
 import type { Profile, Task } from "@/lib/types";
 import { normalizePhone } from "./index";
 
@@ -16,7 +16,7 @@ export type ParsedCommand =
   | { type: "help" }
   | null;
 
-const HELP_TEXT_FULL = `🌲 *${OPERATOR_NAME} · Comandos*
+const HELP_TEXT_FULL = `🌲 *${APP_NAME} · Comandos*
 
 📊 *Consumo* (admin/gestor)
 • \`consumo\` — resumen total (hoy + 7 días)
@@ -37,7 +37,7 @@ const HELP_TEXT_FULL = `🌲 *${OPERATOR_NAME} · Comandos*
 
 _Sandbox de Kapso. Más comandos próximamente._`;
 
-const HELP_TEXT_STAFF = `🌲 *${OPERATOR_NAME} · Comandos*
+const HELP_TEXT_STAFF = `🌲 *${APP_NAME} · Comandos*
 
 📋 *Tareas*
 • \`tareas\` — tus tareas pendientes
@@ -204,7 +204,7 @@ export async function runCommand(
       return HELP_TEXT_STAFF;
     }
     const normalized = normalizePhone(fromPhone) ?? fromPhone;
-    return `🔒 Tu número (\`${normalized}\`) no está autorizado para usar comandos.\n\nSi sos admin/gestor de ${OPERATOR_NAME}, cargá ese número exacto en tu profile (${APP_HOST} → Usuarios → editar) y reintentá.`;
+    return `🔒 Tu número (\`${normalized}\`) no está autorizado para usar comandos.\n\nSi sos admin/gestor de ${APP_NAME}, cargá ese número exacto en tu profile (${APP_HOST} → Usuarios → editar) y reintentá.`;
   }
 
   switch (command.type) {

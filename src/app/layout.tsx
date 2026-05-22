@@ -7,7 +7,7 @@ import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
 import "./globals.css";
 
 /**
- * Fonts del theme "Tero Admin":
+ * Fonts del theme "tero.bot":
  *   - Geist Sans → sans (text/UI). WIK-128: switched from Plus Jakarta
  *     Sans for a cleaner, more "designed" feel + built-in tabular
  *     numerals (KPIs, currency, temps no longer need the `tabular-nums`

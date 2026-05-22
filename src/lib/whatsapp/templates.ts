@@ -1,4 +1,4 @@
-import { OPERATOR_NAME, APP_HOST, brandedFooter } from "@/lib/brand";
+import { APP_NAME, APP_HOST, brandedFooter } from "@/lib/brand";
 
 /**
  * WhatsApp template definitions for Meta Business approval.
@@ -161,12 +161,12 @@ export const guestCheckoutReminder: WhatsAppTemplate = {
   components: [
     {
       type: "BODY",
-      text: `¡Hola {{1}}! Esperamos que estés disfrutando tu estadía. 🌲\n\nTe recordamos que el check-out es mañana {{2}} a las {{3}}.\n\nAntes de salir, te pedimos:\n✓ Cerrar las ventanas y puertas\n✓ Apagar el aire / calefacción\n✓ Dejar las llaves donde las encontraste\n\n¡Gracias por elegirnos! Cualquier feedback nos ayuda muchísimo.\n\n— ${OPERATOR_NAME}`,
+      text: `¡Hola {{1}}! Esperamos que estés disfrutando tu estadía. 🌲\n\nTe recordamos que el check-out es mañana {{2}} a las {{3}}.\n\nAntes de salir, te pedimos:\n✓ Cerrar las ventanas y puertas\n✓ Apagar el aire / calefacción\n✓ Dejar las llaves donde las encontraste\n\n¡Gracias por elegirnos! Cualquier feedback nos ayuda muchísimo.\n\n— ${APP_NAME}`,
       example: {
         body_text: [["Juan", "domingo 17 de mayo", "10:00"]],
       },
     },
-    { type: "FOOTER", text: OPERATOR_NAME },
+    { type: "FOOTER", text: APP_NAME },
   ],
 };
 
@@ -187,7 +187,7 @@ export const staffTaskAssigned: WhatsAppTemplate = {
         body_text: [
           [
             "Limpieza salida huésped",
-            OPERATOR_NAME,
+            APP_NAME,
             "limpieza",
             "viernes 15 a las 11:00",
             "Reposición de toallas, papel higiénico y café.",
@@ -214,7 +214,7 @@ export const staffSupplyRequestReceived: WhatsAppTemplate = {
       text: "Recibimos tu reporte:\n\n\"{{1}}\"\n\nLo registramos como tarea pendiente. Te avisamos cuando esté resuelto. ¡Gracias!",
       example: {
         body_text: [
-          [`Falta papel higiénico en ${OPERATOR_NAME}`],
+          [`Falta papel higiénico en ${APP_NAME}`],
         ],
       },
     },
@@ -243,7 +243,7 @@ export const sensorAlarmFired: WhatsAppTemplate = {
   components: [
     {
       type: "BODY",
-      text: `Alerta de sensor en ${OPERATOR_NAME}: la métrica {{1}} en {{3}} cruzó el umbral configurado.\n\nLectura actual: {{2}}\nUmbral establecido: {{4}}\n\nSi corresponde, verificá las condiciones del ambiente (ventilación, temperatura, batería del sensor). Podés ver el histórico completo en ${APP_HOST}/ambientes.`,
+      text: `Alerta de sensor en ${APP_NAME}: la métrica {{1}} en {{3}} cruzó el umbral configurado.\n\nLectura actual: {{2}}\nUmbral establecido: {{4}}\n\nSi corresponde, verificá las condiciones del ambiente (ventilación, temperatura, batería del sensor). Podés ver el histórico completo en ${APP_HOST}/ambientes.`,
       example: {
         body_text: [["humedad", "81%", "Living · Casa A", "> 80%"]],
       },
@@ -270,7 +270,7 @@ export const taskReminder: WhatsAppTemplate = {
       text: `🔔 Recordatorio de tarea\n\n*{{1}}*\nPropiedad: {{2}}\nVence: {{3}}\n\nVer detalles en ${APP_HOST}/tasks`,
       example: {
         body_text: [
-          ["Limpieza salida huésped", OPERATOR_NAME, "en 2 horas"],
+          ["Limpieza salida huésped", APP_NAME, "en 2 horas"],
         ],
       },
     },
@@ -295,7 +295,7 @@ export const reservationCheckinReminder: WhatsAppTemplate = {
       text: `🔔 Próximo check-in\n\nHuésped: *{{1}}*\nPropiedad: {{2}}\nCheck-in: {{3}}\n\nVer detalles en ${APP_HOST}/dashboard`,
       example: {
         body_text: [
-          ["Juana Pérez", OPERATOR_NAME, "en 2 horas"],
+          ["Juana Pérez", APP_NAME, "en 2 horas"],
         ],
       },
     },
@@ -326,7 +326,7 @@ export const preCheckinClimateAlert: WhatsAppTemplate = {
         "¿Querés que prenda el acondicionamiento?",
       example: {
         body_text: [
-          [OPERATOR_NAME, "14°C", "20°–25°", "Está frío"],
+          [APP_NAME, "14°C", "20°–25°", "Está frío"],
         ],
       },
     },
@@ -373,7 +373,7 @@ export const preCheckinClimateUpdate: WhatsAppTemplate = {
       example: {
         body_text: [
           [
-            OPERATOR_NAME,
+            APP_NAME,
             "19°C",
             "Va bien, inició en 14°C",
             "1 hora",

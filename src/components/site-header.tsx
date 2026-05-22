@@ -227,7 +227,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
           className="flex shrink-0 items-center gap-2 text-base font-semibold tracking-tight"
         >
           <Bird className="h-5 w-5" />
-          Tero Admin
+          tero.bot
         </Link>
 
         {/* Desktop inline nav. */}

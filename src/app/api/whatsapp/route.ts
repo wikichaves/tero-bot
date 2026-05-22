@@ -16,7 +16,7 @@ import {
 } from "@/lib/whatsapp/create-task";
 import { handlePreCheckinResponse } from "@/lib/pre-checkin/handle-response";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { OPERATOR_NAME } from "@/lib/brand";
+import { APP_NAME } from "@/lib/brand";
 import type { Profile } from "@/lib/types";
 
 /**
@@ -37,11 +37,11 @@ import type { Profile } from "@/lib/types";
 
 const REPLY_GUEST = (name: string | null) =>
   name
-    ? `Hola ${name}, gracias por escribir a ${OPERATOR_NAME}. Te respondemos a la brevedad. 🌲`
-    : `¡Hola! Gracias por escribir a ${OPERATOR_NAME}. Te respondemos a la brevedad. 🌲`;
+    ? `Hola ${name}, gracias por escribir a ${APP_NAME}. Te respondemos a la brevedad. 🌲`
+    : `¡Hola! Gracias por escribir a ${APP_NAME}. Te respondemos a la brevedad. 🌲`;
 
 const REPLY_UNKNOWN =
-  `Hola, gracias por escribir a ${OPERATOR_NAME}. Te respondemos a la brevedad.`;
+  `Hola, gracias por escribir a ${APP_NAME}. Te respondemos a la brevedad.`;
 
 /**
  * Reply para staff (admin/gestor/mantenimiento) cuando manda algo que no
@@ -50,7 +50,7 @@ const REPLY_UNKNOWN =
  * recordándole que mande "ayuda" para ver las opciones. (WIK-89)
  */
 const REPLY_STAFF_UNKNOWN_COMMAND =
-  `Hola, soy *Tero* 🐦, el bot de ${OPERATOR_NAME}. No entendí ese mensaje. ` +
+  `Hola, soy *${APP_NAME}* 🐦. No entendí ese mensaje. ` +
   "Mandá `ayuda` para ver los comandos disponibles.";
 
 function isAutoReplyEnabled(): boolean {
