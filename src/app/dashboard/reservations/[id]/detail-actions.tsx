@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import type { LockPassword, Reservation } from "@/lib/types";
 import { EditReservationDialog } from "@/app/dashboard/edit-reservation-dialog";
 import { generateAccessCode } from "./actions";
+import { PreCheckinTriggerButton } from "./pre-checkin-button";
 
 export function ReservationDetailActions({
   reservation,
@@ -83,6 +84,8 @@ export function ReservationDetailActions({
         >
           Enviar WhatsApp
         </Button>
+        {/* WIK-125: override del cron de pre-checkin conditioning. */}
+        <PreCheckinTriggerButton reservationId={reservation.id} />
       </div>
 
       {accessCode && (

@@ -32,6 +32,7 @@ import type { Reservation, Task } from "@/lib/types";
 import { ReservationRowActions } from "./reservation-row-actions";
 import { SensorAlarmsCard } from "./sensor-alarms-card";
 import { EnergySummaryCard } from "./energy-summary-card";
+import { PreCheckinCard } from "./pre-checkin-card";
 
 const HORIZON_DAYS = 14;
 
@@ -164,6 +165,11 @@ export default async function DashboardPage() {
         <SensorAlarmsCard />
         <EnergySummaryCard />
       </div>
+
+      {/* WIK-125: card del pre-checkin conditioning. Solo aparece si hay
+          reservas próximas (today/tomorrow) en properties con target temps
+          configurados — sino el componente devuelve null. */}
+      <PreCheckinCard />
 
       <TodayTasksCard tasks={tasks} todayIso={todayIso} />
     </div>
