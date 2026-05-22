@@ -52,9 +52,10 @@ export default async function LandingPage() {
       />
 
       {/* Header — logo + sign-in. WIK-131: ModeToggle moved to footer
-          so the header stays minimal (mirrors logged-in SiteHeader,
-          which doesn't host theme switching either). */}
-      <header className="flex items-center justify-between px-5 py-4 sm:px-8">
+          so the header stays minimal. Sticky + backdrop-blur a la
+          linear.app — semi-transparent background sees the noise/
+          content scroll underneath. */}
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border/60 bg-background/80 px-5 py-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/60 sm:px-8">
         <Link
           href="/"
           className="flex items-center gap-2 text-base font-semibold tracking-tight"
@@ -69,11 +70,6 @@ export default async function LandingPage() {
         {/* Hero — copy + photo. */}
         <section className="px-5 pt-12 pb-16 sm:px-8 sm:pt-20 sm:pb-24">
           <div className="mx-auto flex max-w-3xl flex-col items-center gap-8 text-center">
-            <Bird
-              className="h-16 w-16 text-primary"
-              strokeWidth={1.5}
-              aria-hidden
-            />
             <div className="flex flex-col gap-4">
               <h1 className="text-5xl font-semibold sm:text-6xl">
                 {APP_NAME}
@@ -139,7 +135,7 @@ export default async function LandingPage() {
         <section className="border-t border-border/60 px-5 py-16 sm:px-8 sm:py-20">
           <div className="mx-auto flex max-w-2xl flex-col gap-5">
             <h2 className="text-3xl font-semibold sm:text-4xl">
-              El problema con la mayoría de los PMS.
+              El problema con los PMS.
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
               Pagar por un SaaS genérico es como alquilar un edificio de cinco
