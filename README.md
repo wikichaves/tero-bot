@@ -47,8 +47,8 @@ puts it under a single roof.
 ## Quick start
 
 ```bash
-git clone https://github.com/<you>/example-admin.git
-cd example-admin
+git clone https://github.com/<you>/tero-admin.git
+cd tero-admin
 npm install
 cp .env.example .env.local   # fill in at least Supabase + branding
 ```
