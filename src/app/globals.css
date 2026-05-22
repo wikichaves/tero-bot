@@ -96,7 +96,7 @@
   --sidebar-accent-foreground: rgb(0, 0, 0);
   --sidebar-border: rgb(235, 235, 235);
   --sidebar-ring: rgb(0, 0, 0);
-  --radius: 0.4rem;
+  --radius: 0.625rem;
 }
 
 .dark {
@@ -140,13 +140,22 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* WIK-128: tighten body line-height to feel "designed", not default.
+       Combined with the heading scale below this gives clear vertical
+       rhythm without each block feeling crammed. */
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    letter-spacing: -0.005em;
   }
   html {
     @apply font-sans;
-    /* Bump the rem base from the browser default 16px → 18px so all of
-       Tailwind's rem-based utilities (text sizes, spacing, gaps, radii,
-       etc.) scale up ~12.5% uniformly. */
-    font-size: 18px;
+    /* WIK-128: bump the rem base from 18px → 19px so all rem utilities
+       (text/spacing/gaps/radii) scale up ~5% uniformly. Mobile gets a
+       further bump below — phones get hit hardest by the dense shadcn
+       defaults. */
+    font-size: 19px;
     /* WIK-92: BG inicial dinámico via OS preference. Antes que next-themes
        hidrate la clase `dark`, el browser ya pinta el HTML según el
        prefers-color-scheme del sistema. Evita el flash blanco en dark
@@ -154,9 +163,36 @@
     color-scheme: light dark;
     background-color: rgb(253, 253, 253);
   }
+  /* WIK-128: mobile gets a slightly larger base (~21px → 20px) so
+     buttons, inputs, and text aren't cramped on phone screens. iOS
+     also won't trigger zoom-on-focus when font-size ≥ 16px CSS px,
+     which we already exceed comfortably. */
+  @media (max-width: 640px) {
+    html {
+      font-size: 20px;
+    }
+  }
   @media (prefers-color-scheme: dark) {
     html {
       background-color: rgb(0, 0, 0);
     }
+  }
+
+  /* WIK-128: page heading rhythm. Pages still use Tailwind utility
+     classes (e.g. `text-2xl font-semibold`) which override these — these
+     are baseline defaults so unstyled <h1>/<h2>/<h3> look right and
+     standard markdown rendering (e.g. utility-bill notes) doesn't
+     fall back to browser defaults. */
+  h1 {
+    @apply font-heading text-3xl font-semibold tracking-tight;
+    line-height: 1.15;
+  }
+  h2 {
+    @apply font-heading text-2xl font-semibold tracking-tight;
+    line-height: 1.2;
+  }
+  h3 {
+    @apply font-heading text-xl font-semibold tracking-tight;
+    line-height: 1.3;
   }
 }

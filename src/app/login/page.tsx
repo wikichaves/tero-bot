@@ -14,9 +14,9 @@ export default function LoginPage() {
       <div className="absolute right-4 top-4">
         <ModeToggle />
       </div>
-      <Card className="w-full max-w-sm">
+      <Card className="w-full max-w-sm gap-6 py-7">
         <CardHeader>
-          <CardTitle>Tero Admin</CardTitle>
+          <CardTitle className="text-2xl">Tero Admin</CardTitle>
           <CardDescription>Iniciar sesión en el panel.</CardDescription>
         </CardHeader>
         <CardContent>

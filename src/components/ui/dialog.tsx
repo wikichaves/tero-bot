@@ -52,8 +52,12 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
+        // WIK-128: match the card lift — rounded-2xl, more padding,
+        // softer border instead of ring, subtle shadow, and a wider
+        // default max-width on desktop (sm:max-w-md, was sm:max-w-sm)
+        // so forms feel comfortable.
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-5 rounded-2xl border border-border/60 bg-popover p-6 text-sm text-popover-foreground shadow-xl duration-100 outline-none sm:max-w-md dark:border-border/40 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
         {...props}
@@ -101,8 +105,11 @@ function DialogFooter({
   return (
     <div
       data-slot="dialog-footer"
+      // WIK-128: -mx-4 → -mx-6, -mb-4 → -mb-6 to match the bumped
+      // DialogContent padding (p-4 → p-6). Rounded-b-xl → rounded-b-2xl
+      // to match content radius.
       className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end",
+        "-mx-6 -mb-6 flex flex-col-reverse gap-2 rounded-b-2xl border-t bg-muted/40 px-6 py-4 sm:flex-row sm:justify-end",
         className
       )}
       {...props}
@@ -121,8 +128,10 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
+      // WIK-128: text-base → text-lg + tighter tracking so the title
+      // has more presence above the body copy.
       className={cn(
-        "font-heading text-base leading-none font-medium",
+        "font-heading text-lg leading-tight font-semibold tracking-tight",
         className
       )}
       {...props}

@@ -165,7 +165,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
       : null;
 
   return (
-    <header className="flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-6">
+    <header className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3.5 sm:px-6">
       <div className="flex min-w-0 items-center gap-3 sm:gap-6">
         {/* Mobile hamburger — versión aplanada de los mismos items. Visible
             hasta md; en md+ se usa el nav inline. */}
@@ -224,14 +224,14 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
             que el texto para que se sienta una sola unidad. */}
         <Link
           href={homeHref}
-          className="flex shrink-0 items-center gap-1.5 font-semibold"
+          className="flex shrink-0 items-center gap-2 text-base font-semibold tracking-tight"
         >
           <Bird className="h-5 w-5" />
           Tero Admin
         </Link>
 
         {/* Desktop inline nav. */}
-        <nav className="hidden min-w-0 items-center gap-4 overflow-x-auto text-sm text-muted-foreground md:flex">
+        <nav className="hidden min-w-0 items-center gap-5 overflow-x-auto text-sm font-medium text-muted-foreground md:flex">
           {/* WIK-110: Inicio como primer item del nav.
               WIK-115: sin icono Home, solo el texto. */}
           <Link
