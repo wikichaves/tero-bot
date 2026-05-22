@@ -61,7 +61,7 @@ function buildAssignedMessage(t: TaskRow): string {
   const propertyLine = t.property?.name ? `\n🏠 ${t.property.name}` : "";
   const descLine = t.description ? `\n\n${t.description}` : "";
   return (
-    `🌲 *${greeting}te asignaron una tarea*\n\n` +
+    `*${greeting}te asignaron una tarea*\n\n` +
     `*${t.title}*\n` +
     `🔧 ${KIND_LABEL[t.kind]}` +
     propertyLine +

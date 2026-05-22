@@ -16,7 +16,10 @@ export type ParsedCommand =
   | { type: "help" }
   | null;
 
-const HELP_TEXT_FULL = `🌲 *${APP_NAME} · Comandos*
+// WIK-132: dropped the 🌲 emoji + " · " separator from the header so it
+// reads as a clean `*tero.bot Comandos*`. Also removed the
+// "Sandbox de Kapso" footer note — the bot's live, not a demo anymore.
+const HELP_TEXT_FULL = `*${APP_NAME} Comandos*
 
 📊 *Consumo* (admin/gestor)
 • \`consumo\` — resumen total (hoy + 7 días)
@@ -33,11 +36,9 @@ const HELP_TEXT_FULL = `🌲 *${APP_NAME} · Comandos*
 • 📸 mandá una *foto* (con o sin caption) → crea tarea automática
 
 ❓ *Ayuda*
-• \`ayuda\` — esta lista
+• \`ayuda\` — esta lista`;
 
-_Sandbox de Kapso. Más comandos próximamente._`;
-
-const HELP_TEXT_STAFF = `🌲 *${APP_NAME} · Comandos*
+const HELP_TEXT_STAFF = `*${APP_NAME} Comandos*
 
 📋 *Tareas*
 • \`tareas\` — tus tareas pendientes

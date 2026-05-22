@@ -161,7 +161,7 @@ export const guestCheckoutReminder: WhatsAppTemplate = {
   components: [
     {
       type: "BODY",
-      text: `¡Hola {{1}}! Esperamos que estés disfrutando tu estadía. 🌲\n\nTe recordamos que el check-out es mañana {{2}} a las {{3}}.\n\nAntes de salir, te pedimos:\n✓ Cerrar las ventanas y puertas\n✓ Apagar el aire / calefacción\n✓ Dejar las llaves donde las encontraste\n\n¡Gracias por elegirnos! Cualquier feedback nos ayuda muchísimo.\n\n— ${APP_NAME}`,
+      text: `¡Hola {{1}}! Esperamos que estés disfrutando tu estadía.\n\nTe recordamos que el check-out es mañana {{2}} a las {{3}}.\n\nAntes de salir, te pedimos:\n✓ Cerrar las ventanas y puertas\n✓ Apagar el aire / calefacción\n✓ Dejar las llaves donde las encontraste\n\n¡Gracias por elegirnos! Cualquier feedback nos ayuda muchísimo.\n\n— ${APP_NAME}`,
       example: {
         body_text: [["Juan", "domingo 17 de mayo", "10:00"]],
       },

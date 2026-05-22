@@ -217,7 +217,7 @@ export async function buildConsumptionReport(opts?: {
 
   // Build the message.
   const lines: string[] = [];
-  lines.push(`🌲 *Consumo ${APP_NAME}*`);
+  lines.push(`*${APP_NAME} · Consumo*`);
   lines.push("");
 
   // Today section

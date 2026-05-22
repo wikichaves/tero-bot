@@ -37,8 +37,8 @@ import type { Profile } from "@/lib/types";
 
 const REPLY_GUEST = (name: string | null) =>
   name
-    ? `Hola ${name}, gracias por escribir a ${APP_NAME}. Te respondemos a la brevedad. 🌲`
-    : `¡Hola! Gracias por escribir a ${APP_NAME}. Te respondemos a la brevedad. 🌲`;
+    ? `Hola ${name}, gracias por escribir a ${APP_NAME}. Te respondemos a la brevedad.`
+    : `¡Hola! Gracias por escribir a ${APP_NAME}. Te respondemos a la brevedad.`;
 
 const REPLY_UNKNOWN =
   `Hola, gracias por escribir a ${APP_NAME}. Te respondemos a la brevedad.`;
