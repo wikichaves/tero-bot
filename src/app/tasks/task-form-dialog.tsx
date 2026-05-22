@@ -119,11 +119,32 @@ function TaskForm({
   const [description, setDescription] = useState(task?.description ?? "");
   const [assignedTo, setAssignedTo] = useState(task?.assigned_to ?? "");
   const [dueDate, setDueDate] = useState(task?.due_date ?? "");
+  // WIK-124: vencimiento con hora opcional + alarma WhatsApp X horas antes.
+  // due_time es HH:MM. Input HTML `time` devuelve eso directamente.
+  const [dueTime, setDueTime] = useState(task?.due_time ?? "");
+  const [alarmEnabled, setAlarmEnabled] = useState(
+    task?.alarm_hours_before != null,
+  );
+  const [alarmHoursBefore, setAlarmHoursBefore] = useState<string>(
+    task?.alarm_hours_before != null ? String(task.alarm_hours_before) : "2",
+  );
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!propertyId) {
       toast.error("Elegí una propiedad.");
+      return;
+    }
+    // WIK-124: alarma requiere due_date (no podemos saber cuándo mandar
+    // el recordatorio sin la fecha). due_time es opcional — si no, el
+    // cron asume medianoche local.
+    if (alarmEnabled && !dueDate) {
+      toast.error("Para activar la alarma necesitás definir una fecha de vencimiento.");
+      return;
+    }
+    const hoursNum = alarmEnabled ? Number(alarmHoursBefore) : null;
+    if (alarmEnabled && (!Number.isFinite(hoursNum!) || hoursNum! <= 0)) {
+      toast.error("Horas antes de la alarma debe ser un número positivo.");
       return;
     }
     startTransition(async () => {
@@ -134,6 +155,9 @@ function TaskForm({
         description,
         assigned_to: assignedTo,
         due_date: dueDate,
+        due_time: dueTime,
+        // null si checkbox off → el server desactiva la alarma (col=null)
+        alarm_hours_before: alarmEnabled ? hoursNum : null,
       };
       const result = task
         ? await updateTask({ ...payload, id: task.id, status })
@@ -222,13 +246,59 @@ function TaskForm({
           </div>
           <div className="grid gap-2">
             <Label htmlFor="due_date">Vence (opcional)</Label>
-            <Input
-              id="due_date"
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-            />
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <Input
+                id="due_date"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+              {/* WIK-124: hora del día, opcional. Solo tiene sentido si
+                  hay due_date — si el user limpia la fecha también
+                  limpiamos la hora para evitar estado inconsistente. */}
+              <Input
+                aria-label="Hora de vencimiento"
+                type="time"
+                value={dueTime}
+                disabled={!dueDate}
+                onChange={(e) => setDueTime(e.target.value)}
+                className="w-[7.5rem]"
+              />
+            </div>
           </div>
+        </div>
+        {/* WIK-124: alarma WhatsApp X horas antes. Solo se habilita el
+            input numérico cuando el checkbox está prendido. Default 2h. */}
+        <div className="grid gap-2 rounded-md border border-input bg-muted/30 p-3">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={alarmEnabled}
+              onChange={(e) => setAlarmEnabled(e.target.checked)}
+              className="h-4 w-4"
+              disabled={!dueDate}
+            />
+            Enviar alarma por WhatsApp antes del vencimiento
+          </label>
+          {alarmEnabled && (
+            <div className="flex items-center gap-2 pl-6 text-sm">
+              <Input
+                type="number"
+                min={1}
+                max={168}
+                value={alarmHoursBefore}
+                onChange={(e) => setAlarmHoursBefore(e.target.value)}
+                className="w-20"
+                aria-label="Horas antes de la alarma"
+              />
+              <span>horas antes (se envía al asignado)</span>
+            </div>
+          )}
+          {!dueDate && (
+            <p className="text-xs text-muted-foreground">
+              Definí una fecha de vencimiento para activar la alarma.
+            </p>
+          )}
         </div>
         {task && (
           <div className="grid gap-2">

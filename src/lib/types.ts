@@ -73,6 +73,9 @@ export type Reservation = {
   check_in_time: string | null;
   check_out_time: string | null;
   status: ReservationStatus;
+  /** Opcional. Si está seteado, el cron `/api/cron/alarm-reminders` manda
+   *  un WhatsApp esta cantidad de horas antes del check-in (WIK-124). */
+  alarm_hours_before: number | null;
 };
 
 /** Persisted raw + parsed payload of an inbound Airbnb email. */
@@ -143,6 +146,11 @@ export type Task = {
   assigned_to: string | null;
   reported_by: string | null;
   due_date: string | null;
+  /** Opcional. Hora del día (HH:MM) para el vencimiento. WIK-124. */
+  due_time: string | null;
+  /** Opcional. Si está seteado, el cron `/api/cron/alarm-reminders` manda
+   *  un WhatsApp esta cantidad de horas antes del vencimiento (WIK-124). */
+  alarm_hours_before: number | null;
   created_at: string;
 };
 

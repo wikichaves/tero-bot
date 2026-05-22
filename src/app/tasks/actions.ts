@@ -35,6 +35,23 @@ const createSchema = z.object({
     .optional()
     .or(z.literal(""))
     .transform((v) => (v ? v : null)),
+  // WIK-124: hora opcional para due_date. "HH:MM" (input HTML time).
+  due_time: z
+    .string()
+    .regex(/^\d{2}:\d{2}(:\d{2})?$/, "Hora inválida.")
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v ? v : null)),
+  // WIK-124: si está seteado, el cron manda WhatsApp X horas antes.
+  // Cap a 168h (1 semana) para evitar typos del admin.
+  alarm_hours_before: z
+    .number()
+    .int()
+    .min(1)
+    .max(168)
+    .nullable()
+    .optional()
+    .transform((v) => (v == null ? null : v)),
 });
 
 export async function createTask(input: {
@@ -44,11 +61,18 @@ export async function createTask(input: {
   description: string;
   assigned_to: string;
   due_date: string;
+  due_time?: string;
+  alarm_hours_before?: number | null;
 }) {
   const profile = await requireRole(["admin", "gestor"]);
   const parsed = createSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+  if (parsed.data.alarm_hours_before != null && !parsed.data.due_date) {
+    return {
+      error: "Para activar la alarma necesitás una fecha de vencimiento.",
+    };
   }
   const supabase = await createClient();
   const { data: inserted, error } = await supabase
@@ -60,6 +84,8 @@ export async function createTask(input: {
       description: parsed.data.description,
       assigned_to: parsed.data.assigned_to,
       due_date: parsed.data.due_date,
+      due_time: parsed.data.due_time,
+      alarm_hours_before: parsed.data.alarm_hours_before,
       reported_by: profile.id,
     })
     .select("id")
@@ -100,6 +126,19 @@ const updateSchema = z.object({
     .optional()
     .or(z.literal(""))
     .transform((v) => (v == null ? undefined : v ? v : null)),
+  due_time: z
+    .string()
+    .regex(/^\d{2}:\d{2}(:\d{2})?$/, "Hora inválida.")
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v == null ? undefined : v ? v : null)),
+  alarm_hours_before: z
+    .number()
+    .int()
+    .min(1)
+    .max(168)
+    .nullable()
+    .optional(),
 });
 
 export async function updateTask(input: {
@@ -110,6 +149,8 @@ export async function updateTask(input: {
   status?: string;
   assigned_to?: string;
   due_date?: string;
+  due_time?: string;
+  alarm_hours_before?: number | null;
 }) {
   const profile = await requireRole(["admin", "gestor"]);
   const parsed = updateSchema.safeParse(input);
@@ -129,6 +170,25 @@ export async function updateTask(input: {
     patch.assigned_to = parsed.data.assigned_to;
   if (parsed.data.due_date !== undefined)
     patch.due_date = parsed.data.due_date;
+  if (parsed.data.due_time !== undefined)
+    patch.due_time = parsed.data.due_time;
+  if (parsed.data.alarm_hours_before !== undefined)
+    patch.alarm_hours_before = parsed.data.alarm_hours_before;
+  // WIK-124: si el alarm cambió, invalidar el tracking row para que
+  // el cron pueda re-disparar con los nuevos params (si el user editó
+  // due_date/due_time/horas, debería re-evaluarse). Eliminar la row
+  // de alarm_notifications_sent permite re-evaluación.
+  if (
+    parsed.data.alarm_hours_before !== undefined ||
+    parsed.data.due_date !== undefined ||
+    parsed.data.due_time !== undefined
+  ) {
+    const adminClient = createAdminClient();
+    await adminClient
+      .from("alarm_notifications_sent")
+      .delete()
+      .eq("task_id", parsed.data.id);
+  }
 
   // If we're (re)assigning or changing status, peek at the current row so
   // we can compare and only notify on actual transitions (not on every save).

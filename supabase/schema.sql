@@ -777,3 +777,60 @@ drop policy if exists tuya_home_overrides_write on public.tuya_home_overrides;
 create policy tuya_home_overrides_write on public.tuya_home_overrides for all
   using (public.current_role() = 'admin')
   with check (public.current_role() = 'admin');
+
+-- ─── WhatsApp alarm reminders (WIK-124) ────────────────────────────────
+--
+-- El cron `/api/cron/alarm-reminders` (cada 15min en Vercel Pro) busca
+-- tasks y reservations que tienen `alarm_hours_before` seteado, y manda
+-- un WhatsApp con el template `task_reminder` / `reservation_checkin_reminder`
+-- aproximadamente esa cantidad de horas antes del vencimiento. La tabla
+-- `alarm_notifications_sent` evita que se mande 2 veces para el mismo
+-- ítem (idempotencia entre runs del cron + entre reruns manuales).
+
+alter table public.tasks
+  add column if not exists due_time time,
+  add column if not exists alarm_hours_before int;
+-- Sanity: si hay alarma configurada debe haber due_date. (No exigimos
+-- due_time porque podés alarma "el día antes" sin hora específica — el
+-- cron usa medianoche local como fallback.)
+do $$ begin
+  alter table public.tasks
+    add constraint tasks_alarm_requires_due_date
+    check (alarm_hours_before is null or due_date is not null);
+exception when duplicate_object then null; end $$;
+
+alter table public.reservations
+  add column if not exists alarm_hours_before int;
+
+-- Polymorphic: exactamente UNA de las dos columnas no-null. El unique
+-- por columna garantiza que cada task/reserva solo dispara una alarma.
+create table if not exists public.alarm_notifications_sent (
+  id uuid primary key default gen_random_uuid(),
+  task_id uuid references public.tasks(id) on delete cascade,
+  reservation_id uuid references public.reservations(id) on delete cascade,
+  whatsapp_template text not null,
+  sent_at timestamptz not null default now(),
+  -- Snapshot del número al que se mandó — útil para auditar y para
+  -- detectar casos donde el assignee cambió después de mandado.
+  sent_to_phone text,
+  constraint alarm_notifications_one_target check (
+    (task_id is not null)::int + (reservation_id is not null)::int = 1
+  )
+);
+create unique index if not exists alarm_notifications_task_unique
+  on public.alarm_notifications_sent(task_id)
+  where task_id is not null;
+create unique index if not exists alarm_notifications_reservation_unique
+  on public.alarm_notifications_sent(reservation_id)
+  where reservation_id is not null;
+create index if not exists alarm_notifications_sent_at_idx
+  on public.alarm_notifications_sent(sent_at desc);
+
+alter table public.alarm_notifications_sent enable row level security;
+drop policy if exists alarm_notifications_admin_read
+  on public.alarm_notifications_sent;
+create policy alarm_notifications_admin_read
+  on public.alarm_notifications_sent
+  for select using (public.current_role() in ('admin', 'gestor'));
+-- Write solo via service-role (el cron). Sin policy de insert para
+-- otros roles → bloqueado por RLS default-deny.

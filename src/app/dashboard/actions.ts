@@ -103,6 +103,18 @@ const updateReservationSchema = z.object({
     .optional()
     .or(z.literal(""))
     .transform((v) => (v ? v.padStart(5, "0") : null)),
+  // WIK-124: alarma WhatsApp X horas antes del check-in. Vacío/0 = sin
+  // alarma. Cap a 168h (1 semana) para evitar typos del admin.
+  alarm_hours_before: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v): number | null => {
+      if (!v) return null;
+      const n = Number(v);
+      if (!Number.isFinite(n) || n <= 0 || n > 168) return null;
+      return Math.round(n);
+    }),
 });
 
 export async function updateReservation(input: {
@@ -119,6 +131,7 @@ export async function updateReservation(input: {
   guest_infants?: string;
   check_in_time?: string;
   check_out_time?: string;
+  alarm_hours_before?: string;
 }) {
   await requireRole(["admin", "gestor"]);
   const parsed = updateReservationSchema.safeParse(input);
@@ -141,9 +154,17 @@ export async function updateReservation(input: {
       guest_infants: parsed.data.guest_infants,
       check_in_time: parsed.data.check_in_time,
       check_out_time: parsed.data.check_out_time,
+      alarm_hours_before: parsed.data.alarm_hours_before,
     })
     .eq("id", parsed.data.id);
   if (error) return { error: error.message };
+  // WIK-124: invalidar el tracking row para que el cron re-evalúe si
+  // cambiaron check_in_time o alarm_hours_before. Eliminar la row de
+  // alarm_notifications_sent permite re-disparar con los nuevos params.
+  await admin
+    .from("alarm_notifications_sent")
+    .delete()
+    .eq("reservation_id", parsed.data.id);
   revalidatePath("/dashboard");
   revalidatePath(`/dashboard/reservations/${parsed.data.id}`);
   return { ok: true };

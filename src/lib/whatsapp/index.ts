@@ -334,3 +334,68 @@ export async function sendKapsoText(
     (parsed as { messages?: { id?: string }[] })?.messages?.[0]?.id;
   return { messageId, raw: parsed };
 }
+
+/**
+ * Send a pre-approved WhatsApp template (WIK-124). Templates are the only
+ * way to message a user outside the 24-hour customer-service window — and
+ * also the only way to message someone who has never written to us first.
+ *
+ * Variables must match the template's body in order ({{1}}, {{2}}, …).
+ *
+ * Returns the Kapso/WhatsApp message id on success. Throws on failure;
+ * callers (e.g. the alarm-reminder cron) should wrap in try/catch and
+ * decide whether to retry or move on.
+ */
+export async function sendKapsoTemplate(input: {
+  phoneNumberId: string;
+  to: string;
+  templateName: string;
+  languageCode: string;
+  bodyVariables: string[];
+}): Promise<{ messageId?: string; raw: unknown }> {
+  const apiKey = process.env.KAPSO_API_KEY;
+  if (!apiKey) {
+    throw new Error("KAPSO_API_KEY is not set.");
+  }
+  const url = `${KAPSO_BASE}/${input.phoneNumberId}/messages`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "X-API-Key": apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to: input.to.replace(/^\+/, ""),
+      type: "template",
+      template: {
+        name: input.templateName,
+        language: { code: input.languageCode },
+        components: [
+          {
+            type: "body",
+            parameters: input.bodyVariables.map((text) => ({
+              type: "text",
+              text,
+            })),
+          },
+        ],
+      },
+    }),
+  });
+  const responseText = await res.text();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(responseText);
+  } catch {
+    parsed = responseText;
+  }
+  if (!res.ok) {
+    throw new Error(
+      `Kapso template send failed (${input.templateName}): HTTP ${res.status} ${responseText.slice(0, 300)}`,
+    );
+  }
+  const messageId =
+    (parsed as { messages?: { id?: string }[] })?.messages?.[0]?.id;
+  return { messageId, raw: parsed };
+}

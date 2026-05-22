@@ -45,6 +45,7 @@ export function EditReservationDialog({
         guest_infants: String(formData.get("guest_infants") ?? ""),
         check_in_time: String(formData.get("check_in_time") ?? ""),
         check_out_time: String(formData.get("check_out_time") ?? ""),
+        alarm_hours_before: String(formData.get("alarm_hours_before") ?? ""),
       });
       if (result?.error) {
         toast.error(result.error);
@@ -186,6 +187,28 @@ export function EditReservationDialog({
                   placeholder="UYU"
                   className="uppercase"
                 />
+              </div>
+            </div>
+            {/* WIK-124: alarma WhatsApp X horas antes del check-in.
+                Vacío = sin alarma. El cron `alarm-reminders` la dispara. */}
+            <div className="grid gap-2 rounded-md border border-input bg-muted/30 p-3">
+              <Label htmlFor="alarm_hours_before">
+                Alarma WhatsApp antes del check-in
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="alarm_hours_before"
+                  name="alarm_hours_before"
+                  type="number"
+                  min="1"
+                  max="168"
+                  defaultValue={reservation.alarm_hours_before ?? ""}
+                  className="w-24"
+                  placeholder="2"
+                />
+                <span className="text-sm text-muted-foreground">
+                  horas antes (vacío = sin alarma)
+                </span>
               </div>
             </div>
             <div className="grid gap-2">

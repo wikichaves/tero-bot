@@ -251,6 +251,57 @@ export const sensorAlarmFired: WhatsAppTemplate = {
 };
 
 // ────────────────────────────────────────────────────────────────────────
+// 6. Recordatorio X horas antes del vencimiento de una tarea (WIK-124).
+//    Disparado por el cron `/api/cron/alarm-reminders` cuando el assignee
+//    tiene `alarm_hours_before` configurado en la task. Idempotente por
+//    `alarm_notifications_sent`.
+
+export const taskReminder: WhatsAppTemplate = {
+  name: "task_reminder",
+  language: "es",
+  category: "UTILITY",
+  description:
+    "Recordatorio al assignee X horas antes del vencimiento de una tarea. Variables: 1=título, 2=propiedad, 3=cuándo (ej. 'en 2 horas' o 'hoy a las 16:00').",
+  components: [
+    {
+      type: "BODY",
+      text: "🔔 Recordatorio de tarea\n\n*{{1}}*\nPropiedad: {{2}}\nVence: {{3}}\n\nVer detalles en admin.example.com/tasks",
+      example: {
+        body_text: [
+          ["Limpieza salida huésped", "Acme Rentals", "en 2 horas"],
+        ],
+      },
+    },
+    { type: "FOOTER", text: "Acme Rentals · Tareas" },
+  ],
+};
+
+// ────────────────────────────────────────────────────────────────────────
+// 7. Recordatorio X horas antes del check-in de una reserva (WIK-124).
+//    Mismo cron, mismo flujo. Variables específicas a reserva (huésped
+//    en lugar de título de tarea).
+
+export const reservationCheckinReminder: WhatsAppTemplate = {
+  name: "reservation_checkin_reminder",
+  language: "es",
+  category: "UTILITY",
+  description:
+    "Recordatorio al gestor/admin X horas antes del check-in de una reserva. Variables: 1=nombre huésped, 2=propiedad, 3=cuándo (ej. 'en 2 horas' o 'hoy a las 16:00').",
+  components: [
+    {
+      type: "BODY",
+      text: "🔔 Próximo check-in\n\nHuésped: *{{1}}*\nPropiedad: {{2}}\nCheck-in: {{3}}\n\nVer detalles en admin.example.com/dashboard",
+      example: {
+        body_text: [
+          ["Juana Pérez", "Acme Rentals", "en 2 horas"],
+        ],
+      },
+    },
+    { type: "FOOTER", text: "Acme Rentals · Reservas" },
+  ],
+};
+
+// ────────────────────────────────────────────────────────────────────────
 
 /**
  * Full registry — useful for iterating in scripts or admin UI.
@@ -278,4 +329,7 @@ export const allTemplates: WhatsAppTemplate[] = [
   staffTaskAssigned,
   staffSupplyRequestReceived,
   sensorAlarmFired,
+  // WIK-124 — recordatorios disparados por cron alarm-reminders.
+  taskReminder,
+  reservationCheckinReminder,
 ];
