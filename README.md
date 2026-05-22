@@ -1,154 +1,28 @@
 # Tero Admin
 
-Open-source admin panel for **multi-property short-term rental operations**.
-Pulls together the messy day-to-day of running a handful of Airbnb-style
-properties — reservations, cleaning tasks, smart locks, energy meters,
-T/H sensors, utility bills, WhatsApp comms with guests and staff — and
-puts it under a single roof.
+A modular, AI-leveraged property management system built to eliminate operational friction across a four-house short-term rental complex. Zero bloatware, zero generic SaaS — every signal collapsed into one operating surface.
 
-> ⚠️ **Work in progress.** This started as a private tool for a single
-> two-property operator in Uruguay. It's now being generalized so others
-> can self-host. Expect rough edges, hardcoded assumptions you'll need
-> to unpick, and breaking changes. PRs welcome.
+## The Philosophy
 
-## What it does (today)
+Most property-management software is bloatware: rigid SaaS dashboards built for generic use cases, billed per seat, with feature lists nobody asked for and integrations nobody can extend. Tero Admin takes the opposite bet — a high-efficiency modular architecture where each capability (locks, sensors, energy, comms, reservations) is its own thin layer, composable and replaceable. It connects the physical world (thermostats, smart locks, utility meters) with the digital operations that actually run the business (tasks, alerts, reports, guest comms). One operator, one codebase, no friction — a real-world expression of the Pod-of-One philosophy.
 
-- **Dashboard** — today / tomorrow check-ins and check-outs at a glance.
-- **Reservations** — synced from Airbnb iCal + enriched from forwarded
-  Airbnb confirmation emails (via Postmark Inbound).
-- **Tasks** — cleaning / maintenance / supplies, assignable to staff,
-  with WhatsApp reminders X hours before due.
-- **Smart locks** — Tuya integration: per-reservation temp passcodes
-  generated and revoked automatically (offline + online locks).
-- **Energy** — per-device meter snapshots from Tuya, daily reports,
-  per-property and per-circuit consumption views.
-- **Sensors (T/H)** — Tuya humidity/temperature sensors grouped by
-  "ambiente", threshold alarms via WhatsApp.
-- **Pre-checkin climate** — when a check-in is 2h away and the property
-  is too cold/hot, send the operator a WhatsApp with [Sí] / [No] buttons
-  to fire a Tuya scene that turns on HVAC.
-- **Utility bills** — forward your provider's email to a Postmark
-  Inbound alias, get the PDF parsed and the row created automatically
-  (UTE, OSE, Antel, Edenor, AySA, Personal Flow, Prosegur supported).
-- **WhatsApp bot** ("Tero Bot") — staff can request task lists, daily
-  consumption reports, create tasks by sending a photo, etc. Pre-approved
-  Meta templates for outbound notifications.
+## Core Modules
 
-## Stack
+1. **Automated Hospitality** — IoT integration for live temperature and humidity control. Pre-checkin conditioning fires HVAC scenes 2h before a guest arrives so the property is at target temp on arrival. Threshold alarms surface when ambient conditions drift.
+2. **Invisible Operations** — Backend data parsing that intercepts forwarded utility bills (emails) to track energy costs per property. Provider invoices land via inbound email, get parsed automatically, and attach to the right property. No spreadsheets, no manual entry.
+3. **Zero-Friction Team UI** — A WhatsApp bot integration for task assignment and sensor querying. Cleaning and maintenance staff never download an app — they message a bot. Photos auto-create tasks. Admins query consumption and ambient readings in plain text. Pre-checkin conditioning confirms via inline buttons.
 
-- **Framework**: Next.js 16 (App Router) + React 19 + TypeScript
-- **Styling**: Tailwind v4 + shadcn/ui (mint green theme, dark/light)
-- **Data**: Supabase (Postgres + Auth + Storage + RLS)
-- **Hosting**: Vercel (Cron, Edge functions). Anywhere else that runs
-  Next 16 should work too.
-- **Integrations**: Tuya Cloud (smart locks + smart-home), Kapso (BSP
-  over Meta WhatsApp Cloud API), Postmark (inbound email parsing).
+## Tech Stack
 
-## Quick start
+- **Frontend / Framework**: [Next.js 16 (App Router) + React 19 + TypeScript + Tailwind v4 + shadcn/ui]
+- **Backend / Database**: [Supabase — Postgres + Auth + Storage + Row Level Security]
+- **AI / LLM Integration**: [Claude Code as build agent — codebase architected and maintained through an agentic dev workflow with Linear MCP for ticket-driven iteration]
+- **WhatsApp API wrapper**: [Kapso — BSP layer over Meta WhatsApp Cloud API]
+- **IoT Hardware / Sensors**: [Tuya Cloud — smart locks (offline + online passcodes), energy meters, temperature & humidity sensors]
+- **Hosting / Deployment**: [Vercel (Next.js + Cron) + Postmark Inbound (utility bill + Airbnb email parsing)]
 
-```bash
-git clone https://github.com/<you>/tero-admin.git
-cd tero-admin
-npm install
-cp .env.example .env.local   # fill in at least Supabase + branding
-```
+## Source-Available (Build in Public)
 
-Create a Supabase project, then in the SQL editor run the contents of
-`supabase/schema.sql`. Or, if you've set `DATABASE_URL` in `.env.local`
-(Session Pooler URI from Supabase Settings → Connect):
+I deeply believe in context engineering and learning in public. Tero Admin is the actual operational engine running my properties. I am opening the source code for transparency, to share my system design logic, and to accelerate collective learning.
 
-```bash
-npm run db:check   # dry-run, prints what would change
-npm run db:apply   # applies the full schema (idempotent)
-```
-
-Create the first admin via Supabase Dashboard → Authentication → Users.
-Then in the `profiles` table, set `role = 'admin'` for that user.
-
-```bash
-npm run dev   # → http://localhost:3000
-```
-
-## Configuration
-
-All operator-specific values come from environment variables — the
-codebase has no hardcoded business names, URLs, or branding. See
-[`.env.example`](.env.example) for the full list with inline docs.
-
-The bare minimum to boot:
-
-| Env var | Notes |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon/public key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service-role key (server-side only) |
-| `NEXT_PUBLIC_OPERATOR_NAME` | Your business name (shown in UI/WA) |
-| `NEXT_PUBLIC_APP_URL` | e.g. `https://admin.example.com` |
-
-Optional but recommended for the integrations you'll actually use:
-`TUYA_*`, `KAPSO_*`, `POSTMARK_INBOUND_*`, `CRON_SECRET`.
-
-## Roles
-
-| Role | Capabilities |
-|---|---|
-| `admin` | Everything. Manages users, properties, reservations, tasks, integrations. |
-| `gestor` | Operations manager. Reservations + tasks, scoped to assigned properties. |
-| `limpieza` / `mantenimiento` | Staff. See & update assigned tasks. Can report supplies/damage via WhatsApp. |
-
-## Project structure
-
-```
-src/
-  app/
-    dashboard/              # main protected view (today's check-ins, etc.)
-    reservations/           # CRUD + Airbnb iCal sync
-    tasks/                  # task list + create/edit
-    energy/, ambientes/     # Tuya energy + sensor dashboards
-    facturas/               # utility bills
-    api/
-      cron/                 # daily reports, alarm reminders, etc.
-      inbound/              # Postmark webhook (Airbnb emails + bills)
-      whatsapp/             # Kapso webhook (Tero Bot)
-  lib/
-    supabase/               # server/browser/middleware clients
-    tuya/, whatsapp/, etc.  # integration helpers
-    brand.ts                # env-var-backed branding (operator name, etc.)
-supabase/
-  schema.sql                # full DB schema (idempotent, sectioned)
-```
-
-## Self-hosting
-
-The repo is set up for Vercel — `vercel.json` declares the cron schedule
-and the build step is the default `next build`. Any host that runs
-Next.js 16 works (Render, Railway, fly.io, your own VPS).
-
-For the integrations, each one is **optional**. If you don't set the
-relevant env vars, the corresponding feature just no-ops:
-
-- **No Tuya?** Smart-lock, energy, and sensor features become passive
-  (you can still enter readings manually).
-- **No WhatsApp/Kapso?** The bot endpoints stay dormant; the rest of
-  the app works fine.
-- **No Postmark?** Airbnb iCal sync still works — you just won't get
-  enriched guest data (count, payout, message) until you set inbound up.
-
-## Contributing
-
-This is being open-sourced as I generalize it. If you want to use it
-for your own properties:
-
-1. Fork the repo, clone, set up `.env.local`.
-2. Open issues for anything that's too hardcoded to the original
-   operator (date/currency formats, locale strings, country-specific
-   utility providers).
-3. PRs welcome — small focused ones preferred.
-
-If you're a property manager with a non-Uruguay setup interested in
-self-hosting, ping me — extending to support your locale / providers /
-WhatsApp BSP is exactly the kind of feedback that's needed.
-
-## License
-
-[MIT](./LICENSE) — do what you want, no warranty.
+However, please note: this is a personal production tool, not a community-maintained open-source project. It is provided "as is" for educational and portfolio purposes. I do not provide third-party support, and I am not actively reviewing or accepting Pull Requests. Feel free to explore the code, fork it, and use the concepts to build your own systems!
