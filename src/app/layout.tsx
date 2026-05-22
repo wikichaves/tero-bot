@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans, Lora, IBM_Plex_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Lora } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ServiceWorkerRegister } from "@/components/sw-register";
 import { Toaster } from "@/components/ui/sonner";
@@ -7,12 +7,17 @@ import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
 import "./globals.css";
 
 /**
- * Fonts del theme "Tero Admin" (WIK-84):
- *   - Plus Jakarta Sans → sans (text/UI)
- *   - Lora → serif (display opcional)
- *   - IBM Plex Mono → mono (code, IDs)
+ * Fonts del theme "Tero Admin":
+ *   - Geist Sans → sans (text/UI). WIK-128: switched from Plus Jakarta
+ *     Sans for a cleaner, more "designed" feel + built-in tabular
+ *     numerals (KPIs, currency, temps no longer need the `tabular-nums`
+ *     utility class, though it stays defensive in code).
+ *   - Lora → serif (display opcional, used sparingly).
+ *   - Geist Mono → mono (code, IDs). WIK-128: replaced IBM Plex Mono so
+ *     the mono pairs with the sans (same designer, same x-height,
+ *     same character widths).
  */
-const jakartaSans = Plus_Jakarta_Sans({
+const geistSans = Geist({
   variable: "--font-sans",
   subsets: ["latin"],
   display: "swap",
@@ -24,9 +29,8 @@ const lora = Lora({
   display: "swap",
 });
 
-const ibmMono = IBM_Plex_Mono({
+const geistMono = Geist_Mono({
   variable: "--font-mono",
-  weight: ["400", "500", "600"],
   subsets: ["latin"],
   display: "swap",
 });
@@ -76,7 +80,7 @@ export default function RootLayout({
     // we don't want React to warn about the resulting class mismatch.
     <html
       lang="es"
-      className={`${jakartaSans.variable} ${lora.variable} ${ibmMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${lora.variable} ${geistMono.variable} h-full antialiased`}
       // WIK-92: el BG inicial del <html> lo maneja globals.css via
       // `prefers-color-scheme` CSS media query — sin inline style.
       // Light OS → white-ish, Dark OS → black, antes que next-themes

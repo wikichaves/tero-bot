@@ -13,9 +13,9 @@
  * (sidebar, chart-1..5) que el ticket no listaba todas.
  *
  * Fonts (registradas en src/app/layout.tsx via next/font/google):
- *   - Plus Jakarta Sans → --font-sans (default UI)
- *   - Lora → --font-serif (display)
- *   - IBM Plex Mono → --font-mono (códigos, IDs)
+ *   - Geist Sans → --font-sans (default UI) — WIK-128
+ *   - Lora → --font-serif (display, opcional)
+ *   - Geist Mono → --font-mono (códigos, IDs) — WIK-128
  *
  * Radius 0.4rem (más cuadrado que el theme anterior de 0.625).
  */
