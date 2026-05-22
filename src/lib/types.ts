@@ -33,6 +33,16 @@ export type Property = {
   provider_accounts: Record<string, string>;
   /** Manual ordering for /admin/properties. Lower = first. */
   sort_order: number;
+  /** WIK-125 — pre-checkin climate conditioning. Vacío = la property no
+   *  participa del flow. Si están seteados ambos thresholds + al menos
+   *  una scene, el cron evalúa 2h antes de cada check-in y notifica al
+   *  gestor para acondicionar el ambiente. */
+  target_temp_min_c: number | null;
+  target_temp_max_c: number | null;
+  /** Tuya tap-to-run scene ID que enciende el sistema de enfriado de
+   *  esta property. Vacío = no se puede auto-enfriar. */
+  cool_scene_id: string | null;
+  heat_scene_id: string | null;
   created_at: string;
 };
 

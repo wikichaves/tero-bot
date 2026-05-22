@@ -135,6 +135,19 @@ function PropertyForm({
   const [airbnbListingId, setAirbnbListingId] = useState(
     property?.airbnb_listing_id ?? "",
   );
+  // WIK-125 — climate conditioning per property. All optional.
+  const [targetTempMin, setTargetTempMin] = useState<string>(
+    property?.target_temp_min_c != null
+      ? String(property.target_temp_min_c)
+      : "",
+  );
+  const [targetTempMax, setTargetTempMax] = useState<string>(
+    property?.target_temp_max_c != null
+      ? String(property.target_temp_max_c)
+      : "",
+  );
+  const [coolSceneId, setCoolSceneId] = useState(property?.cool_scene_id ?? "");
+  const [heatSceneId, setHeatSceneId] = useState(property?.heat_scene_id ?? "");
   // We keep ALL provider keys in state (even when the country is the
   // other one) so that switching country temporarily doesn't lose the
   // values typed for the previous country. On submit we filter to the
@@ -175,6 +188,18 @@ function PropertyForm({
       for (const [k, v] of Object.entries(providerAccounts)) {
         if (visibleKeys.has(k)) filteredAccounts[k] = v;
       }
+      // WIK-125: validate climate config — both bounds set or none, and
+      // min < max if both. Empty = "disabled for this property".
+      const tMin = targetTempMin.trim() ? Number(targetTempMin) : null;
+      const tMax = targetTempMax.trim() ? Number(targetTempMax) : null;
+      if ((tMin == null) !== (tMax == null)) {
+        toast.error("Configurá ambos extremos del rango target, o ninguno.");
+        return;
+      }
+      if (tMin != null && tMax != null && tMin >= tMax) {
+        toast.error("La temperatura mínima debe ser menor que la máxima.");
+        return;
+      }
       const result = await upsertProperty({
         id: property?.id,
         name,
@@ -184,6 +209,10 @@ function PropertyForm({
         tariff_per_kwh: tariffNum,
         airbnb_listing_id: airbnbListingId.trim(),
         provider_accounts: filteredAccounts,
+        target_temp_min_c: tMin,
+        target_temp_max_c: tMax,
+        cool_scene_id: coolSceneId.trim() || null,
+        heat_scene_id: heatSceneId.trim() || null,
       });
       if (result?.error || !result.ok) {
         toast.error(result?.error ?? "No se pudo guardar.");
@@ -353,6 +382,98 @@ function PropertyForm({
             <p className="text-xs text-muted-foreground">
               Si lo dejás vacío, /energy usa el fallback global.
             </p>
+          </div>
+        </div>
+        {/* WIK-125 — Acondicionamiento pre check-in */}
+        <div className="grid gap-3 rounded-md border border-input bg-muted/30 p-3">
+          <div>
+            <Label className="text-sm font-medium">
+              Acondicionamiento pre check-in (WIK-125)
+            </Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              El cron va a alertar al gestor 2h antes del check-in si la
+              temperatura está fuera del rango. Vacíos = no auto-acondiciona
+              esta propiedad. Los IDs de scene se sacan de{" "}
+              <a
+                href="/admin/tuya/scenes"
+                className="underline"
+                target="_blank"
+                rel="noreferrer"
+              >
+                /admin/tuya/scenes
+              </a>
+              .
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1">
+              <Label
+                htmlFor="target_temp_min_c"
+                className="text-xs font-normal text-muted-foreground"
+              >
+                Temp ideal mínima (°C)
+              </Label>
+              <Input
+                id="target_temp_min_c"
+                type="number"
+                step="0.5"
+                min="0"
+                max="40"
+                value={targetTempMin}
+                onChange={(e) => setTargetTempMin(e.target.value)}
+                placeholder="20"
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label
+                htmlFor="target_temp_max_c"
+                className="text-xs font-normal text-muted-foreground"
+              >
+                Temp ideal máxima (°C)
+              </Label>
+              <Input
+                id="target_temp_max_c"
+                type="number"
+                step="0.5"
+                min="0"
+                max="40"
+                value={targetTempMax}
+                onChange={(e) => setTargetTempMax(e.target.value)}
+                placeholder="25"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1">
+              <Label
+                htmlFor="heat_scene_id"
+                className="text-xs font-normal text-muted-foreground"
+              >
+                Scene Tuya para calefacción
+              </Label>
+              <Input
+                id="heat_scene_id"
+                value={heatSceneId}
+                onChange={(e) => setHeatSceneId(e.target.value)}
+                placeholder="ej. scene-id-tuya"
+                className="font-mono text-xs"
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label
+                htmlFor="cool_scene_id"
+                className="text-xs font-normal text-muted-foreground"
+              >
+                Scene Tuya para aire
+              </Label>
+              <Input
+                id="cool_scene_id"
+                value={coolSceneId}
+                onChange={(e) => setCoolSceneId(e.target.value)}
+                placeholder="ej. scene-id-tuya"
+                className="font-mono text-xs"
+              />
+            </div>
           </div>
         </div>
         <div className="grid gap-2">

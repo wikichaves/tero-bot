@@ -834,3 +834,77 @@ create policy alarm_notifications_admin_read
   for select using (public.current_role() in ('admin', 'gestor'));
 -- Write solo via service-role (el cron). Sin policy de insert para
 -- otros roles → bloqueado por RLS default-deny.
+
+-- ─── Pre-checkin climate conditioning (WIK-125) ────────────────────────
+--
+-- El cron `/api/cron/pre-checkin-conditioning` (cada 15min) detecta
+-- check-ins próximos en una ventana T-2h, lee la temperatura promedio
+-- actual de la property via sensor_snapshots, compara con el target
+-- range configurado, y manda alerta WhatsApp al gestor con buttons
+-- Quick Reply (SI / NO). Si el gestor acepta, el bot dispara la
+-- Tuya scene configurada (cool_scene_id o heat_scene_id).
+--
+-- Quiet hours: el cron evita mandar entre 22:00 y 08:00 hora UY (UTC-3).
+
+alter table public.properties
+  add column if not exists target_temp_min_c numeric default 20,
+  add column if not exists target_temp_max_c numeric default 25,
+  -- Tuya scene IDs (de tap-to-run scenes). Vacío en cualquiera de los
+  -- dos = la property no puede auto-acondicionar en esa dirección.
+  add column if not exists cool_scene_id text,
+  add column if not exists heat_scene_id text;
+
+-- Una row por reservation que entra al flow (incluso si el resultado
+-- termina siendo "no acción"). El unique index garantiza que cada
+-- reserva entra al flow una sola vez (idempotencia del cron).
+create table if not exists public.pre_checkin_conditioning (
+  id uuid primary key default gen_random_uuid(),
+  reservation_id uuid not null references public.reservations(id) on delete cascade,
+  -- Estados del flow:
+  --   'no_action_needed'    → la temp ya está en rango, no se notifica al gestor
+  --   'alert_sent_2h'       → alerta inicial enviada, esperando respuesta
+  --   'gestor_responded_no' → gestor respondió NO, no se hace nada
+  --   'started'             → gestor respondió SI, scene disparada
+  --   'check_1h_done'       → cron check 1h-antes hecho
+  --   'check_0h_done'       → cron check final hecho
+  --   'cancelled'           → reserva cancelada después del start del flow
+  --   'no_response'         → no hubo respuesta del gestor antes del T-30m
+  --   'quiet_hours_skipped' → la ventana T-2h cayó en horario nocturno
+  stage text not null,
+  -- Dirección del acondicionamiento elegida:
+  --   'cool' | 'heat' | 'no_action' | null (pendiente)
+  decision text,
+  decision_by uuid references public.profiles(id) on delete set null,
+  decision_at timestamptz,
+  -- Tracking del Tuya scene disparado.
+  scene_triggered_id text,
+  scene_triggered_at timestamptz,
+  -- Snapshot de la temp al momento del primer alerta — sirve para
+  -- mostrar progreso ("temp inicial X°C → ahora Y°C") en los checks
+  -- posteriores y en la UI del dashboard.
+  initial_temp_c numeric,
+  -- Notes para debug / audit (ej. "sensor offline en T-2h, sin alerta").
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create unique index if not exists pre_checkin_conditioning_reservation_unique
+  on public.pre_checkin_conditioning(reservation_id);
+create index if not exists pre_checkin_conditioning_stage_idx
+  on public.pre_checkin_conditioning(stage);
+
+alter table public.pre_checkin_conditioning enable row level security;
+drop policy if exists pre_checkin_conditioning_admin_read
+  on public.pre_checkin_conditioning;
+create policy pre_checkin_conditioning_admin_read
+  on public.pre_checkin_conditioning
+  for select using (public.current_role() in ('admin', 'gestor'));
+-- Update permitido a admin/gestor para que el bot router (running con
+-- service-role bypass) y el override manual (server action con
+-- requireRole admin/gestor) puedan modificar el state. Insert también.
+drop policy if exists pre_checkin_conditioning_admin_write
+  on public.pre_checkin_conditioning;
+create policy pre_checkin_conditioning_admin_write
+  on public.pre_checkin_conditioning
+  for all using (public.current_role() in ('admin', 'gestor'))
+  with check (public.current_role() in ('admin', 'gestor'));

@@ -14,6 +14,7 @@ import {
   parsePropertyChoiceReply,
   type PropertyChoiceIntent,
 } from "@/lib/whatsapp/create-task";
+import { handlePreCheckinResponse } from "@/lib/pre-checkin/handle-response";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Profile } from "@/lib/types";
 
@@ -340,6 +341,31 @@ async function autoReply(opts: {
         }
         return;
       }
+    }
+  }
+
+  // 0.5) Pre-checkin alert response handler (WIK-125). Looks for pending
+  // alerts visible to the sender and matches "Sí, prender" / "No, gracias"
+  // / "si bosque" / "no julio" patterns. Runs BEFORE generic command
+  // parsing because "si"/"no" otherwise hit nothing useful.
+  if (opts.messageType === "text" && opts.messageBody) {
+    try {
+      const r = await handlePreCheckinResponse({
+        fromPhone: opts.peer,
+        text: opts.messageBody,
+      });
+      if (r.handled) {
+        await sendAndPersist({
+          phoneNumberId: opts.phoneNumberId,
+          peer: opts.peer,
+          conversationId: opts.conversationId,
+          text: r.reply_text,
+        });
+        return;
+      }
+    } catch (err) {
+      console.error("[pre-checkin response] error", err);
+      // Fall through to other handlers.
     }
   }
 

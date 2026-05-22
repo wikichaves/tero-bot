@@ -51,6 +51,11 @@ const upsertSchema = z.object({
       }
       return out;
     }),
+  // WIK-125 — climate conditioning per property.
+  target_temp_min_c: z.number().min(0).max(40).nullable().optional(),
+  target_temp_max_c: z.number().min(0).max(40).nullable().optional(),
+  cool_scene_id: z.string().nullable().optional(),
+  heat_scene_id: z.string().nullable().optional(),
 });
 
 export async function upsertProperty(input: {
@@ -62,6 +67,10 @@ export async function upsertProperty(input: {
   tariff_per_kwh: number | null;
   airbnb_listing_id?: string;
   provider_accounts?: Record<string, string>;
+  target_temp_min_c?: number | null;
+  target_temp_max_c?: number | null;
+  cool_scene_id?: string | null;
+  heat_scene_id?: string | null;
 }) {
   await requireRole(["admin"]);
   const parsed = upsertSchema.safeParse(input);
@@ -77,6 +86,10 @@ export async function upsertProperty(input: {
     tariff_per_kwh: parsed.data.tariff_per_kwh ?? null,
     airbnb_listing_id: parsed.data.airbnb_listing_id,
     provider_accounts: parsed.data.provider_accounts,
+    target_temp_min_c: parsed.data.target_temp_min_c ?? null,
+    target_temp_max_c: parsed.data.target_temp_max_c ?? null,
+    cool_scene_id: parsed.data.cool_scene_id ?? null,
+    heat_scene_id: parsed.data.heat_scene_id ?? null,
   };
   let id: string | null = null;
   if (parsed.data.id) {

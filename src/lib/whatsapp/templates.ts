@@ -302,6 +302,72 @@ export const reservationCheckinReminder: WhatsAppTemplate = {
 };
 
 // ────────────────────────────────────────────────────────────────────────
+// 8. Pre-checkin climate conditioning (WIK-125). Cuando hay un check-in
+//    en 2h y la temp de la property está fuera del target range, el cron
+//    /api/cron/pre-checkin-conditioning manda este template al gestor.
+//    Buttons Quick Reply: SI / NO. El bot router maneja el reply y
+//    dispara la Tuya scene si es SI.
+
+export const preCheckinClimateAlert: WhatsAppTemplate = {
+  name: "pre_checkin_climate_alert",
+  language: "es",
+  category: "UTILITY",
+  description:
+    "Alerta 2h antes de un check-in cuando la temp ambiente está fuera del rango target. Buttons Sí/No, el bot dispara la scene Tuya si SI. Variables: 1=property, 2=temp actual con °C, 3=rango target ('20°-25°'), 4='Está frío' o 'Está caliente'.",
+  components: [
+    {
+      type: "BODY",
+      text:
+        "🌡 *Pre check-in en {{1}}*\n\n" +
+        "Temperatura actual: *{{2}}* (target {{3}})\n" +
+        "{{4}} para la llegada del huésped en 2 horas.\n\n" +
+        "¿Querés que prenda el acondicionamiento?",
+      example: {
+        body_text: [
+          ["Acme Rentals", "14°C", "20°–25°", "Está frío"],
+        ],
+      },
+    },
+    { type: "FOOTER", text: "Acme Rentals · Pre check-in" },
+    {
+      type: "BUTTONS",
+      buttons: [
+        { type: "QUICK_REPLY", text: "Sí, prender" },
+        { type: "QUICK_REPLY", text: "No, gracias" },
+      ],
+    },
+  ],
+};
+
+// ────────────────────────────────────────────────────────────────────────
+// 9. Updates de progreso 1h y 0h antes del check-in (WIK-125). Solo
+//    informativo — sin botones — para que el gestor sepa si el ambiente
+//    está aclimatando bien.
+
+export const preCheckinClimateUpdate: WhatsAppTemplate = {
+  name: "pre_checkin_climate_update",
+  language: "es",
+  category: "UTILITY",
+  description:
+    "Update informativo del progreso del acondicionamiento. Sin buttons. Variables: 1=property, 2=temp actual, 3=temp inicial (cuando arrancó el acondicionamiento), 4='falta 1 hora' o 'llegan ahora', 5='Va bien' o 'No está aclimatando como esperado'.",
+  components: [
+    {
+      type: "BODY",
+      text:
+        "🌡 *{{1}}* — {{4}} para el check-in\n\n" +
+        "Temperatura ahora: *{{2}}* (arrancó en {{3}})\n" +
+        "{{5}}",
+      example: {
+        body_text: [
+          ["Acme Rentals", "19°C", "14°C", "falta 1 hora", "Va bien"],
+        ],
+      },
+    },
+    { type: "FOOTER", text: "Acme Rentals · Pre check-in" },
+  ],
+};
+
+// ────────────────────────────────────────────────────────────────────────
 
 /**
  * Full registry — useful for iterating in scripts or admin UI.
@@ -332,4 +398,7 @@ export const allTemplates: WhatsAppTemplate[] = [
   // WIK-124 — recordatorios disparados por cron alarm-reminders.
   taskReminder,
   reservationCheckinReminder,
+  // WIK-125 — climate conditioning pre check-in.
+  preCheckinClimateAlert,
+  preCheckinClimateUpdate,
 ];
