@@ -17,6 +17,10 @@ export const config = {
   //    Home Screen" — si lo redirigimos a /login, el browser no encuentra
   //    los iconos y el shortcut sale con icon default gris (WIK-95-2).
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|manifest\\.webmanifest|manifest\\.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // WIK-131: added `avif` to the static-asset extension list. Without
+    // it, `<picture>` sources with `image/avif` get a 307 → /login from
+    // the auth proxy and the browser silently falls through to the WebP
+    // fallback, defeating the optimization.
+    "/((?!api|_next/static|_next/image|favicon.ico|manifest\\.webmanifest|manifest\\.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif)$).*)",
   ],
 };
