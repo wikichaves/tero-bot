@@ -1,10 +1,10 @@
 # Tero Admin
 
-A modular, AI-leveraged property management system built to eliminate operational friction across a four-house short-term rental complex. Zero bloatware, zero generic SaaS — every signal collapsed into one operating surface.
+A modular, AI-leveraged property management system built to eliminate operational friction across [a vacation rental complex with four houses](https://casabosquemontoya.com/). Zero bloatware, zero generic SaaS — every signal collapsed into one operating surface.
 
 ## The Philosophy
 
-Most property-management software is bloatware: rigid SaaS dashboards built for generic use cases, billed per seat, with feature lists nobody asked for and integrations nobody can extend. Tero Admin takes the opposite bet — a high-efficiency modular architecture where each capability (locks, sensors, energy, comms, reservations) is its own thin layer, composable and replaceable. It connects the physical world (thermostats, smart locks, utility meters) with the digital operations that actually run the business (tasks, alerts, reports, guest comms). One operator, one codebase, no friction — a real-world expression of the Pod-of-One philosophy.
+Most property-management software is bloatware: rigid SaaS dashboards built for generic use cases, billed per seat, with feature lists nobody asked for and integrations nobody can extend. Tero Admin takes the opposite bet — a high-efficiency modular architecture where each capability (locks, sensors, energy, comms, reservations) is its own thin layer, composable and replaceable. It connects the physical world (thermostats, smart locks, utility meters) with the digital operations that actually run the business (tasks, alerts, reports, guest comms). One operator, one codebase, no friction — a real-world expression of the [Pod-of-One](https://x.com/gokulr/status/2051683243934826773) philosophy.
 
 ## Core Modules
 
