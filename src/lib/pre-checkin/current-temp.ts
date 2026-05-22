@@ -10,9 +10,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * whether the property is at the target temperature range.
  *
  * Why average and not most-recent: properties with multiple T/H sensors
- * (Casa Bosque has living + dormitorios) should reflect a holistic
- * "is the place comfortable" reading. A single sensor near a window
- * could be misleading.
+ * (e.g. living + dormitorios) should reflect a holistic "is the place
+ * comfortable" reading. A single sensor near a window could be
+ * misleading.
  */
 export async function getCurrentTempForProperty(
   propertyId: string,

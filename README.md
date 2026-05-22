@@ -7,9 +7,9 @@ T/H sensors, utility bills, WhatsApp comms with guests and staff — and
 puts it under a single roof.
 
 > ⚠️ **Work in progress.** This started as a private tool for a single
-> two-property operator in Uruguay (Acme Rentals). It's now being
-> generalized so others can self-host. Expect rough edges, hardcoded
-> assumptions you'll need to unpick, and breaking changes. PRs welcome.
+> two-property operator in Uruguay. It's now being generalized so others
+> can self-host. Expect rough edges, hardcoded assumptions you'll need
+> to unpick, and breaking changes. PRs welcome.
 
 ## What it does (today)
 
@@ -116,7 +116,6 @@ src/
     brand.ts                # env-var-backed branding (operator name, etc.)
 supabase/
   schema.sql                # full DB schema (idempotent, sectioned)
-docs/                       # design notes (historical, written for original operator)
 ```
 
 ## Self-hosting
@@ -134,9 +133,6 @@ relevant env vars, the corresponding feature just no-ops:
   the app works fine.
 - **No Postmark?** Airbnb iCal sync still works — you just won't get
   enriched guest data (count, payout, message) until you set inbound up.
-
-See `docs/` for design notes on the original spike (historical, written
-for the original operator — kept as a real-world example).
 
 ## Contributing
 

@@ -239,13 +239,13 @@ export const sensorAlarmFired: WhatsAppTemplate = {
   language: "es",
   category: "UTILITY",
   description:
-    "Notif al admin/gestor cuando un sensor Tuya cruza un umbral configurable (temperatura o humedad). Variables: 1=métrica (Temperatura/Humedad), 2=valor con unidad (ej. 81%), 3=ambiente (ej. Living · Casa Principal), 4=umbral con unidad (ej. > 80%).",
+    "Notif al admin/gestor cuando un sensor Tuya cruza un umbral configurable (temperatura o humedad). Variables: 1=métrica (Temperatura/Humedad), 2=valor con unidad (ej. 81%), 3=ambiente (ej. Living · Casa A), 4=umbral con unidad (ej. > 80%).",
   components: [
     {
       type: "BODY",
       text: `Alerta de sensor en ${OPERATOR_NAME}: la métrica {{1}} en {{3}} cruzó el umbral configurado.\n\nLectura actual: {{2}}\nUmbral establecido: {{4}}\n\nSi corresponde, verificá las condiciones del ambiente (ventilación, temperatura, batería del sensor). Podés ver el histórico completo en ${APP_HOST}/ambientes.`,
       example: {
-        body_text: [["humedad", "81%", "Living · Casa Principal", "> 80%"]],
+        body_text: [["humedad", "81%", "Living · Casa A", "> 80%"]],
       },
     },
     { type: "FOOTER", text: brandedFooter("Sensores") },

@@ -19,7 +19,7 @@ import { saveTuyaHomeMapping } from "./actions";
  * Card de mapping de Tuya homes → property (WIK-95).
  *
  * Resuelve el caso donde el nombre del home Tuya no matchea ninguna
- * property (ej. "Casa Bosque" agrupa devices de varias casas). El admin
+ * property (ej. un home que agrupa devices de varias casas). El admin
  * elige manualmente la property destino (o "ignorar este home") y se
  * persiste en `tuya_home_overrides`. El sync respeta el override.
  *
@@ -101,8 +101,8 @@ export function HomeMappingsCard({
         <CardTitle className="text-base">Mapping de homes Tuya</CardTitle>
         <CardDescription>
           Si un home en Smart Life no corresponde 1:1 con una property (ej.
-          un home llamado &ldquo;Casa Bosque&rdquo; que agrupa devices de varias
-          casas), asignalo manualmente acá. El sync respeta este mapping
+          un home que agrupa devices de varias casas físicas), asignalo
+          manualmente acá. El sync respeta este mapping
           y los devices/rooms del home van a la property elegida.
         </CardDescription>
       </CardHeader>

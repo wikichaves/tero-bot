@@ -1,4 +1,4 @@
--- Acme Rentals — Admin schema
+-- Tero Admin — schema
 -- Run in Supabase SQL editor (or via supabase CLI) on a fresh project.
 
 -- Roles enum
@@ -261,7 +261,7 @@ create policy whatsapp_messages_write on public.whatsapp_messages
 -- ────────────────────────────────────────────────────────────────────────
 -- Property ↔ Tuya device mapping (added 2026-05-07). Lets us know which
 -- physical device serves which property — e.g. "Puerta Principal" lock is
--- the primary lock for "Acme Rentals". One Tuya device belongs to
+-- the primary lock for property "Casa A". One Tuya device belongs to
 -- at most one property; a property can have many devices of different
 -- kinds, but only one primary per kind.
 
@@ -462,7 +462,7 @@ alter table public.reservations
 
 -- ────────────────────────────────────────────────────────────────────────
 -- Utility bills (WIK-62, added 2026-05-14). Forward facturas de luz/agua/
--- internet/alarma a bills@inbound.example.com → Postmark inbound
+-- internet/alarma a bills@<inbound-domain> → Postmark inbound
 -- → /api/inbound (router) → /api/inbound/bills (handler). El parser hace
 -- best-effort por proveedor (UTE/OSE/Antel/Prosegur/Edenor/AySA/Telecentro)
 -- y deja el resto editable manual en /facturas.
@@ -752,8 +752,8 @@ create policy profile_properties_write on public.profile_properties for all
 -- de Smart Life con una property por nombre (substring case-insensitive).
 -- Funciona cuando hay 1 home Tuya = 1 property con nombres consistentes.
 --
--- Cuando NO matchea (ej. home "Casa Bosque" que agrupa devices de varias
--- casas físicas en Smart Life), el admin define un override manual acá.
+-- Cuando NO matchea (ej. un home de Smart Life que agrupa devices de
+-- varias casas físicas), el admin define un override manual acá.
 --   - property_id set → ese home mapea explícitamente a esa property.
 --   - property_id null → "ignorar este home" (skip silencioso, sin
 --     warning en el sync).

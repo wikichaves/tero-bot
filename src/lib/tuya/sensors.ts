@@ -32,7 +32,7 @@ export type SensorReading = {
  * Tuya categories que sabemos que reportan temperatura y/o humedad:
  *   - wsdcg: 温湿度感测器 (sensor T+H standalone, más común)
  *   - wnykq: sensor T+H — variante usada en algunos modelos
- *            (confirmado en cloud project Casa Bosque, WIK-82)
+ *            (WIK-82, descubierto en testing del proyecto Tuya original)
  *   - wkcz / wk: termostatos que también publican temp_current
  *   - ldcg:  sensor ambiental multi-métrica (CO2/TVOC/T/H, algunos modelos)
  *

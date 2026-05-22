@@ -3,8 +3,8 @@
  *
  * The project itself is called "Tero" (Tero Admin / Tero Bot). What
  * varies between deployments is the OPERATOR — the business actually
- * using the system (e.g. "Acme Rentals", another short-term rental
- * group, a hotel chain). All operator-specific strings + URLs come from
+ * using the system (a short-term rental group, a hotel chain, an Airbnb
+ * portfolio). All operator-specific strings + URLs come from
  * env vars so the codebase can be open-sourced without leaking branding
  * of any particular operator.
  *

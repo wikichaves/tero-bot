@@ -114,9 +114,9 @@ const LANDMARKS: Record<Locale, Landmarks> = {
     confirmationSubject:
       /reservation\s+confirmed|new\s+reservation|booking\s+confirmed|new\s+booking/i,
     guestName: [
-      // Subject: "Reservation confirmed: Juana Pérez arrives May 22"
+      // Subject: "Reservation confirmed: Jane Smith arrives May 22"
       /Reservation\s+confirmed\s*[:\-]\s*([A-Z][A-Za-z'’\-]+(?:\s+[A-Z][A-Za-z'’\-]+){0,2})\s+arriv/i,
-      // Body H1: "New reservation confirmed! Juana arrives May 22"
+      // Body H1: "New reservation confirmed! Jane arrives May 22"
       /New\s+reservation\s+confirmed[!]?\s+([A-Z][A-Za-z'’\-]+(?:\s+[A-Z][A-Za-z'’\-]+){0,2})\s+arriv/i,
       /Guest:\s*([A-Z][A-Za-z'’\-]+)/,
       /Reservation\s+(?:by|from)\s+([A-Z][A-Za-z'’\-]+)/,
