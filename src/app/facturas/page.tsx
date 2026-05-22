@@ -6,6 +6,7 @@ import {
   type BillRow,
   type BillRowDerived,
 } from "@/lib/bills/enrich-period";
+import { INBOUND_DOMAIN } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,8 +24,8 @@ import { PropertyBillsTable } from "./property-bills-table";
  * agrupado por propiedad.
  *
  * Fuentes de carga:
- *   1. Inbound automático: forwardear el email del proveedor a
- *      `bills@inbound.example.com` (alias: luz@/agua@/etc).
+ *   1. Inbound automático: forwardear el email del proveedor al alias
+ *      `bills@<INBOUND_DOMAIN>` (alias: luz@/agua@/etc).
  *      El router `/api/inbound` detecta el proveedor por sender domain,
  *      sube el PDF a Storage y crea la fila acá. Si llega un email para
  *      una factura ya existente (misma propiedad + proveedor + período_to),
@@ -96,7 +97,7 @@ export default async function FacturasPage() {
           <p className="text-sm text-muted-foreground">
             Forwardeá facturas a{" "}
             <code className="rounded bg-muted px-1 py-0.5 text-xs">
-              bills@inbound.example.com
+              {INBOUND_DOMAIN ? `bills@${INBOUND_DOMAIN}` : "bills@<tu-dominio-inbound>"}
             </code>{" "}
             o cargá manual. Para backfills históricos, mandá hasta 3–4 PDFs por
             email (Vercel limita el payload a 4.5 MB).
@@ -115,7 +116,7 @@ export default async function FacturasPage() {
             Reenviá el primer email de UTE / OSE / Antel / Edenor / AySA /
             Personal Flow / Prosegur a{" "}
             <code className="rounded bg-muted px-1 py-0.5 text-xs">
-              bills@inbound.example.com
+              {INBOUND_DOMAIN ? `bills@${INBOUND_DOMAIN}` : "bills@<tu-dominio-inbound>"}
             </code>{" "}
             y vas a verla acá. Mientras, podés usar &laquo;Nueva factura&raquo;.
           </CardContent>

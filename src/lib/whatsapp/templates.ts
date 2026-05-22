@@ -1,3 +1,5 @@
+import { OPERATOR_NAME, APP_HOST, brandedFooter } from "@/lib/brand";
+
 /**
  * WhatsApp template definitions for Meta Business approval.
  *
@@ -116,7 +118,7 @@ export function templateBodyParameters(values: string[]) {
  * - 1 sola variable (el código)
  * - Body field se omite si usamos `add_security_recommendation=true`
  * - El sender se identifica por el display name del WABA (no hace falta
- *   poner "Acme Rentals" en el body)
+ *   poner el operator name en el body)
  *
  * Trade-off: perdemos el contexto (propiedad, fecha, validez). Esos
  * datos los reciben los huéspedes en su email de confirmación de Airbnb
@@ -134,7 +136,7 @@ export const guestCheckinCode: WhatsAppTemplate = {
     // recommendation suma "Por tu seguridad, no compartas este código."
     { type: "BODY", add_security_recommendation: true },
     // Footer: en lugar de texto custom, AUTHENTICATION acepta una
-    // ventana de expiración (minutos). Casa Bosque: 720min = 12h
+    // ventana de expiración (minutos). Default: 720min = 12h
     // (asume que el huésped lo usa el día del check-in).
     { type: "FOOTER", code_expiration_minutes: 720 },
     // Botón: el huésped tap → copia el código al clipboard.
@@ -159,12 +161,12 @@ export const guestCheckoutReminder: WhatsAppTemplate = {
   components: [
     {
       type: "BODY",
-      text: "¡Hola {{1}}! Esperamos que estés disfrutando tu estadía. 🌲\n\nTe recordamos que el check-out es mañana {{2}} a las {{3}}.\n\nAntes de salir, te pedimos:\n✓ Cerrar las ventanas y puertas\n✓ Apagar el aire / calefacción\n✓ Dejar las llaves donde las encontraste\n\n¡Gracias por elegirnos! Cualquier feedback nos ayuda muchísimo.\n\n— Acme Rentals",
+      text: `¡Hola {{1}}! Esperamos que estés disfrutando tu estadía. 🌲\n\nTe recordamos que el check-out es mañana {{2}} a las {{3}}.\n\nAntes de salir, te pedimos:\n✓ Cerrar las ventanas y puertas\n✓ Apagar el aire / calefacción\n✓ Dejar las llaves donde las encontraste\n\n¡Gracias por elegirnos! Cualquier feedback nos ayuda muchísimo.\n\n— ${OPERATOR_NAME}`,
       example: {
         body_text: [["Juan", "domingo 17 de mayo", "10:00"]],
       },
     },
-    { type: "FOOTER", text: "Acme Rentals" },
+    { type: "FOOTER", text: OPERATOR_NAME },
   ],
 };
 
@@ -185,7 +187,7 @@ export const staffTaskAssigned: WhatsAppTemplate = {
         body_text: [
           [
             "Limpieza salida huésped",
-            "Acme Rentals",
+            OPERATOR_NAME,
             "limpieza",
             "viernes 15 a las 11:00",
             "Reposición de toallas, papel higiénico y café.",
@@ -193,7 +195,7 @@ export const staffTaskAssigned: WhatsAppTemplate = {
         ],
       },
     },
-    { type: "FOOTER", text: "Acme Rentals · Operaciones" },
+    { type: "FOOTER", text: brandedFooter("Operaciones") },
   ],
 };
 
@@ -212,11 +214,11 @@ export const staffSupplyRequestReceived: WhatsAppTemplate = {
       text: "Recibimos tu reporte:\n\n\"{{1}}\"\n\nLo registramos como tarea pendiente. Te avisamos cuando esté resuelto. ¡Gracias!",
       example: {
         body_text: [
-          ["Falta papel higiénico en Acme Rentals"],
+          [`Falta papel higiénico en ${OPERATOR_NAME}`],
         ],
       },
     },
-    { type: "FOOTER", text: "Acme Rentals · Operaciones" },
+    { type: "FOOTER", text: brandedFooter("Operaciones") },
   ],
 };
 
@@ -241,12 +243,12 @@ export const sensorAlarmFired: WhatsAppTemplate = {
   components: [
     {
       type: "BODY",
-      text: "Alerta de sensor en Acme Rentals: la métrica {{1}} en {{3}} cruzó el umbral configurado.\n\nLectura actual: {{2}}\nUmbral establecido: {{4}}\n\nSi corresponde, verificá las condiciones del ambiente (ventilación, temperatura, batería del sensor). Podés ver el histórico completo en admin.example.com/ambientes.",
+      text: `Alerta de sensor en ${OPERATOR_NAME}: la métrica {{1}} en {{3}} cruzó el umbral configurado.\n\nLectura actual: {{2}}\nUmbral establecido: {{4}}\n\nSi corresponde, verificá las condiciones del ambiente (ventilación, temperatura, batería del sensor). Podés ver el histórico completo en ${APP_HOST}/ambientes.`,
       example: {
         body_text: [["humedad", "81%", "Living · Casa Principal", "> 80%"]],
       },
     },
-    { type: "FOOTER", text: "Acme Rentals · Sensores" },
+    { type: "FOOTER", text: brandedFooter("Sensores") },
   ],
 };
 
@@ -265,14 +267,14 @@ export const taskReminder: WhatsAppTemplate = {
   components: [
     {
       type: "BODY",
-      text: "🔔 Recordatorio de tarea\n\n*{{1}}*\nPropiedad: {{2}}\nVence: {{3}}\n\nVer detalles en admin.example.com/tasks",
+      text: `🔔 Recordatorio de tarea\n\n*{{1}}*\nPropiedad: {{2}}\nVence: {{3}}\n\nVer detalles en ${APP_HOST}/tasks`,
       example: {
         body_text: [
-          ["Limpieza salida huésped", "Acme Rentals", "en 2 horas"],
+          ["Limpieza salida huésped", OPERATOR_NAME, "en 2 horas"],
         ],
       },
     },
-    { type: "FOOTER", text: "Acme Rentals · Tareas" },
+    { type: "FOOTER", text: brandedFooter("Tareas") },
   ],
 };
 
@@ -290,14 +292,14 @@ export const reservationCheckinReminder: WhatsAppTemplate = {
   components: [
     {
       type: "BODY",
-      text: "🔔 Próximo check-in\n\nHuésped: *{{1}}*\nPropiedad: {{2}}\nCheck-in: {{3}}\n\nVer detalles en admin.example.com/dashboard",
+      text: `🔔 Próximo check-in\n\nHuésped: *{{1}}*\nPropiedad: {{2}}\nCheck-in: {{3}}\n\nVer detalles en ${APP_HOST}/dashboard`,
       example: {
         body_text: [
-          ["Juana Pérez", "Acme Rentals", "en 2 horas"],
+          ["Juana Pérez", OPERATOR_NAME, "en 2 horas"],
         ],
       },
     },
-    { type: "FOOTER", text: "Acme Rentals · Reservas" },
+    { type: "FOOTER", text: brandedFooter("Reservas") },
   ],
 };
 
@@ -324,11 +326,11 @@ export const preCheckinClimateAlert: WhatsAppTemplate = {
         "¿Querés que prenda el acondicionamiento?",
       example: {
         body_text: [
-          ["Acme Rentals", "14°C", "20°–25°", "Está frío"],
+          [OPERATOR_NAME, "14°C", "20°–25°", "Está frío"],
         ],
       },
     },
-    { type: "FOOTER", text: "Acme Rentals · Pre check-in" },
+    { type: "FOOTER", text: brandedFooter("Pre check-in") },
     {
       type: "BUTTONS",
       buttons: [
@@ -367,11 +369,11 @@ export const preCheckinClimateUpdate: WhatsAppTemplate = {
         "Temperatura actual: *{{2}}*\n\n" +
         "Estado: {{3}}\n" +
         "Tiempo hasta el check-in: {{4}}\n\n" +
-        "Si querés ajustar manualmente las estufas o el aire, podés hacerlo en Smart Life. El histórico completo está en admin.example.com/dashboard.",
+        `Si querés ajustar manualmente las estufas o el aire, podés hacerlo en Smart Life. El histórico completo está en ${APP_HOST}/dashboard.`,
       example: {
         body_text: [
           [
-            "Acme Rentals",
+            OPERATOR_NAME,
             "19°C",
             "Va bien, inició en 14°C",
             "1 hora",
@@ -379,7 +381,7 @@ export const preCheckinClimateUpdate: WhatsAppTemplate = {
         ],
       },
     },
-    { type: "FOOTER", text: "Acme Rentals · Pre check-in" },
+    { type: "FOOTER", text: brandedFooter("Pre check-in") },
   ],
 };
 
@@ -396,7 +398,7 @@ export const preCheckinClimateUpdate: WhatsAppTemplate = {
  *   v7 (AUTHENTICATION) → 400 · "WABA does not have permission to
  *       create message template" (subcode 2388185)
  *
- * El WABA de Casa Bosque no tiene Authentication products habilitados
+ * El WABA del operator no tiene Authentication products habilitados
  * — requiere upgrade en Meta Business Manager → Security Settings →
  * OTP Configuration. Ver WIK-NN (creado al cerrar WIK-78).
  *

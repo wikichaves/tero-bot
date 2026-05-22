@@ -12,7 +12,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * dispara on-demand vía maybeSnapshotIfStale.
  *
  * Llamar:
- *   https://admin.example.com/api/admin/tuya/inspect-snapshot-timestamps
+ *   GET <APP_URL>/api/admin/tuya/inspect-snapshot-timestamps
  */
 export async function GET() {
   await requireRole(["admin"]);

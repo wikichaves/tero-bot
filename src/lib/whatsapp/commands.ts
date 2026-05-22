@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { buildConsumptionReport } from "@/lib/energy/reports";
 import { buildRoomsReport } from "@/lib/sensors/reports";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
+import { OPERATOR_NAME, APP_HOST } from "@/lib/brand";
 import type { Profile, Task } from "@/lib/types";
 import { normalizePhone } from "./index";
 
@@ -15,12 +16,12 @@ export type ParsedCommand =
   | { type: "help" }
   | null;
 
-const HELP_TEXT_FULL = `🌲 *Acme Rentals · Comandos*
+const HELP_TEXT_FULL = `🌲 *${OPERATOR_NAME} · Comandos*
 
 📊 *Consumo* (admin/gestor)
 • \`consumo\` — resumen total (hoy + 7 días)
-• \`consumo merced\` — solo Acme Rentals
-• \`consumo 14 julio\` — solo Casa Secundaria
+• \`consumo <nombre>\` — filtrar por propiedad
+   _ej:_ \`consumo merced\` o \`consumo 14 julio\`
 
 🌡️ *Ambientes* (admin/gestor)
 • \`ambientes\` — T/H promedio últimas 24 h por ambiente
@@ -28,7 +29,7 @@ const HELP_TEXT_FULL = `🌲 *Acme Rentals · Comandos*
 📋 *Tareas*
 • \`tareas\` — tus tareas pendientes
 • \`tarea <descripción>\` — crear una tarea nueva
-   _ej:_ \`tarea casa bosque se rompió la canilla del baño\`
+   _ej:_ \`tarea se rompió la canilla del baño\`
 • 📸 mandá una *foto* (con o sin caption) → crea tarea automática
 
 ❓ *Ayuda*
@@ -36,7 +37,7 @@ const HELP_TEXT_FULL = `🌲 *Acme Rentals · Comandos*
 
 _Sandbox de Kapso. Más comandos próximamente._`;
 
-const HELP_TEXT_STAFF = `🌲 *Acme Rentals · Comandos*
+const HELP_TEXT_STAFF = `🌲 *${OPERATOR_NAME} · Comandos*
 
 📋 *Tareas*
 • \`tareas\` — tus tareas pendientes
@@ -160,7 +161,7 @@ async function buildMyTasksReport(profileId: string): Promise<string> {
   return (
     `📋 *Tus tareas pendientes* (${tasks.length})\n\n` +
     lines.join("\n\n") +
-    `\n\n_Marcá hechas en: admin.example.com/mis-tareas_`
+    `\n\n_Marcá hechas en: ${APP_HOST}/mis-tareas_`
   );
 }
 
@@ -187,7 +188,7 @@ export async function runCommand(
       return (
         `🔒 Tu número (\`${normalized}\`) no está vinculado a ningún usuario.\n\n` +
         `Pedile a un admin/gestor que te cargue ese número exacto en tu perfil ` +
-        `(admin.example.com → Usuarios → editar) y reintentá.`
+        `(${APP_HOST} → Usuarios → editar) y reintentá.`
       );
     }
     return await buildMyTasksReport(profile.id);
@@ -203,7 +204,7 @@ export async function runCommand(
       return HELP_TEXT_STAFF;
     }
     const normalized = normalizePhone(fromPhone) ?? fromPhone;
-    return `🔒 Tu número (\`${normalized}\`) no está autorizado para usar comandos.\n\nSi sos admin/gestor de Acme Rentals, cargá ese número exacto en tu profile (admin.example.com → Usuarios → editar) y reintentá.`;
+    return `🔒 Tu número (\`${normalized}\`) no está autorizado para usar comandos.\n\nSi sos admin/gestor de ${OPERATOR_NAME}, cargá ese número exacto en tu profile (${APP_HOST} → Usuarios → editar) y reintentá.`;
   }
 
   switch (command.type) {

@@ -11,6 +11,7 @@ import {
   startOfTodayIso,
 } from "@/lib/tuya/snapshots";
 import { buildSensorSummary } from "@/lib/sensors/reports";
+import { OPERATOR_NAME } from "@/lib/brand";
 import type { Property } from "@/lib/types";
 
 type PropertyRow = Pick<
@@ -216,7 +217,7 @@ export async function buildConsumptionReport(opts?: {
 
   // Build the message.
   const lines: string[] = [];
-  lines.push("🌲 *Consumo Acme Rentals*");
+  lines.push(`🌲 *Consumo ${OPERATOR_NAME}*`);
   lines.push("");
 
   // Today section

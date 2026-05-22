@@ -12,7 +12,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  *
  * Útil para diagnosticar por qué el sort_order no refleja Smart Life.
  * No modifica nada — el user lo abre directo en el browser:
- *   https://admin.example.com/api/admin/tuya/inspect-rooms
+ *   GET <APP_URL>/api/admin/tuya/inspect-rooms
  */
 export async function GET() {
   await requireRole(["admin"]);

@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans, Lora, IBM_Plex_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ServiceWorkerRegister } from "@/components/sw-register";
 import { Toaster } from "@/components/ui/sonner";
+import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
 import "./globals.css";
 
 /**
@@ -31,11 +32,11 @@ const ibmMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tero Admin",
-  description: "Panel de administración.",
+  title: APP_NAME,
+  description: APP_TAGLINE,
   appleWebApp: {
     capable: true,
-    title: "Tero Admin",
+    title: APP_NAME,
     statusBarStyle: "black-translucent",
   },
   // iOS PWA splash: usa el apple-touch-icon + background del manifest.

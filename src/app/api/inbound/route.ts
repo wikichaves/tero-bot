@@ -16,8 +16,8 @@ import {
  * When the recipient alias doesn't match a known route (e.g. the user is
  * forwarding to the random Postmark-generated address like
  * `719d26d1581cabce04938993c0a10c52@inbound.postmarkapp.com` instead of a
- * custom alias such as `airbnb@inbound.example.com`), we fall
- * back to inferring the sender. This keeps the dispatch working without
+ * custom alias on their own inbound domain), we fall back to inferring
+ * the sender. This keeps the dispatch working without
  * requiring DNS setup for a custom inbound domain.
  *
  * Patterns are matched against `body.From` (and `FromFull.Email`) using
@@ -51,8 +51,9 @@ export const maxDuration = 60;
 
 /**
  * Single Postmark Inbound entrypoint. Postmark posts every email that
- * arrives at *@inbound.example.com here; we dispatch by the
- * `To` (local-part) alias to the right handler:
+ * arrives at the configured inbound domain (or the random Postmark
+ * address); we dispatch by the `To` (local-part) alias to the right
+ * handler:
  *
  *   airbnb@                              → handleAirbnbInbound
  *   bills@ / facturas@ / luz@ / agua@ /  → handleBillInbound

@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { APP_HOST } from "@/lib/brand";
 import {
   persistMessage,
   sendKapsoText,
@@ -22,8 +23,8 @@ import type { EvaluatedEvent } from "./alarms";
  *     queremos volver a intentar si después conectamos a otro admin).
  *
  * Out of scope V1: rate limiting per recipient, templates para casos
- * fuera de la ventana 24h. Para Casa Bosque (1-2 admins activos en
- * WA), no hace falta todavía.
+ * fuera de la ventana 24h. Para un operator con 1-2 admins activos en
+ * WA, no hace falta todavía.
  */
 
 function emojiFor(metric: "temperature_c" | "humidity_pct"): string {
@@ -60,7 +61,7 @@ function buildMessage(ev: EvaluatedEvent): string {
       `${emojiFor(m)} *${valStr}* en *${location}*\n` +
       `Umbral: ${op} ${thrStr}` +
       sensorLine +
-      `\n\n_Ver detalle: admin.example.com/ambientes_`
+      `\n\n_Ver detalle: ${APP_HOST}/ambientes_`
     );
   }
   // resolved

@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { APP_HOST } from "@/lib/brand";
 import type { Profile, Property, Task } from "@/lib/types";
 
 /**
@@ -324,8 +325,8 @@ export async function createTaskFromWhatsApp(
     ? `\n👤 Asignada a vos.`
     : `\n👤 Sin asignar — algún admin/gestor te la deriva.`;
   const link = isStaff
-    ? "admin.example.com/mis-tareas"
-    : `admin.example.com/tasks/${inserted.id}`;
+    ? `${APP_HOST}/mis-tareas`
+    : `${APP_HOST}/tasks/${inserted.id}`;
   const reply =
     `✅ *Tarea creada*\n\n` +
     `*${title}*\n` +

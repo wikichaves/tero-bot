@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { percentile } from "@/lib/stats";
+import { APP_HOST } from "@/lib/brand";
 
 /**
  * Build the "Ambientes" section of the daily report (WIK-82 F4).
@@ -114,11 +115,11 @@ export async function buildSensorSummary(
  * Format:
  *   🌡️ Ambientes — últimas 24 h
  *
- *   📍 Acme Rentals
+ *   📍 Property A
  *   • Living · 18.2°C · 65%
  *   • Kids · 19.5°C · 60%
  *
- *   📍 Casa Secundaria
+ *   📍 Property B
  *   • Master · ...
  *
  * Si no hay rooms con devices, mensaje guía. Si hay rooms pero ningún
@@ -178,7 +179,7 @@ export async function buildRoomsReport(
   }>;
 
   if (devices.length === 0) {
-    return "📭 No hay sensores T/H asignados. Asignalos en admin.example.com/admin/tuya";
+    return `📭 No hay sensores T/H asignados. Asignalos en ${APP_HOST}/admin/tuya`;
   }
 
   // 4. Snapshots últimas 24h para esos devices.
@@ -261,6 +262,6 @@ export async function buildRoomsReport(
     return "📭 Ningún ambiente tiene lecturas en las últimas 24h. Forzá una captura desde /admin/tuya.";
   }
 
-  lines.push("_Detalle: admin.example.com/ambientes_");
+  lines.push(`_Detalle: ${APP_HOST}/ambientes_`);
   return lines.join("\n").trim();
 }

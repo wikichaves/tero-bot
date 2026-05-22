@@ -2,6 +2,7 @@ import "server-only";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { APP_HOST } from "@/lib/brand";
 import { persistMessage, sendKapsoText, upsertConversation } from "./index";
 
 /**
@@ -66,7 +67,7 @@ function buildAssignedMessage(t: TaskRow): string {
     propertyLine +
     dueLine +
     descLine +
-    `\n\n_Detalle: admin.example.com/tasks/${t.id}_`
+    `\n\n_Detalle: ${APP_HOST}/tasks/${t.id}_`
   );
 }
 
@@ -179,7 +180,7 @@ function buildStatusChangedMessage(t: TaskRow): string {
     `*${t.title}*\n` +
     `🔧 ${KIND_LABEL[t.kind]}` +
     propertyLine +
-    `\n\n_Detalle: admin.example.com/tasks/${t.id}_`
+    `\n\n_Detalle: ${APP_HOST}/tasks/${t.id}_`
   );
 }
 
