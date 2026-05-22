@@ -344,22 +344,38 @@ export const preCheckinClimateAlert: WhatsAppTemplate = {
 //    informativo — sin botones — para que el gestor sepa si el ambiente
 //    está aclimatando bien.
 
+/**
+ * v2 — el body original tenía 5 variables sobre poco texto fijo: Meta
+ * rechazaba con error_subcode 2388293 (Params Words Ratio Exceeds Limit).
+ * Reducido a 4 variables + más contexto explicativo en el cuerpo para
+ * pasar la verificación de ratio. La temp inicial ahora se inlinea en
+ * el `estado` (var 3) — ej. "Va bien (inició en 14°C)" — en lugar de
+ * variable propia.
+ */
 export const preCheckinClimateUpdate: WhatsAppTemplate = {
   name: "pre_checkin_climate_update",
   language: "es",
   category: "UTILITY",
   description:
-    "Update informativo del progreso del acondicionamiento. Sin buttons. Variables: 1=property, 2=temp actual, 3=temp inicial (cuando arrancó el acondicionamiento), 4='falta 1 hora' o 'llegan ahora', 5='Va bien' o 'No está aclimatando como esperado'.",
+    "Update informativo del progreso del acondicionamiento (sin buttons). Variables: 1=property, 2=temp actual con °C, 3=estado con context (ej. 'Va bien, inició en 14°C'), 4='1 hora' o 'menos de 30 minutos'.",
   components: [
     {
       type: "BODY",
       text:
-        "🌡 *{{1}}* — {{4}} para el check-in\n\n" +
-        "Temperatura ahora: *{{2}}* (arrancó en {{3}})\n" +
-        "{{5}}",
+        "🌡 Actualización del acondicionamiento ambiental antes del check-in.\n\n" +
+        "Propiedad: *{{1}}*\n" +
+        "Temperatura actual: *{{2}}*\n\n" +
+        "Estado: {{3}}\n" +
+        "Tiempo hasta el check-in: {{4}}\n\n" +
+        "Si querés ajustar manualmente las estufas o el aire, podés hacerlo en Smart Life. El histórico completo está en admin.example.com/dashboard.",
       example: {
         body_text: [
-          ["Acme Rentals", "19°C", "14°C", "falta 1 hora", "Va bien"],
+          [
+            "Acme Rentals",
+            "19°C",
+            "Va bien, inició en 14°C",
+            "1 hora",
+          ],
         ],
       },
     },

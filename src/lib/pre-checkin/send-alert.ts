@@ -209,7 +209,9 @@ export async function sendPreCheckinUpdate(
   const isMock = process.env.MOCK_WHATSAPP_TEMPLATES === "true";
 
   const nextStage = stageBefore === "started" ? "check_1h_done" : "check_0h_done";
-  const remainingLabel = stageBefore === "started" ? "falta 1 hora" : "llegan ahora";
+  // WIK-125 v2: el template aprobado tiene 4 vars (no 5). Mantenemos
+  // el texto natural en español para el campo "tiempo hasta check-in".
+  const remainingLabel = stageBefore === "started" ? "1 hora" : "menos de 30 minutos";
 
   const reading = await getCurrentTempForProperty(candidate.property_id);
   const initial = candidate.initial_temp_c;
@@ -220,22 +222,25 @@ export async function sendPreCheckinUpdate(
 
   // "Va bien" if delta is in the right direction (warming when we needed
   // heat, cooling when we needed cool) AND we're already inside the range
-  // OR moving toward it. We don't have the original decision direction
-  // stored separately, so infer from initial vs current target.
+  // OR moving toward it. Compose the "status with context" string used
+  // as variable {{3}} in the template (combines what was previously
+  // 2 separate variables for status + initial-temp).
   const targetMin = candidate.target_min_c;
   const targetMax = candidate.target_max_c;
-  let progressLabel = "Sin datos suficientes para evaluar el progreso";
+  let progressLabel = "sin datos suficientes para evaluar";
   if (reading.temp_c != null && targetMin != null && targetMax != null) {
     const inRange = reading.temp_c >= targetMin && reading.temp_c <= targetMax;
     if (inRange) {
-      progressLabel = "✓ Ambiente en rango target";
+      progressLabel = `✓ ambiente en rango target${initial != null ? `, inició en ${initial}°C` : ""}`;
     } else if (deltaC != null && initial != null) {
-      // Moving toward range?
       const wasBelow = initial < targetMin;
       const wasAbove = initial > targetMax;
-      if (wasBelow && deltaC > 0.5) progressLabel = "Va bien (subiendo)";
-      else if (wasAbove && deltaC < -0.5) progressLabel = "Va bien (bajando)";
-      else progressLabel = "No está aclimatando como esperado";
+      if (wasBelow && deltaC > 0.5)
+        progressLabel = `Va bien (subiendo, inició en ${initial}°C)`;
+      else if (wasAbove && deltaC < -0.5)
+        progressLabel = `Va bien (bajando, inició en ${initial}°C)`;
+      else
+        progressLabel = `No está aclimatando como esperado (inició en ${initial}°C)`;
     }
   }
 
@@ -255,12 +260,13 @@ export async function sendPreCheckinUpdate(
     };
   }
 
+  // 4 variables (v2 template). The initial-temp context is now folded
+  // into `progressLabel` rather than being a separate var.
   const bodyVariables = [
     candidate.property_name,
     `${reading.temp_c ?? "?"}°C`,
-    initial != null ? `${initial}°C` : "—",
-    remainingLabel,
     progressLabel,
+    remainingLabel,
   ];
 
   if (isMock || !phoneNumberId) {
