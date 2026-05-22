@@ -74,7 +74,7 @@ export default async function LandingPage() {
               variant="outline"
               render={
                 <a
-                  href="https://github.com/wikichaves/tero-admin"
+                  href="https://github.com/wikichaves/tero-bot"
                   target="_blank"
                   rel="noopener"
                 />
@@ -89,12 +89,12 @@ export default async function LandingPage() {
       <footer className="border-t border-border/60 px-5 py-6 text-center text-xs text-muted-foreground sm:px-8">
         Open source under MIT.{" "}
         <a
-          href="https://github.com/wikichaves/tero-admin"
+          href="https://github.com/wikichaves/tero-bot"
           target="_blank"
           rel="noopener"
           className="underline-offset-4 hover:text-foreground hover:underline"
         >
-          github.com/wikichaves/tero-admin
+          github.com/wikichaves/tero-bot
         </a>
       </footer>
     </div>
