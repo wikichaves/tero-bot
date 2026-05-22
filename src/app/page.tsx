@@ -40,11 +40,12 @@ export default async function LandingPage() {
   return (
     <div className="relative flex min-h-screen flex-col">
       {/* Film-grain texture. Fixed position so it covers the whole
-          viewport even when scrolling. Very low opacity so it reads
-          as subtle paper/print noise, not actual visual data. */}
+          viewport even when scrolling. Opacity is asymmetric: dark
+          mode needs more grain to read on near-black, light mode
+          stays subtler so it doesn't muddy near-white. */}
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0 -z-10 opacity-[0.06] dark:opacity-[0.10]"
+        className="pointer-events-none fixed inset-0 -z-10 opacity-[0.12] dark:opacity-[0.22]"
         style={{
           backgroundImage: "url(/landing/noise.svg)",
           backgroundSize: "240px",
