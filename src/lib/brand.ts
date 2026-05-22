@@ -24,7 +24,7 @@ export const APP_NAME = "tero.bot";
 /**
  * One-line tagline. Used in metadata description and the public landing.
  */
-export const APP_TAGLINE = "Property management for short-term rentals";
+export const APP_TAGLINE = "Operativa para alquileres temporarios";
 
 /**
  * Helper for the WhatsApp footers and daily-report subheaders.

@@ -1,12 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  Bird,
-  ArrowRight,
-  Thermometer,
-  Mail,
-  MessageCircle,
-} from "lucide-react";
+import { Bird, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/mode-toggle";
 import { createClient } from "@/lib/supabase/server";
@@ -15,22 +9,28 @@ import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
 /**
  * Public landing page (WIK-131).
  *
- * Was a behind-auth redirect: `/` → /dashboard for logged-in users,
- * /login for anonymous. Now `/` is a public marketing page; logged-in
- * users get auto-redirected to /dashboard so the landing only shows up
- * for new/anonymous visitors.
- *
- * Middleware whitelists `/` in PUBLIC_PATHS so unauthenticated requests
+ * `/` is a public marketing page; logged-in users get auto-redirected
+ * to /dashboard so the landing only shows up for new / anonymous
+ * visitors. Middleware whitelists `/` so unauthenticated requests
  * don't bounce to /login.
  *
  * Content is in Spanish (rioplatense neutral) — the operator is in
- * Uruguay and most readers come from a Spanish-speaking referrer. EN
- * translation pending.
+ * Uruguay and most readers come from a Spanish-speaking referrer.
+ * Some terms intentionally stay in English: product/tool names
+ * (Linear, Claude Code, Vercel, Kapso), the "Pod-of-One" concept, and
+ * a handful of dev jargon (loop, push, commit) that's standard in
+ * tech-Spanish.
+ *
+ * Visual layering:
+ *   1. Background color from theme (`--background`).
+ *   2. Fixed full-viewport noise overlay (public/landing/noise.svg)
+ *      at very low opacity — adds film-grain texture so the page
+ *      doesn't read as flat. Sits behind content via -z-10.
+ *   3. Page content with section dividers.
  */
 export default async function LandingPage() {
   // Don't use `requireUser` — that redirects anonymous to /login, which
-  // is exactly what we want to *avoid* on the public landing. Check the
-  // session manually and only redirect if we have one.
+  // is exactly what we want to avoid on the public landing.
   const supabase = await createClient();
   const {
     data: { user },
@@ -39,6 +39,18 @@ export default async function LandingPage() {
 
   return (
     <div className="relative flex min-h-screen flex-col">
+      {/* Film-grain texture. Fixed position so it covers the whole
+          viewport even when scrolling. Very low opacity so it reads
+          as subtle paper/print noise, not actual visual data. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10 opacity-[0.06] dark:opacity-[0.10]"
+        style={{
+          backgroundImage: "url(/landing/noise.svg)",
+          backgroundSize: "240px",
+        }}
+      />
+
       {/* Header — minimal, just logo + theme toggle + sign-in. */}
       <header className="flex items-center justify-between px-5 py-4 sm:px-8">
         <Link
@@ -55,9 +67,9 @@ export default async function LandingPage() {
       </header>
 
       <main className="flex flex-1 flex-col">
-        {/* Hero. */}
-        <section className="flex flex-col items-center px-5 pt-12 pb-20 text-center sm:px-8 sm:pt-20 sm:pb-28">
-          <div className="flex max-w-2xl flex-col items-center gap-8">
+        {/* Hero — copy + photo. */}
+        <section className="px-5 pt-12 pb-16 sm:px-8 sm:pt-20 sm:pb-24">
+          <div className="mx-auto flex max-w-3xl flex-col items-center gap-8 text-center">
             <Bird
               className="h-16 w-16 text-primary"
               strokeWidth={1.5}
@@ -96,6 +108,32 @@ export default async function LandingPage() {
               </Button>
             </div>
           </div>
+
+          {/* Atmosphere shot — wide, centered, sits between hero copy
+              and the next section. Establishes the "warm cabin" tone. */}
+          <figure className="mx-auto mt-16 max-w-5xl sm:mt-20">
+            <picture>
+              <source
+                srcSet="/landing/Tero-Atmosphere.avif"
+                type="image/avif"
+              />
+              <source
+                srcSet="/landing/Tero-Atmosphere.webp"
+                type="image/webp"
+              />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/landing/Tero-Atmosphere.jpg"
+                alt="Una pareja recién llegada a una cabaña en el bosque sostiene tazas calientes junto a una estufa encendida; el termostato muestra 22°C."
+                className="w-full rounded-2xl border border-border/60 object-cover shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-border/40 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4)]"
+                loading="eager"
+              />
+            </picture>
+            <figcaption className="mt-3 text-center text-sm text-muted-foreground">
+              El huésped llega y la casa ya está a 22°C — el clima se
+              configuró horas antes.
+            </figcaption>
+          </figure>
         </section>
 
         {/* The problem. */}
@@ -132,9 +170,10 @@ export default async function LandingPage() {
           </div>
         </section>
 
-        {/* The three modules. */}
+        {/* The three modules. Cards now have a photo on top instead of
+            an icon — the photo carries the meaning visually. */}
         <section className="border-t border-border/60 px-5 py-16 sm:px-8 sm:py-20">
-          <div className="mx-auto flex max-w-4xl flex-col gap-12">
+          <div className="mx-auto flex max-w-5xl flex-col gap-12">
             <div className="mx-auto flex max-w-2xl flex-col gap-3 text-center">
               <h2 className="text-3xl font-semibold sm:text-4xl">
                 Tres módulos. Un sistema.
@@ -147,21 +186,24 @@ export default async function LandingPage() {
 
             <div className="grid gap-6 md:grid-cols-3">
               <ModuleCard
-                icon={Thermometer}
+                photoBase="/landing/Tero-Hospitality"
+                photoAlt="Tarjetas de temperatura y humedad en vivo por ambiente del complejo."
                 title="Hospitalidad automática"
                 challenge="La experiencia del huésped no empieza con las llaves — empieza con el confort térmico al cruzar la puerta."
                 module="Control de temperatura y humedad integrado. Pre-acondicionamiento 2h antes del check-in."
                 philosophy="A veces la mejor UI no es una pantalla — es el clima perfecto cuando alguien entra."
               />
               <ModuleCard
-                icon={Mail}
+                photoBase="/landing/Tero-System-Overview"
+                photoAlt="Dashboard mostrando consumo de energía en vivo y costo por propiedad."
                 title="Operaciones invisibles"
                 challenge="Trackear costos de energía manualmente y matchearlos contra ocupación real es un sumidero de tiempo administrativo."
                 module="Un flow backend que intercepta facturas reenviadas por email, parsea los datos, y los matchea automáticamente contra el consumo real."
                 philosophy="Las tareas burocráticas las resuelve el backend. Menos interfaces manuales, más integraciones invisibles."
               />
               <ModuleCard
-                icon={MessageCircle}
+                photoBase="/landing/Tero-Team-UI-Context"
+                photoAlt="Una mano sostiene un celular mostrando el chat de WhatsApp con el bot de tero.bot creando una tarea."
                 title="UI cero fricción"
                 challenge="Forzar al personal a descargar otra app y aprender un sistema nuevo genera resistencia y errores."
                 module="Reportes de incidentes, asignación de tareas, tracking y notificaciones — todo por WhatsApp."
@@ -201,14 +243,14 @@ export default async function LandingPage() {
               <em>Linear</em> guarda el backlog. Cada bug o idea abre un issue.{" "}
               <em>Claude Code</em> lee el issue, escribe el patch, abre un
               commit referenciándolo, y pushea. <em>Vercel</em> deploya cada
-              push en menos de un minuto — y Linear auto-cierra el issue vía el
-              link del commit.
+              push en menos de un minuto — y Linear auto-cierra el issue vía
+              el link del commit.
             </p>
             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
               Lo que antes era un handoff multi-persona — grooming, dev, code
               review, QA, ticket de deploy — colapsa en una sola conversación.
-              El costo por cambio shippeado baja lo suficiente como para que la
-              micro-iteración sea el default, no la excepción.
+              El costo por cambio shippeado baja lo suficiente como para que
+              la micro-iteración sea el default, no la excepción.
             </p>
           </div>
         </section>
@@ -217,7 +259,7 @@ export default async function LandingPage() {
         <section className="border-t border-border/60 px-5 py-16 sm:px-8 sm:py-20">
           <div className="mx-auto flex max-w-2xl flex-col gap-6">
             <h2 className="text-3xl font-semibold sm:text-4xl">
-              Source-available.
+              Código disponible.
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
               Creo en el <em>context engineering</em> y en aprender en público.{" "}
@@ -226,8 +268,8 @@ export default async function LandingPage() {
               compartir el system design y acelerar el aprendizaje colectivo.
             </p>
             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
-              No es un proyecto open-source mantenido por comunidad. Está
-              provisto &ldquo;as is&rdquo;, sin soporte de terceros y sin
+              No es un proyecto open-source mantenido por la comunidad. Está
+              provisto &ldquo;tal cual&rdquo;, sin soporte de terceros y sin
               aceptar Pull Requests. Sentite libre de explorar el código,
               forkearlo, y usar los conceptos para construir tus propios
               sistemas.
@@ -262,7 +304,7 @@ export default async function LandingPage() {
       </main>
 
       <footer className="border-t border-border/60 px-5 py-6 text-center text-xs text-muted-foreground sm:px-8">
-        Open source under MIT.{" "}
+        Código abierto bajo licencia MIT.{" "}
         <a
           href="https://github.com/wikichaves/tero-bot"
           target="_blank"
@@ -276,46 +318,64 @@ export default async function LandingPage() {
   );
 }
 
-/** A single module card — used in the three-modules grid. */
+/** A single module card. Image-on-top, then the problem/module/philosophy
+ *  trio. The image is responsive across avif/webp/jpg and crops to a
+ *  16:9 box via `aspect-video` + object-cover. */
 function ModuleCard({
-  icon: Icon,
+  photoBase,
+  photoAlt,
   title,
   challenge,
   module,
   philosophy,
 }: {
-  icon: typeof Thermometer;
+  /** Path without extension — we attach `.avif`, `.webp`, `.jpg` for
+   *  the `<picture>` srcset. */
+  photoBase: string;
+  photoAlt: string;
   title: string;
   challenge: string;
   module: string;
   philosophy: string;
 }) {
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-border/60 bg-card p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-border/40 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
-      <Icon className="h-6 w-6 text-primary" strokeWidth={1.5} aria-hidden />
-      <h3 className="text-xl font-semibold">{title}</h3>
-      <dl className="flex flex-col gap-3 text-sm">
-        <div>
-          <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            El problema
-          </dt>
-          <dd className="mt-1 leading-relaxed">{challenge}</dd>
-        </div>
-        <div>
-          <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            El módulo
-          </dt>
-          <dd className="mt-1 leading-relaxed">{module}</dd>
-        </div>
-        <div>
-          <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            La filosofía
-          </dt>
-          <dd className="mt-1 leading-relaxed text-muted-foreground">
-            {philosophy}
-          </dd>
-        </div>
-      </dl>
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-border/40 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+      <picture>
+        <source srcSet={`${photoBase}.avif`} type="image/avif" />
+        <source srcSet={`${photoBase}.webp`} type="image/webp" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`${photoBase}.jpg`}
+          alt={photoAlt}
+          className="aspect-video w-full object-cover"
+          loading="lazy"
+        />
+      </picture>
+      <div className="flex flex-col gap-4 p-6">
+        <h3 className="text-xl font-semibold">{title}</h3>
+        <dl className="flex flex-col gap-3 text-sm">
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              El problema
+            </dt>
+            <dd className="mt-1 leading-relaxed">{challenge}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              El módulo
+            </dt>
+            <dd className="mt-1 leading-relaxed">{module}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              La filosofía
+            </dt>
+            <dd className="mt-1 leading-relaxed text-muted-foreground">
+              {philosophy}
+            </dd>
+          </div>
+        </dl>
+      </div>
     </div>
   );
 }
