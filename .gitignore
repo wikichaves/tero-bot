@@ -46,6 +46,11 @@ next-env.d.ts
 .claude/settings.local.json
 .env*.local
 
+# Claude Code MCP config — per-developer, references your own Supabase
+# project ref / other MCP server URLs. Copy .mcp.json.example to .mcp.json
+# and fill in your values.
+.mcp.json
+
 # Local-only working files — assets crudos antes de procesar, drafts, etc.
 # No subir al repo (typicamente PSDs, logos originales, samples).
 /_archive/
