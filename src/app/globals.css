@@ -14,10 +14,13 @@
  *
  * Fonts (registradas en src/app/layout.tsx via next/font/google):
  *   - Geist Sans → --font-sans (default UI) — WIK-128
- *   - Lora → --font-serif (display, opcional)
+ *   - Source Serif 4 → --font-serif & --font-heading (all h1..h3) — WIK-131
  *   - Geist Mono → --font-mono (códigos, IDs) — WIK-128
  *
- * Radius 0.4rem (más cuadrado que el theme anterior de 0.625).
+ * WIK-131: bumped the muted/border tones from neutral grey into the
+ * warm-grey family inspired by the design portfolio (rgb(168,164,154)
+ * = the same `--ink-dim` used on wikichaves.com). Gives the whole UI
+ * a less "stock shadcn" feel and pairs with the serif headings.
  */
 
 @theme inline {
@@ -56,7 +59,9 @@
   --font-sans: var(--font-sans);
   --font-serif: var(--font-serif);
   --font-mono: var(--font-mono);
-  --font-heading: var(--font-sans);
+  /* WIK-131: heading utility class + base `<h1..h3>` now use the
+     serif (Source Serif 4). Body / button / input / nav stay sans. */
+  --font-heading: var(--font-serif);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -74,14 +79,17 @@
   --primary-foreground: rgb(0, 0, 0);
   --secondary: rgb(252, 253, 253);
   --secondary-foreground: rgb(8, 8, 8);
-  --muted: rgb(245, 245, 245);
-  --muted-foreground: rgb(82, 82, 82);
+  --muted: rgb(245, 244, 240);
+  /* WIK-131: warm-grey muted text (matches `--ink-dim` from the design
+     portfolio). Darker version for light bg so it stays readable. */
+  --muted-foreground: rgb(120, 116, 105);
   --accent: rgb(249, 255, 252);
   --accent-foreground: rgb(13, 159, 93);
   --destructive: rgb(245, 74, 136);
   --destructive-foreground: rgb(255, 255, 255);
-  --border: rgb(228, 228, 228);
-  --input: rgb(235, 235, 235);
+  /* WIK-131: borders pulled into the same warm-grey family. */
+  --border: rgb(228, 224, 215);
+  --input: rgb(235, 232, 224);
   --ring: rgb(81, 240, 168);
   --chart-1: rgb(81, 240, 168);
   --chart-2: rgb(126, 254, 143);
@@ -96,7 +104,10 @@
   --sidebar-accent-foreground: rgb(0, 0, 0);
   --sidebar-border: rgb(235, 235, 235);
   --sidebar-ring: rgb(0, 0, 0);
-  --radius: 0.625rem;
+  /* WIK-131: shrunk from 0.625rem so buttons / inputs / chips read
+     more "squared" and editorial. Cards stay rounded via the
+     explicit `rounded-2xl` they apply on top of this. */
+  --radius: 0.375rem;
 }
 
 .dark {
@@ -110,14 +121,16 @@
   --primary-foreground: rgb(0, 0, 0);
   --secondary: rgb(33, 106, 73);
   --secondary-foreground: rgb(240, 240, 240);
-  --muted: rgb(37, 37, 39);
-  --muted-foreground: rgb(150, 150, 150);
+  --muted: rgb(35, 35, 31);
+  /* WIK-131: exact warm-grey from the portfolio's `--ink-dim`. */
+  --muted-foreground: rgb(168, 164, 154);
   --accent: rgb(9, 55, 35);
   --accent-foreground: rgb(254, 254, 254);
   --destructive: rgb(255, 120, 165);
   --destructive-foreground: rgb(255, 255, 255);
-  --border: rgb(45, 45, 47);
-  --input: rgb(59, 59, 59);
+  /* WIK-131: warm-tinted borders/inputs to match the muted family. */
+  --border: rgb(45, 45, 41);
+  --input: rgb(59, 58, 53);
   --ring: rgb(81, 240, 168);
   --chart-1: rgb(81, 240, 168);
   --chart-2: rgb(158, 255, 161);
@@ -178,21 +191,20 @@
     }
   }
 
-  /* WIK-128: page heading rhythm. Pages still use Tailwind utility
-     classes (e.g. `text-2xl font-semibold`) which override these — these
-     are baseline defaults so unstyled <h1>/<h2>/<h3> look right and
-     standard markdown rendering (e.g. utility-bill notes) doesn't
-     fall back to browser defaults. */
+  /* WIK-128 / WIK-131: page heading rhythm. Headings use the serif
+     (`font-heading` resolves to Source Serif 4). Removed the
+     `tracking-tight` from the sans-era — serifs already pack tightly
+     and the negative tracking made them feel cramped. */
   h1 {
-    @apply font-heading text-3xl font-semibold tracking-tight;
+    @apply font-heading text-3xl font-semibold;
     line-height: 1.15;
   }
   h2 {
-    @apply font-heading text-2xl font-semibold tracking-tight;
+    @apply font-heading text-2xl font-semibold;
     line-height: 1.2;
   }
   h3 {
-    @apply font-heading text-xl font-semibold tracking-tight;
+    @apply font-heading text-xl font-semibold;
     line-height: 1.3;
   }
 }

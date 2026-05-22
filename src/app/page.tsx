@@ -64,7 +64,7 @@ export default async function LandingPage() {
               aria-hidden
             />
             <div className="flex flex-col gap-4">
-              <h1 className="text-5xl font-semibold tracking-tight sm:text-6xl">
+              <h1 className="text-5xl font-semibold sm:text-6xl">
                 {APP_NAME}
               </h1>
               <p className="text-balance text-lg text-muted-foreground sm:text-xl">
@@ -101,7 +101,7 @@ export default async function LandingPage() {
         {/* The problem. */}
         <section className="border-t border-border/60 px-5 py-16 sm:px-8 sm:py-20">
           <div className="mx-auto flex max-w-2xl flex-col gap-5">
-            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h2 className="text-3xl font-semibold sm:text-4xl">
               El problema con la mayoría de los PMS.
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
@@ -136,7 +136,7 @@ export default async function LandingPage() {
         <section className="border-t border-border/60 px-5 py-16 sm:px-8 sm:py-20">
           <div className="mx-auto flex max-w-4xl flex-col gap-12">
             <div className="mx-auto flex max-w-2xl flex-col gap-3 text-center">
-              <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              <h2 className="text-3xl font-semibold sm:text-4xl">
                 Tres módulos. Un sistema.
               </h2>
               <p className="text-base text-muted-foreground sm:text-lg">
@@ -174,7 +174,7 @@ export default async function LandingPage() {
         {/* The pipeline. */}
         <section className="border-t border-border/60 px-5 py-16 sm:px-8 sm:py-20">
           <div className="mx-auto flex max-w-2xl flex-col gap-6">
-            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h2 className="text-3xl font-semibold sm:text-4xl">
               Idea → producción, en un loop.
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
@@ -216,7 +216,7 @@ export default async function LandingPage() {
         {/* Source-available. */}
         <section className="border-t border-border/60 px-5 py-16 sm:px-8 sm:py-20">
           <div className="mx-auto flex max-w-2xl flex-col gap-6">
-            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h2 className="text-3xl font-semibold sm:text-4xl">
               Source-available.
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
@@ -293,7 +293,7 @@ function ModuleCard({
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-border/60 bg-card p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-border/40 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
       <Icon className="h-6 w-6 text-primary" strokeWidth={1.5} aria-hidden />
-      <h3 className="text-xl font-semibold tracking-tight">{title}</h3>
+      <h3 className="text-xl font-semibold">{title}</h3>
       <dl className="flex flex-col gap-3 text-sm">
         <div>
           <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Lora } from "next/font/google";
+import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ServiceWorkerRegister } from "@/components/sw-register";
 import { Toaster } from "@/components/ui/sonner";
@@ -8,14 +8,11 @@ import "./globals.css";
 
 /**
  * Fonts del theme "tero.bot":
- *   - Geist Sans → sans (text/UI). WIK-128: switched from Plus Jakarta
- *     Sans for a cleaner, more "designed" feel + built-in tabular
- *     numerals (KPIs, currency, temps no longer need the `tabular-nums`
- *     utility class, though it stays defensive in code).
- *   - Lora → serif (display opcional, used sparingly).
- *   - Geist Mono → mono (code, IDs). WIK-128: replaced IBM Plex Mono so
- *     the mono pairs with the sans (same designer, same x-height,
- *     same character widths).
+ *   - Geist Sans → sans (body / UI). WIK-128.
+ *   - Source Serif 4 → serif (used as `--font-heading` for all h1..h3
+ *     and any `font-heading` utility — pulls the project closer to the
+ *     editorial / portfolio aesthetic). Was Lora pre-WIK-131.
+ *   - Geist Mono → mono (code, IDs). WIK-128.
  */
 const geistSans = Geist({
   variable: "--font-sans",
@@ -23,7 +20,7 @@ const geistSans = Geist({
   display: "swap",
 });
 
-const lora = Lora({
+const sourceSerif = Source_Serif_4({
   variable: "--font-serif",
   subsets: ["latin"],
   display: "swap",
@@ -80,7 +77,7 @@ export default function RootLayout({
     // we don't want React to warn about the resulting class mismatch.
     <html
       lang="es"
-      className={`${geistSans.variable} ${lora.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${sourceSerif.variable} ${geistMono.variable} h-full antialiased`}
       // WIK-92: el BG inicial del <html> lo maneja globals.css via
       // `prefers-color-scheme` CSS media query — sin inline style.
       // Light OS → white-ish, Dark OS → black, antes que next-themes
