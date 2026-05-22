@@ -103,8 +103,11 @@ export async function findDueAlarms({
     .not("due_date", "is", null)
     .in("status", ["pending", "in_progress"]);
 
-  const taskCandidates: TaskCandidate[] = [];
-  for (const t of (taskRows ?? []) as Array<{
+  // Type assertion via `unknown` — Supabase's auto-generated relation
+  // types are opaque (`GenericStringError`) when the schema isn't typed
+  // in advance via codegen. We know the actual shape from the .select()
+  // string above, so the double-cast is safe and explicit.
+  type TaskJoin = {
     id: string;
     title: string;
     due_date: string;
@@ -116,7 +119,9 @@ export async function findDueAlarms({
       whatsapp: string | null;
     } | null;
     property: { name: string } | null;
-  }>) {
+  };
+  const taskCandidates: TaskCandidate[] = [];
+  for (const t of ((taskRows ?? []) as unknown) as TaskJoin[]) {
     if (sentTaskIds.has(t.id)) continue;
     if (!t.assignee?.whatsapp) continue; // sin destino, sin alarma
     const dueIso = localToIso(t.due_date, t.due_time);
@@ -151,12 +156,19 @@ export async function findDueAlarms({
 
   // Pre-resolve property → primary-notify-profile map. We pick the first
   // gestor assigned to the property; if none, any admin.
+  type ReservationJoin = {
+    id: string;
+    guest_name: string | null;
+    check_in: string;
+    check_in_time: string | null;
+    alarm_hours_before: number;
+    property_id: string;
+    property: { name: string } | null;
+  };
+  const reservationList =
+    ((reservationRows ?? []) as unknown) as ReservationJoin[];
   const propertyIds = [
-    ...new Set(
-      ((reservationRows ?? []) as Array<{ property_id: string }>).map(
-        (r) => r.property_id,
-      ),
-    ),
+    ...new Set(reservationList.map((r) => r.property_id)),
   ];
   const notifyByProperty = new Map<
     string,
@@ -169,6 +181,15 @@ export async function findDueAlarms({
         "property_id, profile:profiles!inner(id, full_name, whatsapp, role)",
       )
       .in("property_id", propertyIds);
+    type AssignmentJoin = {
+      property_id: string;
+      profile: {
+        id: string;
+        full_name: string | null;
+        whatsapp: string | null;
+        role: string;
+      };
+    };
     const byProperty = new Map<
       string,
       Array<{
@@ -178,15 +199,7 @@ export async function findDueAlarms({
         role: string;
       }>
     >();
-    for (const a of (assignments ?? []) as Array<{
-      property_id: string;
-      profile: {
-        id: string;
-        full_name: string | null;
-        whatsapp: string | null;
-        role: string;
-      };
-    }>) {
+    for (const a of ((assignments ?? []) as unknown) as AssignmentJoin[]) {
       const arr = byProperty.get(a.property_id) ?? [];
       arr.push({
         profile_id: a.profile.id,
@@ -202,11 +215,12 @@ export async function findDueAlarms({
       .select("id, full_name, whatsapp")
       .eq("role", "admin")
       .not("whatsapp", "is", null);
-    const adminFallback = ((adminRows ?? []) as Array<{
+    type AdminRow = {
       id: string;
       full_name: string | null;
       whatsapp: string;
-    }>)[0];
+    };
+    const adminFallback = (((adminRows ?? []) as unknown) as AdminRow[])[0];
     for (const pid of propertyIds) {
       const candidates = byProperty.get(pid) ?? [];
       // Prefer gestor > admin; require whatsapp set.
@@ -241,15 +255,7 @@ export async function findDueAlarms({
   }
 
   const reservationCandidates: ReservationCandidate[] = [];
-  for (const r of (reservationRows ?? []) as Array<{
-    id: string;
-    guest_name: string | null;
-    check_in: string;
-    check_in_time: string | null;
-    alarm_hours_before: number;
-    property_id: string;
-    property: { name: string } | null;
-  }>) {
+  for (const r of reservationList) {
     if (sentReservationIds.has(r.id)) continue;
     const notify = notifyByProperty.get(r.property_id);
     if (!notify) continue; // sin destino, sin alarma
