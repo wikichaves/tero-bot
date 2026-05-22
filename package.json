@@ -13,7 +13,9 @@
     "test:parse-email": "tsx --test scripts/test-parse-email.ts",
     "airbnb:status": "tsx scripts/airbnb-inbound-status.ts",
     "airbnb:reprocess": "tsx scripts/airbnb-reprocess.ts",
-    "airbnb:reprocess:dry": "tsx scripts/airbnb-reprocess.ts --dry-run"
+    "airbnb:reprocess:dry": "tsx scripts/airbnb-reprocess.ts --dry-run",
+    "db:check": "tsx scripts/db-apply.ts --check",
+    "db:apply": "tsx scripts/db-apply.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -40,10 +42,12 @@
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pdf-parse": "^1.1.5",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "pg": "^8.21.0",
     "tailwindcss": "^4",
     "tsx": "^4.22.0",
     "typescript": "^5"
