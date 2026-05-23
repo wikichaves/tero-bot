@@ -162,7 +162,7 @@ export default async function LandingPage() {
               <a
                 href="https://x.com/gokulr/status/2051683243934826773"
                 target="_blank"
-                rel="noopener"
+                rel="noopener noreferrer"
                 className="underline underline-offset-4 hover:text-foreground"
               >
                 <em>&lsquo;Pod-of-One&rsquo;</em>
