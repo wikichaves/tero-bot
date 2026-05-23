@@ -29,6 +29,11 @@ export const APP_TAGLINE = "Operativa para alquileres temporarios";
 /**
  * Helper for the WhatsApp footers and daily-report subheaders.
  * Returns `"tero.bot · Tareas"`, `"tero.bot · Sensores"`, etc.
+ *
+ * The separator is U+00B7 (middle dot), not an ASCII hyphen or pipe.
+ * Don't replace it: the exact string is baked into already-approved
+ * WhatsApp template FOOTERs (see `src/lib/whatsapp/templates.ts`), so a
+ * silent edit here would force re-submission and Meta re-approval.
  */
 export function brandedFooter(subsystem: string): string {
   return `${APP_NAME} · ${subsystem}`;
