@@ -1,201 +1,311 @@
-# WIK-97: Tero Bot ↔ Linear ↔ Claude autónomo
+# WIK-97: Tero Bot ↔ Telegram ↔ Linear ↔ Claude autónomo
 
-**Estado**: P1 implementado (commit `8752773`). P2–P5 documentados como
-sub-issues (WIK-136 → WIK-139).
+**Estado**: P1 implementado.
+**Canal**: Telegram (no WhatsApp — ver "Por qué Telegram" abajo).
 
-Este doc es la **guía de setup + testing mobile-friendly** para activar
-el sistema. Pensado para leer desde el celular durante el viaje.
+Esta es la guía de setup + testing mobile-friendly para activar el sistema.
+Pensado para leer desde el celular durante el viaje.
 
 ---
 
 ## 1. Qué se construyó
 
+```
+Telegram (@your_dev_bot)  →  /api/telegram  →  /linear, /claude (admin only)
+                                                    ↓
+                                              crea Linear issue
+                                                    ↓
+                              (con label claude:autonomous para /claude)
+                                                    ↓
+                              GitHub Action "Claude worker" (manual o cron)
+                                                    ↓
+                                          Claude Code headless
+                                                    ↓
+                                              abre PR en GitHub
+                                                    ↓
+                                  vos mergéas desde GitHub mobile → Vercel deploy
+```
+
 | Pieza | Archivo | Función |
 |---|---|---|
-| Cmd `linear` | `src/lib/whatsapp/commands.ts` + `src/lib/linear/create-issue.ts` | Crea Linear issue desde WhatsApp |
-| Cmd `claude` | mismo | Encola prompt como Linear issue con label `claude:autonomous` |
-| Worker autónomo | `.github/workflows/claude-worker.yml` | GH Action que corre Claude Code headless sobre un ticket → abre PR |
-| Picker | `.github/scripts/pick-claude-ticket.mjs` | Query a Linear para el siguiente ticket del worker |
-
-Todo gated a `admin`/`gestor` por `isAuthorizedCommandSender`.
-
----
-
-## 2. Setup (15-20 min, todo desde mobile/browser)
-
-### 2a. Linear API token → Vercel env
-
-Habilita el cmd `linear` y `claude` desde WhatsApp.
-
-1. Browser: https://linear.app/wikichaves/settings/api
-2. Tab **Personal API keys** → "Create key" → nombre `tero-bot` → copiar token (`lin_api_...`)
-3. Browser: https://vercel.com/wikichaves/tero-bot/settings/environment-variables
-4. Add: name `LINEAR_API_TOKEN` value `lin_api_...` env `Production` + `Preview`
-5. Vercel → Deployments → último → "Redeploy" para que tome la env nueva
-
-**Test**: WhatsApp al bot → `linear test desde mobile`. Respuesta esperada:
-> 🎫 *Ticket creado*
->
-> **WIK-XXX**: test desde mobile
->
-> _https://linear.app/wikichaves/issue/WIK-XXX/..._
-
-Si falla: `❌ No pude crear el ticket: LINEAR_API_TOKEN no está configurado` → la env no se aplicó, redeploy de nuevo.
-
-### 2b. Label en Linear
-
-Para que el worker pueda filtrar.
-
-1. https://linear.app/wikichaves/settings/labels (o desde un issue: "Add label" → escribir el nombre nuevo)
-2. Crear label `claude:autonomous` (color amarillo o el que quieras)
-
-### 2c. GitHub Actions secrets
-
-Habilita el worker autónomo.
-
-1. Anthropic API key:
-   - https://console.anthropic.com/settings/keys → "Create Key"
-   - Copiar `sk-ant-...`
-2. GitHub repo secrets:
-   - https://github.com/wikichaves/tero-bot/settings/secrets/actions
-   - "New repository secret":
-     - `ANTHROPIC_API_KEY` = `sk-ant-...`
-     - `LINEAR_API_TOKEN` = `lin_api_...` (mismo que pusiste en Vercel)
-3. Workflow permissions:
-   - https://github.com/wikichaves/tero-bot/settings/actions
-   - Section "Workflow permissions" → seleccionar **Read and write permissions**
-   - Tildar **"Allow GitHub Actions to create and approve pull requests"**
-   - Save
+| Cmd parser/handlers | `src/lib/admin-commands/index.ts` | Lógica de `/linear` y `/claude`, agnóstica del transport |
+| Cliente Telegram | `src/lib/telegram/index.ts` | sendMessage, auth helpers |
+| Webhook handler | `src/app/api/telegram/route.ts` | Recibe updates de Telegram |
+| Linear client | `src/lib/linear/create-issue.ts` | GraphQL raw, crea issues |
+| Worker autónomo | `.github/workflows/claude-worker.yml` | Levanta tickets `claude:autonomous`, abre PR |
+| Picker | `.github/scripts/pick-claude-ticket.mjs` | Query Linear para el próximo ticket |
 
 ---
 
-## 3. Testing end-to-end (todo desde mobile)
+## 2. Por qué Telegram (no WhatsApp)
 
-### Test 1: cmd `linear` (admin → Linear)
+Originalmente el plan era usar el bot existente de WhatsApp para `/linear` y `/claude`. Reconsideramos porque:
+
+- **24h window**: WA solo deja mandar free-form dentro de la conversación activa. Templates pre-aprobados para pingear fuera. Telegram: ninguna restricción.
+- **Code blocks**: WA no soporta ``` multi-línea. Telegram sí — esencial para mostrar diffs/logs.
+- **Comandos nativos**: Telegram tiene menú `/` con autocomplete. WA no.
+- **Setup**: Telegram es `@BotFather` → token. WA es Meta + Kapso + templates aprobados.
+- **Costo**: Telegram gratis. WA paga por mensaje (después de los primeros 1000/mes).
+- **Inline buttons**: en cualquier mensaje en Telegram, solo en templates en WA.
+
+WhatsApp queda como el canal del **staff** (cleaning, mantenimiento, fotos de tareas) — para eso es ideal porque ya lo usan diariamente. Telegram es el canal del **developer** (vos).
+
+---
+
+## 3. Setup (todo desde el celular, ~10 min)
+
+### 3a. Crear el bot en Telegram
+
+1. Abrir Telegram en el celular
+2. Buscar `@BotFather` → start
+3. Mandarle `/newbot`
+4. Cuando pida nombre: algo descriptivo, ej `Tero Dev Bot`
+5. Cuando pida username: termina en `bot`, ej `tero_dev_bot` o `wikichaves_dev_bot`
+6. **Copiar el token** que devuelve (formato `1234567890:ABCDef...`). Lo necesitás en el paso 3c.
+
+Opcional pero recomendado: configurá la lista de comandos para que aparezcan en autocomplete:
+- Mandar `/setcommands` a `@BotFather`
+- Elegir tu bot
+- Pegar:
+  ```
+  linear - Crear ticket Linear
+  claude - Encolar trabajo para Claude
+  help - Ver comandos disponibles
+  ```
+
+### 3b. Generar el secret token
+
+El secret token es lo que valida que los requests vienen de Telegram y no de un atacante random.
+
+Desde browser, abrir https://generate-secret.vercel.app/32 o cualquier generador de strings hex. O en cualquier terminal:
+```bash
+openssl rand -hex 32
+```
+Te da algo tipo `7a4f...b9c1`. **Copialo, lo usás en 3c y 3e.**
+
+### 3c. Linear API token
+
+Browser: https://linear.app/wikichaves/settings/api → tab "Personal API keys" → "Create key" → nombre `tero-dev-bot` → copiar el token (`lin_api_...`).
+
+### 3d. Setear env vars en Vercel + redeploy
+
+Browser: https://vercel.com/wikichaves/tero-bot/settings/environment-variables
+
+Agregar (env `Production` + `Preview`):
+
+| Name | Value |
+|---|---|
+| `LINEAR_API_TOKEN` | El `lin_api_...` del paso 3c |
+| `TELEGRAM_BOT_TOKEN` | El `1234567890:ABC...` del paso 3a |
+| `TELEGRAM_WEBHOOK_SECRET` | El hex del paso 3b |
+| `TELEGRAM_ADMIN_CHAT_ID` | **Dejá vacío por ahora** — lo seteás en 3f |
+
+Después → Vercel → Deployments → último → "Redeploy" para que tome las envs.
+
+### 3e. Registrar el webhook con Telegram
+
+Una vez deployado, le decís a Telegram dónde mandar los updates.
+
+Desde el browser mobile, abrir esta URL (reemplazá `<TOKEN>` y `<SECRET>` con los tuyos):
+```
+https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://tero.bot/api/telegram&secret_token=<SECRET>
+```
+
+Debería responder algo como:
+```json
+{"ok":true,"result":true,"description":"Webhook was set"}
+```
+
+Verificar que quedó bien:
+```
+https://api.telegram.org/bot<TOKEN>/getWebhookInfo
+```
+Debería mostrar tu URL + has_custom_certificate: false + last_error_date: 0.
+
+### 3f. Descubrir tu chat_id
+
+Ahora abrí el chat con tu bot en Telegram y mandale `/start` (o cualquier cosa).
+
+El bot te responde con tu `chat_id` (porque todavía no está seteado el admin). Algo tipo:
+> 👋 Hola Wiki.
+>
+> Tu chat_id es `123456789`.
+>
+> Copiá ese número y agregalo como env var TELEGRAM_ADMIN_CHAT_ID en Vercel...
+
+Volvé a Vercel → env vars → seteá `TELEGRAM_ADMIN_CHAT_ID` con ese número → redeploy.
+
+### 3g. Crear label en Linear
+
+Para que el worker filtre tickets:
+1. https://linear.app/wikichaves/settings/labels
+2. New label → name `claude:autonomous` → color amarillo → save.
+
+### 3h. GitHub Actions secrets (para el worker)
+
+1. Anthropic API key: https://console.anthropic.com/settings/keys → "Create Key" → copiar `sk-ant-...`
+2. Tener el `lin_api_...` del paso 3c a mano.
+3. Browser: https://github.com/wikichaves/tero-bot/settings/secrets/actions
+4. "New repository secret":
+   - `ANTHROPIC_API_KEY` = `sk-ant-...`
+   - `LINEAR_API_TOKEN` = `lin_api_...`
+5. https://github.com/wikichaves/tero-bot/settings/actions → "Workflow permissions" → **Read and write permissions** + tildar **"Allow GitHub Actions to create and approve pull requests"** → save.
+
+---
+
+## 4. Testing end-to-end (todo desde mobile)
+
+### Test 1: bot responde
 
 ```
-WhatsApp → tu bot:  linear arreglar el bug del bird (test)
+Telegram → tu bot:  /help
+```
+Debe responder con el listado de comandos formateado.
+
+### Test 2: /linear
+
+```
+Telegram → tu bot:  /linear arreglar bug del header (test desde mobile)
 ```
 
-Respuesta esperada en 2-5 seg:
-> 🎫 *Ticket creado*
+Respuesta esperada (~2 seg):
+> 🎫 **Ticket creado**
 >
-> **WIK-XXX**: arreglar el bug del bird (test)
+> **WIK-XXX**: arreglar bug del header (test desde mobile)
 >
-> _https://linear.app/wikichaves/issue/WIK-XXX/..._
+> https://linear.app/wikichaves/issue/WIK-XXX/...
 
-Abrí el link en mobile → debe ver el ticket en Linear con estado `Todo` o `Backlog`, sin label, sin asignar.
+Tap el link → debe abrir Linear con el ticket creado en estado Backlog/Todo, sin asignar.
 
 **Variantes a probar**:
-- `linear urgente fix critical bug` → priority Urgent (1) en Linear
-- `linear alto refactor del header` → priority High (2)
-- `linear bajo limpiar imports` → priority Low (4)
-- Multi-línea (mandar como mensajes separados de WhatsApp? hmm — WhatsApp no soporta multi-line en el input. **Limitation**: por ahora título de una sola línea, descripción no se puede hoy desde WA. Si necesitás description, agregala desde la app de Linear después).
+- `/linear urgente test crítico` → priority Urgent
+- `/linear alto test high` → priority High
+- `/linear bajo test low` → priority Low
+- Multi-línea (en Telegram podés usar Shift+Enter en desktop, o enter normal en mobile):
+  ```
+  /linear refactor de site-header
+  
+  Reorganizar el menú de Configuración para que tenga separadores claros.
+  Tocar src/components/site-header.tsx.
+  ```
+  → el ticket se crea con el primer renglón como title y el resto como description.
 
-### Test 2: cmd `claude` (admin → cola autónoma)
+### Test 3: /claude (encola trabajo)
 
 ```
-WhatsApp → tu bot:  claude reorganizar las cards del dashboard para que sean grid 2x2
+Telegram → tu bot:  /claude limpiar imports no usados en src/app/dashboard
 ```
 
 Respuesta:
-> 🤖 *Trabajo encolado para Claude*
+> 🤖 **Trabajo encolado para Claude**
 >
-> **WIK-XXX**: reorganizar las cards del dashboard para que sean grid 2x2
+> **WIK-XXX**: limpiar imports no usados en src/app/dashboard
 >
-> _https://linear.app/wikichaves/issue/WIK-XXX/..._
+> https://linear.app/wikichaves/issue/WIK-XXX/...
 >
-> Cuando el worker corra (diario o on-demand) lo levanta.
+> _Cuando el worker corra (manual o cron) lo levanta._
 
-En Linear: ticket con label `claude:autonomous`. El prompt completo va al description.
+En Linear: el ticket queda con label `claude:autonomous`. El worker lo va a levantar en el próximo run.
 
-### Test 3: worker autónomo (manual trigger)
+### Test 4: worker autónomo (manual)
 
-1. Asegurate de tener ≥1 ticket con label `claude:autonomous` (creá uno con `linear` cmd y agregale el label desde Linear, o usá el cmd `claude` para crearlo con el label automático).
+1. Asegurate que hay ≥1 ticket con label `claude:autonomous` (creá uno con `/claude` arriba).
 2. https://github.com/wikichaves/tero-bot/actions/workflows/claude-worker.yml
-3. "Run workflow" (dropdown derecha) → branch `main` → "Run workflow"
-4. Esperá ~3-10 min (depende del trabajo)
-5. Si todo bien → tab Pull requests del repo → nuevo PR `claude/WIK-XXX: ...`
+3. "Run workflow" (dropdown arriba derecha) → branch `main` → "Run workflow"
+4. Esperá 3-10 min (depende de la complejidad del trabajo)
+5. Si todo bien → tab "Pull requests" del repo → nuevo PR `claude/WIK-XXX: ...`
 
-Revisá el diff desde la app de GitHub mobile. Si el cambio se ve bien:
-- Tap "Merge" en el PR → Vercel deploya solo en 2-3 min
+Revisás el diff desde GitHub mobile. Si está bien:
+- Tap "Merge pull request" → Vercel deploya solo en 2-3 min
 
-Si el diff está raro:
-- Tap "Close pull request" — el ticket queda en Linear sin tocar
-- O dejá el PR abierto y comentás en Linear qué ajustar; el próximo run lo retoma
+Si no:
+- Tap "Close pull request" — el ticket sigue en Linear sin tocar
+- Editás el ticket con instrucciones más específicas y re-corrés el workflow
 
-**Forzar un ticket específico**:
-- En "Run workflow", llenar el input `ticket_id` con `WIK-150` (o el que sea)
-- Útil para re-correr si el primer intento falló
+**Forzar un ticket específico**: en "Run workflow", llená `ticket_id` con `WIK-150` (o el que sea). Útil para retry.
 
 ---
 
-## 4. Costos estimados
+## 5. Costos estimados
 
 | Item | Costo | Frecuencia |
 |---|---|---|
-| Anthropic API (Claude Sonnet 4.7 vía Claude Code) | $0.30 - $1.50 por run | depende de complejidad del ticket |
-| GitHub Actions | gratis | 2000 min/mes incluidos en plan Pro; cada run usa 5-15 min |
+| Telegram | gratis | siempre |
 | Linear API | gratis | sin rate limit razonable |
-| Vercel env vars | gratis | sin costo |
+| Anthropic API (Claude Sonnet 4.7 vía Claude Code) | $0.30 - $1.50 por run | depende de complejidad |
+| GitHub Actions | gratis | 2000 min/mes (plan Pro); cada run usa 5-15 min |
+| Vercel hosting | gratis | sin costo extra |
 
-**Estimación mensual** si dejás cron diario: ~$15-30 USD en Anthropic (un ticket por día). Para no sorprenderte:
-- Anthropic console → Settings → Usage limits → setear `Monthly limit` en $50 o lo que te tranquilice.
+**Si activás cron diario**: ~$15-30 USD/mes en Anthropic. Para evitar sorpresas, en https://console.anthropic.com/settings/limits seteá un Monthly limit de $50.
 
 ---
 
-## 5. Riesgos + mitigaciones
+## 6. Riesgos + mitigaciones
 
 | Riesgo | Mitigación actual | Mejorable |
 |---|---|---|
 | Claude rompe algo en main | No auto-merge — vos revisás cada PR | WIK-137: agregar CI gate (lint+build) antes de merge |
-| Token de Linear / Anthropic se leakea | Secrets en GH Actions encriptados; no en repo | Rotar keys cada 3 meses |
-| Costo descontrolado | Hard limit en Anthropic console | WIK-136: rate limit del worker (si >5 PRs autonomous abiertos, skipear) |
-| Worker se queda colgado | `timeout-minutes: 30` corta el run | — |
-| PR queda abierto sin revisión | Visible en GH mobile / Linear | WIK-138: WhatsApp ping cuando se abre un PR |
-| WhatsApp 24h window — el bot no te puede pingear fuera de la conversación activa | Mandale `linear ping` cada par de días para mantener la ventana abierta | Pre-approved Meta template (WIK-138) |
+| Tokens leakean | Secrets en Vercel + GH Actions (encriptados) | Rotar cada 3 meses |
+| Costo descontrolado en Anthropic | Hard limit en console | WIK-136: rate limit del worker |
+| Worker se cuelga | `timeout-minutes: 30` corta | — |
+| Bot respondiendo a strangers | `TELEGRAM_ADMIN_CHAT_ID` filtra | — |
+| Webhook hijack | `TELEGRAM_WEBHOOK_SECRET` valida cada POST | — |
+| PR abierto sin revisión | Visible en GitHub mobile + email | WIK-138: notificación Telegram al abrir PR |
 
 ---
 
-## 6. Roadmap (sub-issues creadas)
+## 7. Roadmap (sub-issues)
 
-- **WIK-136** — habilitar cron del worker (descomentar 2 líneas en `claude-worker.yml`)
-- **WIK-137** — auto-merge cuando CI pasa (requiere ci.yml + branch protection antes)
-- **WIK-138** — notificación WhatsApp cuando worker abre PR
-- **WIK-139** — cmd `claude trabajá ya` que dispara el worker on-demand
+- **WIK-136** — habilitar cron del worker (descomentar 2 líneas)
+- **WIK-137** — auto-merge cuando CI pasa (requiere ci.yml + branch protection)
+- **WIK-138** — notificación **Telegram** cuando worker abre PR (ahora trivial — no necesita templates aprobados como WA)
+- **WIK-139** — cmd `/work` que dispara el worker on-demand vía GitHub REST
 
-Las prioridades sugeridas:
-1. Probar P1 con un ticket real (Test 3 arriba) — sin eso el resto no tiene sentido
-2. Si funciona bien → WIK-138 (notificación WA) para no tener que chequear GitHub manualmente
-3. Cuando el flow esté validado → WIK-136 (cron diario)
-4. Mucho después → WIK-137 (auto-merge, con todos los gates de CI/CODEOWNERS)
+Prioridad sugerida:
+1. Test end-to-end con un ticket real (Test 4)
+2. WIK-138 (notif Telegram al abrir PR) — alta utilidad, bajo esfuerzo ahora
+3. WIK-139 (`/work`)
+4. WIK-136 (cron diario)
+5. WIK-137 (auto-merge, con CI gates) — bastante después
 
 ---
 
-## 7. Debugging
+## 8. Debugging
 
-### El cmd `linear` no responde nada en WhatsApp
+### El bot no responde a nada
 
-- Verificá que tu número WhatsApp esté en el campo `whatsapp` de un profile con role `admin` o `gestor` en Supabase: https://supabase.com/dashboard/project/<your>/editor → `profiles` table.
-- Si no estás en la 24h-window con el bot, mandale primero `ayuda` para reabrirla.
-- Check logs en Vercel: https://vercel.com/wikichaves/tero-bot/deployments → último → "Functions" tab → buscá `/api/whatsapp`.
+1. Verificá que el webhook esté seteado:
+   ```
+   https://api.telegram.org/bot<TOKEN>/getWebhookInfo
+   ```
+   `pending_update_count` debería ser 0 o crecer al mandar mensajes.
+2. Endpoint vivo:
+   ```
+   curl https://tero.bot/api/telegram
+   ```
+   Devuelve JSON con `configured: { bot_token: true, admin_chat_id: true, webhook_secret: true, linear_token: true }`. Si alguno es false → env var falta.
+3. Logs de Vercel: https://vercel.com/wikichaves/tero-bot/logs → filtrar por `/api/telegram`.
+
+### El bot dice "Tu chat_id es X" pero no procesa comandos
+
+Te falta setear `TELEGRAM_ADMIN_CHAT_ID` en Vercel con ese número, y redeployar.
+
+### `/linear` da "No pude crear el ticket: LINEAR_API_TOKEN no está configurado"
+
+`LINEAR_API_TOKEN` falta en Vercel env. Setearlo y redeploy.
 
 ### El worker corre pero no abre PR
 
-Posibles causas:
-1. Claude no produjo cambios → log dirá "Claude no hizo cambios. Skipping PR." → editá el ticket en Linear con instrucciones más específicas y re-corré
-2. `npm run build` falla → log mostrará el error → mismo fix
-3. Permisos de workflow → ver Setup 2c step 3
+Causas:
+1. Claude no produjo cambios → log: "Claude no hizo cambios. Skipping PR." → editá el ticket con instrucciones más específicas y re-corré
+2. `npm run build` falla → log muestra el error
+3. Permisos de workflow → setup 3h step 5
 
-### Linear MCP en mi Claude local da 401
+### Linear MCP en mi cliente local da 401
 
-Tiene que ver con tu cliente local, no con el bot en producción. El bot usa `LINEAR_API_TOKEN` (PAT, no OAuth) y eso no expira. Si querés volver a darle a tu Claude local acceso a Linear:
-- `claude mcp remove linear-server` y `claude mcp add --transport http linear-server https://mcp.linear.app/mcp` para refrescar OAuth
-
----
-
-## 8. Notas para futuro
-
-- **Modo conversacional con Claude vía WhatsApp**: para tener un "chat" en vivo con Claude sobre el codebase (no solo encolar tickets), habría que armar un endpoint que mantenga estado de conversación + llame Anthropic Messages API. Es WIK-140 candidata.
-- **Multi-ticket por run**: hoy el worker hace un ticket por vez. Podría hacer N tickets en paralelo en jobs separados — pero hay que cuidar conflictos de merge.
-- **Self-modification**: el worker puede tocar `.github/workflows/claude-worker.yml`. Si rompe el workflow, el próximo run no corre. Si no querés ese riesgo, agregá `.github/**` a CODEOWNERS requiriendo tu approval.
+No relacionado con el bot (ese usa PAT, no OAuth). Para tu Claude local:
+```bash
+claude mcp remove linear-server
+claude mcp add --transport http linear-server https://mcp.linear.app/mcp
+```
+Y re-autenticás.
