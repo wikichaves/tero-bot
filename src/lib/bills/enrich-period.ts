@@ -6,7 +6,7 @@ import type { Property, UtilityBill } from "@/lib/types";
  * between the previous bill's due_date and this bill's due_date (same
  * property + provider).
  *
- * Lives in lib (not in `/facturas`) so /energy can reuse it for the Tuya
+ * Lives in lib (not in `/bills`) so /energy can reuse it for the Tuya
  * comparison block (WIK-75).
  */
 export type BillRow = UtilityBill & {

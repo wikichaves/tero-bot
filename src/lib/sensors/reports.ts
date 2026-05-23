@@ -262,6 +262,6 @@ export async function buildRoomsReport(
     return "📭 Ningún ambiente tiene lecturas en las últimas 24h. Forzá una captura desde /admin/tuya.";
   }
 
-  lines.push(`_Detalle: ${APP_HOST}/ambientes_`);
+  lines.push(`_Detalle: ${APP_HOST}/rooms_`);
   return lines.join("\n").trim();
 }

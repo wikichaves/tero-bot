@@ -32,7 +32,7 @@ export async function backfillSnapshots(months: number = 12) {
   try {
     const results = await backfillAllDevices(months);
     revalidatePath("/energy");
-    revalidatePath("/facturas");
+    revalidatePath("/bills");
     return {
       ok: true,
       summary: {

@@ -465,7 +465,7 @@ alter table public.reservations
 -- internet/alarma a bills@<inbound-domain> → Postmark inbound
 -- → /api/inbound (router) → /api/inbound/bills (handler). El parser hace
 -- best-effort por proveedor (UTE/OSE/Antel/Prosegur/Edenor/AySA/Telecentro)
--- y deja el resto editable manual en /facturas.
+-- y deja el resto editable manual en /bills.
 
 do $$ begin
   create type utility_type as enum (

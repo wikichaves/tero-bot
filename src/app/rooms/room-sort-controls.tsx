@@ -13,7 +13,7 @@ import {
 import { moveRoom } from "./actions";
 
 /**
- * 3-dots dropdown para reordenar un room en /ambientes (WIK-98 v8).
+ * 3-dots dropdown para reordenar un room en /rooms (WIK-98 v8).
  *
  * Vive en el CardTitle al lado del badge "N sensores". El onClick
  * del trigger usa preventDefault/stopPropagation para que el click no

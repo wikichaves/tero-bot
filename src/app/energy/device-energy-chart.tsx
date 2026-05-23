@@ -23,7 +23,7 @@ import type { FxRate } from "@/lib/fx";
  *     por hora (kWh/h), según el toggle del card.
  *   - Línea secundaria (punteada, azul): gasto por hora en la moneda
  *     elegida (USD o local). Comparable visualmente con humedad en
- *     /ambientes — mismo styling dashed.
+ *     /rooms — mismo styling dashed.
  *
  * Eje X = tiempo, dominio fijo al rango seleccionado para que los
  * huecos de data se vean como franja vacía y no como "salto".

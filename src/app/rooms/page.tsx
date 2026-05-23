@@ -19,7 +19,7 @@ import { RoomMiniChart } from "./room-mini-chart";
 import { RoomSortControls } from "./room-sort-controls";
 
 /**
- * /ambientes — vista por room/ambiente con la última lectura de cada
+ * /rooms — vista por room/ambiente con la última lectura de cada
  * sensor + mini-gráfico de las últimas 24h.
  *
  * Datasource: `sensor_snapshots` filtrados por sensores asignados a un
@@ -274,7 +274,7 @@ function Header({ range }: { range: RangeKey }) {
       </div>
       <div className="flex flex-wrap gap-2">
         {(Object.keys(RANGES) as RangeKey[]).map((r) => (
-          <Link key={r} href={r === "24h" ? "/ambientes" : `/ambientes?range=${r}`}>
+          <Link key={r} href={r === "24h" ? "/rooms" : `/rooms?range=${r}`}>
             <Button
               variant={range === r ? "default" : "outline"}
               size="sm"
@@ -355,8 +355,8 @@ function RoomCard({
   //   - El CardContent NO tiene z → el click pasa al Link.
   const detailHref = roomId
     ? range === "24h"
-      ? `/ambientes/${roomId}`
-      : `/ambientes/${roomId}?range=${range}`
+      ? `/rooms/${roomId}`
+      : `/rooms/${roomId}?range=${range}`
     : null;
 
   const inner = (

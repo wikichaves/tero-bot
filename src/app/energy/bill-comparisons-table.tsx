@@ -8,7 +8,7 @@ import type { DeltaLevel } from "@/lib/bills/tuya-comparison";
 
 /**
  * Comparativa por device: facturas de luz vs consumo Tuya en el mismo
- * período. (WIK-75 — antes era una columna en /facturas.)
+ * período. (WIK-75 — antes era una columna en /bills.)
  *
  * Movido a client component (separado de page.tsx) porque ahora vive
  * dentro de `DeviceEnergyCard` que es client (WIK-99 v6 — toggles

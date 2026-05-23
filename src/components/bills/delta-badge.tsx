@@ -10,7 +10,7 @@ import type { DeltaLevel } from "@/lib/bills/tuya-comparison";
  * - Si la cobertura es ≥70%, mostramos `Tuya ±X.X%` con verde / amber / rojo
  *   según el threshold de `deltaLevel()`.
  *
- * (WIK-75) Movido desde /facturas/property-bills-table.tsx para poder
+ * (WIK-75) Movido desde /bills/property-bills-table.tsx para poder
  * reusarlo desde /energy en la sección de comparativa por device.
  */
 export type DeltaBadgeData = {

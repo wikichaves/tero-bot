@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// "/" routes via role to /dashboard or /mis-tareas — see src/app/page.tsx.
+// "/" routes via role to /dashboard or /my-tasks — see src/app/page.tsx.
 const DEFAULT_NEXT = "/";
 
 /**

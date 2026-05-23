@@ -6,7 +6,7 @@ import { LineChart, Line, ResponsiveContainer, YAxis } from "recharts";
  * Mini gráfico de las últimas 24h para una card de room. Sin ejes
  * visibles ni grid — pura "sparkline" para dar hint visual de
  * tendencia. El detalle (eje, grid, tooltip, etc.) vive en
- * `/ambientes/[id]`.
+ * `/rooms/[id]`.
  *
  * Dos líneas overlay: temperatura (orange) y humedad (azul).
  * Las escalas Y son independientes por línea (temp típica 10-35,

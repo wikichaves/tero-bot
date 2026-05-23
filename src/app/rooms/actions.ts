@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
 
 /**
- * Mover un room arriba o abajo en el orden manual de /ambientes
+ * Mover un room arriba o abajo en el orden manual de /rooms
  * (WIK-98). Implementado como swap con el vecino: agarrar el
  * `sort_order` actual, buscar el row adyacente (next-smaller para
  * "up", next-bigger para "down") dentro de la *misma property*, y
@@ -112,6 +112,6 @@ export async function moveRoom(id: string, direction: "up" | "down") {
     .eq("id", self.id);
   if (e3) return { error: e3.message };
 
-  revalidatePath("/ambientes");
+  revalidatePath("/rooms");
   return { ok: true };
 }

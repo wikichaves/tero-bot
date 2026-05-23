@@ -162,7 +162,7 @@ async function buildMyTasksReport(profileId: string): Promise<string> {
   return (
     `📋 *Tus tareas pendientes* (${tasks.length})\n\n` +
     lines.join("\n\n") +
-    `\n\n_Marcá hechas en: ${APP_HOST}/mis-tareas_`
+    `\n\n_Marcá hechas en: ${APP_HOST}/my-tasks_`
   );
 }
 

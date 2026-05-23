@@ -15,7 +15,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  *   - UPDATE `name` de rooms que matchean por `tuya_room_id`
  *   - UPDATE `room_id` de `property_devices` que cambiaron de room
  *   - NO toca `sort_order` de rooms existentes (preserva el orden
- *     manual que el admin estableció en /ambientes con el dropdown)
+ *     manual que el admin estableció en /rooms con el dropdown)
  *
  * Lo único que el sync NO machaca es `room_id` de devices con
  * asignación manual divergente, ni rooms creados a mano (matcheo por
@@ -199,7 +199,7 @@ export async function runSyncRooms(): Promise<SyncRoomsResult> {
     // No usamos el índice del array de Tuya porque la API ordena por
     // creation date (room_id ascending), no por orden visual. Para
     // rooms ya existentes en DB, NO machacamos sort_order — el admin
-    // controla el orden manualmente en /ambientes.
+    // controla el orden manualmente en /rooms.
     const maxExistingSort = (existingRooms ?? []).reduce(
       (max, r) => Math.max(max, (r.sort_order as number) ?? 0),
       0,
@@ -272,7 +272,7 @@ export async function runSyncRooms(): Promise<SyncRoomsResult> {
         }
         // NO tocamos sort_order: Tuya Cloud API no expone el orden
         // visual de Smart Life, así que la única fuente de truth para
-        // el orden es nuestra UI manual (/ambientes con el dropdown
+        // el orden es nuestra UI manual (/rooms con el dropdown
         // de mover izq/der). Machacar acá borraría ese orden.
 
         if (Object.keys(updates).length > 0) {

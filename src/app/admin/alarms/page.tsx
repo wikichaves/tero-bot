@@ -16,7 +16,7 @@ import { AlarmRuleRow } from "./alarm-rule-row";
 import { AlarmEventRow } from "./alarm-event-row";
 
 /**
- * /admin/alarmas — CRUD de reglas de alarma + lista de eventos activos
+ * /admin/alarms — CRUD de reglas de alarma + lista de eventos activos
  * y recientes (WIK-82 Fase 3).
  *
  * Las reglas evaluan T y H en cada snapshot. Cuando se dispara, se

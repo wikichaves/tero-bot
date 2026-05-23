@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 /**
- * /ambientes placeholder. Live layout: property sections, each with a
+ * /rooms placeholder. Live layout: property sections, each with a
  * header row (name + avg T/H) and a grid of sensor cards.
  */
 export default function AmbientesLoading() {

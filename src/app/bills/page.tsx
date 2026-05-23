@@ -20,7 +20,7 @@ import { BillFormDialog } from "./bill-form-dialog";
 import { PropertyBillsTable } from "./property-bills-table";
 
 /**
- * /facturas — listado de facturas de servicios (luz, agua, internet, alarma)
+ * /bills — listado de facturas de servicios (luz, agua, internet, alarma)
  * agrupado por propiedad.
  *
  * Fuentes de carga:

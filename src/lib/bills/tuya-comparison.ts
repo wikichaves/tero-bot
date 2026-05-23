@@ -124,7 +124,7 @@ export async function computeTuyaConsumption(
 
 /**
  * Categorize a delta (facturado vs. medido) into a UI level. Used by
- * /facturas to color the badge. Thresholds chosen for residential
+ * /bills to color the badge. Thresholds chosen for residential
  * electricity in AR/UY — refine when we see real data spread.
  *
  *   |Δ| ≤ 5 %   → "ok"      (verde):   medición coincide con la factura

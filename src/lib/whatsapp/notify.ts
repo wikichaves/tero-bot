@@ -194,7 +194,7 @@ function buildStatusChangedMessage(t: TaskRow): string {
  *    self-notifications).
  *  - The reporter has no whatsapp configured.
  *  - The reporter is also the assignee (they're already getting notified
- *    via /mis-tareas in real time).
+ *    via /my-tasks in real time).
  *  - The new status is `pending` (reopening — usually internal noise).
  */
 export async function notifyTaskStatusChanged(
@@ -229,7 +229,7 @@ export async function notifyTaskStatusChanged(
     const reporter = task.reporter;
     if (!reporter || !reporter.whatsapp) return;
     if (changedByProfileId && reporter.id === changedByProfileId) return;
-    // Reporter == assignee → they already see updates in /mis-tareas.
+    // Reporter == assignee → they already see updates in /my-tasks.
     if (task.assigned_to && reporter.id === task.assigned_to) return;
 
     const peer = reporter.whatsapp;

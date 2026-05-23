@@ -16,7 +16,7 @@ import {
 import { RoomHistoryChart } from "./room-history-chart-wrapper";
 
 /**
- * /ambientes/[id] — detalle de un room con histórico T+H.
+ * /rooms/[id] — detalle de un room con histórico T+H.
  *
  * Rango por default: últimas 24 horas (WIK-98). Query param
  * `?range=24h|7d|30d` cambia la ventana — chart re-render server-side
@@ -167,7 +167,7 @@ export default async function RoomDetailPage({
     <div className="flex flex-col gap-6">
       <div>
         <Link
-          href="/ambientes"
+          href="/rooms"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -183,7 +183,7 @@ export default async function RoomDetailPage({
 
       <div className="flex flex-wrap gap-2">
         {(Object.keys(RANGES) as RangeKey[]).map((r) => (
-          <Link key={r} href={`/ambientes/${id}?range=${r}`}>
+          <Link key={r} href={`/rooms/${id}?range=${r}`}>
             <Button
               variant={range === r ? "default" : "outline"}
               size="sm"

@@ -26,9 +26,9 @@ import type { Profile } from "@/lib/types";
  *                                                              └ Cerraduras
  *
  *   - "Admin" (logo) navega al home (= /dashboard para staff admin/gestor,
- *     /mis-tareas para limpieza/mantenimiento). Ya NO existe un item
+ *     /my-tasks para limpieza/mantenimiento). Ya NO existe un item
  *     "Dashboard" en el nav: el logo cumple esa función.
- *   - "Tareas" pasó a ser un dropdown que agrupa /tasks y /mis-tareas con
+ *   - "Tareas" pasó a ser un dropdown que agrupa /tasks y /my-tasks con
  *     sus badges respectivos — antes ocupaban 2 items separados en la barra.
  *   - "Configuración" reemplaza la fila plana de Propiedades / Usuarios /
  *     Tuya / Cerraduras (solo para admin).
@@ -54,7 +54,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
   // WIK-74: "limpieza" se unificó en "mantenimiento". Antes el chequeo
   // era `role === "limpieza" || role === "mantenimiento"`.
   const isStaff = profile.role === "mantenimiento";
-  const homeHref = isStaff ? "/mis-tareas" : "/dashboard";
+  const homeHref = isStaff ? "/my-tasks" : "/dashboard";
 
   // Counts for the nav badges. We track overdue separately so we can color
   // the badge red when something needs urgent attention.
@@ -131,10 +131,10 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
             badge: myOpen,
             urgent: myOverdue > 0,
           },
-          { href: "/facturas", label: "Facturas" },
+          { href: "/bills", label: "Facturas" },
           { href: "/energy", label: "Energía" },
           {
-            href: "/ambientes",
+            href: "/rooms",
             label: "Ambientes",
             badge: alarmsActive,
             urgent: alarmsActive > 0,
@@ -153,7 +153,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
             { href: "/admin/users", label: "Usuarios" },
             { href: "/admin/tuya", label: "Tuya devices" },
             { href: "/admin/tuya/lock", label: "Cerraduras" },
-            { href: "/admin/alarmas", label: "Alarmas" },
+            { href: "/admin/alarms", label: "Alarmas" },
             // WIK-108: WhatsApp inbox movido acá. Antes era un leaf
             // del nav principal — el admin usa /whatsapp con poca
             // frecuencia comparado con Energía/Ambientes, ubicación

@@ -4,7 +4,7 @@
  *
  * Previously these lived in `@/lib/tuya/energy`, but that file is marked
  * `server-only` (it talks to the Tuya API). When a client component
- * (e.g. /facturas's bills table) wants to format money / kWh, it would
+ * (e.g. /bills's bills table) wants to format money / kWh, it would
  * pull in `server-only` transitively and break the build. Splitting the
  * pure formatters out here keeps server-only in `tuya/energy.ts` and lets
  * the UI re-use them cleanly.

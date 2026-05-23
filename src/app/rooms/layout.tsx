@@ -2,7 +2,7 @@ import { requireRole } from "@/lib/auth";
 import { SiteHeader } from "@/components/site-header";
 
 /**
- * Layout para /ambientes (WIK-82). Mismo patrón que /energy: chequea
+ * Layout para /rooms (WIK-82). Mismo patrón que /energy: chequea
  * que el usuario sea admin/gestor (los staff no ven este módulo),
  * renderea el SiteHeader y deja main como contenedor del page.
  */

@@ -38,7 +38,7 @@ export type SensorSnapshotResult = {
 /**
  * Si el snapshot más reciente tiene más de `staleMinutes` de antigüedad,
  * dispara una nueva captura. Si está fresco, no hace nada. Útil para
- * llamar desde el render de `/ambientes` y compensar la limitación de
+ * llamar desde el render de `/rooms` y compensar la limitación de
  * Vercel Hobby (cron diario-only) — cada vez que alguien abre la
  * página, se asegura de que los datos sean ≤60 min antiguos.
  *

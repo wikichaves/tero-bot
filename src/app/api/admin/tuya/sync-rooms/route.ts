@@ -14,10 +14,10 @@ export async function POST() {
   await requireRole(["admin"]);
   try {
     const result = await runSyncRooms();
-    // Invalidar la cache de /ambientes y /admin/tuya para que el cambio
+    // Invalidar la cache de /rooms y /admin/tuya para que el cambio
     // de orden/nombres se refleje en el siguiente render sin que el
     // user tenga que hacer hard refresh.
-    revalidatePath("/ambientes");
+    revalidatePath("/rooms");
     revalidatePath("/admin/tuya");
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {

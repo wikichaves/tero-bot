@@ -50,7 +50,7 @@ export async function saveAlarmRule(input: unknown) {
     const { error } = await admin.from("alarm_rules").insert(row);
     if (error) return { error: error.message };
   }
-  revalidatePath("/admin/alarmas");
+  revalidatePath("/admin/alarms");
   return { ok: true };
 }
 
@@ -59,7 +59,7 @@ export async function deleteAlarmRule(id: string) {
   const admin = createAdminClient();
   const { error } = await admin.from("alarm_rules").delete().eq("id", id);
   if (error) return { error: error.message };
-  revalidatePath("/admin/alarmas");
+  revalidatePath("/admin/alarms");
   return { ok: true };
 }
 
@@ -71,7 +71,7 @@ export async function toggleAlarmRule(id: string, enabled: boolean) {
     .update({ enabled })
     .eq("id", id);
   if (error) return { error: error.message };
-  revalidatePath("/admin/alarmas");
+  revalidatePath("/admin/alarms");
   return { ok: true };
 }
 
@@ -83,6 +83,6 @@ export async function resolveAlarmEvent(id: string) {
     .update({ resolved_at: new Date().toISOString() })
     .eq("id", id);
   if (error) return { error: error.message };
-  revalidatePath("/admin/alarmas");
+  revalidatePath("/admin/alarms");
   return { ok: true };
 }

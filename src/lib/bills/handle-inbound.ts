@@ -9,7 +9,7 @@
  *      domain; the rest of the fields are best-effort (most utilities
  *      ship the actual numbers inside the PDF attachment).
  *   3. Persist every attachment to Storage (`bill-attachments` bucket)
- *      so the admin can open the PDF from /facturas, even when the
+ *      so the admin can open the PDF from /bills, even when the
  *      parser couldn't extract anything useful.
  *   4. Resolve property by parsed currency → properties.currency single
  *      match (works for the current 1-UY + 1-AR setup; extend with

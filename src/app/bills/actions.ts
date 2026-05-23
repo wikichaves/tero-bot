@@ -74,7 +74,7 @@ export async function createBill(input: BillInput) {
     .select("id")
     .single();
   if (error) return { error: error.message };
-  revalidatePath("/facturas");
+  revalidatePath("/bills");
   return { ok: true, id: data?.id };
 }
 
@@ -93,7 +93,7 @@ export async function updateBill(id: string, input: BillInput) {
     .update(parsed.data)
     .eq("id", id);
   if (error) return { error: error.message };
-  revalidatePath("/facturas");
+  revalidatePath("/bills");
   return { ok: true };
 }
 
@@ -105,7 +105,7 @@ export async function deleteBill(id: string) {
   const admin = createAdminClient();
   const { error } = await admin.from("utility_bills").delete().eq("id", id);
   if (error) return { error: error.message };
-  revalidatePath("/facturas");
+  revalidatePath("/bills");
   return { ok: true };
 }
 
@@ -121,7 +121,7 @@ export async function markBillPaid(id: string) {
     .update({ status: "paid", paid_at: today })
     .eq("id", id);
   if (error) return { error: error.message };
-  revalidatePath("/facturas");
+  revalidatePath("/bills");
   return { ok: true };
 }
 

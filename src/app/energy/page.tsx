@@ -198,7 +198,7 @@ export default async function EnergyPage({
   const properties = (propertiesRes.data ?? []) as PropertySummary[];
   const propertyById = new Map(properties.map((p) => [p.id, p]));
 
-  // Enriquecemos con effective_period_from/to igual que /facturas, para que
+  // Enriquecemos con effective_period_from/to igual que /bills, para que
   // facturas sin período explícito puedan compararse usando el período
   // inferido (due_date anterior → due_date actual). (WIK-75)
   const rawBills = (billsRes.data ?? []) as BillRow[];
@@ -213,7 +213,7 @@ export default async function EnergyPage({
 
   // Snapshots de todos los devices energéticos dentro del rango — única
   // query, agrupamos in-memory por property_device_id. Limit explícito
-  // (mismo bug que /ambientes: el default de Supabase es 1000 y para
+  // (mismo bug que /rooms: el default de Supabase es 1000 y para
   // 30d × varios devices ya nos pasamos).
   const energyPropertyDeviceIds = energyDevices
     .map((d) => deviceMap.get(d.id)?.id)

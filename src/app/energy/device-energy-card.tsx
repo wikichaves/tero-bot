@@ -77,7 +77,7 @@ const DeviceEnergyChart = dynamic(
  *   2. **Moneda del costo**: USD (default) vs moneda local de la
  *      property (UYU o ARS). El estado guarda la elección entre
  *      renders. El gasto aparece como segunda línea en el chart
- *      (azul punteada, igual estilo que humedad en /ambientes).
+ *      (azul punteada, igual estilo que humedad en /rooms).
  *
  * El switch de unidad global se sacó del header — cada device pelea
  * su propia moneda según la property a la que pertenece.

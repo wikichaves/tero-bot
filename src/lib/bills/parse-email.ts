@@ -12,10 +12,10 @@ import type { ParsedBillEmail, BillProvider, UtilityType } from "@/lib/types";
  *   2. Try a handful of generic regex extractors against subject + body
  *      for amount, due date, invoice number, kWh/m³ — whatever the
  *      provider happens to expose in plain text.
- *   3. Whatever is left blank, the admin completes manually in /facturas.
+ *   3. Whatever is left blank, the admin completes manually in /bills.
  *
  * PDF parsing is deliberately out of scope here (Phase 2). The webhook
- * stores the PDF in Storage so the admin can open it from /facturas, and
+ * stores the PDF in Storage so the admin can open it from /bills, and
  * once we sit down with real samples we'll add per-provider PDF extractors.
  */
 

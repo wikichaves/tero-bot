@@ -40,7 +40,7 @@ export function AlarmEventRow({
   event: EventRow;
   // Las maps no se usan ahora porque el row trae todo joineado, pero
   // las dejamos en la signature por si después queremos linkear a
-  // /ambientes/[id] o filtrar por property.
+  // /rooms/[id] o filtrar por property.
   propertyById?: Map<string, Pick<Property, "id" | "name">>;
   roomById?: Map<string, Pick<Room, "id" | "name" | "property_id">>;
 }) {

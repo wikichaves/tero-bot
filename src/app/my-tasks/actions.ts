@@ -46,7 +46,7 @@ export async function markOwnTaskStatus(input: {
     .maybeSingle();
   if (error) return { error: error.message };
   if (!data) return { error: "Esa tarea no está asignada a vos." };
-  revalidatePath("/mis-tareas");
+  revalidatePath("/my-tasks");
   // Also revalidate /tasks for admin/gestor seeing the global list.
   revalidatePath("/tasks");
 
@@ -74,7 +74,7 @@ const reportSchema = z.object({
 });
 
 /**
- * Report a new task from /mis-tareas. Available to any authenticated profile.
+ * Report a new task from /my-tasks. Available to any authenticated profile.
  * The task is auto-assigned to the reporter (so it shows up in their list)
  * and `reported_by` is set to them too.
  *
@@ -116,7 +116,7 @@ export async function reportTask(input: {
     assigned_to: profile.id,
   });
   if (error) return { error: error.message };
-  revalidatePath("/mis-tareas");
+  revalidatePath("/my-tasks");
   revalidatePath("/tasks");
   return { ok: true };
 }

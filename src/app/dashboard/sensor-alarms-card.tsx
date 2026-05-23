@@ -20,7 +20,7 @@ import { avg } from "@/lib/stats";
  * muestra un summary breve: cuántos sensores reportaron en la última
  * hora, total de ambientes monitoreados.
  *
- * Link "Ver todos →" siempre va a /ambientes.
+ * Link "Ver todos →" siempre va a /rooms.
  */
 
 const TWENTY_FOUR_H_MS = 24 * 60 * 60 * 1000;
@@ -153,7 +153,7 @@ export async function SensorAlarmsCard() {
             Ambientes
           </span>
           <Link
-            href="/ambientes"
+            href="/rooms"
             className="text-sm font-normal text-muted-foreground hover:text-foreground"
           >
             Ver todos →
@@ -223,8 +223,8 @@ export async function SensorAlarmsCard() {
             {events.length > 5 && (
               <li className="pt-1 text-xs text-muted-foreground">
                 + {events.length - 5} más en{" "}
-                <Link href="/admin/alarmas" className="underline">
-                  /admin/alarmas
+                <Link href="/admin/alarms" className="underline">
+                  /admin/alarms
                 </Link>
               </li>
             )}
@@ -233,7 +233,7 @@ export async function SensorAlarmsCard() {
       )}
       {/* WIK-117: cuando NO hay alarmas, mostrar promedios T/H por
           property en 24h. Da un pulso rápido del estado de las casas
-          sin tener que entrar a /ambientes. */}
+          sin tener que entrar a /rooms. */}
       {!hasAlarms && propertyAverages.length > 0 && (
         <CardContent>
           <ul className="flex flex-col gap-2 text-sm">

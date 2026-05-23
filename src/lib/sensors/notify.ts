@@ -61,7 +61,7 @@ function buildMessage(ev: EvaluatedEvent): string {
       `${emojiFor(m)} *${valStr}* en *${location}*\n` +
       `Umbral: ${op} ${thrStr}` +
       sensorLine +
-      `\n\n_Ver detalle: ${APP_HOST}/ambientes_`
+      `\n\n_Ver detalle: ${APP_HOST}/rooms_`
     );
   }
   // resolved

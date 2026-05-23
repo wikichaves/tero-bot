@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 /**
- * /ambientes/[id] placeholder. Live layout: back link + title + range
+ * /rooms/[id] placeholder. Live layout: back link + title + range
  * toggle, then a big history chart + sensor stats below.
  */
 export default function AmbienteDetailLoading() {

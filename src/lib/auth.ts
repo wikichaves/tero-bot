@@ -39,7 +39,7 @@ export async function requireRole(roles: UserRole[]): Promise<Profile> {
  *   - admin/gestor: vista business-wide (reservas, sensors, energy)
  *   - mantenimiento: solo sus tareas (WIK-119)
  *
- * Antes mantenimiento iba a /mis-tareas, pero ahora esa ruta redirige
+ * Antes mantenimiento iba a /my-tasks, pero ahora esa ruta redirige
  * a /tasks (WIK-109) que tiene filtro por role. Es más natural que
  * todos los users compartan la URL del home.
  *

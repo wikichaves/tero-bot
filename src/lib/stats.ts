@@ -1,7 +1,7 @@
 /**
  * Helpers estadísticos para series de números (WIK-96).
  *
- * Sin `server-only` — los importan tanto el detalle de /ambientes
+ * Sin `server-only` — los importan tanto el detalle de /rooms
  * (server component) como buildSensorSummary (server) y potencialmente
  * componentes cliente en el futuro.
  */

@@ -325,7 +325,7 @@ export async function createTaskFromWhatsApp(
     ? `\n👤 Asignada a vos.`
     : `\n👤 Sin asignar — algún admin/gestor te la deriva.`;
   const link = isStaff
-    ? `${APP_HOST}/mis-tareas`
+    ? `${APP_HOST}/my-tasks`
     : `${APP_HOST}/tasks/${inserted.id}`;
   const reply =
     `✅ *Tarea creada*\n\n` +
