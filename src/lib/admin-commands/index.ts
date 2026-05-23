@@ -203,7 +203,8 @@ export async function runAdminCommand(cmd: AdminCommand): Promise<string> {
           `🤖 <b>Trabajo encolado para Claude</b>\n\n` +
           `<b>${issue.identifier}</b>: ${escapeHtml(issue.title)}\n\n` +
           `<a href="${issue.url}">${issue.url}</a>\n\n` +
-          `<i>Cuando el worker corra (manual o cron) lo levanta.</i>`
+          `<i>Está en <b>Backlog</b>. Cuando lo confirmes, movelo a ` +
+          `<b>Todo</b> en Linear y el worker lo levanta con /work.</i>`
         );
       } catch (e) {
         return `❌ No pude encolar: <code>${escapeHtml(
