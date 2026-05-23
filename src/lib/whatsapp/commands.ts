@@ -6,6 +6,7 @@ import { buildConsumptionReport } from "@/lib/energy/reports";
 import { buildRoomsReport } from "@/lib/sensors/reports";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import { APP_NAME, APP_HOST } from "@/lib/brand";
+import { createLinearIssue } from "@/lib/linear/create-issue";
 import type { Profile, Task } from "@/lib/types";
 import { normalizePhone } from "./index";
 
@@ -14,11 +15,24 @@ export type ParsedCommand =
   | { type: "my_tasks" }
   | { type: "rooms" }
   | { type: "help" }
+  | {
+      type: "linear_issue";
+      title: string;
+      description: string;
+      /** "urgente" → 1, "alto"→2, default 3 (medium). */
+      priority: 0 | 1 | 2 | 3 | 4;
+    }
+  | {
+      type: "claude_queue";
+      /** Prompt completo. Va al description del Linear issue. */
+      prompt: string;
+    }
   | null;
 
 // WIK-132: dropped the 🌲 emoji + " · " separator from the header so it
 // reads as a clean `*tero.bot Comandos*`. Also removed the
 // "Sandbox de Kapso" footer note — the bot's live, not a demo anymore.
+// WIK-97: agregados `linear` y `claude` (admin-only).
 const HELP_TEXT_FULL = `*${APP_NAME} Comandos*
 
 📊 *Consumo* (admin/gestor)
@@ -34,6 +48,17 @@ const HELP_TEXT_FULL = `*${APP_NAME} Comandos*
 • \`tarea <descripción>\` — crear una tarea nueva
    _ej:_ \`tarea se rompió la canilla del baño\`
 • 📸 mandá una *foto* (con o sin caption) → crea tarea automática
+
+🎫 *Linear* (admin)
+• \`linear <título>\` — crear ticket nuevo en Linear
+• \`linear urgente <título>\` — prioridad urgent (1)
+   _ej:_ \`linear urgente arreglar bug en /energy\`
+• La segunda línea (si la hay) se usa como descripción.
+
+🤖 *Claude autónomo* (admin)
+• \`claude <prompt>\` — encolar trabajo para que Claude lo haga
+   _ej:_ \`claude refactor el dashboard para usar grid\`
+• Va a Linear con label \`claude:autonomous\`. El worker diario lo levanta.
 
 ❓ *Ayuda*
 • \`ayuda\` — esta lista`;
@@ -77,6 +102,51 @@ export function parseCommand(text: string | null | undefined): ParsedCommand {
   // "ambientes" / "ambiente" / "sensores" / "temperatura"
   if (/^(ambientes?|sensores?|temperatura|humedad)\b/.test(lower)) {
     return { type: "rooms" };
+  }
+
+  // WIK-97: `linear <título>` o `ticket <título>` o `bug <título>` o
+  // `feature <título>` → crear issue. Soporta:
+  //   - "linear urgente arreglar X" → priority 1 (urgent)
+  //   - "linear alto Y" → priority 2 (high)
+  //   - "linear Z" → priority 3 (medium, default razonable)
+  // La SEGUNDA línea (si hay \n) se pasa como description completa.
+  {
+    const m = text
+      .trim()
+      .match(/^(linear|ticket|bug|feature|issue)\s+([\s\S]+)$/i);
+    if (m) {
+      const rest = m[2];
+      const [firstLine, ...descLines] = rest.split("\n");
+      const description = descLines.join("\n").trim();
+      let priority: 0 | 1 | 2 | 3 | 4 = 3;
+      let titleSource = firstLine.trim();
+      const prio = titleSource.match(/^(urgente|alto|medio|bajo)\s+(.+)$/i);
+      if (prio) {
+        const word = prio[1].toLowerCase();
+        priority =
+          word === "urgente" ? 1 : word === "alto" ? 2 : word === "bajo" ? 4 : 3;
+        titleSource = prio[2].trim();
+      }
+      if (titleSource.length === 0) return null;
+      return {
+        type: "linear_issue",
+        title: titleSource,
+        description,
+        priority,
+      };
+    }
+  }
+
+  // WIK-97: `claude <prompt>` → enqueue para el worker autónomo. Lo
+  // guardamos como Linear issue con label `claude:autonomous` que el
+  // GitHub Action diario (cuando esté armado) levanta y procesa.
+  {
+    const m = text.trim().match(/^claude\s+([\s\S]+)$/i);
+    if (m) {
+      const prompt = m[1].trim();
+      if (prompt.length === 0) return null;
+      return { type: "claude_queue", prompt };
+    }
   }
 
   return null;
@@ -236,6 +306,61 @@ export async function runCommand(
         return await buildRoomsReport(allowedIds);
       } catch (e) {
         return `❌ No pude generar el reporte de ambientes: ${(e as Error).message}`;
+      }
+    case "linear_issue":
+      // WIK-97: crear ticket en Linear. Solo admin/gestor llegan acá
+      // (`allowed` ya pasó). Description vacío se omite.
+      try {
+        const issue = await createLinearIssue({
+          title: command.title,
+          description: command.description || undefined,
+          priority: command.priority,
+        });
+        const prioLabel =
+          command.priority === 1
+            ? " (urgente)"
+            : command.priority === 2
+              ? " (alto)"
+              : command.priority === 4
+                ? " (bajo)"
+                : "";
+        return (
+          `🎫 *Ticket creado${prioLabel}*\n\n` +
+          `*${issue.identifier}*: ${issue.title}\n\n` +
+          `_${issue.url}_`
+        );
+      } catch (e) {
+        return `❌ No pude crear el ticket: ${(e as Error).message}`;
+      }
+    case "claude_queue":
+      // WIK-97: encolar prompt para el worker autónomo. Va a Linear con
+      // label `claude:autonomous` para que el GH Action diario lo
+      // levante. Primera línea del prompt → title, resto → description.
+      try {
+        const [firstLine, ...rest] = command.prompt.split("\n");
+        const title = firstLine.trim().slice(0, 120);
+        const description = [
+          rest.length > 0 ? rest.join("\n").trim() : "",
+          "",
+          "---",
+          "_Encolado vía `claude` cmd de WhatsApp. El worker autónomo lo va a levantar._",
+        ]
+          .filter(Boolean)
+          .join("\n");
+        const issue = await createLinearIssue({
+          title,
+          description,
+          priority: 3,
+          labels: ["claude:autonomous"],
+        });
+        return (
+          `🤖 *Trabajo encolado para Claude*\n\n` +
+          `*${issue.identifier}*: ${issue.title}\n\n` +
+          `_${issue.url}_\n\n` +
+          `Cuando el worker corra (diario o on-demand) lo levanta.`
+        );
+      } catch (e) {
+        return `❌ No pude encolar: ${(e as Error).message}`;
       }
   }
 }

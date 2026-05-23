@@ -1,0 +1,165 @@
+# Claude autonomous worker (WIK-97).
+#
+# Levanta el siguiente Linear ticket etiquetado `claude:autonomous`,
+# le pasa el title+description a Claude Code en modo headless, deja
+# que escriba código, abre un PR con los cambios, y NOTIFICA al user
+# por WhatsApp para que merge desde el celular.
+#
+# Diseño deliberado (v1):
+#   - NO auto-merge — el user revisa y mergea desde la app de GitHub mobile.
+#   - NO scheduled trigger — manual via `workflow_dispatch` o vía el
+#     endpoint POST /api/admin/claude/trigger (que un futuro cmd `claude
+#     trabajá` en WhatsApp puede invocar).
+#   - Un ticket a la vez. Si el run anterior dejó un PR abierto, no
+#     toma uno nuevo hasta que se cierre.
+#
+# Para activar:
+#   1. Generar Anthropic API key → https://console.anthropic.com/settings/keys
+#   2. Generar Linear PAT → linear.app/wikichaves/settings/api
+#   3. En el repo de GitHub:
+#      Settings → Secrets and variables → Actions → New repository secret
+#         ANTHROPIC_API_KEY  = <sk-ant-...>
+#         LINEAR_API_TOKEN   = <tu PAT de Linear>
+#   4. Settings → Actions → General → Workflow permissions →
+#      Read and write permissions (necesario para que el bot abra PRs)
+#   5. (opcional) Settings → Actions → General → Allow GitHub Actions
+#      to create and approve pull requests (necesario si querés que en
+#      el futuro habilites auto-merge)
+#   6. Probar: Actions tab → "Claude autonomous worker" → Run workflow
+#
+# Cuando el flow esté validado, descomentar el bloque `schedule` abajo
+# para que corra solo todos los días.
+
+name: Claude autonomous worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      ticket_id:
+        description: 'Opcional: forzar un ticket específico (ej "WIK-150"). Si vacío, agarra el de mayor prioridad con label claude:autonomous.'
+        required: false
+        type: string
+  # Descomentá cuando quieras runs automáticos. 14:00 UTC = 11:00 AR.
+  # schedule:
+  #   - cron: '0 14 * * *'
+
+permissions:
+  contents: write       # commit + push
+  pull-requests: write  # create PR
+  issues: read          # leer Linear via API; este perm no aplica pero
+                        # es buena documentación
+
+jobs:
+  work:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history para que Claude pueda leer log
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Pick next Linear ticket
+        id: pick
+        env:
+          LINEAR_API_TOKEN: ${{ secrets.LINEAR_API_TOKEN }}
+          FORCED_TICKET: ${{ inputs.ticket_id }}
+        run: |
+          node .github/scripts/pick-claude-ticket.mjs > /tmp/ticket.json
+          cat /tmp/ticket.json
+          {
+            echo "ticket_id=$(jq -r .identifier /tmp/ticket.json)"
+            echo "ticket_title=$(jq -r .title /tmp/ticket.json)"
+            echo "has_ticket=$(jq -r 'if .identifier then "true" else "false" end' /tmp/ticket.json)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Exit early if no ticket
+        if: steps.pick.outputs.has_ticket != 'true'
+        run: |
+          echo "::notice::No hay tickets con label claude:autonomous en estado Todo. Nothing to do."
+          exit 0
+
+      - name: Create branch
+        if: steps.pick.outputs.has_ticket == 'true'
+        run: |
+          BRANCH="claude/${{ steps.pick.outputs.ticket_id }}"
+          git config user.email "claude-bot@users.noreply.github.com"
+          git config user.name "Claude (autonomous)"
+          git checkout -b "$BRANCH"
+
+      - name: Run Claude Code
+        if: steps.pick.outputs.has_ticket == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # Construct prompt: title + description from the Linear ticket.
+          TITLE=$(jq -r .title /tmp/ticket.json)
+          DESC=$(jq -r '.description // ""' /tmp/ticket.json)
+          PROMPT=$(cat <<EOF
+          Sos Claude trabajando autónomamente en el repo tero-bot. Te
+          asignaron el siguiente ticket de Linear:
+
+          # ${TITLE}
+
+          ${DESC}
+
+          Investigá el código primero, hacé los cambios mínimos necesarios,
+          y verificá que `npm run build` pasa. NO mergees a main vos mismo
+          — el flow es que vos hacés los cambios, y después CI + un humano
+          revisan el PR. No corras tests destructivos. No cambies env vars.
+          EOF
+          )
+          # Headless mode. --dangerously-skip-permissions porque estamos
+          # en CI aislado. --output-format stream-json para que el log de
+          # GH Actions sea útil para debugging.
+          claude -p "$PROMPT" \
+            --dangerously-skip-permissions \
+            --output-format text || true
+          # `|| true` porque Claude a veces sale non-zero pero deja
+          # cambios útiles. El verify build de abajo es el gate real.
+
+      - name: Verify build
+        if: steps.pick.outputs.has_ticket == 'true'
+        run: npm run build
+
+      - name: Commit + push
+        if: steps.pick.outputs.has_ticket == 'true'
+        id: commit
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "::warning::Claude no hizo cambios. Skipping PR."
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git add -A
+          git commit -m "${{ steps.pick.outputs.ticket_id }}: ${{ steps.pick.outputs.ticket_title }}
+
+          Generated by Claude autonomous worker."
+          git push -u origin HEAD
+          echo "has_changes=true" >> "$GITHUB_OUTPUT"
+
+      - name: Open PR
+        if: steps.pick.outputs.has_ticket == 'true' && steps.commit.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --title "${{ steps.pick.outputs.ticket_id }}: ${{ steps.pick.outputs.ticket_title }}" \
+            --body "Autonomous run for [${{ steps.pick.outputs.ticket_id }}](https://linear.app/wikichaves/issue/${{ steps.pick.outputs.ticket_id }}).
+
+          Generated by Claude Code in CI. Review the diff before merging.
+
+          🤖 Generated with [Claude Code](https://claude.com/claude-code)" \
+            --label "claude:autonomous"
