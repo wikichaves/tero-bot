@@ -139,17 +139,16 @@ export default async function LandingPage() {
           <div className="mx-auto flex max-w-2xl flex-col gap-5">
             <span className="label-mono-with-rule">Problema</span>
             <h2 className="text-3xl sm:text-5xl">
-              El problema con los <em>PMS</em>.
+              La trampa del software empaquetado.
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
-              Pagar por un SaaS genérico es como alquilar un edificio de cinco
-              pisos para un equipo de tres personas — pagás por features que
-              nunca vas a usar y el sistema sigue siendo rígido frente a tu
-              operativa real.
+              Contratar un SaaS genérico para gestionar tus alquileres es como
+              alquilar un edificio de cinco pisos para un equipo de tres
+              personas. Pagás carísimo por herramientas que no necesitas,
+              mientras que tu día a día sigue lleno de tareas manuales.
             </p>
             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
-              En lugar de adaptar mis operaciones a software de terceros,
-              construí el mío.{" "}
+              Por eso creé{" "}
               <a
                 href="https://github.com/wikichaves/tero-bot"
                 target="_blank"
@@ -157,22 +156,21 @@ export default async function LandingPage() {
                 className="text-foreground underline-offset-4 hover:underline"
               >
                 {APP_NAME}
-              </a>{" "}
-              no es una app &ldquo;a medida&rdquo; tradicional — es
-              arquitectura modular de
-              alta eficiencia. Operando bajo un modelo{" "}
+              </a>
+              . En vez de pelear contra sistemas rígidos de terceros, armé una
+              arquitectura modular. Es un modelo{" "}
               <a
                 href="https://x.com/gokulr/status/2051683243934826773"
                 target="_blank"
                 rel="noopener"
                 className="underline underline-offset-4 hover:text-foreground"
               >
-                <em>&ldquo;Pod-of-One&rdquo;</em>
-              </a>{" "}
-              — un único operador apalancado con IA, automatizaciones, y
-              principios de system design — ejecutando a la velocidad de un
-              equipo completo y construyendo sólo los módulos que eliminan
-              fricción concreta.
+                <em>&lsquo;Pod-of-One&rsquo;</em>
+              </a>
+              : me permite operar de forma individual, pero apalancado en IA y
+              automatizaciones para tener el rendimiento de un equipo completo.
+              Solo construimos los módulos que resuelven problemas reales, sin
+              relleno.
             </p>
           </div>
         </section>
