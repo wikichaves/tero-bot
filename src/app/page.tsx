@@ -134,6 +134,49 @@ export default async function LandingPage() {
           </figure>
         </section>
 
+        {/* The problem. */}
+        <section className="border-t border-border/60 px-5 py-20 sm:px-8 sm:py-28">
+          <div className="mx-auto flex max-w-2xl flex-col gap-5">
+            <span className="label-mono-with-rule">Problema</span>
+            <h2 className="text-3xl sm:text-5xl">
+              El problema con los <em>PMS</em>.
+            </h2>
+            <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
+              Pagar por un SaaS genérico es como alquilar un edificio de cinco
+              pisos para un equipo de tres personas — pagás por features que
+              nunca vas a usar y el sistema sigue siendo rígido frente a tu
+              operativa real.
+            </p>
+            <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
+              En lugar de adaptar mis operaciones a software de terceros,
+              construí el mío.{" "}
+              <a
+                href="https://github.com/wikichaves/tero-bot"
+                target="_blank"
+                rel="noopener"
+                className="text-foreground underline-offset-4 hover:underline"
+              >
+                {APP_NAME}
+              </a>{" "}
+              no es una app &ldquo;a medida&rdquo; tradicional — es
+              arquitectura modular de
+              alta eficiencia. Operando bajo un modelo{" "}
+              <a
+                href="https://x.com/gokulr/status/2051683243934826773"
+                target="_blank"
+                rel="noopener"
+                className="underline underline-offset-4 hover:text-foreground"
+              >
+                <em>&ldquo;Pod-of-One&rdquo;</em>
+              </a>{" "}
+              — un único operador apalancado con IA, automatizaciones, y
+              principios de system design — ejecutando a la velocidad de un
+              equipo completo y construyendo sólo los módulos que eliminan
+              fricción concreta.
+            </p>
+          </div>
+        </section>
+
         {/* The three modules. Cards now have a photo on top instead of
             an icon — the photo carries the meaning visually. */}
         <section className="border-t border-border/60 px-5 py-20 sm:px-8 sm:py-28">
