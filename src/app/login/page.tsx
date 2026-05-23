@@ -31,7 +31,7 @@ export default function LoginPage() {
           <CardHeader>
             <CardTitle className="text-2xl">Iniciar sesión</CardTitle>
             <CardDescription>
-              Accedé al panel con tu email o teléfono.
+              Accedé al panel con tu teléfono.
             </CardDescription>
           </CardHeader>
           <CardContent>

@@ -20,12 +20,16 @@ function looksLikePhone(value: string): boolean {
 }
 
 /**
- * Login con email O teléfono (WIK-113). Si el user ingresa un teléfono,
- * lo normalizamos y buscamos el email asociado en `profiles.whatsapp`,
- * después seguimos el flow estándar de email+password.
+ * Login con teléfono (WIK-134, antes WIK-113 aceptaba ambos).
+ *
+ * El UI solo pide teléfono pero el server sigue aceptando email como
+ * fallback defensivo — si un password manager autofill pone un email
+ * o un usuario legacy intenta entrar con el suyo, no se rompe. La
+ * detección se mantiene por presencia de `@`.
  *
  * Supabase auth tiene también `signInWithPhone` pero requiere SMS OTP
- * — el user pidió mantener el password, así que vamos por el lookup.
+ * — el user pidió mantener el password, así que vamos por el lookup
+ * de `profiles.whatsapp` → email asociado.
  */
 export async function signIn(input: {
   identifier: string;
@@ -33,7 +37,7 @@ export async function signIn(input: {
 }) {
   const identifier = input.identifier.trim();
   if (!identifier) {
-    return { error: "Ingresá email o teléfono." };
+    return { error: "Ingresá tu teléfono." };
   }
 
   let email = identifier;
