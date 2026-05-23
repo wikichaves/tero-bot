@@ -157,8 +157,16 @@ export default async function LandingPage() {
             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
               En lugar de adaptar mis operaciones a software de terceros,
               construí el mío.{" "}
-              <span className="text-foreground">{APP_NAME}</span> no es una app
-              &ldquo;a medida&rdquo; tradicional — es arquitectura modular de
+              <a
+                href="https://github.com/wikichaves/tero-bot"
+                target="_blank"
+                rel="noopener"
+                className="text-foreground underline-offset-4 hover:underline"
+              >
+                {APP_NAME}
+              </a>{" "}
+              no es una app &ldquo;a medida&rdquo; tradicional — es
+              arquitectura modular de
               alta eficiencia. Operando bajo un modelo{" "}
               <a
                 href="https://x.com/gokulr/status/2051683243934826773"
