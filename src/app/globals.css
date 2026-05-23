@@ -241,39 +241,6 @@
   }
 }
 
-/* WIK-136: animación idle del pajarito en los headers. Loop de 22s
-   con motion concentrada en los primeros ~1.7s (head-tilt left, hold,
-   return). El resto del tiempo está quieto — el efecto se siente
-   "vivo" sin ser distractivo. Respeta `prefers-reduced-motion`. */
-@keyframes bird-idle {
-  0% {
-    transform: rotate(0deg) translateY(0);
-  }
-  2% {
-    transform: rotate(-9deg) translateY(-1px);
-  }
-  6% {
-    transform: rotate(-9deg) translateY(-1px);
-  }
-  9% {
-    transform: rotate(0deg) translateY(0);
-  }
-  100% {
-    transform: rotate(0deg) translateY(0);
-  }
-}
-.animate-bird-idle {
-  animation: bird-idle 22s ease-in-out infinite;
-  transform-origin: 50% 60%;
-  /* Force GPU compositing — la rotación queda smooth sin repaint. */
-  will-change: transform;
-}
-@media (prefers-reduced-motion: reduce) {
-  .animate-bird-idle {
-    animation: none;
-  }
-}
-
 /* WIK-135: utility para "eyebrows" editoriales (mono + uppercase +
    tracking generoso). Replica el `.section-label` de casabosque sin
    forzar todos los `uppercase` del proyecto al mono. Tailwind v4 no

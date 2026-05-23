@@ -21,7 +21,7 @@ export default function LoginPage() {
           href="/"
           className="flex shrink-0 items-center gap-2 text-base font-semibold tracking-tight"
         >
-          <Bird className="h-5 w-5 animate-bird-idle" />
+          <Bird className="h-5 w-5" />
           {APP_NAME}
         </Link>
       </header>

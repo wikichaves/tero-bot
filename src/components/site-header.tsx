@@ -226,7 +226,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
           href={homeHref}
           className="flex shrink-0 items-center gap-2 text-base font-semibold tracking-tight"
         >
-          <Bird className="h-5 w-5 animate-bird-idle" />
+          <Bird className="h-5 w-5" />
           tero.bot
         </Link>
 
