@@ -29,6 +29,11 @@ export const APP_TAGLINE = "Operativa para alquileres temporarios";
 /**
  * Helper for the WhatsApp footers and daily-report subheaders.
  * Returns `"tero.bot · Tareas"`, `"tero.bot · Sensores"`, etc.
+ *
+ * The separator is U+00B7 (middle dot), not an ASCII hyphen or pipe.
+ * Don't replace it: the exact string is baked into already-approved
+ * WhatsApp template FOOTERs (see `src/lib/whatsapp/templates.ts`), so a
+ * silent edit here would force re-submission and Meta re-approval.
  */
 export function brandedFooter(subsystem: string): string {
   return `${APP_NAME} · ${subsystem}`;
@@ -92,6 +97,11 @@ export const APP_TIMEZONE =
 /**
  * UTC offset in HOURS (e.g. -3 for Montevideo). Used by date-math code
  * that doesn't want a full tz library.
+ *
+ * Safe to use a fixed offset because the default deployment region
+ * (Uruguay) abolished DST in 2015 — UYT stays at UTC-3 year-round.
+ * If you deploy to a region that observes DST, this constant lies
+ * for half the year; switch that code to a proper tz library.
  */
 export const APP_UTC_OFFSET_HOURS = Number(
   process.env.OPERATOR_UTC_OFFSET_HOURS ?? "-3",
