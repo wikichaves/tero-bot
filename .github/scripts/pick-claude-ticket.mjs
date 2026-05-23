@@ -54,13 +54,16 @@ async function fetchByIdentifier(identifier) {
 }
 
 async function fetchTopAutonomous() {
-  // Filter by label name + state type "unstarted" (Todo).
+  // Filter by label name + state type in ["unstarted" (Todo), "backlog"].
+  // El label `claude:autonomous` ya es el approval gate — no es necesario
+  // forzar que el user también mueva el ticket a Todo (Linear pone tickets
+  // nuevos en Backlog por default, sería fricción inútil).
   const data = await gql(
     `query Pick {
       issues(
         filter: {
           labels: { name: { eq: "claude:autonomous" } }
-          state: { type: { eq: "unstarted" } }
+          state: { type: { in: ["unstarted", "backlog"] } }
         }
         orderBy: createdAt
         first: 20
