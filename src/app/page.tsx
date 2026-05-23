@@ -95,9 +95,22 @@ export default async function LandingPage() {
               invisibles, y un bot de WhatsApp — todas las señales del negocio
               colapsadas en una sola interfaz.
             </p>
+            {/* WIK-149: la instancia es privada (solo el operador entra),
+                así que el CTA principal no apunta a /login — lleva al case
+                study externo, que es la acción productiva para visitantes.
+                El login sigue accesible desde el header sticky. */}
             <div className="flex flex-wrap items-center justify-center gap-3">
-              <Button size="lg" render={<Link href="/login" />}>
-                Iniciar sesión <ArrowRight />
+              <Button
+                size="lg"
+                render={
+                  <a
+                    href="https://wikichaves.com/design/projects/tero"
+                    target="_blank"
+                    rel="noopener"
+                  />
+                }
+              >
+                Leer caso de estudio <ArrowRight />
               </Button>
               <Button
                 size="lg"
