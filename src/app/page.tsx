@@ -71,14 +71,12 @@ export default async function LandingPage() {
         {/* Hero — copy + photo. */}
         <section className="px-5 pt-12 pb-16 sm:px-8 sm:pt-20 sm:pb-24">
           <div className="mx-auto flex max-w-3xl flex-col items-center gap-8 text-center">
-            <div className="flex flex-col gap-4">
-              <h1 className="text-5xl font-semibold sm:text-6xl">
-                {APP_NAME}
-              </h1>
-              <p className="text-balance text-lg text-muted-foreground sm:text-xl">
-                {APP_TAGLINE}.
-              </p>
-            </div>
+            {/* WIK-134: el nombre "tero.bot" ya vive en el header sticky —
+                evitamos repetirlo en el hero. El tagline sube a h1 (semántico
+                + visual) porque es el descriptor real del producto. */}
+            <h1 className="text-balance text-5xl font-semibold tracking-tight sm:text-6xl">
+              {APP_TAGLINE}.
+            </h1>
             <p className="max-w-xl text-balance text-base leading-relaxed text-muted-foreground">
               Un sistema modular construido para eliminar la fricción operativa
               de un complejo de alquiler temporario. IoT, integraciones
