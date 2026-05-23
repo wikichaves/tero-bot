@@ -69,17 +69,21 @@
 }
 
 :root {
-  --background: rgb(253, 253, 253);
+  /* WIK-135: bg + card warm-cream para alinear con casabosquemontoya.com.
+     `--background` antes era 253,253,253 (frío), ahora un tint mínimo de
+     paper. Card va levemente más claro para que las cards "leviten"
+     sobre el bg en vez de fundirse. */
+  --background: rgb(252, 250, 245);
   --foreground: rgb(0, 0, 0);
-  --card: rgb(253, 253, 253);
+  --card: rgb(254, 253, 250);
   --card-foreground: rgb(0, 0, 0);
-  --popover: rgb(252, 252, 252);
+  --popover: rgb(252, 251, 247);
   --popover-foreground: rgb(0, 0, 0);
   --primary: rgb(81, 240, 168);
   --primary-foreground: rgb(0, 0, 0);
-  --secondary: rgb(252, 253, 253);
+  --secondary: rgb(252, 251, 247);
   --secondary-foreground: rgb(8, 8, 8);
-  --muted: rgb(245, 244, 240);
+  --muted: rgb(245, 243, 236);
   /* WIK-131: warm-grey muted text (matches `--ink-dim` from the design
      portfolio). Darker version for light bg so it stays readable. */
   --muted-foreground: rgb(120, 116, 105);
@@ -91,6 +95,9 @@
   --border: rgb(228, 224, 215);
   --input: rgb(235, 232, 224);
   --ring: rgb(81, 240, 168);
+  /* WIK-135: color del `<em>` dentro de headings (italic accent estilo
+     casabosque). Verde profundo legible sobre cream. */
+  --heading-accent: rgb(13, 121, 78);
   --chart-1: rgb(81, 240, 168);
   --chart-2: rgb(126, 254, 143);
   --chart-3: rgb(255, 72, 56);
@@ -111,11 +118,14 @@
 }
 
 .dark {
-  --background: rgb(0, 0, 0);
+  /* WIK-135: warm near-black (era #000 puro). El undertone cálido evita
+     que el switch dark se sienta "frío shadcn" y empata con el cream-
+     warmed light mode. */
+  --background: rgb(13, 12, 10);
   --foreground: rgb(240, 240, 240);
-  --card: rgb(10, 10, 10);
+  --card: rgb(20, 18, 14);
   --card-foreground: rgb(240, 240, 240);
-  --popover: rgb(26, 27, 27);
+  --popover: rgb(28, 26, 22);
   --popover-foreground: rgb(240, 240, 240);
   --primary: rgb(81, 240, 168);
   --primary-foreground: rgb(0, 0, 0);
@@ -132,6 +142,9 @@
   --border: rgb(45, 45, 41);
   --input: rgb(59, 58, 53);
   --ring: rgb(81, 240, 168);
+  /* WIK-135: italic-em accent en dark mode usa el mint directo del
+     primary — alto contraste sobre el warm-near-black. */
+  --heading-accent: rgb(126, 254, 143);
   --chart-1: rgb(81, 240, 168);
   --chart-2: rgb(158, 255, 161);
   --chart-3: rgb(255, 183, 207);
@@ -174,7 +187,7 @@
        prefers-color-scheme del sistema. Evita el flash blanco en dark
        mode (y el flash negro en light mode). */
     color-scheme: light dark;
-    background-color: rgb(253, 253, 253);
+    background-color: rgb(252, 250, 245);
   }
   /* WIK-128: mobile gets a slightly larger base (~21px → 20px) so
      buttons, inputs, and text aren't cramped on phone screens. iOS
@@ -187,24 +200,65 @@
   }
   @media (prefers-color-scheme: dark) {
     html {
-      background-color: rgb(0, 0, 0);
+      background-color: rgb(13, 12, 10);
     }
   }
 
-  /* WIK-128 / WIK-131: page heading rhythm. Headings use the serif
-     (`font-heading` resolves to Source Serif 4). Removed the
-     `tracking-tight` from the sans-era — serifs already pack tightly
-     and the negative tracking made them feel cramped. */
+  /* WIK-128 / WIK-131 / WIK-135: page heading rhythm. Headings use the
+     serif (`font-heading` resolves a Instrument Serif — same fuente que
+     casabosquemontoya.com). Instrument Serif sólo tiene weight 400, así
+     que eliminé `font-semibold` y bajé el line-height para que las h1
+     "respiren" estilo magazine. Negative letter-spacing leve para que
+     los headings grandes se compacten. */
   h1 {
-    @apply font-heading text-3xl font-semibold;
-    line-height: 1.15;
+    @apply font-heading text-3xl;
+    font-weight: 400;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
   }
   h2 {
-    @apply font-heading text-2xl font-semibold;
-    line-height: 1.2;
+    @apply font-heading text-2xl;
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
   }
   h3 {
-    @apply font-heading text-xl font-semibold;
-    line-height: 1.3;
+    @apply font-heading text-xl;
+    font-weight: 400;
+    line-height: 1.25;
+  }
+
+  /* WIK-135: `<em>` dentro de un heading pinta italic + accent color
+     (mismo gesto editorial que casabosque, donde la cursiva colorea la
+     palabra clave en terracota). Acá usamos el verde tero — derivado
+     darker para light, mint vivo para dark. */
+  h1 em,
+  h2 em,
+  h3 em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--heading-accent);
+  }
+}
+
+/* WIK-135: utility para "eyebrows" editoriales (mono + uppercase +
+   tracking generoso). Replica el `.section-label` de casabosque sin
+   forzar todos los `uppercase` del proyecto al mono. Tailwind v4 no
+   resuelve `@apply` para clases custom, así que repetimos las utility
+   classes inline en cada selector. */
+@layer components {
+  .label-mono {
+    @apply font-mono text-[10px] font-medium uppercase text-muted-foreground;
+    letter-spacing: 0.18em;
+  }
+  /* Variante con la línea decorativa antes del label (como
+     casabosque's `.section-label::before`). */
+  .label-mono-with-rule {
+    @apply inline-flex items-center gap-3 font-mono text-[10px] font-medium uppercase text-muted-foreground;
+    letter-spacing: 0.18em;
+  }
+  .label-mono-with-rule::before {
+    content: "";
+    @apply inline-block h-px w-8 bg-current opacity-60;
   }
 }

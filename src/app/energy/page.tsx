@@ -418,7 +418,7 @@ function Header({ range }: { range: RangeKey }) {
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Energía</h1>
+          <h1 className="text-2xl">Energía</h1>
           <p className="text-sm text-muted-foreground">
             Consumo en vivo por propiedad. Histórico vía snapshots horarios.
             Tarifa y moneda se configuran por propiedad en{" "}

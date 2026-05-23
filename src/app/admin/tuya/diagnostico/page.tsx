@@ -276,7 +276,7 @@ export default async function DiagnosticoPage() {
           <ArrowLeft className="h-4 w-4" />
           Volver
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold">Diagnóstico de captura</h1>
+        <h1 className="mt-2 text-2xl">Diagnóstico de captura</h1>
         <p className="text-sm text-muted-foreground">
           Salud del cron horario por device. Se computa con los últimos 200
           snapshots por tabla.
@@ -369,14 +369,14 @@ function Section({
             </div>
             <div className="grid gap-3 text-xs text-muted-foreground sm:grid-cols-4">
               <div>
-                <p className="text-[10px] uppercase">Snapshots</p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em]">Snapshots</p>
                 <p className="text-foreground tabular-nums">
                   {d.countRecent} <span className="opacity-50">/ {d.count}</span>
                 </p>
                 <p className="text-[10px] opacity-60">últ. 24h / total</p>
               </div>
               <div>
-                <p className="text-[10px] uppercase">Último</p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em]">Último</p>
                 <p className="text-foreground">
                   {d.last
                     ? formatDistanceToNow(new Date(d.last), {
@@ -387,7 +387,7 @@ function Section({
                 </p>
               </div>
               <div>
-                <p className="text-[10px] uppercase">Gap prom (24h)</p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em]">Gap prom (24h)</p>
                 <p className="text-foreground tabular-nums">
                   {d.avgGapRecent != null
                     ? `${Math.round(d.avgGapRecent)} min`
@@ -401,7 +401,7 @@ function Section({
                 </p>
               </div>
               <div>
-                <p className="text-[10px] uppercase">Gap máx (24h)</p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em]">Gap máx (24h)</p>
                 <p className="text-foreground tabular-nums">
                   {d.maxGapRecent != null
                     ? `${Math.round(d.maxGapRecent)} min`

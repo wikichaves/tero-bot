@@ -39,7 +39,7 @@ export function BillComparisonsTable({
 }) {
   return (
     <div className="mt-6 border-t pt-4">
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <p className="label-mono mb-2">
         Facturado vs Tuya
       </p>
 

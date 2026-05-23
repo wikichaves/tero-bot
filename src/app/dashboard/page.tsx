@@ -127,7 +127,7 @@ export default async function DashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold">Próximos {HORIZON_DAYS} días</h1>
+        <h1 className="text-2xl">Próximos {HORIZON_DAYS} días</h1>
         <p className="text-sm text-muted-foreground">
           {format(today, "EEEE d 'de' MMMM", { locale: es })}
         </p>
@@ -199,7 +199,7 @@ async function MantenimientoDashboard({ profileId }: { profileId: string }) {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold">Mis tareas</h1>
+        <h1 className="text-2xl">Mis tareas</h1>
         <p className="text-sm text-muted-foreground">
           {tasks.length === 0
             ? "No tenés tareas pendientes."

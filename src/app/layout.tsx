@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ServiceWorkerRegister } from "@/components/sw-register";
 import { Toaster } from "@/components/ui/sonner";
@@ -9,10 +9,12 @@ import "./globals.css";
 /**
  * Fonts del theme "tero.bot":
  *   - Geist Sans → sans (body / UI). WIK-128.
- *   - Source Serif 4 → serif (used as `--font-heading` for all h1..h3
- *     and any `font-heading` utility — pulls the project closer to the
- *     editorial / portfolio aesthetic). Was Lora pre-WIK-131.
- *   - Geist Mono → mono (code, IDs). WIK-128.
+ *   - Instrument Serif → serif (used as `--font-heading` for all h1..h3
+ *     and `<em>` inside headings — same family que casabosquemontoya.com
+ *     para alinear el sistema visual. WIK-135 (era Source Serif 4
+ *     desde WIK-131). Sólo weight 400 disponible — los headings ya no
+ *     llevan `font-semibold`, los styles base se setean en globals.css.
+ *   - Geist Mono → mono (code, IDs, editorial labels). WIK-128.
  */
 const geistSans = Geist({
   variable: "--font-sans",
@@ -20,9 +22,11 @@ const geistSans = Geist({
   display: "swap",
 });
 
-const sourceSerif = Source_Serif_4({
+const instrumentSerif = Instrument_Serif({
   variable: "--font-serif",
   subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
   display: "swap",
 });
 
@@ -60,8 +64,10 @@ export const metadata: Metadata = {
  */
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fdfdfd" },
-    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+    // WIK-135: BG warm-paper (era #fdfdfd) y warm-near-black (era #000)
+    // para alinear con la paleta de casabosquemontoya.com.
+    { media: "(prefers-color-scheme: light)", color: "#fcfaf5" },
+    { media: "(prefers-color-scheme: dark)", color: "#0d0c0a" },
   ],
   colorScheme: "dark light",
 };
@@ -77,7 +83,7 @@ export default function RootLayout({
     // we don't want React to warn about the resulting class mismatch.
     <html
       lang="es"
-      className={`${geistSans.variable} ${sourceSerif.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${instrumentSerif.variable} ${geistMono.variable} h-full antialiased`}
       // WIK-92: el BG inicial del <html> lo maneja globals.css via
       // `prefers-color-scheme` CSS media query — sin inline style.
       // Light OS → white-ish, Dark OS → black, antes que next-themes

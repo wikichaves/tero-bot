@@ -49,7 +49,7 @@ export default async function UsersPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-2xl font-semibold">Usuarios</h1>
+          <h1 className="text-2xl">Usuarios</h1>
           <p className="text-sm text-muted-foreground">
             {profiles.length} usuario{profiles.length === 1 ? "" : "s"} en el
             sistema.

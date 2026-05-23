@@ -331,7 +331,7 @@ export function DeviceEnergyCard({
             la moneda elegida como segunda línea (azul punteada). */}
         {rangeSnapshots.length >= 1 && (
           <div className="mt-6 border-t pt-4">
-            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="label-mono mb-1">
               {metric === "amperes" ? "Corriente" : "Consumo"} ·{" "}
               {rangeLabel}
             </p>

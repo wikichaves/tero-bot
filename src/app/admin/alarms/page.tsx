@@ -143,7 +143,7 @@ export default async function AlarmasPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-2xl font-semibold">Alarmas</h1>
+          <h1 className="text-2xl">Alarmas</h1>
           <p className="text-sm text-muted-foreground">
             Reglas configurables para temperatura y humedad. Notifican
             por WhatsApp al admin/gestor cuando se disparan.

@@ -4,7 +4,7 @@ import { Bird, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/mode-toggle";
 import { createClient } from "@/lib/supabase/server";
-import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
+import { APP_NAME } from "@/lib/brand";
 
 /**
  * Public landing page (WIK-131).
@@ -39,6 +39,15 @@ export default async function LandingPage() {
 
   return (
     <div className="relative flex min-h-screen flex-col">
+      {/* WIK-135: gradient paper → background. Fixed full viewport para
+          que se vea constante mientras scrolleas. Light: warm-cream
+          (#f3eddb) → bg-paper. Dark: warm-near-black tint → bg. La
+          opacity asimétrica deja el efecto fuerte en el hero y se
+          desvanece en las secciones de abajo. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-20 bg-gradient-to-b from-[rgb(243,237,219)] via-background to-background dark:from-[rgb(24,21,16)] dark:via-background dark:to-background"
+      />
       {/* Film-grain texture. Fixed position so it covers the whole
           viewport even when scrolling. Opacity is asymmetric: dark
           mode needs more grain to read on near-black, light mode
@@ -71,11 +80,13 @@ export default async function LandingPage() {
         {/* Hero — copy + photo. */}
         <section className="px-5 pt-12 pb-16 sm:px-8 sm:pt-20 sm:pb-24">
           <div className="mx-auto flex max-w-3xl flex-col items-center gap-8 text-center">
-            {/* WIK-134: el nombre "tero.bot" ya vive en el header sticky —
-                evitamos repetirlo en el hero. El tagline sube a h1 (semántico
-                + visual) porque es el descriptor real del producto. */}
-            <h1 className="text-balance text-5xl font-semibold tracking-tight sm:text-6xl">
-              {APP_TAGLINE}.
+            {/* WIK-134/135: el nombre "tero.bot" ya vive en el header
+                sticky — evitamos repetirlo. El tagline es el descriptor
+                real, así que sube a h1 (semántico + visual). `<em>`
+                aplica el italic-accent (verde profundo) — gesto editorial
+                directo de casabosque. */}
+            <h1 className="text-balance text-5xl sm:text-7xl">
+              Operativa para alquileres <em>temporarios</em>.
             </h1>
             <p className="max-w-xl text-balance text-base leading-relaxed text-muted-foreground">
               Un sistema modular construido para eliminar la fricción operativa
@@ -131,10 +142,11 @@ export default async function LandingPage() {
         </section>
 
         {/* The problem. */}
-        <section className="border-t border-border/60 px-5 py-16 sm:px-8 sm:py-20">
+        <section className="border-t border-border/60 px-5 py-20 sm:px-8 sm:py-28">
           <div className="mx-auto flex max-w-2xl flex-col gap-5">
-            <h2 className="text-3xl font-semibold sm:text-4xl">
-              El problema con los PMS.
+            <span className="label-mono-with-rule">Problema</span>
+            <h2 className="text-3xl sm:text-5xl">
+              El problema con los <em>PMS</em>.
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
               Pagar por un SaaS genérico es como alquilar un edificio de cinco
@@ -166,11 +178,12 @@ export default async function LandingPage() {
 
         {/* The three modules. Cards now have a photo on top instead of
             an icon — the photo carries the meaning visually. */}
-        <section className="border-t border-border/60 px-5 py-16 sm:px-8 sm:py-20">
+        <section className="border-t border-border/60 px-5 py-20 sm:px-8 sm:py-28">
           <div className="mx-auto flex max-w-5xl flex-col gap-12">
-            <div className="mx-auto flex max-w-2xl flex-col gap-3 text-center">
-              <h2 className="text-3xl font-semibold sm:text-4xl">
-                Tres módulos. Un sistema.
+            <div className="mx-auto flex max-w-2xl flex-col items-center gap-3 text-center">
+              <span className="label-mono-with-rule">Arquitectura</span>
+              <h2 className="text-3xl sm:text-5xl">
+                Tres módulos. <em>Un sistema.</em>
               </h2>
               <p className="text-base text-muted-foreground sm:text-lg">
                 Capas finas, composables, reemplazables. Cada una resuelve un
@@ -208,10 +221,11 @@ export default async function LandingPage() {
         </section>
 
         {/* Source-available. */}
-        <section className="border-t border-border/60 px-5 py-16 sm:px-8 sm:py-20">
+        <section className="border-t border-border/60 px-5 py-20 sm:px-8 sm:py-28">
           <div className="mx-auto flex max-w-2xl flex-col gap-6">
-            <h2 className="text-3xl font-semibold sm:text-4xl">
-              Código disponible.
+            <span className="label-mono-with-rule">Source-available</span>
+            <h2 className="text-3xl sm:text-5xl">
+              Código <em>disponible</em>.
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
               Creo en el <em>context engineering</em> y en aprender en público.{" "}
@@ -320,22 +334,22 @@ function ModuleCard({
         />
       </picture>
       <div className="flex flex-col gap-4 p-6">
-        <h3 className="text-xl font-semibold">{title}</h3>
+        <h3 className="text-xl">{title}</h3>
         <dl className="flex flex-col gap-3 text-sm">
           <div>
-            <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <dt className="label-mono">
               El problema
             </dt>
             <dd className="mt-1 leading-relaxed">{challenge}</dd>
           </div>
           <div>
-            <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <dt className="label-mono">
               El módulo
             </dt>
             <dd className="mt-1 leading-relaxed">{module}</dd>
           </div>
           <div>
-            <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <dt className="label-mono">
               La filosofía
             </dt>
             <dd className="mt-1 leading-relaxed text-muted-foreground">

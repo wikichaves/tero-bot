@@ -28,7 +28,7 @@ export default async function WhatsAppInboxPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold">WhatsApp</h1>
+        <h1 className="text-2xl">WhatsApp</h1>
         <p className="text-sm text-muted-foreground">
           {conversations.length} conversación
           {conversations.length === 1 ? "" : "es"}.

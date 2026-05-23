@@ -115,7 +115,7 @@ export default async function LockPage() {
 function Header() {
   return (
     <div>
-      <h1 className="text-2xl font-semibold">Cerraduras</h1>
+      <h1 className="text-2xl">Cerraduras</h1>
       <p className="text-sm text-muted-foreground">
         Generá códigos temporales de prueba en cada cerradura. Una vez que
         confirmes que un código abre la puerta físicamente, podemos engancharlo

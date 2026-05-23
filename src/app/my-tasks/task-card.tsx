@@ -57,7 +57,7 @@ export function MyTaskCard({ task }: { task: MyTask }) {
       <CardContent className="flex flex-col gap-3 pt-6">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-semibold leading-tight">
+            <h2 className="text-lg leading-tight">
               {task.title}
             </h2>
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">

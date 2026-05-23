@@ -67,7 +67,9 @@ function DropdownMenuLabel({
       data-slot="dropdown-menu-label"
       data-inset={inset}
       className={cn(
-        "px-2.5 py-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground data-inset:pl-8",
+        // WIK-135: font-mono + tracking más generoso para el group label,
+        // mismo gesto editorial que el table header.
+        "px-2.5 py-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground data-inset:pl-8",
         className
       )}
       {...props}

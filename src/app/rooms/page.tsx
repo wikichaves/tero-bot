@@ -203,7 +203,7 @@ export default async function AmbientesPage({
         return (
           <section key={property.id} className="flex flex-col gap-3">
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h2 className="text-lg font-semibold">{property.name}</h2>
+              <h2 className="text-lg">{property.name}</h2>
               {propStats && (
                 <span className="text-sm text-muted-foreground tabular-nums">
                   prom{" "}
@@ -264,7 +264,7 @@ function Header({ range }: { range: RangeKey }) {
     <div className="flex flex-col gap-3">
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-2xl font-semibold">Ambientes</h1>
+          <h1 className="text-2xl">Ambientes</h1>
           <p className="text-sm text-muted-foreground">
             Temperatura y humedad en vivo por ambiente. Captura horaria
             desde Tuya. Tocá una card para ver el histórico.

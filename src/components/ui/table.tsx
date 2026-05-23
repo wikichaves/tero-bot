@@ -74,11 +74,11 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
   return (
     <th
       data-slot="table-head"
-      // WIK-128: h-10 → h-11, padding bumped, header text muted +
-      // uppercase tracking gives a more typographic, less "Excel-grid"
-      // feel without sacrificing scanability.
+      // WIK-128/135: h-11, header text muted + uppercase tracking. WIK-135
+      // sumó `font-mono` y tracking más amplio (.14em) — gesto editorial
+      // estilo casabosque, hace la table menos "Excel-grid" y más magazine.
       className={cn(
-        "h-11 px-3 text-left align-middle text-xs font-medium uppercase tracking-wider whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0",
+        "h-11 px-3 text-left align-middle font-mono text-[11px] font-medium uppercase tracking-[0.14em] whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}

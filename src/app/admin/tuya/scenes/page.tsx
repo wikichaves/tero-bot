@@ -103,7 +103,7 @@ export default async function ScenesPage() {
 
       {scenesByHome.map((home) => (
         <section key={home.home_id} className="flex flex-col gap-3">
-          <h2 className="text-lg font-semibold">{home.home_name}</h2>
+          <h2 className="text-lg">{home.home_name}</h2>
           {home.error ? (
             <Card className="border-destructive/30">
               <CardContent className="pt-6 text-sm text-destructive">
@@ -189,7 +189,7 @@ function Header() {
         <ArrowLeft className="h-4 w-4" />
         Volver
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold">Tap-to-Run</h1>
+      <h1 className="mt-2 text-2xl">Tap-to-Run</h1>
     </div>
   );
 }

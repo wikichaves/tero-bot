@@ -113,7 +113,7 @@ export default async function TaskDetailPage({
             <Badge variant="destructive">Vencida</Badge>
           )}
         </div>
-        <h1 className="mt-2 text-2xl font-semibold leading-tight">
+        <h1 className="mt-2 text-2xl leading-tight">
           {task.title}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">

@@ -173,7 +173,7 @@ export default async function RoomDetailPage({
           <ArrowLeft className="h-4 w-4" />
           Volver
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold">{room.name}</h1>
+        <h1 className="mt-2 text-2xl">{room.name}</h1>
         <p className="text-sm text-muted-foreground">
           {room.properties?.name ?? "—"} ·{" "}
           {sensors.length} sensor{sensors.length === 1 ? "" : "es"} ·{" "}
