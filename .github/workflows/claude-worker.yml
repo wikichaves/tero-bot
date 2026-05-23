@@ -181,6 +181,7 @@ jobs:
 
       - name: Open PR
         if: steps.pick.outputs.has_ticket == 'true' && steps.commit.outputs.has_changes == 'true'
+        id: pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TICKET_ID: ${{ steps.pick.outputs.ticket_id }}
@@ -203,7 +204,92 @@ jobs:
 
           🤖 Generated with [Claude Code](https://claude.com/claude-code)
           EOF
-          gh pr create \
+          PR_URL=$(gh pr create \
             --title "${TICKET_ID}: ${TICKET_TITLE}" \
             --body-file /tmp/pr-body.md \
-            --label "claude:autonomous"
+            --label "claude:autonomous")
+          echo "url=$PR_URL" >> "$GITHUB_OUTPUT"
+          # gh pr create devuelve la URL completa — extraemos el número
+          # del final (.../pull/N).
+          PR_NUMBER="${PR_URL##*/}"
+          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+      # Risk classifier (WIK-139): clasifica el cambio como safe o risky.
+      # Safe = solo toca archivos en la allowlist (visual/copy/assets/docs),
+      #        < 50 líneas modificadas en total, y sin nuevos `import` lines
+      #        (que indicarían cambio del grafo de módulos).
+      # Risky = todo lo demás. Default conservador: ante la duda, manual.
+      - name: Classify risk
+        if: steps.pr.outputs.number != ''
+        id: classify
+        run: |
+          CHANGED=$(git diff --name-only "origin/main..HEAD")
+          STAT=$(git diff --shortstat "origin/main..HEAD")
+          # Sumar insertions + deletions del shortstat.
+          LOC=$(echo "$STAT" | grep -oE '[0-9]+ insertion|[0-9]+ deletion' | grep -oE '[0-9]+' | paste -sd+ | bc 2>/dev/null || echo 0)
+          LOC=${LOC:-0}
+
+          SAFE=true
+          REASON=""
+
+          # Gate 1: LOC threshold.
+          if [ "$LOC" -gt 50 ]; then
+            SAFE=false
+            REASON="$LOC líneas modificadas (>50 — cambio grande)"
+          fi
+
+          # Gate 2: allowlist de paths. Cualquier archivo fuera = risky.
+          if [ "$SAFE" = "true" ]; then
+            while IFS= read -r f; do
+              [ -z "$f" ] && continue
+              case "$f" in
+                src/app/page.tsx | docs/* | *.md | public/* | *.css | *.scss)
+                  ;;
+                *)
+                  SAFE=false
+                  REASON="\`$f\` no está en la allowlist de auto-merge"
+                  break
+                  ;;
+              esac
+            done <<< "$CHANGED"
+          fi
+
+          # Gate 3: nuevos imports = potencial cambio de grafo de
+          # módulos / nueva dep. Conservador: marcar risky.
+          if [ "$SAFE" = "true" ]; then
+            NEW_IMPORTS=$(git diff "origin/main..HEAD" | grep -cE '^\+import' || true)
+            if [ "$NEW_IMPORTS" -gt 0 ]; then
+              SAFE=false
+              REASON="$NEW_IMPORTS nuevos \`import\` lines — cambio de dependencies"
+            fi
+          fi
+
+          echo "safe=$SAFE" >> "$GITHUB_OUTPUT"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+          echo "loc=$LOC" >> "$GITHUB_OUTPUT"
+          if [ "$SAFE" = "true" ]; then
+            echo "::notice::🟢 Auto-merge: solo touch en allowlist, $LOC líneas, sin imports nuevos."
+          else
+            echo "::warning::🟡 Manual review necesario: $REASON"
+          fi
+
+      - name: Auto-merge if safe
+        if: steps.classify.outputs.safe == 'true' && steps.pr.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge "${{ steps.pr.outputs.number }}" \
+            --squash --delete-branch
+          echo "::notice::✅ PR #${{ steps.pr.outputs.number }} mergeado automáticamente."
+
+      - name: Mark PR as needs-review (manual case)
+        if: steps.classify.outputs.safe == 'false' && steps.pr.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Crear el label si no existe (idempotente).
+          gh label create "needs-review" \
+            --color "D93F0B" \
+            --description "PR autonomous que requiere review manual" \
+            2>/dev/null || true
+          gh pr edit "${{ steps.pr.outputs.number }}" --add-label "needs-review"
