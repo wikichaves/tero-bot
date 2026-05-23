@@ -70,7 +70,7 @@ export default async function LandingPage() {
           href="/"
           className="flex items-center gap-2 text-base font-semibold tracking-tight"
         >
-          <Bird className="h-5 w-5" />
+          <Bird className="h-5 w-5 animate-bird-idle" />
           {APP_NAME}
         </Link>
         <Button render={<Link href="/login" />}>Iniciar sesión</Button>
