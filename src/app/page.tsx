@@ -292,15 +292,15 @@ export default async function LandingPage() {
             Wiki Chaves
           </a>
           {" · "}
-          Código abierto bajo licencia MIT.{" "}
           <a
             href="https://github.com/wikichaves/tero-bot"
             target="_blank"
             rel="noopener"
             className="underline-offset-4 hover:text-foreground hover:underline"
           >
-            github.com/wikichaves/tero-bot
-          </a>
+            Código abierto
+          </a>{" "}
+          bajo licencia MIT.
         </p>
         <ModeToggle />
       </footer>
