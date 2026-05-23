@@ -119,6 +119,13 @@ jobs:
           mínimos necesarios para resolver el ticket. Verificá con
           \`npm run build\` que no rompiste nada.
 
+          REGLA DE ORO: si el ticket es ambiguo o le falta información
+          crítica (ej. "reemplazá X por algo nuevo" sin decir QUÉ poner),
+          NO hagas la interpretación más simple/destructiva. En vez de
+          eso, NO hagas cambios y dejá un mensaje explicando qué falta.
+          Es preferible un PR vacío con feedback que un cambio mal
+          interpretado.
+
           IMPORTANTE — NO toques git de ninguna manera:
           - NO hagas commit
           - NO hagas push

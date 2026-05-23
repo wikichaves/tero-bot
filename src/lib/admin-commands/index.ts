@@ -154,16 +154,22 @@ export async function runAdminCommand(cmd: AdminCommand): Promise<string> {
 
     case "claude_queue":
       try {
-        const [firstLine, ...rest] = cmd.prompt.split("\n");
+        // Title: primera línea, cap a 120 (límite UI razonable de Linear).
+        // Description: SIEMPRE el prompt completo, no solo lo que sobra
+        // después del primer \n. Antes había un bug donde si el prompt
+        // era una sola línea larga, la parte truncada se perdía y el
+        // worker veía un "haz X" mutilado (ej. "reemplazar este bloque"
+        // sin la parte de "con esto").
+        const [firstLine] = cmd.prompt.split("\n");
         const title = firstLine.trim().slice(0, 120);
         const description = [
-          rest.length > 0 ? rest.join("\n").trim() : "",
+          "**Prompt completo (lo que va a ver Claude):**",
+          "",
+          cmd.prompt.trim(),
           "",
           "---",
           "_Encolado vía /claude de Telegram. El worker autónomo lo va a levantar._",
-        ]
-          .filter(Boolean)
-          .join("\n");
+        ].join("\n");
         const issue = await createLinearIssue({
           title,
           description,
