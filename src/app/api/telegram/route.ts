@@ -158,6 +158,9 @@ export async function GET() {
       admin_chat_id: !!process.env.TELEGRAM_ADMIN_CHAT_ID,
       webhook_secret: !!process.env.TELEGRAM_WEBHOOK_SECRET,
       linear_token: !!process.env.LINEAR_API_TOKEN,
+      // WIK-139: opcional. Si no está seteado, solo el cmd /work falla;
+      // el resto (linear, claude) sigue funcionando.
+      github_pat: !!process.env.GITHUB_PAT,
     },
   });
 }

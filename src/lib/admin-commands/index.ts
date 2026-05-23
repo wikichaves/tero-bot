@@ -1,5 +1,6 @@
 import "server-only";
 import { createLinearIssue } from "@/lib/linear/create-issue";
+import { triggerClaudeWorker } from "@/lib/github/trigger-workflow";
 import { APP_NAME } from "@/lib/brand";
 
 /**
@@ -26,6 +27,12 @@ export type AdminCommand =
       priority: 0 | 1 | 2 | 3 | 4;
     }
   | { type: "claude_queue"; prompt: string }
+  | {
+      type: "work_trigger";
+      /** Si viene, el worker procesa este ticket específico. Si no,
+       *  agarra el top de la cola con label claude:autonomous. */
+      ticketId?: string;
+    }
   | null;
 
 export const HELP_TEXT = `<b>${APP_NAME} — comandos admin</b>
@@ -39,6 +46,8 @@ export const HELP_TEXT = `<b>${APP_NAME} — comandos admin</b>
 🤖 <b>Claude autónomo</b>
 /claude &lt;prompt&gt; — encolar trabajo
    <i>El worker (GitHub Action) lo levanta y abre PR.</i>
+/work — disparar el worker ahora mismo (toma el top de la cola)
+/work WIK-XXX — forzar el worker sobre un ticket específico
 
 ❓ <b>Help</b>
 /help — esta lista
@@ -108,6 +117,20 @@ export function parseAdminCommand(text: string | null | undefined): AdminCommand
       const prompt = m[2].trim();
       if (prompt.length === 0) return null;
       return { type: "claude_queue", prompt };
+    }
+  }
+
+  // /work [WIK-XXX] — disparar el GH Action ahora. Acepta también
+  // "run", "trabaja", "trabajá" como aliases.
+  {
+    const m = cleaned.match(
+      /^\/?(work|run|trabaj[áa])(?:\s+(WIK-\d+))?\s*$/i,
+    );
+    if (m) {
+      return {
+        type: "work_trigger",
+        ticketId: m[2]?.toUpperCase(),
+      };
     }
   }
 
@@ -184,6 +207,28 @@ export async function runAdminCommand(cmd: AdminCommand): Promise<string> {
         );
       } catch (e) {
         return `❌ No pude encolar: <code>${escapeHtml(
+          (e as Error).message,
+        )}</code>`;
+      }
+
+    case "work_trigger":
+      try {
+        const result = await triggerClaudeWorker(cmd.ticketId);
+        const targetLine = cmd.ticketId
+          ? `🎯 Forzado a <b>${cmd.ticketId}</b>\n\n`
+          : `🎯 Va a tomar el top de la cola <code>claude:autonomous</code>\n\n`;
+        const runLink = result.runUrl
+          ? `<a href="${result.runUrl}">Ver run en vivo</a>`
+          : `<a href="${result.workflowUrl}">Ver workflow</a> (el run específico aparece en 1-2 seg)`;
+        return (
+          `🚀 <b>Worker disparado</b>\n\n` +
+          targetLine +
+          `${runLink}\n\n` +
+          `<i>Tarda 5-10 min. Te aviso cuando termine (si WIK-138 está activo) o ` +
+          `revisás el PR en GitHub directamente.</i>`
+        );
+      } catch (e) {
+        return `❌ No pude disparar el worker: <code>${escapeHtml(
           (e as Error).message,
         )}</code>`;
       }
