@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/mode-toggle";
 import { createClient } from "@/lib/supabase/server";
 import { APP_NAME } from "@/lib/brand";
+import { LandingImage } from "./landing-image";
 
 /**
  * Public landing page (WIK-131).
@@ -115,25 +116,17 @@ export default async function LandingPage() {
           </div>
 
           {/* Atmosphere shot — wide, centered, sits between hero copy
-              and the next section. Establishes the "warm cabin" tone. */}
+              and the next section. Establishes the "warm cabin" tone.
+              WIK-137: clickable → abre lightbox. */}
           <figure className="mx-auto mt-16 max-w-5xl sm:mt-20">
-            <picture>
-              <source
-                srcSet="/landing/Tero-Atmosphere.avif"
-                type="image/avif"
-              />
-              <source
-                srcSet="/landing/Tero-Atmosphere.webp"
-                type="image/webp"
-              />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/landing/Tero-Atmosphere.jpg"
-                alt="Una pareja recién llegada a una cabaña en el bosque sostiene tazas calientes junto a una estufa encendida; el termostato muestra 22°C."
-                className="w-full rounded-2xl border border-border/60 object-cover shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-border/40 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4)]"
-                loading="eager"
-              />
-            </picture>
+            <LandingImage
+              photoBase="/landing/Tero-Atmosphere"
+              alt="Una pareja recién llegada a una cabaña en el bosque sostiene tazas calientes junto a una estufa encendida; el termostato muestra 22°C."
+              loading="eager"
+              wrapperClassName="block w-full rounded-2xl border border-border/60 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-border/40 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4)]"
+              className="w-full rounded-2xl object-cover"
+              caption="El huésped llega y la casa ya está a 22°C — el clima se configuró horas antes."
+            />
             <figcaption className="mt-3 text-center text-sm text-muted-foreground">
               El huésped llega y la casa ya está a 22°C — el clima se
               configuró horas antes.
@@ -330,17 +323,13 @@ function ModuleCard({
 }) {
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-border/40 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
-      <picture>
-        <source srcSet={`${photoBase}.avif`} type="image/avif" />
-        <source srcSet={`${photoBase}.webp`} type="image/webp" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={`${photoBase}.jpg`}
-          alt={photoAlt}
-          className="aspect-video w-full object-cover"
-          loading="lazy"
-        />
-      </picture>
+      {/* WIK-137: imagen clickable → abre lightbox con la versión grande. */}
+      <LandingImage
+        photoBase={photoBase}
+        alt={photoAlt}
+        wrapperClassName="aspect-video w-full"
+        className="aspect-video w-full object-cover"
+      />
       <div className="flex flex-col gap-4 p-6">
         <h3 className="text-xl">{title}</h3>
         <dl className="flex flex-col gap-3 text-sm">
