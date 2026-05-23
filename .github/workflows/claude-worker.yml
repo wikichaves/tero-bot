@@ -179,6 +179,14 @@ jobs:
           TICKET_ID: ${{ steps.pick.outputs.ticket_id }}
           TICKET_TITLE: ${{ steps.pick.outputs.ticket_title }}
         run: |
+          # Asegurar que el label existe en GitHub (Linear y GitHub son
+          # universos distintos — el label de Linear no implica que
+          # exista en GH). `|| true` para que sea idempotente: si ya
+          # existe, gh devuelve non-zero pero seguimos.
+          gh label create "claude:autonomous" \
+            --color "F1B500" \
+            --description "PR creado por el worker autónomo de Claude" \
+            2>/dev/null || true
           # Build body en un archivo temp para evitar problemas de quoting
           # con multi-líneas + chars especiales del title.
           cat > /tmp/pr-body.md <<EOF
