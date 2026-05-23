@@ -181,7 +181,7 @@ export default async function LandingPage() {
             <div className="grid gap-6 md:grid-cols-3">
               <ModuleCard
                 photoBase="/landing/Tero-Hospitality"
-                photoAlt="Tarjetas de temperatura y humedad en vivo por ambiente del complejo."
+                photoAlt="Una persona sostiene un iPad mostrando el panel de ambientes con temperatura y humedad en vivo por habitación."
                 title="Hospitalidad automática"
                 challenge="La experiencia del huésped no empieza con las llaves — empieza con el confort térmico al cruzar la puerta."
                 module="Control de temperatura y humedad integrado. Pre-acondicionamiento 2h antes del check-in."
@@ -189,7 +189,7 @@ export default async function LandingPage() {
               />
               <ModuleCard
                 photoBase="/landing/Tero-System-Overview"
-                photoAlt="Dashboard mostrando consumo de energía en vivo y costo por propiedad."
+                photoAlt="Una persona en el escritorio de la cabaña mira el panel de facturas en una MacBook; cargos de luz, agua y alarma listados con monto y vencimiento."
                 title="Operaciones invisibles"
                 challenge="Trackear costos de energía manualmente y matchearlos contra ocupación real es un sumidero de tiempo administrativo."
                 module="Un flow backend que intercepta facturas reenviadas por email, parsea los datos, y los matchea automáticamente contra el consumo real."
