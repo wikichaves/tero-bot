@@ -87,7 +87,7 @@ export default async function LandingPage() {
                 aplica el italic-accent (verde profundo) — gesto editorial
                 directo de casabosque. */}
             <h1 className="text-balance text-5xl sm:text-7xl">
-              Operativa para alquileres <em>temporarios</em>.
+              El sistema operativo para alquileres <em>temporarios</em>.
             </h1>
             <p className="max-w-xl text-balance text-base leading-relaxed text-muted-foreground">
               Un sistema modular construido para eliminar la fricción operativa
