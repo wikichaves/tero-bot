@@ -119,3 +119,85 @@ export async function triggerClaudeWorker(
 
   return { workflowUrl, runUrl };
 }
+
+export type MergeResult = {
+  prNumber: number;
+  prTitle: string;
+  prUrl: string;
+  mergeSha: string;
+};
+
+/**
+ * Mergea el PR indicado vía GitHub REST API (WIK-139).
+ *
+ * - Si `prNumber` viene, ese específico
+ * - Si no, busca el PR open más reciente cuyo head branch empieza
+ *   con `claude/` (= creado por el worker autónomo) y lo mergea.
+ *
+ * Default method: `squash` — historia limpia en main, un commit por
+ * PR. Override via segundo arg si querés otro.
+ */
+export async function mergePR(
+  prNumber?: number,
+  method: "merge" | "squash" | "rebase" = "squash",
+): Promise<MergeResult> {
+  // 1. Resolver PR num si no vino.
+  let resolved = prNumber;
+  if (!resolved) {
+    const { data } = await gh<
+      Array<{ number: number; head: { ref: string }; title: string; html_url: string }>
+    >(
+      `/repos/${REPO_OWNER}/${REPO_NAME}/pulls?state=open&sort=created&direction=desc&per_page=30`,
+    );
+    const claudePr = data?.find((pr) => pr.head.ref.startsWith("claude/"));
+    if (!claudePr) {
+      throw new Error(
+        "No hay PRs open de Claude (branches `claude/*`). Mandá " +
+          "`/merge <N>` con un número si querés mergear otro.",
+      );
+    }
+    resolved = claudePr.number;
+  }
+
+  // 2. Fetch PR meta para incluir title/url en la respuesta.
+  const { data: pr } = await gh<{
+    number: number;
+    title: string;
+    html_url: string;
+    mergeable: boolean | null;
+    mergeable_state: string;
+    state: string;
+  }>(`/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${resolved}`);
+  if (!pr) throw new Error(`PR #${resolved} no encontrado`);
+  if (pr.state !== "open") {
+    throw new Error(
+      `PR #${resolved} no está open (state: ${pr.state}). Ya mergeado o cerrado.`,
+    );
+  }
+  if (pr.mergeable === false) {
+    throw new Error(
+      `PR #${resolved} no es mergeable (mergeable_state: ${pr.mergeable_state}). ` +
+        `Posiblemente tiene conflictos con main — resolvelo manual desde GitHub.`,
+    );
+  }
+
+  // 3. Merge.
+  const { data: merged } = await gh<{ sha: string; merged: boolean }>(
+    `/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${resolved}/merge`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ merge_method: method }),
+    },
+  );
+  if (!merged?.merged) {
+    throw new Error(`Merge de PR #${resolved} reportó merged=false`);
+  }
+
+  return {
+    prNumber: resolved,
+    prTitle: pr.title,
+    prUrl: pr.html_url,
+    mergeSha: merged.sha,
+  };
+}

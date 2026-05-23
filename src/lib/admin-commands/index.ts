@@ -1,6 +1,6 @@
 import "server-only";
 import { createLinearIssue } from "@/lib/linear/create-issue";
-import { triggerClaudeWorker } from "@/lib/github/trigger-workflow";
+import { triggerClaudeWorker, mergePR } from "@/lib/github/trigger-workflow";
 import { APP_NAME } from "@/lib/brand";
 
 /**
@@ -33,6 +33,12 @@ export type AdminCommand =
        *  agarra el top de la cola con label claude:autonomous. */
       ticketId?: string;
     }
+  | {
+      type: "merge_pr";
+      /** Número del PR. Si no viene, mergea el más reciente PR open
+       *  con head branch `claude/*`. */
+      prNumber?: number;
+    }
   | null;
 
 export const HELP_TEXT = `<b>${APP_NAME} — comandos admin</b>
@@ -48,6 +54,8 @@ export const HELP_TEXT = `<b>${APP_NAME} — comandos admin</b>
    <i>El worker (GitHub Action) lo levanta y abre PR.</i>
 /work — disparar el worker ahora mismo (toma el top de la cola)
 /work WIK-XXX — forzar el worker sobre un ticket específico
+/merge — mergear el último PR autonomous (squash) → Vercel deploya
+/merge &lt;N&gt; — mergear un PR específico por número
 
 ❓ <b>Help</b>
 /help — esta lista
@@ -131,6 +139,18 @@ export function parseAdminCommand(text: string | null | undefined): AdminCommand
         type: "work_trigger",
         ticketId: m[2]?.toUpperCase(),
       };
+    }
+  }
+
+  // /merge [N] — mergear PR via GitHub API. Acepta también
+  // "mergea", "mergear" como aliases (con o sin acento).
+  {
+    const m = cleaned.match(
+      /^\/?(merge|merge[ae][rs]?|mergear|mergeá)(?:\s+#?(\d+))?\s*$/i,
+    );
+    if (m) {
+      const num = m[2] ? Number(m[2]) : undefined;
+      return { type: "merge_pr", prNumber: num };
     }
   }
 
@@ -230,6 +250,22 @@ export async function runAdminCommand(cmd: AdminCommand): Promise<string> {
         );
       } catch (e) {
         return `❌ No pude disparar el worker: <code>${escapeHtml(
+          (e as Error).message,
+        )}</code>`;
+      }
+
+    case "merge_pr":
+      try {
+        const result = await mergePR(cmd.prNumber);
+        return (
+          `✅ <b>PR #${result.prNumber} mergeado</b>\n\n` +
+          `${escapeHtml(result.prTitle)}\n\n` +
+          `<a href="${result.prUrl}">${result.prUrl}</a>\n\n` +
+          `<i>Vercel deploya en 2-3 min. Commit en main: ` +
+          `<code>${result.mergeSha.slice(0, 7)}</code></i>`
+        );
+      } catch (e) {
+        return `❌ No pude mergear: <code>${escapeHtml(
           (e as Error).message,
         )}</code>`;
       }
