@@ -139,6 +139,12 @@
       "ctaCaseStudy": "Read case study",
       "ctaCode": "View code"
     },
+    "stats": {
+      "commits": "Commits",
+      "daysActive": "Days active",
+      "languages": "Languages",
+      "status": "Status"
+    },
     "problem": {
       "eyebrow": "Problem",
       "title": "The trap of packaged software.",

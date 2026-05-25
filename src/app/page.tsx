@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { APP_NAME } from "@/lib/brand";
+import { getLandingStats } from "@/lib/landing/stats";
 import { LandingImage } from "./landing-image";
 
 /**
@@ -39,6 +40,8 @@ export default async function LandingPage() {
 
   const t = await getTranslations("landing");
   const tCommon = await getTranslations("common");
+  const tStats = await getTranslations("landing.stats");
+  const stats = await getLandingStats();
 
   return (
     <div className="relative flex min-h-screen flex-col">
@@ -144,6 +147,26 @@ export default async function LandingPage() {
               {t("hero.atmosphereCaption")}
             </figcaption>
           </figure>
+        </section>
+
+        {/* WIK-154: Stats minimalistas estilo case study (wikichaves.com/
+            design/projects/tero). Cuatro números cortos con label mono
+            uppercase — sin marketing puffery, solo "este proyecto está
+            vivo y mide su propio progreso". */}
+        <section className="border-t border-border/60 px-5 py-12 sm:px-8 sm:py-16">
+          <div className="mx-auto grid max-w-5xl grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4 sm:gap-x-10">
+            {stats.map((s) => (
+              <div
+                key={s.labelKey}
+                className="flex flex-col items-start gap-2"
+              >
+                <span className="font-heading text-4xl leading-none tracking-tight sm:text-5xl">
+                  {s.value}
+                </span>
+                <span className="label-mono">{tStats(s.labelKey)}</span>
+              </div>
+            ))}
+          </div>
         </section>
 
         {/* The problem. */}

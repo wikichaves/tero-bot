@@ -139,6 +139,12 @@
       "ctaCaseStudy": "Leer caso de estudio",
       "ctaCode": "Ver código"
     },
+    "stats": {
+      "commits": "Commits",
+      "daysActive": "Días activos",
+      "languages": "Idiomas",
+      "status": "Estado"
+    },
     "problem": {
       "eyebrow": "Problema",
       "title": "La trampa del software empaquetado.",
