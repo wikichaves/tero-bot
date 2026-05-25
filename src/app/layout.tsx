@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ServiceWorkerRegister } from "@/components/sw-register";
+import { SiteFooter } from "@/components/site-footer";
 import { Toaster } from "@/components/ui/sonner";
 import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
 import "./globals.css";
@@ -72,17 +75,23 @@ export const viewport: Viewport = {
   colorScheme: "dark light",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // WIK-151: next-intl SSR setup. `getLocale()` resuelve via el
+  // `getRequestConfig` que armamos (cookie → profile → Accept-Language).
+  // `getMessages()` carga el dictionary correspondiente. Ambos se pasan
+  // a `NextIntlClientProvider` para que `useTranslations` ande en client.
+  const locale = await getLocale();
+  const messages = await getMessages();
   return (
     // suppressHydrationWarning is required by next-themes — the provider
     // adds the `dark` class on the client to match system preference, and
     // we don't want React to warn about the resulting class mismatch.
     <html
-      lang="es"
+      lang={locale}
       className={`${geistSans.variable} ${instrumentSerif.variable} ${geistMono.variable} h-full antialiased`}
       // WIK-92: el BG inicial del <html> lo maneja globals.css via
       // `prefers-color-scheme` CSS media query — sin inline style.
@@ -92,16 +101,22 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-          <Toaster />
-          <ServiceWorkerRegister />
-        </ThemeProvider>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+            {/* WIK-151: footer global con ModeToggle + LanguageSelector.
+                Reemplaza el footer que vivía dentro del landing y agrega
+                el mismo a las pages logged-in. */}
+            <SiteFooter />
+            <Toaster />
+            <ServiceWorkerRegister />
+          </ThemeProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

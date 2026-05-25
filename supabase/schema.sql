@@ -42,6 +42,21 @@ alter table public.profiles
   add constraint profiles_role_not_limpieza
   check (role::text <> 'limpieza');
 
+-- WIK-151: idioma preferido del usuario. Controla:
+--   - UI del dashboard (next-intl resuelve este valor en cada request)
+--   - mensajes WhatsApp dirigidos a este usuario (commands.ts +
+--     templates dinámicas por language code)
+-- Default 'en' (consistente con el default de la app). Si tu browser
+-- está en español al login, el server action de set-language lo
+-- cambia automáticamente a 'es'.
+alter table public.profiles
+  add column if not exists language text not null default 'en';
+alter table public.profiles
+  drop constraint if exists profiles_language_supported;
+alter table public.profiles
+  add constraint profiles_language_supported
+  check (language in ('en', 'es'));
+
 -- IMPORTANT: do NOT read `role` from raw_user_meta_data here. That field is
 -- attacker-controlled at signup time (Supabase's public signup endpoint accepts
 -- arbitrary metadata with only the anon key). Allowing it would let anyone

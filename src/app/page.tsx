@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Bird, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ModeToggle } from "@/components/mode-toggle";
 import { createClient } from "@/lib/supabase/server";
 import { APP_NAME } from "@/lib/brand";
 import { LandingImage } from "./landing-image";
@@ -280,34 +279,7 @@ export default async function LandingPage() {
           </div>
         </section>
       </main>
-
-      {/* Footer — credits + repo link + theme toggle. WIK-131: moved
-          ModeToggle out of the header so the top stays minimal (a la
-          design portfolio); theme switching lives down here. */}
-      <footer className="flex flex-col items-center justify-between gap-3 border-t border-border/60 px-5 py-6 text-xs text-muted-foreground sm:flex-row sm:gap-4 sm:px-8">
-        <p className="text-center sm:text-left">
-          Creado por{" "}
-          <a
-            href="https://wikichaves.com/"
-            target="_blank"
-            rel="noopener"
-            className="underline-offset-4 hover:text-foreground hover:underline"
-          >
-            Wiki Chaves
-          </a>
-          {" · "}
-          <a
-            href="https://github.com/wikichaves/tero-bot"
-            target="_blank"
-            rel="noopener"
-            className="underline-offset-4 hover:text-foreground hover:underline"
-          >
-            Código abierto
-          </a>{" "}
-          bajo licencia MIT.
-        </p>
-        <ModeToggle />
-      </footer>
+      {/* WIK-151: footer movido al root layout (`SiteFooter` global). */}
     </div>
   );
 }

@@ -11,7 +11,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ModeToggle } from "@/components/mode-toggle";
 import { UserDropdown } from "@/components/user-dropdown";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
@@ -251,7 +250,8 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
         </nav>
       </div>
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-        <ModeToggle />
+        {/* WIK-151: ModeToggle se movió al footer global (junto con
+            LanguageSelector). Acá queda solo el user dropdown. */}
         {/* WIK-112: el span con email + form Salir se reemplazó por un
             dropdown con info del user + Editar + Salir. */}
         <UserDropdown profile={profile} />

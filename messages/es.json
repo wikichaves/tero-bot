@@ -1,0 +1,97 @@
+{
+  "common": {
+    "appName": "tero.bot",
+    "tagline": "Operativa para alquileres temporarios.",
+    "signIn": "Iniciar sesión",
+    "signOut": "Salir",
+    "loading": "Cargando…",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "search": "Buscar"
+  },
+  "footer": {
+    "createdBy": "Creado por",
+    "openSource": "Código abierto",
+    "licenseMit": "bajo licencia MIT."
+  },
+  "lang": {
+    "label": "Idioma"
+  },
+  "theme": {
+    "light": "Modo claro",
+    "dark": "Modo oscuro",
+    "system": "Sistema"
+  },
+  "landing": {
+    "hero": {
+      "tagline": "Operativa para alquileres <accent>temporarios</accent>.",
+      "intro": "Un sistema modular construido para eliminar la fricción operativa de un complejo de alquiler temporario. IoT, integraciones invisibles, y un bot de WhatsApp — todas las señales del negocio colapsadas en una sola interfaz.",
+      "atmosphereCaption": "El huésped llega y la casa ya está a 22°C — el clima se configuró horas antes.",
+      "atmosphereAlt": "Una pareja recién llegada a una cabaña en el bosque sostiene tazas calientes junto a una estufa encendida; el termostato muestra 22°C.",
+      "ctaSignIn": "Iniciar sesión",
+      "ctaCode": "Ver código"
+    },
+    "problem": {
+      "eyebrow": "Problema",
+      "title": "El problema con los <accent>PMS</accent>.",
+      "p1": "Pagar por un SaaS genérico es como alquilar un edificio de cinco pisos para un equipo de tres personas — pagás por features que nunca vas a usar y el sistema sigue siendo rígido frente a tu operativa real.",
+      "p2": "En lugar de adaptar mis operaciones a software de terceros, construí el mío. <appLink>tero.bot</appLink> no es una app \"a medida\" tradicional — es arquitectura modular de alta eficiencia. Operando bajo un modelo <podLink><em>\"Pod-of-One\"</em></podLink> — un único operador apalancado con IA, automatizaciones, y principios de system design — ejecutando a la velocidad de un equipo completo y construyendo sólo los módulos que eliminan fricción concreta."
+    },
+    "modules": {
+      "eyebrow": "Arquitectura",
+      "title": "Tres módulos. <accent>Un sistema.</accent>",
+      "subtitle": "Capas finas, composables, reemplazables. Cada una resuelve un problema real de la operativa diaria.",
+      "labels": {
+        "challenge": "El problema",
+        "module": "El módulo",
+        "philosophy": "La filosofía"
+      },
+      "hospitality": {
+        "title": "Hospitalidad automática",
+        "challenge": "La experiencia del huésped no empieza con las llaves — empieza con el confort térmico al cruzar la puerta.",
+        "module": "Control de temperatura y humedad integrado. Pre-acondicionamiento 2h antes del check-in.",
+        "philosophy": "A veces la mejor UI no es una pantalla — es el clima perfecto cuando alguien entra.",
+        "alt": "Una persona sostiene un iPad mostrando el panel de ambientes con temperatura y humedad en vivo por habitación."
+      },
+      "operations": {
+        "title": "Operaciones invisibles",
+        "challenge": "Trackear costos de energía manualmente y matchearlos contra ocupación real es un sumidero de tiempo administrativo.",
+        "module": "Un flow backend que intercepta facturas reenviadas por email, parsea los datos, y los matchea automáticamente contra el consumo real.",
+        "philosophy": "Las tareas burocráticas las resuelve el backend. Menos interfaces manuales, más integraciones invisibles.",
+        "alt": "Una persona en el escritorio de la cabaña mira el panel de facturas en una MacBook; cargos de luz, agua y alarma listados con monto y vencimiento."
+      },
+      "frictionless": {
+        "title": "UI cero fricción",
+        "challenge": "Forzar al personal a descargar otra app y aprender un sistema nuevo genera resistencia y errores.",
+        "module": "Reportes de incidentes, asignación de tareas, tracking y notificaciones — todo por WhatsApp.",
+        "philosophy": "La mejor interfaz es la que el usuario ya conoce. En vez de forzar a la gente a un sistema nuevo, traje el sistema a ellos.",
+        "alt": "Una mano sostiene un celular mostrando el chat de WhatsApp con el bot de tero.bot creando una tarea."
+      }
+    },
+    "source": {
+      "eyebrow": "Source-available",
+      "title": "Código <accent>disponible</accent>.",
+      "p1": "Creo en el <em>context engineering</em> y en aprender en público. <appLink>tero.bot</appLink> es el motor operativo real de mi complejo — el código está abierto para compartir el system design y acelerar el aprendizaje colectivo.",
+      "p2": "No es un proyecto open-source mantenido por la comunidad. Está provisto \"tal cual\", sin soporte de terceros y sin aceptar Pull Requests. Sentite libre de explorar el código, forkearlo, y usar los conceptos para construir tus propios sistemas.",
+      "ctaCode": "Ver código en GitHub",
+      "ctaCaseStudy": "Leer el case study"
+    }
+  },
+  "login": {
+    "title": "Iniciar sesión",
+    "subtitle": "Accedé al panel con tu teléfono.",
+    "phoneLabel": "Teléfono",
+    "phonePlaceholder": "+598 99 123 456",
+    "passwordLabel": "Contraseña",
+    "submit": "Ingresar",
+    "submitPending": "Ingresando…",
+    "errors": {
+      "empty": "Ingresá tu teléfono.",
+      "invalidPhone": "Teléfono inválido. Usá formato +598... o 099...",
+      "notFound": "No encontré un usuario con ese teléfono.",
+      "credentials": "Credenciales inválidas."
+    }
+  }
+}
