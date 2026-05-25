@@ -229,48 +229,58 @@ export default async function ReservationDetailPage({
                   loading="lazy"
                 />
               )}
-              <dl className="grid w-full flex-1 grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
-                {reservation.reservation_code && (
-                  <>
-                    <dt className="text-muted-foreground">Código</dt>
-                    <dd className="font-mono">
-                      {reservation.reservation_code}
-                    </dd>
-                  </>
-                )}
-                {reservation.guest_count != null && (
-                  <>
-                    <dt className="text-muted-foreground">Huéspedes</dt>
-                    <dd>{reservation.guest_count}</dd>
-                  </>
-                )}
-                {reservation.payout_amount != null && (
-                  <>
-                    <dt className="text-muted-foreground">Payout</dt>
-                    <dd>
-                      {reservation.payout_currency
-                        ? `${reservation.payout_currency} `
-                        : ""}
-                      {reservation.payout_amount.toLocaleString("es-UY", {
-                        maximumFractionDigits: 2,
-                      })}
-                    </dd>
-                  </>
-                )}
+              <div className="flex w-full flex-1 flex-col gap-3 min-w-0">
+                <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
+                  {reservation.reservation_code && (
+                    <>
+                      <dt className="text-muted-foreground">Código</dt>
+                      <dd className="font-mono">
+                        {reservation.reservation_code}
+                      </dd>
+                    </>
+                  )}
+                  {reservation.guest_count != null && (
+                    <>
+                      <dt className="text-muted-foreground">Huéspedes</dt>
+                      <dd>{reservation.guest_count}</dd>
+                    </>
+                  )}
+                  {reservation.payout_amount != null && (
+                    <>
+                      <dt className="text-muted-foreground">Payout</dt>
+                      <dd>
+                        {reservation.payout_currency
+                          ? `${reservation.payout_currency} `
+                          : ""}
+                        {reservation.payout_amount.toLocaleString("es-UY", {
+                          maximumFractionDigits: 2,
+                        })}
+                      </dd>
+                    </>
+                  )}
+                </dl>
+                {/* WIK-169: el mensaje del huésped salió de la <dl> y
+                    pasó a ser un bloque separado debajo. Antes vivía
+                    como col-span-full dentro de un grid `[max-content
+                    1fr]`, lo que hacía que urls largas / lineas sin
+                    espacios empujaran el grid y rompieran el layout
+                    de las filas Código / Huéspedes / Payout.
+                    `min-w-0` + `overflow-wrap-anywhere` aseguran que
+                    incluso unbroken strings (mails, links) wrapeen. */}
                 {reservation.guest_message && (
-                  <>
-                    {/* Mensaje del huésped: label arriba + value
-                        full-width abajo (col-span-full). Suele ser largo
-                        y forzarlo a 2 columnas lo rompe. */}
-                    <dt className="col-span-full text-muted-foreground">
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <span className="text-muted-foreground">
                       Mensaje del huésped
-                    </dt>
-                    <dd className="col-span-full whitespace-pre-wrap break-words">
+                    </span>
+                    <p
+                      className="whitespace-pre-wrap min-w-0"
+                      style={{ overflowWrap: "anywhere" }}
+                    >
                       {reservation.guest_message}
-                    </dd>
-                  </>
+                    </p>
+                  </div>
                 )}
-              </dl>
+              </div>
             </div>
           </CardContent>
         </Card>

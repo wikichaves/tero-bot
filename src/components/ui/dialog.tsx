@@ -56,8 +56,14 @@ function DialogContent({
         // softer border instead of ring, subtle shadow, and a wider
         // default max-width on desktop (sm:max-w-md, was sm:max-w-sm)
         // so forms feel comfortable.
+        // WIK-170: max-h-[90dvh] + overflow-y-auto para que dialogs
+        // largos (ej. edit-reservation con 10+ fields + lang selector)
+        // scrolleen internamente en lugar de quedar clippeados fuera de
+        // viewport. `dvh` (dynamic viewport height) considera la barra
+        // del browser en mobile — `vh` solo no funciona si el address
+        // bar baja/sube.
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-5 rounded-2xl border border-border/60 bg-popover p-6 text-sm text-popover-foreground shadow-xl duration-100 outline-none sm:max-w-md dark:border-border/40 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] max-h-[90dvh] overflow-y-auto -translate-x-1/2 -translate-y-1/2 gap-5 rounded-2xl border border-border/60 bg-popover p-6 text-sm text-popover-foreground shadow-xl duration-100 outline-none sm:max-w-md dark:border-border/40 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
         {...props}

@@ -435,6 +435,7 @@ async function ReservationRow({
   dateField: "check_in" | "check_out";
 }) {
   const t = await getTranslations("dashboard");
+  const tSources = await getTranslations("reservations.sources");
   const locale = await getLocale();
   const dateStr = formatDayShortDate(parseISO(row[dateField]), locale);
   const timeStr =
@@ -470,8 +471,12 @@ async function ReservationRow({
               {t("verifiedLabel")}
             </span>
           )}
+          {/* WIK-168: el tag de source antes mostraba el valor raw
+              ("airbnb"). Ahora pasa por el namespace de traducciones
+              que lo capitaliza apropiadamente ("Airbnb", "Booking",
+              "Manual"). */}
           <Badge variant="secondary" className="text-xs">
-            {row.source}
+            {tSources(row.source)}
           </Badge>
         </div>
         {row.guest_location && (
