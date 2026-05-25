@@ -14,7 +14,14 @@
  *      `src/lib/whatsapp/templates.ts`, re-submit just that one.
  */
 
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+import { config as loadDotenv } from "dotenv";
 import { allTemplates } from "../src/lib/whatsapp/templates";
+
+// Auto-load .env.local (mismo patrón que db-apply + submit scripts).
+const __dirname = dirname(fileURLToPath(import.meta.url));
+loadDotenv({ path: resolve(__dirname, "../.env.local") });
 
 const KAPSO_BASE = "https://api.kapso.ai/meta/whatsapp/v24.0";
 

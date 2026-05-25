@@ -21,7 +21,17 @@
  * Account ID" (a 15-16 digit number). Or via Kapso dashboard if exposed.
  */
 
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+import { config as loadDotenv } from "dotenv";
 import { allTemplates } from "../src/lib/whatsapp/templates";
+
+// Auto-load .env.local igual que `scripts/db-apply.ts` — sin esto el
+// script fallaba con "Missing env var KAPSO_API_KEY" aunque la key
+// estuviera en .env.local. Se puede seguir pasando vía shell vars si
+// querés override (process.env tiene prioridad sobre dotenv).
+const __dirname = dirname(fileURLToPath(import.meta.url));
+loadDotenv({ path: resolve(__dirname, "../.env.local") });
 
 const KAPSO_BASE = "https://api.kapso.ai/meta/whatsapp/v24.0";
 
