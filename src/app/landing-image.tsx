@@ -88,7 +88,12 @@ export function LandingImage({
         // todo el viewport. Padding mínimo para que la imagen sea la
         // protagonista. `bg-popover/95` + backdrop-blur (vía overlay)
         // da el feel "lightbox" sin reaccionar el resto del page.
-        className="!w-auto !max-w-[95vw] gap-2 border-border/40 bg-popover/95 p-2 sm:!max-w-7xl sm:p-3"
+        // WIK-160: el cap viejo `sm:!max-w-7xl` (1280px) limitaba el
+        // tamaño en monitores >1280px — la imagen se veía chica vs el
+        // viewport disponible. Ahora `!max-w-[96vw]` en todos los
+        // breakpoints + altura aumentada a 90vh dan el feel "real
+        // lightbox" en cualquier display.
+        className="!w-auto !max-w-[96vw] gap-2 border-border/40 bg-popover/95 p-2 sm:p-3"
       >
         <picture>
           <source srcSet={`${photoBase}.avif`} type="image/avif" />
@@ -97,9 +102,11 @@ export function LandingImage({
           <img
             src={`${photoBase}.jpg`}
             alt={alt}
-            // object-contain + max-h-[85vh] preserva aspect ratio y
-            // evita overflow vertical en pantallas low-height.
-            className="max-h-[85vh] w-full rounded-lg object-contain"
+            // object-contain + max-h preserva aspect ratio y evita
+            // overflow vertical. WIK-160: 85vh → 90vh para usar más
+            // pantalla vertical (el caption + padding consumen ~5vh,
+            // entonces 90vh deja respiración sin romper layout).
+            className="max-h-[90vh] w-full rounded-lg object-contain"
             loading="eager"
           />
         </picture>
