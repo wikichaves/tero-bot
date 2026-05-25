@@ -231,6 +231,26 @@
     line-height: 1.25;
   }
 
+  /* WIK-165 v2: en el landing los headings van weight 300 (light)
+     para un look más editorial. Aplica a h1/h2/h3 + cualquier elemento
+     con `.font-heading` (ej. los stats numbers en spans) dentro de la
+     landing page (clase `landing-page` en el root del archivo
+     `src/app/page.tsx`). El admin app sigue en 400 — más legible
+     a tamaños chicos.
+     `<em>` mantiene 400 para que la cursiva-accent se distinga
+     del peso del heading que la rodea. */
+  .landing-page h1,
+  .landing-page h2,
+  .landing-page h3,
+  .landing-page .font-heading {
+    font-weight: 300;
+  }
+  .landing-page h1 em,
+  .landing-page h2 em,
+  .landing-page h3 em {
+    font-weight: 400;
+  }
+
   /* WIK-135: `<em>` dentro de un heading pinta italic + accent color
      (mismo gesto editorial que casabosque, donde la cursiva colorea la
      palabra clave en terracota). Acá usamos el verde tero — derivado

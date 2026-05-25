@@ -44,7 +44,10 @@ export default async function LandingPage() {
   const stats = await getLandingStats();
 
   return (
-    <div className="relative flex min-h-screen flex-col">
+    // `landing-page` class scopes el weight 300 de los headings (ver
+    // `globals.css`). El admin app no lleva esta clase, así que sus
+    // headings siguen en weight 400.
+    <div className="landing-page relative flex min-h-screen flex-col">
       {/* WIK-135: gradient paper → background. Fixed full viewport para
           que se vea constante mientras scrolleas. Light: warm-cream
           (#f3eddb) → bg-paper. Dark: warm-near-black tint → bg. La

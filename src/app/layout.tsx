@@ -30,7 +30,11 @@ const geistSans = Geist({
 const sourceSerif = Source_Serif_4({
   variable: "--font-serif",
   subsets: ["latin"],
-  weight: ["400", "600"],
+  // 300 (light) para los headings del landing — más editorial,
+  // delicado. 400 (normal) para headings del admin app — más
+  // legible a tamaños chicos. 600 (semibold) queda disponible
+  // por si algún heading necesita más peso puntualmente.
+  weight: ["300", "400", "600"],
   style: ["normal", "italic"],
   display: "swap",
 });
