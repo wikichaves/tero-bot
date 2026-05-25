@@ -87,6 +87,34 @@
     "guestsOther": "{n} huéspedes",
     "and": "y"
   },
+  "tasksPage": {
+    "title": "Tareas",
+    "newTask": "Nueva tarea",
+    "count": "{n, plural, one {# tarea} other {# tareas}}",
+    "filteredBy": "(filtrado: {status})",
+    "filters": {
+      "all": "Todas",
+      "pending": "Pendientes",
+      "done": "Hechas",
+      "assignedLabel": "Asignado:",
+      "assignedAll": "Todos",
+      "unassigned": "Sin asignar"
+    },
+    "table": {
+      "title": "Título",
+      "property": "Propiedad",
+      "assigned": "Asignado",
+      "status": "Estado",
+      "due": "Vence"
+    },
+    "emptyHint": "Sin tareas. Creá una con el botón <em>Nueva tarea</em>.",
+    "overdue": "Vencida",
+    "photosTooltip": "{n, plural, one {# foto adjunta} other {# fotos adjuntas}}",
+    "statusBadge": {
+      "pending": "Pendiente",
+      "done": "Hecha"
+    }
+  },
   "footer": {
     "createdBy": "Creado por",
     "openSource": "Código abierto",

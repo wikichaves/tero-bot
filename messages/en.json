@@ -87,6 +87,34 @@
     "guestsOther": "{n} guests",
     "and": "and"
   },
+  "tasksPage": {
+    "title": "Tasks",
+    "newTask": "New task",
+    "count": "{n, plural, one {# task} other {# tasks}}",
+    "filteredBy": "(filtered: {status})",
+    "filters": {
+      "all": "All",
+      "pending": "Pending",
+      "done": "Done",
+      "assignedLabel": "Assigned:",
+      "assignedAll": "All",
+      "unassigned": "Unassigned"
+    },
+    "table": {
+      "title": "Title",
+      "property": "Property",
+      "assigned": "Assigned",
+      "status": "Status",
+      "due": "Due"
+    },
+    "emptyHint": "No tasks. Create one with the <em>New task</em> button.",
+    "overdue": "Overdue",
+    "photosTooltip": "{n, plural, one {# photo attached} other {# photos attached}}",
+    "statusBadge": {
+      "pending": "Pending",
+      "done": "Done"
+    }
+  },
   "footer": {
     "createdBy": "Created by",
     "openSource": "Open source",

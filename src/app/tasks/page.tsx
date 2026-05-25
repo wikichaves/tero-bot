@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { format, parseISO } from "date-fns";
-import { es } from "date-fns/locale";
+import { parseISO } from "date-fns";
+import { getLocale, getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
+import { formatShortDate } from "@/lib/i18n/date";
 import {
   Card,
   CardContent,
@@ -32,11 +33,11 @@ export const dynamic = "force-dynamic";
 // pero el dropdown de actions ya no permite ir a "en curso".
 type StatusFilter = "all" | "pending" | "done";
 
-const STATUS_LABEL: Record<Task["status"], string> = {
-  pending: "Pendiente",
-  in_progress: "Pendiente",
-  done: "Hecha",
-};
+// WIK-151: el label se resuelve via t() — `in_progress` se mapea al
+// mismo string que `pending` (UI simplificada de WIK-104).
+function statusBadgeLabelKey(status: Task["status"]): "pending" | "done" {
+  return status === "done" ? "done" : "pending";
+}
 
 const STATUS_BADGE: Record<
   Task["status"],
@@ -67,6 +68,11 @@ export default async function TasksPage({
   //   - gestor: las asignadas a mí + las que yo reporté/asigné a otros
   //   - mantenimiento: solo las asignadas a mí
   const profile = await requireProfile();
+  const t = await getTranslations("tasksPage");
+  const tFilters = await getTranslations("tasksPage.filters");
+  const tTable = await getTranslations("tasksPage.table");
+  const tBadge = await getTranslations("tasksPage.statusBadge");
+  const locale = await getLocale();
   // `allowedIds` aplica scope por property — admin tiene null y
   // no filtra. Gestor / mantenimiento solo ven properties asignadas.
   const allowedIds = await getAllowedPropertyIds(profile);
@@ -145,18 +151,23 @@ export default async function TasksPage({
   const assignees = assigneesRes.data ?? [];
   const todayIso = new Date().toISOString().slice(0, 10);
 
-  // (Counts removidos en WIK-104 — la UI ya no muestra contadores por
-  // status, el filtro simple Pendientes/Hechas es suficiente para
-  // entender el estado del backlog.)
+  // Localized status label for the header pill (en/es).
+  const statusFilterLabel =
+    statusFilter === "pending"
+      ? tFilters("pending")
+      : statusFilter === "done"
+        ? tFilters("done")
+        : tFilters("all");
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-2xl">Tareas</h1>
+          <h1 className="text-2xl">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">
-            {tasks.length} tarea{tasks.length === 1 ? "" : "s"}
-            {statusFilter !== "all" && ` (filtrado: ${STATUS_LABEL[statusFilter]})`}
+            {t("count", { n: tasks.length })}
+            {statusFilter !== "all" &&
+              ` ${t("filteredBy", { status: statusFilterLabel })}`}
             .
           </p>
         </div>
@@ -175,7 +186,7 @@ export default async function TasksPage({
               property: propertyFilter,
               assignee: assigneeFilter,
             })}
-            label="Todas"
+            label={tFilters("all")}
             active={statusFilter === "all"}
           />
           <FilterPill
@@ -184,7 +195,7 @@ export default async function TasksPage({
               property: propertyFilter,
               assignee: assigneeFilter,
             })}
-            label="Pendientes"
+            label={tFilters("pending")}
             active={statusFilter === "pending"}
           />
           <FilterPill
@@ -193,7 +204,7 @@ export default async function TasksPage({
               property: propertyFilter,
               assignee: assigneeFilter,
             })}
-            label="Hechas"
+            label={tFilters("done")}
             active={statusFilter === "done"}
           />
 
@@ -208,7 +219,7 @@ export default async function TasksPage({
                 options={[
                   {
                     id: null,
-                    label: "Todas",
+                    label: tFilters("all"),
                     href: buildTasksUrl({
                       status:
                         statusFilter === "all" ? null : statusFilter,
@@ -234,7 +245,9 @@ export default async function TasksPage({
 
         {assignees.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-muted-foreground">Asignado:</span>
+            <span className="text-muted-foreground">
+              {tFilters("assignedLabel")}
+            </span>
             <Link
               href={buildTasksUrl({
                 status:
@@ -244,7 +257,7 @@ export default async function TasksPage({
               })}
               className={`rounded-full px-3 py-1 ${assigneeFilter ? "hover:bg-muted" : "bg-muted font-medium"}`}
             >
-              Todos
+              {tFilters("assignedAll")}
             </Link>
             <Link
               href={buildTasksUrl({
@@ -255,7 +268,7 @@ export default async function TasksPage({
               })}
               className={`rounded-full px-3 py-1 ${assigneeFilter === "unassigned" ? "bg-muted font-medium" : "hover:bg-muted"}`}
             >
-              Sin asignar
+              {tFilters("unassigned")}
             </Link>
             {assignees.map((a) => (
               <Link
@@ -280,15 +293,17 @@ export default async function TasksPage({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Título</TableHead>
+                <TableHead>{tTable("title")}</TableHead>
                 <TableHead className="hidden md:table-cell">
-                  Propiedad
+                  {tTable("property")}
                 </TableHead>
                 <TableHead className="hidden lg:table-cell">
-                  Asignado
+                  {tTable("assigned")}
                 </TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="hidden sm:table-cell">Vence</TableHead>
+                <TableHead>{tTable("status")}</TableHead>
+                <TableHead className="hidden sm:table-cell">
+                  {tTable("due")}
+                </TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -299,120 +314,124 @@ export default async function TasksPage({
                     colSpan={6}
                     className="text-center text-muted-foreground"
                   >
-                    Sin tareas. Creá una con el botón <em>Nueva tarea</em>.
+                    {t.rich("emptyHint", { em: (chunks) => <em>{chunks}</em> })}
                   </TableCell>
                 </TableRow>
               ) : (
-                tasks.map((t) => {
+                tasks.map((task) => {
                   const { urls: photos, cleaned } = extractPhotos(
-                    t.description,
+                    task.description,
                   );
+                  const photosTooltip =
+                    photos.length > 0
+                      ? t("photosTooltip", { n: photos.length })
+                      : undefined;
                   return (
-                  <TableRow key={t.id}>
-                    <TableCell className="font-medium">
-                      <Link
-                        href={`/tasks/${t.id}`}
-                        className="flex items-center gap-2 hover:underline"
-                      >
-                        <span>{t.title}</span>
-                        {photos.length > 0 && (
-                          <span
-                            className="inline-flex items-center gap-0.5 text-muted-foreground"
-                            title={`${photos.length} foto${photos.length === 1 ? "" : "s"} adjunta${photos.length === 1 ? "" : "s"}`}
-                          >
-                            <ImageIcon className="h-3.5 w-3.5" />
-                            {photos.length > 1 && (
-                              <span className="text-xs">
-                                ×{photos.length}
-                              </span>
-                            )}
+                    <TableRow key={task.id}>
+                      <TableCell className="font-medium">
+                        <Link
+                          href={`/tasks/${task.id}`}
+                          className="flex items-center gap-2 hover:underline"
+                        >
+                          <span>{task.title}</span>
+                          {photos.length > 0 && (
+                            <span
+                              className="inline-flex items-center gap-0.5 text-muted-foreground"
+                              title={photosTooltip}
+                            >
+                              <ImageIcon className="h-3.5 w-3.5" />
+                              {photos.length > 1 && (
+                                <span className="text-xs">
+                                  ×{photos.length}
+                                </span>
+                              )}
+                            </span>
+                          )}
+                        </Link>
+                        {cleaned && (
+                          <div className="text-xs text-muted-foreground line-clamp-1">
+                            {cleaned}
+                          </div>
+                        )}
+                        {/* On mobile we hide the Property/Assigned columns;
+                            surface them under the title so la info no se
+                            pierde. */}
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground md:hidden">
+                          <span>{task.property?.name ?? "—"}</span>
+                          <span>·</span>
+                          <span>
+                            {task.assignee
+                              ? (task.assignee.full_name ?? task.assignee.email)
+                              : tFilters("unassigned")}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {task.property?.name ?? "—"}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        {task.assignee ? (
+                          task.assignee.full_name ?? task.assignee.email
+                        ) : (
+                          <span className="text-muted-foreground">
+                            {tFilters("unassigned")}
                           </span>
                         )}
-                      </Link>
-                      {cleaned && (
-                        <div className="text-xs text-muted-foreground line-clamp-1">
-                          {cleaned}
-                        </div>
-                      )}
-                      {/* On mobile we hide the Propiedad/Asignado columns;
-                          surface them under the title so la info no se
-                          pierde. */}
-                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground md:hidden">
-                        <span>{t.property?.name ?? "—"}</span>
-                        <span>·</span>
-                        <span>
-                          {t.assignee
-                            ? (t.assignee.full_name ?? t.assignee.email)
-                            : "Sin asignar"}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      {t.property?.name ?? "—"}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      {t.assignee ? (
-                        t.assignee.full_name ?? t.assignee.email
-                      ) : (
-                        <span className="text-muted-foreground">
-                          Sin asignar
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={STATUS_BADGE[t.status]}>
-                        {STATUS_LABEL[t.status]}
-                      </Badge>
-                      {/* Mobile-only: due date underneath the status badge
-                          (the dedicated Vence column is hidden < sm). */}
-                      {t.due_date && (
-                        <div className="mt-1 text-xs sm:hidden">
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={STATUS_BADGE[task.status]}>
+                          {tBadge(statusBadgeLabelKey(task.status))}
+                        </Badge>
+                        {/* Mobile-only: due date underneath the status badge
+                            (the dedicated Due column is hidden < sm). */}
+                        {task.due_date && (
+                          <div className="mt-1 text-xs sm:hidden">
+                            <span
+                              className={
+                                task.status !== "done" &&
+                                task.due_date < todayIso
+                                  ? "text-destructive font-medium"
+                                  : "text-muted-foreground"
+                              }
+                            >
+                              {task.status !== "done" &&
+                              task.due_date < todayIso
+                                ? `${t("overdue")} `
+                                : ""}
+                              {formatShortDate(parseISO(task.due_date), locale)}
+                            </span>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        {task.due_date ? (
                           <span
                             className={
-                              t.status !== "done" && t.due_date < todayIso
+                              task.status !== "done" &&
+                              task.due_date < todayIso
                                 ? "text-destructive font-medium"
-                                : "text-muted-foreground"
+                                : ""
                             }
                           >
-                            {t.status !== "done" && t.due_date < todayIso
-                              ? "Vencida "
+                            {task.status !== "done" &&
+                            task.due_date < todayIso
+                              ? `${t("overdue")} `
                               : ""}
-                            {format(parseISO(t.due_date), "d MMM", {
-                              locale: es,
-                            })}
+                            {formatShortDate(parseISO(task.due_date), locale)}
                           </span>
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell">
-                      {t.due_date ? (
-                        <span
-                          className={
-                            t.status !== "done" && t.due_date < todayIso
-                              ? "text-destructive font-medium"
-                              : ""
-                          }
-                        >
-                          {t.status !== "done" && t.due_date < todayIso
-                            ? "Vencida "
-                            : ""}
-                          {format(parseISO(t.due_date), "d MMM", {
-                            locale: es,
-                          })}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <TaskRowActions
-                        task={t}
-                        properties={properties}
-                        assignees={assignees}
-                        isAdmin={profile.role === "admin"}
-                      />
-                    </TableCell>
-                  </TableRow>
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <TaskRowActions
+                          task={task}
+                          properties={properties}
+                          assignees={assignees}
+                          isAdmin={profile.role === "admin"}
+                        />
+                      </TableCell>
+                    </TableRow>
                   );
                 })
               )}
