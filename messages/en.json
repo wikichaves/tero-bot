@@ -196,7 +196,7 @@
       "eyebrow": "Problem",
       "title": "The trap of packaged software.",
       "p1": "Hiring a generic SaaS to manage your rentals is like renting a five-story building for a team of three. You pay through the nose for tools you don't need, while your day-to-day is still full of manual tasks.",
-      "p2": "That's why I built <appLink>tero.bot</appLink>. Instead of fighting rigid third-party systems, I built a modular architecture. It's a <podLink><em>'Pod-of-One'</em></podLink> model: I operate solo but leveraged by AI and automations, so I run at the speed of a full team. We only build the modules that solve real problems, no filler."
+      "p2": "That's why I built <appLink>tero.bot</appLink>. Instead of fighting rigid third-party systems, I built a modular architecture. It's a <podLink><em>‘Pod-of-One’</em></podLink> model: I operate solo but leveraged by AI and automations, so I run at the speed of a full team. We only build the modules that solve real problems, no filler."
     },
     "modules": {
       "eyebrow": "Architecture",
@@ -235,7 +235,7 @@
       "titlePre": "Code",
       "titleEm": "available",
       "titlePost": ".",
-      "p1": "I believe in <em>context engineering</em> and learning in public. <appName/> is the real operational engine of my complex — the code is open to share the system design and accelerate collective learning.",
+      "p1": "I believe in <em>context engineering</em> and learning in public. <appName>tero.bot</appName> is the real operational engine of my complex — the code is open to share the system design and accelerate collective learning.",
       "p2": "It is not a community-maintained open-source project. It is provided \"as is\", without third-party support and without accepting Pull Requests. Feel free to explore the code, fork it, and use the concepts to build your own systems.",
       "ctaCode": "View code on GitHub"
     }

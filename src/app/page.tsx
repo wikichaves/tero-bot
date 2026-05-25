@@ -271,8 +271,12 @@ export default async function LandingPage() {
             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
               {t.rich("source.p1", {
                 em: (chunks) => <em>{chunks}</em>,
-                appName: () => (
-                  <span className="text-foreground">{APP_NAME}</span>
+                // next-intl v4: tags self-closing (`<appName/>`) no se
+                // renderean, hay que usar la forma paired. El nombre
+                // vive en la traducción (igual a APP_NAME), acá solo
+                // le aplicamos el text-foreground accent.
+                appName: (chunks) => (
+                  <span className="text-foreground">{chunks}</span>
                 ),
               })}
             </p>
