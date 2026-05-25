@@ -393,6 +393,32 @@ export const preCheckinClimateUpdate: WhatsAppTemplate = {
 };
 
 // ────────────────────────────────────────────────────────────────────────
+// 9. Bienvenida a staff (gestor/mantenimiento) — primer contacto.
+// WIK-177: este template existe para abrir la ventana de 24h con un
+// gestor/staff nuevo sin requerir que ellos escriban primero. El bot
+// reconoce "ayuda" y devuelve el listado de comandos según rol
+// (`headerFull` para admin/gestor, `headerStaff` para mantenimiento),
+// así que la respuesta a la bienvenida se adapta sola.
+
+export const staffWelcome: WhatsAppTemplate = {
+  name: "staff_welcome",
+  language: "es",
+  category: "UTILITY",
+  description:
+    "Mensaje de bienvenida que abre la ventana de 24h con un staff nuevo (gestor/mantenimiento). Variable: 1=primer nombre del staff.",
+  components: [
+    {
+      type: "BODY",
+      text: `¡Hola {{1}}! Soy ${APP_NAME}, tu asistente de operaciones para propiedades de alquiler temporario.\n\nDesde acá podés consultar tareas pendientes, ver temperaturas/humedad de los ambientes, reportar problemas y más.\n\nMandame *ayuda* a este chat y te muestro qué podés hacer.`,
+      example: {
+        body_text: [["Juana"]],
+      },
+    },
+    { type: "FOOTER", text: brandedFooter("Bienvenida") },
+  ],
+};
+
+// ────────────────────────────────────────────────────────────────────────
 // EN variants (WIK-151 P5). Meta trata `(name, language)` como pares
 // distintos — el mismo `name` con `language: "en"` es un template separado
 // que también requiere submit + approval. AUTH templates (Meta-provistos,
@@ -574,6 +600,24 @@ export const preCheckinClimateUpdateEn: WhatsAppTemplate = {
   ],
 };
 
+export const staffWelcomeEn: WhatsAppTemplate = {
+  name: "staff_welcome",
+  language: "en",
+  category: "UTILITY",
+  description:
+    "EN variant of staff_welcome. Opens the 24h window on first contact with a new manager/staff member. Variable: 1=first name.",
+  components: [
+    {
+      type: "BODY",
+      text: `Hi {{1}}! I'm ${APP_NAME}, your operations assistant for short-term rentals.\n\nFrom this chat you can check pending tasks, see room temperature/humidity, report issues, and more.\n\nSend me *help* to see what you can do.`,
+      example: {
+        body_text: [["Jane"]],
+      },
+    },
+    { type: "FOOTER", text: brandedFooter("Welcome") },
+  ],
+};
+
 // ────────────────────────────────────────────────────────────────────────
 
 /**
@@ -609,6 +653,8 @@ export const allTemplates: WhatsAppTemplate[] = [
   // WIK-125 — climate conditioning pre check-in.
   preCheckinClimateAlert,
   preCheckinClimateUpdate,
+  // WIK-177 — onboarding inicial de gestor/mantenimiento.
+  staffWelcome,
   // WIK-151 P5 — EN variants. Meta los trata como templates separados
   // (mismo `name`, language: "en"). Hay que submitearlos por separado;
   // mientras Meta los aprueba, el helper `sendKapsoTemplateWithFallback`
@@ -621,4 +667,5 @@ export const allTemplates: WhatsAppTemplate[] = [
   reservationCheckinReminderEn,
   preCheckinClimateAlertEn,
   preCheckinClimateUpdateEn,
+  staffWelcomeEn,
 ];

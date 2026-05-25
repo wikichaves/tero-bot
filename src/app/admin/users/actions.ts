@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
-import { normalizePhone } from "@/lib/whatsapp";
+import {
+  normalizePhone,
+  sendKapsoTemplateWithFallback,
+} from "@/lib/whatsapp";
 
 // WIK-74: "limpieza" deprecado, unificado en "mantenimiento".
 const ROLES = ["admin", "gestor", "mantenimiento"] as const;
@@ -259,4 +262,65 @@ export async function resetUserPassword(input: {
   if (error) return { error: error.message };
   revalidatePath("/admin/users");
   return { ok: true };
+}
+
+/**
+ * WIK-177: manda el template `staff_welcome` por WhatsApp al profile
+ * indicado. Pensado para el primer contacto con un gestor/mantenimiento
+ * nuevo — abre la ventana de 24h sin requerir que ellos escriban primero.
+ *
+ * Variables del template: `{{1}}` = primer nombre del staff. Lo extraemos
+ * de `profiles.full_name` (primera palabra) o caemos al email/teléfono si
+ * no hay nombre.
+ *
+ * Requiere: admin role, profile con `whatsapp` configurado, env vars
+ * `WHATSAPP_PHONE_NUMBER_ID` + `KAPSO_API_KEY`, y que Meta haya aprobado
+ * el template (status APPROVED en `whatsapp_template_states`).
+ */
+export async function sendStaffWelcome(
+  profileId: string,
+): Promise<{ ok?: true; error?: string }> {
+  await requireRole(["admin"]);
+
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const apiKey = process.env.KAPSO_API_KEY;
+  if (!phoneNumberId || !apiKey) {
+    return { error: "WhatsApp no está configurado en este entorno." };
+  }
+
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id, full_name, email, whatsapp, language")
+    .eq("id", profileId)
+    .maybeSingle();
+  if (!profile) return { error: "Usuario no encontrado." };
+  if (!profile.whatsapp) {
+    return {
+      error: "Este usuario no tiene teléfono de WhatsApp configurado.",
+    };
+  }
+
+  // First name: primera palabra del full_name si existe; sino algo razonable
+  // (la parte local del email, o el propio teléfono como último recurso).
+  const firstName =
+    profile.full_name?.trim().split(/\s+/)[0] ??
+    profile.email?.split("@")[0] ??
+    profile.whatsapp;
+
+  const preferredLanguage: "es" | "en" =
+    profile.language === "en" ? "en" : "es";
+
+  try {
+    await sendKapsoTemplateWithFallback({
+      phoneNumberId,
+      to: profile.whatsapp,
+      templateName: "staff_welcome",
+      preferredLanguage,
+      bodyVariables: [firstName],
+    });
+    return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
 }

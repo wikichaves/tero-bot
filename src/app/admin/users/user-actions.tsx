@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import type { Profile, Property, UserRole } from "@/lib/types";
 import { ALL_ROLES, ROLE_LABEL } from "@/lib/roles";
-import { deleteUser, updateRole } from "./actions";
+import { deleteUser, sendStaffWelcome, updateRole } from "./actions";
 import { EditUserDialog } from "./edit-user-dialog";
 import { ScopeDialog } from "./scope-dialog";
 import { ResetPasswordDialog } from "./reset-password-dialog";
@@ -57,6 +57,20 @@ export function UserActions({
     });
   }
 
+  function sendWelcome() {
+    if (
+      !confirm(
+        `Mandar mensaje de bienvenida por WhatsApp a ${profile.full_name ?? profile.email}?`,
+      )
+    )
+      return;
+    startTransition(async () => {
+      const r = await sendStaffWelcome(profile.id);
+      if (r?.error) toast.error(r.error);
+      else toast.success("Bienvenida enviada por WhatsApp.");
+    });
+  }
+
   return (
     <>
       <DropdownMenu>
@@ -80,6 +94,15 @@ export function UserActions({
           <DropdownMenuItem onClick={() => setResetPwdOpen(true)}>
             Resetear password
           </DropdownMenuItem>
+          {/* WIK-177: mandar template `staff_welcome` para abrir la ventana
+              de 24h y que el gestor/mantenimiento pueda escribir libre
+              después. No tiene sentido para admin (que generalmente ya
+              configuró el sistema) — lo escondemos. */}
+          {profile.whatsapp && profile.role !== "admin" && (
+            <DropdownMenuItem onClick={sendWelcome}>
+              Enviar bienvenida WhatsApp
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuLabel>Cambiar rol</DropdownMenuLabel>
