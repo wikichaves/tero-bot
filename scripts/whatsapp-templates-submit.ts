@@ -142,13 +142,26 @@ async function submitCreate(
 }
 
 /**
- * Edit an existing template via Meta's `POST /<TEMPLATE_ID>` endpoint.
+ * Edit an existing template (WIK-171).
+ *
+ * Meta directo: `POST /<TEMPLATE_ID>` con `components` actualizados.
+ * Pero Kapso es un proxy: si llamamos al template_id directo sin WABA
+ * en el path, devuelve HTTP 404 "WhatsApp configuration not found"
+ * (no puede rutear). Kapso requiere la WABA en el path siempre.
+ *
+ * Estrategia: probar 2 URL patterns en orden, primero el más probable
+ * (Kapso-style RESTful nested), después la variante con query param.
+ * Si los dos fallan con 404 propagamos el último error con un hint en
+ * el mensaje para que el operador haga el edit manual en Meta
+ * Business Manager (Configuración → Plantillas).
+ *
  * Meta no permite cambiar `name` ni `language` (son immutable) — solo
  * los `components` y opcionalmente `category`. El template queda en
- * PENDING para re-approval. (WIK-171)
+ * PENDING para re-approval.
  */
 async function submitUpdate(
   apiKey: string,
+  wabaId: string,
   templateId: string,
   template: (typeof allTemplates)[number],
   dryRun: boolean,
@@ -166,30 +179,46 @@ async function submitUpdate(
     return { ok: true, mode: "update" };
   }
 
-  const url = `${KAPSO_BASE}/${templateId}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "X-API-Key": apiKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  const text = await res.text();
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    parsed = text;
+  // Pattern 1: Kapso REST nested — `/{waba}/message_templates/{id}`
+  // Pattern 2: Meta-style con WABA en query param.
+  const candidates = [
+    `${KAPSO_BASE}/${wabaId}/message_templates/${templateId}`,
+    `${KAPSO_BASE}/${templateId}?waba_id=${wabaId}`,
+  ];
+  let lastError = "";
+  for (const url of candidates) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "X-API-Key": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    const text = await res.text();
+    if (res.ok) {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        parsed = text;
+      }
+      return { ok: true, mode: "update", data: parsed };
+    }
+    lastError = `HTTP ${res.status}: ${text.slice(0, 400)}`;
+    // 404 = ruta no soportada por Kapso, intentar la siguiente.
+    if (res.status !== 404) break;
   }
-  if (!res.ok) {
-    return {
-      ok: false,
-      mode: "update",
-      error: `HTTP ${res.status}: ${text.slice(0, 400)}`,
-    };
-  }
-  return { ok: true, mode: "update", data: parsed };
+  return {
+    ok: false,
+    mode: "update",
+    error:
+      `${lastError}\n` +
+      `      Hint: si todos los intentos dieron 404, Kapso quizás no\n` +
+      `      expone el edit endpoint. Workaround: editá el template\n` +
+      `      manualmente en Meta Business Manager → WhatsApp Manager\n` +
+      `      → Message templates → click en el template → Edit.`,
+  };
 }
 
 async function main() {
@@ -233,7 +262,7 @@ async function main() {
 
     process.stdout.write(`→ [${tag}] ${t.name} (${t.category}, ${t.language}) ... `);
     const result = isUpdate
-      ? await submitUpdate(apiKey, found!.id!, t, dryRun)
+      ? await submitUpdate(apiKey, wabaId, found!.id!, t, dryRun)
       : await submitCreate(apiKey, wabaId, t, dryRun);
 
     if (result.ok) {
