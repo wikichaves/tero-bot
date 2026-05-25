@@ -91,10 +91,14 @@ type TuyaSceneDetailResponse = {
   id?: string;
   name?: string;
   actions?: Array<{
-    /** "dpIssue" o "deviceIssue" para acciones sobre device.
-     *  "delay", "ruleTrigger" para otros tipos. */
+    /** Patterns observados (todos en lowercase con underscores):
+     *  - `device_issue` → switch/plug/light/heater/thermostat
+     *  - `ir_issue_vii` → aire acondicionado u otro device IR (sub-device
+     *    de un IR blaster — `entity_id` es el ID del blaster)
+     *  - `delay`, `rule_trigger`, `notification` → no son devices */
     action_executor?: string;
-    /** Para device actions, este es el Tuya device ID. */
+    /** Para device actions, este es el Tuya device ID (o el ID del IR
+     *  blaster para acciones IR). */
     entity_id?: string;
   }>;
 };
@@ -106,15 +110,15 @@ export async function getSceneDetail(sceneId: string): Promise<SceneDetail> {
   );
   const deviceIds = new Set<string>();
   for (const a of r.actions ?? []) {
-    // Cualquier action que tenga `entity_id` no-nulo y empiece con
-    // un device executor cuenta. Patterns observados:
-    //   - "dpIssue", "deviceIssue", "deviceGroupIssue" → device action
-    //   - "delay", "ruleTrigger", "notification" → no son devices
-    const executor = a.action_executor ?? "";
-    if (
-      a.entity_id &&
-      (executor.includes("Issue") || executor.includes("device"))
-    ) {
+    // WIK-172 v2: lowercase + includes("issue") cubre ambos casos:
+    //   - `device_issue` (switches/plugs/heaters)
+    //   - `ir_issue_vii` (aires IR — entity_id es el IR blaster)
+    // El filter viejo `includes("Issue") || includes("device")` se
+    // perdía los IR porque "ir_issue_vii" no tiene "device" ni "Issue"
+    // con mayúscula — y los aires son el caso principal de uso del
+    // tap-to-run en propiedades de alquiler temporario.
+    const executor = (a.action_executor ?? "").toLowerCase();
+    if (a.entity_id && executor.includes("issue")) {
       deviceIds.add(String(a.entity_id));
     }
   }
