@@ -166,7 +166,10 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
       : null;
 
   return (
-    <header className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3.5 sm:px-6">
+    // WIK-152: matchear el header del landing — sticky top + backdrop
+    // blur + mismo padding (py-4 px-5/sm:px-8) para que la transición
+    // landing → dashboard se sienta sin saltos visuales.
+    <header className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-border/60 bg-background/80 px-5 py-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/60 sm:px-8">
       <div className="flex min-w-0 items-center gap-3 sm:gap-6">
         {/* Mobile hamburger — versión aplanada de los mismos items. Visible
             hasta md; en md+ se usa el nav inline. */}

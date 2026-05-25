@@ -15,10 +15,12 @@ export default async function LoginPage() {
   const t = await getTranslations("login");
   return (
     <div className="flex flex-1 flex-col">
-      {/* WIK-131: header con logo bird + APP_NAME, mirroring the
-          logged-in `<SiteHeader>` layout. ModeToggle ya vive en el
-          footer del landing, no se repite acá. */}
-      <header className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3.5 sm:px-6">
+      {/* WIK-131: header con logo bird + APP_NAME, mirroring el
+          `<SiteHeader>` del dashboard y del landing. ModeToggle ya
+          vive en el footer global.
+          WIK-152: matchear sticky + backdrop blur + padding del
+          landing — flow visual sin saltos entre / → /login → app. */}
+      <header className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-border/60 bg-background/80 px-5 py-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/60 sm:px-8">
         <Link
           href="/"
           className="flex shrink-0 items-center gap-2 text-base font-semibold tracking-tight"
