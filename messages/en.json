@@ -336,8 +336,6 @@
     "humTooltip": "Min/max computed with p5/p95 percentiles to filter outliers.",
     "avgShort": "avg",
     "scenes": {
-      "title": "Quick actions",
-      "description": "Tap-to-run scenes that control devices in this room.",
       "running": "Running…",
       "ran": "Ran: {name}",
       "error": "Could not run {name}: {error}"

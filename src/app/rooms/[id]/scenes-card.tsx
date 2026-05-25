@@ -1,11 +1,3 @@
-import { getTranslations } from "next-intl/server";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listDevicesGroupedByHome } from "@/lib/tuya/devices";
 import {
@@ -47,7 +39,6 @@ export async function ScenesCard({
   if (!isAdmin) return null;
 
   const admin = createAdminClient();
-  const t = await getTranslations("roomDetail.scenes");
 
   // 1. Devices del room (sin filtro de kind — un AC switch no es
   //    sensor pero importa para matchear scenes).
@@ -111,21 +102,18 @@ export async function ScenesCard({
   });
   if (matching.length === 0) return null;
 
+  // WIK-172 v3: sin wrapper Card / título / descripción — sólo los
+  // botones inline. Decisión del user: que el nombre de la scene sea
+  // toda la affordance, sin chrome extra que ocupa espacio en el header.
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{t("title")}</CardTitle>
-        <CardDescription>{t("description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-wrap gap-2">
-        {matching.map(({ scene }) => (
-          <RunSceneButton
-            key={scene.id}
-            sceneId={scene.id}
-            sceneName={scene.name}
-          />
-        ))}
-      </CardContent>
-    </Card>
+    <div className="flex flex-wrap gap-2">
+      {matching.map(({ scene }) => (
+        <RunSceneButton
+          key={scene.id}
+          sceneId={scene.id}
+          sceneName={scene.name}
+        />
+      ))}
+    </div>
   );
 }
