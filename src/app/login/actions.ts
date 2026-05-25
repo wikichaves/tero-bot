@@ -37,7 +37,10 @@ export async function signIn(input: {
 }) {
   const identifier = input.identifier.trim();
   if (!identifier) {
-    return { error: "Ingresá tu teléfono." };
+    // WIK-151: devolvemos error keys (no strings) para que el cliente
+    // las traduzca en su idioma activo. El cliente las resuelve via
+    // t("errors.empty") etc.
+    return { error: "errors.empty" };
   }
 
   let email = identifier;
@@ -45,7 +48,7 @@ export async function signIn(input: {
   if (looksLikePhone(identifier)) {
     const normalized = normalizePhone(identifier);
     if (!normalized) {
-      return { error: "Teléfono inválido. Usá formato +598... o 099..." };
+      return { error: "errors.invalidPhone" };
     }
     // Lookup del email asociado. Service role porque el user todavía
     // no está autenticado y RLS bloquea read de profiles.
@@ -56,9 +59,7 @@ export async function signIn(input: {
       .eq("whatsapp", normalized)
       .maybeSingle();
     if (!profile?.email) {
-      return {
-        error: "No encontré un usuario con ese teléfono.",
-      };
+      return { error: "errors.notFound" };
     }
     email = profile.email as string;
   }
@@ -71,7 +72,7 @@ export async function signIn(input: {
   if (error) {
     // No reveles si el problema fue email/phone vs password — devolver
     // un mensaje genérico para no facilitar enumeration attacks.
-    return { error: "Credenciales inválidas." };
+    return { error: "errors.credentials" };
   }
 
   // Look up role to send each user to their natural landing page.

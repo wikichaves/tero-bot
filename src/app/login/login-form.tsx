@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +17,7 @@ import { signIn } from "./actions";
  * funcionando. Pero el form solo muestra teléfono.
  */
 export function LoginForm() {
+  const t = useTranslations("login");
   const [pending, startTransition] = useTransition();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -24,14 +26,22 @@ export function LoginForm() {
     e.preventDefault();
     startTransition(async () => {
       const result = await signIn({ identifier, password });
-      if (result?.error) toast.error(result.error);
+      // WIK-151: el server action devuelve error keys (ej. "errors.empty").
+      // Las resolvemos en el cliente para mostrar en el idioma activo.
+      if (result?.error) {
+        const key = result.error;
+        // Si el key empieza con "errors.", intentamos traducir; si
+        // no, mostramos tal cual (fallback para errors no-localized).
+        const msg = key.startsWith("errors.") ? t(key) : key;
+        toast.error(msg);
+      }
     });
   }
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <Label htmlFor="identifier">Teléfono</Label>
+        <Label htmlFor="identifier">{t("phoneLabel")}</Label>
         <Input
           id="identifier"
           // type="tel" → keypad numérico nativo en mobile. autoComplete
@@ -44,11 +54,11 @@ export function LoginForm() {
           required
           value={identifier}
           onChange={(e) => setIdentifier(e.target.value)}
-          placeholder="+598 99 123 456"
+          placeholder={t("phonePlaceholder")}
         />
       </div>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="password">Contraseña</Label>
+        <Label htmlFor="password">{t("passwordLabel")}</Label>
         <Input
           id="password"
           type="password"
@@ -59,7 +69,7 @@ export function LoginForm() {
         />
       </div>
       <Button type="submit" disabled={pending}>
-        {pending ? "Ingresando…" : "Ingresar"}
+        {pending ? t("submitPending") : t("submit")}
       </Button>
     </form>
   );

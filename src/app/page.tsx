@@ -1,25 +1,25 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Bird, ArrowRight } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { APP_NAME } from "@/lib/brand";
 import { LandingImage } from "./landing-image";
 
 /**
- * Public landing page (WIK-131).
+ * Public landing page (WIK-131 → WIK-151 i18n).
  *
  * `/` is a public marketing page; logged-in users get auto-redirected
  * to /dashboard so the landing only shows up for new / anonymous
  * visitors. Middleware whitelists `/` so unauthenticated requests
  * don't bounce to /login.
  *
- * Content is in Spanish (rioplatense neutral) — the operator is in
- * Uruguay and most readers come from a Spanish-speaking referrer.
- * Some terms intentionally stay in English: product/tool names
- * (Linear, Claude Code, Vercel, Kapso), the "Pod-of-One" concept, and
- * a handful of dev jargon (loop, push, commit) that's standard in
- * tech-Spanish.
+ * Strings come from `messages/{locale}.json` via next-intl. The locale
+ * is resolved per-request (cookie → profile → Accept-Language → 'en'
+ * default). Some terms intentionally stay in English in both locales:
+ * product/tool names (Linear, Claude Code, Vercel, Kapso), "Pod-of-One"
+ * concept, and a handful of dev jargon.
  *
  * Visual layering:
  *   1. Background color from theme (`--background`).
@@ -36,6 +36,9 @@ export default async function LandingPage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (user) redirect("/dashboard");
+
+  const t = await getTranslations("landing");
+  const tCommon = await getTranslations("common");
 
   return (
     <div className="relative flex min-h-screen flex-col">
@@ -73,7 +76,7 @@ export default async function LandingPage() {
           <Bird className="h-5 w-5" />
           {APP_NAME}
         </Link>
-        <Button render={<Link href="/login" />}>Iniciar sesión</Button>
+        <Button render={<Link href="/login" />}>{tCommon("signIn")}</Button>
       </header>
 
       <main className="flex flex-1 flex-col">
@@ -86,13 +89,11 @@ export default async function LandingPage() {
                 aplica el italic-accent (verde profundo) — gesto editorial
                 directo de casabosque. */}
             <h1 className="text-balance text-5xl sm:text-7xl">
-              El sistema operativo para alquileres <em>temporarios</em>.
+              {t("hero.titlePre")} <em>{t("hero.titleEm")}</em>
+              {t("hero.titlePost")}
             </h1>
             <p className="max-w-xl text-balance text-base leading-relaxed text-muted-foreground">
-              Un sistema modular construido para eliminar la fricción operativa
-              de un complejo de alquiler temporario. IoT, integraciones
-              invisibles, y un bot de WhatsApp — todas las señales del negocio
-              colapsadas en una sola interfaz.
+              {t("hero.intro")}
             </p>
             {/* WIK-149: la instancia es privada (solo el operador entra),
                 así que el CTA principal no apunta a /login — lleva al case
@@ -109,7 +110,7 @@ export default async function LandingPage() {
                   />
                 }
               >
-                Leer caso de estudio <ArrowRight />
+                {t("hero.ctaCaseStudy")} <ArrowRight />
               </Button>
               <Button
                 size="lg"
@@ -122,7 +123,7 @@ export default async function LandingPage() {
                   />
                 }
               >
-                Ver código
+                {t("hero.ctaCode")}
               </Button>
             </div>
           </div>
@@ -133,15 +134,14 @@ export default async function LandingPage() {
           <figure className="mx-auto mt-16 max-w-5xl sm:mt-20">
             <LandingImage
               photoBase="/landing/Tero-Atmosphere"
-              alt="Una pareja recién llegada a una cabaña en el bosque sostiene tazas calientes junto a una estufa encendida; el termostato muestra 22°C."
+              alt={t("hero.atmosphereAlt")}
               loading="eager"
               wrapperClassName="block w-full rounded-2xl border border-border/60 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-border/40 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4)]"
               className="w-full rounded-2xl object-cover"
-              caption="El huésped llega y la casa ya está a 22°C — el clima se configuró horas antes."
+              caption={t("hero.atmosphereCaption")}
             />
             <figcaption className="mt-3 text-center text-sm text-muted-foreground">
-              El huésped llega y la casa ya está a 22°C — el clima se
-              configuró horas antes.
+              {t("hero.atmosphereCaption")}
             </figcaption>
           </figure>
         </section>
@@ -149,40 +149,35 @@ export default async function LandingPage() {
         {/* The problem. */}
         <section className="border-t border-border/60 px-5 py-20 sm:px-8 sm:py-28">
           <div className="mx-auto flex max-w-2xl flex-col gap-5">
-            <span className="label-mono-with-rule">Problema</span>
-            <h2 className="text-3xl sm:text-5xl">
-              La trampa del software empaquetado.
-            </h2>
+            <span className="label-mono-with-rule">{t("problem.eyebrow")}</span>
+            <h2 className="text-3xl sm:text-5xl">{t("problem.title")}</h2>
             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
-              Contratar un SaaS genérico para gestionar tus alquileres es como
-              alquilar un edificio de cinco pisos para un equipo de tres
-              personas. Pagás carísimo por herramientas que no necesitas,
-              mientras que tu día a día sigue lleno de tareas manuales.
+              {t("problem.p1")}
             </p>
             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
-              Por eso creé{" "}
-              <a
-                href="https://github.com/wikichaves/tero-bot"
-                target="_blank"
-                rel="noopener"
-                className="text-foreground underline-offset-4 hover:underline"
-              >
-                {APP_NAME}
-              </a>
-              . En vez de pelear contra sistemas rígidos de terceros, armé una
-              arquitectura modular. Es un modelo{" "}
-              <a
-                href="https://x.com/gokulr/status/2051683243934826773"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline underline-offset-4 hover:text-foreground"
-              >
-                <em>&lsquo;Pod-of-One&rsquo;</em>
-              </a>
-              : me permite operar de forma individual, pero apalancado en IA y
-              automatizaciones para tener el rendimiento de un equipo completo.
-              Solo construimos los módulos que resuelven problemas reales, sin
-              relleno.
+              {t.rich("problem.p2", {
+                appLink: (chunks) => (
+                  <a
+                    href="https://github.com/wikichaves/tero-bot"
+                    target="_blank"
+                    rel="noopener"
+                    className="text-foreground underline-offset-4 hover:underline"
+                  >
+                    {chunks}
+                  </a>
+                ),
+                podLink: (chunks) => (
+                  <a
+                    href="https://x.com/gokulr/status/2051683243934826773"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-4 hover:text-foreground"
+                  >
+                    {chunks}
+                  </a>
+                ),
+                em: (chunks) => <em>{chunks}</em>,
+              })}
             </p>
           </div>
         </section>
@@ -192,40 +187,56 @@ export default async function LandingPage() {
         <section className="border-t border-border/60 px-5 py-20 sm:px-8 sm:py-28">
           <div className="mx-auto flex max-w-5xl flex-col gap-12">
             <div className="mx-auto flex max-w-2xl flex-col items-center gap-3 text-center">
-              <span className="label-mono-with-rule">Arquitectura</span>
+              <span className="label-mono-with-rule">
+                {t("modules.eyebrow")}
+              </span>
               <h2 className="text-3xl sm:text-5xl">
-                Tres módulos. <em>Un sistema.</em>
+                {t("modules.titlePre")} <em>{t("modules.titleEm")}</em>
               </h2>
               <p className="text-base text-muted-foreground sm:text-lg">
-                Capas finas, composables, reemplazables. Cada una resuelve un
-                problema real de la operativa diaria.
+                {t("modules.subtitle")}
               </p>
             </div>
 
             <div className="grid gap-6 md:grid-cols-3">
               <ModuleCard
                 photoBase="/landing/Tero-Hospitality"
-                photoAlt="Una persona sostiene un iPad mostrando el panel de ambientes con temperatura y humedad en vivo por habitación."
-                title="Hospitalidad automática"
-                challenge="La experiencia del huésped no empieza con las llaves — empieza con el confort térmico al cruzar la puerta."
-                module="Control de temperatura y humedad integrado. Pre-acondicionamiento 2h antes del check-in."
-                philosophy="A veces la mejor UI no es una pantalla — es el clima perfecto cuando alguien entra."
+                photoAlt={t("modules.hospitality.alt")}
+                title={t("modules.hospitality.title")}
+                challenge={t("modules.hospitality.challenge")}
+                module={t("modules.hospitality.module")}
+                philosophy={t("modules.hospitality.philosophy")}
+                labels={{
+                  challenge: t("modules.labels.challenge"),
+                  module: t("modules.labels.module"),
+                  philosophy: t("modules.labels.philosophy"),
+                }}
               />
               <ModuleCard
                 photoBase="/landing/Tero-System-Overview"
-                photoAlt="Una persona en el escritorio de la cabaña mira el panel de facturas en una MacBook; cargos de luz, agua y alarma listados con monto y vencimiento."
-                title="Operaciones invisibles"
-                challenge="Trackear costos de energía manualmente y matchearlos contra ocupación real es un sumidero de tiempo administrativo."
-                module="Un flow backend que intercepta facturas reenviadas por email, parsea los datos, y los matchea automáticamente contra el consumo real."
-                philosophy="Las tareas burocráticas las resuelve el backend. Menos interfaces manuales, más integraciones invisibles."
+                photoAlt={t("modules.operations.alt")}
+                title={t("modules.operations.title")}
+                challenge={t("modules.operations.challenge")}
+                module={t("modules.operations.module")}
+                philosophy={t("modules.operations.philosophy")}
+                labels={{
+                  challenge: t("modules.labels.challenge"),
+                  module: t("modules.labels.module"),
+                  philosophy: t("modules.labels.philosophy"),
+                }}
               />
               <ModuleCard
                 photoBase="/landing/Tero-Team-UI-Context"
-                photoAlt="Una mano sostiene un celular mostrando el chat de WhatsApp con el bot de tero.bot creando una tarea."
-                title="UI cero fricción"
-                challenge="Forzar al personal a descargar otra app y aprender un sistema nuevo genera resistencia y errores."
-                module="Reportes de incidentes, asignación de tareas, tracking y notificaciones — todo por WhatsApp."
-                philosophy="La mejor interfaz es la que el usuario ya conoce. En vez de forzar a la gente a un sistema nuevo, traje el sistema a ellos."
+                photoAlt={t("modules.frictionless.alt")}
+                title={t("modules.frictionless.title")}
+                challenge={t("modules.frictionless.challenge")}
+                module={t("modules.frictionless.module")}
+                philosophy={t("modules.frictionless.philosophy")}
+                labels={{
+                  challenge: t("modules.labels.challenge"),
+                  module: t("modules.labels.module"),
+                  philosophy: t("modules.labels.philosophy"),
+                }}
               />
             </div>
           </div>
@@ -234,22 +245,21 @@ export default async function LandingPage() {
         {/* Source-available. */}
         <section className="border-t border-border/60 px-5 py-20 sm:px-8 sm:py-28">
           <div className="mx-auto flex max-w-2xl flex-col gap-6">
-            <span className="label-mono-with-rule">Source-available</span>
+            <span className="label-mono-with-rule">{t("source.eyebrow")}</span>
             <h2 className="text-3xl sm:text-5xl">
-              Código <em>disponible</em>.
+              {t("source.titlePre")} <em>{t("source.titleEm")}</em>
+              {t("source.titlePost")}
             </h2>
             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
-              Creo en el <em>context engineering</em> y en aprender en público.{" "}
-              <span className="text-foreground">{APP_NAME}</span> es el motor
-              operativo real de mi complejo — el código está abierto para
-              compartir el system design y acelerar el aprendizaje colectivo.
+              {t.rich("source.p1", {
+                em: (chunks) => <em>{chunks}</em>,
+                appName: () => (
+                  <span className="text-foreground">{APP_NAME}</span>
+                ),
+              })}
             </p>
             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
-              No es un proyecto open-source mantenido por la comunidad. Está
-              provisto &ldquo;tal cual&rdquo;, sin soporte de terceros y sin
-              aceptar Pull Requests. Sentite libre de explorar el código,
-              forkearlo, y usar los conceptos para construir tus propios
-              sistemas.
+              {t("source.p2")}
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Button
@@ -261,7 +271,7 @@ export default async function LandingPage() {
                   />
                 }
               >
-                Ver código en GitHub <ArrowRight />
+                {t("source.ctaCode")} <ArrowRight />
               </Button>
               <Button
                 variant="outline"
@@ -273,7 +283,7 @@ export default async function LandingPage() {
                   />
                 }
               >
-                Leer el case study
+                {t("source.ctaCaseStudy")}
               </Button>
             </div>
           </div>
@@ -294,6 +304,7 @@ function ModuleCard({
   challenge,
   module,
   philosophy,
+  labels,
 }: {
   /** Path without extension — we attach `.avif`, `.webp`, `.jpg` for
    *  the `<picture>` srcset. */
@@ -303,6 +314,9 @@ function ModuleCard({
   challenge: string;
   module: string;
   philosophy: string;
+  /** Translated section labels (problem/module/philosophy). Passed
+   *  down by the parent so each card uses the active locale. */
+  labels: { challenge: string; module: string; philosophy: string };
 }) {
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-border/40 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
@@ -317,21 +331,15 @@ function ModuleCard({
         <h3 className="text-xl">{title}</h3>
         <dl className="flex flex-col gap-3 text-sm">
           <div>
-            <dt className="label-mono">
-              El problema
-            </dt>
+            <dt className="label-mono">{labels.challenge}</dt>
             <dd className="mt-1 leading-relaxed">{challenge}</dd>
           </div>
           <div>
-            <dt className="label-mono">
-              El módulo
-            </dt>
+            <dt className="label-mono">{labels.module}</dt>
             <dd className="mt-1 leading-relaxed">{module}</dd>
           </div>
           <div>
-            <dt className="label-mono">
-              La filosofía
-            </dt>
+            <dt className="label-mono">{labels.philosophy}</dt>
             <dd className="mt-1 leading-relaxed text-muted-foreground">
               {philosophy}
             </dd>

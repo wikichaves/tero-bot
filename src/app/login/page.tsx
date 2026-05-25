@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Bird } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import {
   Card,
   CardContent,
@@ -10,7 +11,8 @@ import {
 import { APP_NAME } from "@/lib/brand";
 import { LoginForm } from "./login-form";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const t = await getTranslations("login");
   return (
     <div className="flex flex-1 flex-col">
       {/* WIK-131: header con logo bird + APP_NAME, mirroring the
@@ -29,10 +31,8 @@ export default function LoginPage() {
       <main className="flex flex-1 items-center justify-center p-6">
         <Card className="w-full max-w-sm gap-6 py-7">
           <CardHeader>
-            <CardTitle className="text-2xl">Iniciar sesión</CardTitle>
-            <CardDescription>
-              Accedé al panel con tu teléfono.
-            </CardDescription>
+            <CardTitle className="text-2xl">{t("title")}</CardTitle>
+            <CardDescription>{t("subtitle")}</CardDescription>
           </CardHeader>
           <CardContent>
             <LoginForm />

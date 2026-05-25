@@ -26,25 +26,22 @@
   },
   "landing": {
     "hero": {
-      "titlePre": "El sistema operativo para alquileres",
-      "titleEm": "temporarios",
-      "titlePost": ".",
+      "tagline": "Operativa para alquileres <accent>temporarios</accent>.",
       "intro": "Un sistema modular construido para eliminar la fricción operativa de un complejo de alquiler temporario. IoT, integraciones invisibles, y un bot de WhatsApp — todas las señales del negocio colapsadas en una sola interfaz.",
       "atmosphereCaption": "El huésped llega y la casa ya está a 22°C — el clima se configuró horas antes.",
       "atmosphereAlt": "Una pareja recién llegada a una cabaña en el bosque sostiene tazas calientes junto a una estufa encendida; el termostato muestra 22°C.",
-      "ctaCaseStudy": "Leer caso de estudio",
+      "ctaSignIn": "Iniciar sesión",
       "ctaCode": "Ver código"
     },
     "problem": {
       "eyebrow": "Problema",
-      "title": "La trampa del software empaquetado.",
-      "p1": "Contratar un SaaS genérico para gestionar tus alquileres es como alquilar un edificio de cinco pisos para un equipo de tres personas. Pagás carísimo por herramientas que no necesitas, mientras que tu día a día sigue lleno de tareas manuales.",
-      "p2": "Por eso creé <appLink>tero.bot</appLink>. En vez de pelear contra sistemas rígidos de terceros, armé una arquitectura modular. Es un modelo <podLink><em>'Pod-of-One'</em></podLink>: me permite operar de forma individual, pero apalancado en IA y automatizaciones para tener el rendimiento de un equipo completo. Solo construimos los módulos que resuelven problemas reales, sin relleno."
+      "title": "El problema con los <accent>PMS</accent>.",
+      "p1": "Pagar por un SaaS genérico es como alquilar un edificio de cinco pisos para un equipo de tres personas — pagás por features que nunca vas a usar y el sistema sigue siendo rígido frente a tu operativa real.",
+      "p2": "En lugar de adaptar mis operaciones a software de terceros, construí el mío. <appLink>tero.bot</appLink> no es una app \"a medida\" tradicional — es arquitectura modular de alta eficiencia. Operando bajo un modelo <podLink><em>\"Pod-of-One\"</em></podLink> — un único operador apalancado con IA, automatizaciones, y principios de system design — ejecutando a la velocidad de un equipo completo y construyendo sólo los módulos que eliminan fricción concreta."
     },
     "modules": {
       "eyebrow": "Arquitectura",
-      "titlePre": "Tres módulos.",
-      "titleEm": "Un sistema.",
+      "title": "Tres módulos. <accent>Un sistema.</accent>",
       "subtitle": "Capas finas, composables, reemplazables. Cada una resuelve un problema real de la operativa diaria.",
       "labels": {
         "challenge": "El problema",
@@ -75,10 +72,8 @@
     },
     "source": {
       "eyebrow": "Source-available",
-      "titlePre": "Código",
-      "titleEm": "disponible",
-      "titlePost": ".",
-      "p1": "Creo en el <em>context engineering</em> y en aprender en público. <appName/> es el motor operativo real de mi complejo — el código está abierto para compartir el system design y acelerar el aprendizaje colectivo.",
+      "title": "Código <accent>disponible</accent>.",
+      "p1": "Creo en el <em>context engineering</em> y en aprender en público. <appLink>tero.bot</appLink> es el motor operativo real de mi complejo — el código está abierto para compartir el system design y acelerar el aprendizaje colectivo.",
       "p2": "No es un proyecto open-source mantenido por la comunidad. Está provisto \"tal cual\", sin soporte de terceros y sin aceptar Pull Requests. Sentite libre de explorar el código, forkearlo, y usar los conceptos para construir tus propios sistemas.",
       "ctaCode": "Ver código en GitHub",
       "ctaCaseStudy": "Leer el case study"
