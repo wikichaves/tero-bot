@@ -98,27 +98,6 @@ export default async function LandingPage() {
             <p className="max-w-xl text-balance text-base leading-relaxed text-muted-foreground">
               {t("hero.intro")}
             </p>
-            {/* WIK-149: la instancia es privada (solo el operador entra),
-                así que el CTA principal no apunta a /login — lleva al case
-                study externo, que es la acción productiva para visitantes.
-                El login sigue accesible desde el header sticky.
-                WIK-159: removido el botón secundario "View code" — el link
-                a GitHub vive en la sección "source" más abajo, que es su
-                ubicación natural (junto al texto que habla del repo). */}
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <Button
-                size="lg"
-                render={
-                  <a
-                    href="https://wikichaves.com/design/projects/tero"
-                    target="_blank"
-                    rel="noopener"
-                  />
-                }
-              >
-                {t("hero.ctaCaseStudy")} <ArrowRight />
-              </Button>
-            </div>
           </div>
 
           {/* Atmosphere shot — wide, centered, sits between hero copy
