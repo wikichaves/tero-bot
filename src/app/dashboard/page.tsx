@@ -298,7 +298,14 @@ async function TodayTasksCard({
                 const isOverdue = !!task.due_date && task.due_date < todayIso;
                 return (
                   <TableRow key={task.id}>
-                    <TableCell className="font-medium">
+                    {/* WIK-174: en mobile (370px) los títulos largos
+                        ("Se marcó la pared. Llamar al pintor") se
+                        clippeaban porque TableCell default tiene
+                        `whitespace-nowrap`. `whitespace-normal break-words`
+                        + min-w-0 dejan que el title wrapee en múltiples
+                        líneas y los textos largos del summary mobile
+                        (assignee name) tampoco corten. */}
+                    <TableCell className="min-w-0 font-medium whitespace-normal break-words">
                       <div>{task.title}</div>
                       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground md:hidden">
                         <Badge variant="outline" className="text-xs">

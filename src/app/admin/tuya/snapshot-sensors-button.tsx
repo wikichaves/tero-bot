@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -19,6 +20,7 @@ import { toast } from "sonner";
 export function SnapshotSensorsButton() {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const t = useTranslations("rooms.captureButton");
 
   function onClick() {
     startTransition(async () => {
@@ -28,7 +30,9 @@ export function SnapshotSensorsButton() {
         });
         const json = await res.json();
         if (!res.ok) {
-          toast.error(json.error ?? `Snapshot falló (${res.status})`);
+          toast.error(
+            json.error ?? t("toastFailed", { status: res.status }),
+          );
           return;
         }
         type Result = {
@@ -63,7 +67,7 @@ export function SnapshotSensorsButton() {
           );
         const detail = [...okDetail, ...failedDetail].join("\n");
         toast.success(
-          `Capturado · ${inserted} insertados, ${skipped} omitidos, ${failed} errores`,
+          t("toastSuccess", { inserted, skipped, failed }),
           detail ? { description: detail } : undefined,
         );
         router.refresh();
@@ -75,7 +79,7 @@ export function SnapshotSensorsButton() {
 
   return (
     <Button variant="outline" size="sm" onClick={onClick} disabled={pending}>
-      {pending ? "Capturando…" : "Capturar sensores"}
+      {pending ? t("pending") : t("default")}
     </Button>
   );
 }

@@ -273,6 +273,12 @@
   "rooms": {
     "title": "Ambientes",
     "subtitle": "Temperatura y humedad en vivo por ambiente. Captura horaria desde Tuya. Tocá una card para ver el histórico.",
+    "captureButton": {
+      "default": "Capturar sensores",
+      "pending": "Capturando…",
+      "toastSuccess": "Capturado · {inserted} insertados, {skipped} omitidos, {failed} errores",
+      "toastFailed": "Snapshot falló ({status})"
+    },
     "ranges": {
       "24h": "24 horas",
       "7d": "7 días",

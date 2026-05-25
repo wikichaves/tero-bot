@@ -273,6 +273,12 @@
   "rooms": {
     "title": "Rooms",
     "subtitle": "Live temperature and humidity per room. Hourly capture from Tuya. Tap a card to see the history.",
+    "captureButton": {
+      "default": "Capture sensors",
+      "pending": "Capturing…",
+      "toastSuccess": "Captured · {inserted} inserted, {skipped} skipped, {failed} errors",
+      "toastFailed": "Snapshot failed ({status})"
+    },
     "ranges": {
       "24h": "24 hours",
       "7d": "7 days",
