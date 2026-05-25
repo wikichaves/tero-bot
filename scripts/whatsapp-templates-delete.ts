@@ -71,11 +71,28 @@ async function deleteOne(
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
 
+  // Soporte para borrar names arbitrarios (no necesariamente los que
+  // están en `allTemplates`). Útil para limpiar huérfanos rechazados
+  // de runs viejos. Uso:
+  //
+  //   npm run wa:templates:delete-all -- --names=foo,bar,baz
+  //   npm run wa:templates:delete-all -- --names=foo,bar --dry-run
+  //
+  // Sin `--names` agarra los names actuales del código.
+  const namesFlag = process.argv.find((a) => a.startsWith("--names="));
+  const explicitNames = namesFlag
+    ? namesFlag
+        .slice("--names=".length)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : null;
+
   // Dedup por name — DELETE by name borra todas las versiones de
   // language de una.
-  const uniqueNames = Array.from(
-    new Set(allTemplates.map((t) => t.name)),
-  ).sort();
+  const uniqueNames = explicitNames
+    ? Array.from(new Set(explicitNames)).sort()
+    : Array.from(new Set(allTemplates.map((t) => t.name))).sort();
 
   console.log(
     `Deleting ${uniqueNames.length} WhatsApp templates (by name) via Kapso`,
