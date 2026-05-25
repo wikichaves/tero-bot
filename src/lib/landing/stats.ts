@@ -3,70 +3,119 @@ import { exec } from "node:child_process";
 import { promisify } from "node:util";
 
 /**
- * Real-time stats que se renderean en la landing (WIK-154).
+ * Real-time stats que se renderean en la landing.
  *
- * Mezcla: git para mostrar actividad de desarrollo + values estáticos
- * para info del producto. Diseño minimalista al estilo del case study
- * (wikichaves.com/design/projects/tero) — 4 números cortos con su label.
+ * Diseño: 4 chips cortos con número grande + label mono uppercase. La
+ * misma forma que el case study (wikichaves.com/design/projects/tero).
  *
- * Implementado como helper server-only que se invoca desde el page
- * server component. Las queries a git son baratas (~10ms) y no se
- * cachean — cada deploy las recalcula. Si scaleamos a muchas
- * visitas, podríamos cachear con `revalidate = 3600` en el page.
+ * Stats (WIK-165 refresh):
+ *   - Commits     → git rev-list --count HEAD
+ *   - Active hours → git-hours heuristic (sumar gaps entre commits con
+ *                    threshold de 2h por sesión, + 30 min de "pre-commit"
+ *                    al primer commit de cada sesión)
+ *   - Active days  → días distintos con al menos 1 commit
+ *   - Status      → manual ("WIP"), pintado en accent color
+ *
+ * Implementado como helper server-only invocado desde el page server
+ * component. Las queries a git son baratas (~10-30ms) y no se cachean —
+ * cada request las recalcula. Si scaleamos, agregamos `revalidate` en
+ * el page.
  */
 
 const execAsync = promisify(exec);
 
 export type LandingStat = {
-  /** Big number / value (ej. "287", "Live", "2"). */
+  /** Big number / value (ej. "287", "WIP", "85"). */
   value: string;
   /** Short label key (i18n) — resuelto por el page. */
-  labelKey: "commits" | "daysActive" | "languages" | "status";
+  labelKey: "commits" | "activeHours" | "activeDays" | "status";
+  /** Si true, el value se pinta con accent color (verde tero). Usado
+   *  para "WIP" para que cante visualmente como "no terminado". */
+  accent?: boolean;
 };
 
-export async function getLandingStats(): Promise<LandingStat[]> {
-  const stats: LandingStat[] = [];
+/**
+ * git-hours heuristic. Lee timestamps unix de todos los commits y los
+ * agrupa en sesiones de trabajo: dos commits en menos de
+ * `MAX_COMMIT_DIFF_MS` cuentan como misma sesión y sumamos el gap real;
+ * si el gap supera el threshold, abrimos sesión nueva y sumamos
+ * `FIRST_COMMIT_ADD_MS` (asume que el dev empezó a trabajar X minutos
+ * antes del primer commit visible). El mismo offset se agrega al
+ * primer commit absoluto.
+ *
+ * Constantes calibradas a los defaults de git-hours / scc / similares.
+ */
+async function computeActiveHours(): Promise<number | null> {
+  const MAX_COMMIT_DIFF_MS = 2 * 60 * 60 * 1000;
+  const FIRST_COMMIT_ADD_MS = 30 * 60 * 1000;
+  try {
+    const { stdout } = await execAsync(
+      "git log --reverse --format=%ct",
+      { maxBuffer: 16 * 1024 * 1024 },
+    );
+    const timestamps = stdout
+      .split("\n")
+      .map((s) => Number(s.trim()))
+      .filter((n) => Number.isFinite(n) && n > 0)
+      .map((s) => s * 1000); // → ms
+    if (timestamps.length === 0) return null;
 
-  // 1. Commit count desde el git log. `git rev-list --count HEAD`
-  //    devuelve el total de commits accesibles desde HEAD.
+    let totalMs = FIRST_COMMIT_ADD_MS;
+    for (let i = 1; i < timestamps.length; i++) {
+      const gap = timestamps[i] - timestamps[i - 1];
+      totalMs += gap < MAX_COMMIT_DIFF_MS ? gap : FIRST_COMMIT_ADD_MS;
+    }
+    return Math.max(1, Math.round(totalMs / (60 * 60 * 1000)));
+  } catch {
+    return null;
+  }
+}
+
+async function computeActiveDays(): Promise<number | null> {
+  try {
+    // %cs = committer date short (YYYY-MM-DD). Dedup en JS.
+    const { stdout } = await execAsync("git log --format=%cs", {
+      maxBuffer: 16 * 1024 * 1024,
+    });
+    const days = new Set(
+      stdout
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
+    return days.size > 0 ? days.size : null;
+  } catch {
+    return null;
+  }
+}
+
+async function computeCommitCount(): Promise<number | null> {
   try {
     const { stdout } = await execAsync("git rev-list --count HEAD");
     const n = Number(stdout.trim());
-    if (Number.isFinite(n) && n > 0) {
-      stats.push({ value: String(n), labelKey: "commits" });
-    }
+    return Number.isFinite(n) && n > 0 ? n : null;
   } catch {
-    // Si no hay git disponible (improbable pero defensivo), skipear.
+    return null;
   }
+}
 
-  // 2. Days active desde el primer commit. `git log --reverse --format=%ct`
-  //    lista los timestamps unix de cada commit en orden cronológico —
-  //    el primero (`head -1`) es el commit inicial del repo.
-  try {
-    const { stdout } = await execAsync(
-      "git log --reverse --format=%ct | head -1",
-    );
-    const firstTs = Number(stdout.trim());
-    if (Number.isFinite(firstTs) && firstTs > 0) {
-      const days = Math.max(
-        1,
-        Math.floor((Date.now() / 1000 - firstTs) / 86400),
-      );
-      stats.push({ value: String(days), labelKey: "daysActive" });
-    }
-  } catch {
-    // skip
-  }
+export async function getLandingStats(): Promise<LandingStat[]> {
+  const [commits, activeHours, activeDays] = await Promise.all([
+    computeCommitCount(),
+    computeActiveHours(),
+    computeActiveDays(),
+  ]);
 
-  // 3. Idiomas soportados — hardcoded. Si en algún momento se suma un
-  //    locale (ej. portugués), bumpear acá + actualizar `src/i18n/locales.ts`.
-  stats.push({ value: "2", labelKey: "languages" });
+  const stats: LandingStat[] = [];
+  if (commits != null) stats.push({ value: String(commits), labelKey: "commits" });
+  if (activeHours != null)
+    stats.push({ value: String(activeHours), labelKey: "activeHours" });
+  if (activeDays != null)
+    stats.push({ value: String(activeDays), labelKey: "activeDays" });
 
-  // 4. Status — hardcoded "Live" porque el repo está deployado y el
-  //    bot está respondiendo. Si en algún momento queremos un check
-  //    de salud real (ej. fetch al endpoint /api/telegram), podemos
-  //    convertirlo en async. Por ahora la simplicidad gana.
-  stats.push({ value: "Live", labelKey: "status" });
+  // Status — manual. Cambiar a "Live" cuando el proyecto deje de ser WIP.
+  // Pintado en accent para que destaque de los números.
+  stats.push({ value: "WIP", labelKey: "status", accent: true });
 
   return stats;
 }

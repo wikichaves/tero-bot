@@ -188,8 +188,8 @@
     },
     "stats": {
       "commits": "Commits",
-      "daysActive": "Días activos",
-      "languages": "Idiomas",
+      "activeHours": "Horas activas",
+      "activeDays": "Días activos",
       "status": "Estado"
     },
     "problem": {

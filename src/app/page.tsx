@@ -139,10 +139,11 @@ export default async function LandingPage() {
           </figure>
         </section>
 
-        {/* WIK-154: Stats minimalistas estilo case study (wikichaves.com/
-            design/projects/tero). Cuatro números cortos con label mono
-            uppercase — sin marketing puffery, solo "este proyecto está
-            vivo y mide su propio progreso". */}
+        {/* WIK-154 / WIK-165 refresh: Stats minimalistas. Mismas dimensiones
+            que el case study en wikichaves.com — números grandes serif +
+            label mono uppercase. Stats actualizadas: Commits, Active
+            hours, Active days, Status. El Status va en accent color
+            para que destaque visualmente. */}
         <section className="border-t border-border/60 px-5 py-12 sm:px-8 sm:py-16">
           <div className="mx-auto grid max-w-5xl grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4 sm:gap-x-10">
             {stats.map((s) => (
@@ -150,7 +151,11 @@ export default async function LandingPage() {
                 key={s.labelKey}
                 className="flex flex-col items-start gap-2"
               >
-                <span className="font-heading text-4xl leading-none tracking-tight sm:text-5xl">
+                <span
+                  className={`font-heading text-4xl leading-none tracking-tight sm:text-5xl ${
+                    s.accent ? "text-[var(--heading-accent)]" : ""
+                  }`}
+                >
                   {s.value}
                 </span>
                 <span className="label-mono">{tStats(s.labelKey)}</span>
