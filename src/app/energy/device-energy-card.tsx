@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { parseISO } from "date-fns";
+import { useLocale, useTranslations } from "next-intl";
 import { Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { formatShortDateTime } from "@/lib/i18n/date";
 import {
   Card,
   CardContent,
@@ -153,6 +154,11 @@ export function DeviceEnergyCard({
   const localCurrency = currency.toUpperCase();
   const supportsLocal = localCurrency === "UYU" || localCurrency === "ARS";
   const [costCurrency, setCostCurrency] = useState<string>("USD");
+  // WIK-174 i18n sweep: traducciones de los textos visibles. La page
+  // padre /energy ya tiene `getTranslations`, acá pasamos a client y
+  // usamos el hook.
+  const t = useTranslations("energyPage.deviceCard");
+  const locale = useLocale();
 
   // Convierte un monto en la moneda local del device a la unidad
   // seleccionada en el toggle. Si no hay rates disponibles, retorna null.
@@ -209,22 +215,22 @@ export function DeviceEnergyCard({
             <CardDescription>
               {homeName && (
                 <>
-                  Home: <strong>{homeName}</strong>
+                  {t("home")} <strong>{homeName}</strong>
                 </>
               )}
               {homeName && property && " · "}
               {property && (
                 <>
-                  Propiedad: <strong>{property.name}</strong>
+                  {t("property")} <strong>{property.name}</strong>
                 </>
               )}
               {!homeName && !property && (
-                <span className="text-muted-foreground">Sin asignar</span>
+                <span className="text-muted-foreground">{t("unassigned")}</span>
               )}
             </CardDescription>
           </div>
           <p className="text-xs text-muted-foreground text-right">
-            Tarifa:
+            {t("tariff")}
             <br />
             <span className="font-mono">
               {formatRate(tariff, 2)} {currency}/kWh
@@ -233,7 +239,7 @@ export function DeviceEnergyCard({
               <>
                 <br />
                 <span className="text-amber-700 dark:text-amber-300">
-                  (default)
+                  {t("defaultLabel")}
                 </span>
               </>
             )}
@@ -248,14 +254,14 @@ export function DeviceEnergyCard({
               size="sm"
               onClick={() => setMetric("amperes")}
             >
-              Amperes
+              {t("amperes")}
             </Button>
             <Button
               variant={metric === "kwh" ? "default" : "outline"}
               size="sm"
               onClick={() => setMetric("kwh")}
             >
-              kWh
+              {t("kwh")}
             </Button>
           </div>
           {supportsLocal && (
@@ -287,22 +293,17 @@ export function DeviceEnergyCard({
         {/* Stats en vivo — sólo cuando hay reading válida. */}
         {readError ? (
           <p className="text-sm text-destructive">
-            No se pudo leer el estado en vivo: {readError}
+            {t("readError", { error: readError })}
           </p>
         ) : !device.online ? (
-          <p className="text-sm text-muted-foreground">
-            🔌 Device offline — sin lectura en vivo. Los datos históricos
-            siguen abajo.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("offline")}</p>
         ) : !reading ||
           (reading.power_w == null && reading.total_energy_kwh == null) ? (
-          <p className="text-sm text-muted-foreground">
-            Tuya no devolvió datos de potencia/energía en vivo.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("noLive")}</p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
             <Stat
-              label="Potencia"
+              label={t("power")}
               value={formatPower(reading.power_w)}
               hint={
                 reading.voltage_v != null && reading.current_a != null
@@ -311,16 +312,16 @@ export function DeviceEnergyCard({
               }
             />
             <Stat
-              label={`Costo / hora · ${costCurrency}`}
+              label={t("costPerHour", { currency: costCurrency })}
               value={formatCost(cost.hourly_cost_at_current) ?? "—"}
             />
             <Stat
-              label={`Proyección 24 h · ${costCurrency}`}
+              label={t("projection24h", { currency: costCurrency })}
               value={formatCost(cost.daily_cost_at_current) ?? "—"}
-              hint="si se mantiene este consumo"
+              hint={t("ifConsumption")}
             />
             <Stat
-              label="Acumulado total"
+              label={t("totalAccumulated")}
               value={formatKwh(reading.total_energy_kwh)}
               hint={formatCost(cost.total_cost) ?? undefined}
             />
@@ -332,7 +333,7 @@ export function DeviceEnergyCard({
         {rangeSnapshots.length >= 1 && (
           <div className="mt-6 border-t pt-4">
             <p className="label-mono mb-1">
-              {metric === "amperes" ? "Corriente" : "Consumo"} ·{" "}
+              {metric === "amperes" ? t("current") : t("consumption")} ·{" "}
               {rangeLabel}
             </p>
             <DeviceEnergyChart
@@ -351,7 +352,7 @@ export function DeviceEnergyCard({
         {(todayKwh != null || rangeKwh != null) && (
           <div className="mt-6 grid gap-4 sm:grid-cols-2 border-t pt-4">
             <Stat
-              label="Consumo hoy"
+              label={t("consumptionToday")}
               value={formatKwh(todayKwh)}
               hint={
                 todayKwh != null
@@ -360,7 +361,7 @@ export function DeviceEnergyCard({
               }
             />
             <Stat
-              label={`Consumo últim${rangeShortLabel === "24h" ? "as" : "os"} ${rangeLabel}`}
+              label={t("consumptionLast", { range: rangeLabel })}
               value={formatKwh(rangeKwh)}
               hint={
                 rangeKwh != null
@@ -375,14 +376,15 @@ export function DeviceEnergyCard({
           <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <div>
-              <p className="font-medium">Histórico parcial</p>
+              <p className="font-medium">{t("partialTitle")}</p>
               <p className="opacity-80">
-                Sólo tenemos datos desde el{" "}
-                {format(new Date(rangeFirstSnapshotIso), "d MMM HH:mm", {
-                  locale: es,
+                {t("partialBody", {
+                  date: formatShortDateTime(
+                    parseISO(rangeFirstSnapshotIso),
+                    locale,
+                  ),
+                  range: rangeLabel,
                 })}
-                . Las capturas horarias arrancaron hace poco; el rango
-                de {rangeLabel} se irá llenando.
               </p>
             </div>
           </div>

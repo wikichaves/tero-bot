@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AlertTriangle, Thermometer, Droplet } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import {
   Card,
   CardContent,
@@ -142,6 +143,7 @@ export async function SensorAlarmsCard() {
 
   const hasAlarms = events.length > 0;
 
+  const t = await getTranslations("dashboard.alarmsCard");
   return (
     <Card className={hasAlarms ? "border-destructive/40" : undefined}>
       <CardHeader>
@@ -150,28 +152,25 @@ export async function SensorAlarmsCard() {
             {hasAlarms && (
               <AlertTriangle className="h-4 w-4 text-destructive" />
             )}
-            Ambientes
+            {t("title")}
           </span>
           <Link
             href="/rooms"
             className="text-sm font-normal text-muted-foreground hover:text-foreground"
           >
-            Ver todos →
+            {t("viewAll")}
           </Link>
         </CardTitle>
         <CardDescription>
           {hasAlarms ? (
             <span className="text-destructive">
-              {events.length} alarma{events.length === 1 ? "" : "s"} activa
-              {events.length === 1 ? "" : "s"}
+              {t("activeAlarms", { n: events.length })}
             </span>
           ) : (
-            <>
-              {reportingSensors.length} sensor
-              {reportingSensors.length === 1 ? "" : "es"} en{" "}
-              {distinctRooms.size} ambiente
-              {distinctRooms.size === 1 ? "" : "s"} reportando OK.
-            </>
+            t("reportingOk", {
+              sensors: reportingSensors.length,
+              rooms: distinctRooms.size,
+            })
           )}
         </CardDescription>
       </CardHeader>
@@ -211,7 +210,7 @@ export async function SensorAlarmsCard() {
                         {v} en {location}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        umbral {op} {thr}
+                        {t("thresholdLabel", { op, thr })}
                         {e.property_device?.tuya_device_name &&
                           ` · ${e.property_device.tuya_device_name}`}
                       </span>
@@ -222,7 +221,7 @@ export async function SensorAlarmsCard() {
             })}
             {events.length > 5 && (
               <li className="pt-1 text-xs text-muted-foreground">
-                + {events.length - 5} más en{" "}
+                {t("moreInAdmin", { n: events.length - 5 })}
                 <Link href="/admin/alarms" className="underline">
                   /admin/alarms
                 </Link>

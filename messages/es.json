@@ -122,7 +122,22 @@
     "unassigned": "Sin asignar",
     "myTasksTitle": "Mis tareas",
     "myTasksEmpty": "No tenés tareas pendientes.",
-    "myTasksCount": "{n, plural, one {# tarea pendiente.} other {# tareas pendientes.}}"
+    "myTasksCount": "{n, plural, one {# tarea pendiente.} other {# tareas pendientes.}}",
+    "energyCard": {
+      "title": "Energía",
+      "viewDetail": "Ver detalle →",
+      "subtitle": "Consumo últimas 24 h",
+      "summary": "{n, plural, one {Suma de # llave con lecturas} other {Suma de # llaves con lecturas}}",
+      "noReadings": "Sin lecturas en 24h"
+    },
+    "alarmsCard": {
+      "title": "Ambientes",
+      "viewAll": "Ver todos →",
+      "activeAlarms": "{n, plural, one {# alarma activa} other {# alarmas activas}}",
+      "reportingOk": "{sensors, plural, one {# sensor} other {# sensores}} en {rooms, plural, one {# ambiente} other {# ambientes}} reportando OK.",
+      "thresholdLabel": "umbral {op} {thr}",
+      "moreInAdmin": "+ {n} más en "
+    }
   },
   "guests": {
     "adultsOne": "{n} adulto",
@@ -342,7 +357,44 @@
     "noDevicesP2Pre": "Buscamos por categoría ",
     "noDevicesP2Mid1": " / ",
     "noDevicesP2Mid2": " o nombre que contenga “Circuit breaker” / “breaker” / “Térmica”.",
-    "fxRates": "Tasas de cambio: "
+    "fxRates": "Tasas de cambio: ",
+    "snapshotButton": {
+      "default": "Snapshot ahora",
+      "pending": "Capturando…",
+      "summary": "{inserted} insertados, {skipped} omitidos, {errors} con error.",
+      "okToast": "Snapshot OK · {summary}",
+      "partialToast": "Snapshot parcial · {summary}"
+    },
+    "backfillButton": {
+      "default": "Backfill 30 días",
+      "pending": "Cargando histórico…",
+      "confirm": "Esto va a pedir ~30 días de logs históricos a Tuya y crear los snapshots correspondientes. ¿Continuar?",
+      "okToast": "Backfill OK · {inserted} insertados, {duplicates} duplicados, {errors} con error en {devices} dispositivos.",
+      "errorHint": "Hay errores — ver consola del navegador para detalle."
+    },
+    "deviceCard": {
+      "home": "Home:",
+      "property": "Propiedad:",
+      "unassigned": "Sin asignar",
+      "tariff": "Tarifa:",
+      "defaultLabel": "(default)",
+      "amperes": "Amperes",
+      "kwh": "kWh",
+      "readError": "No se pudo leer el estado en vivo: {error}",
+      "offline": "🔌 Device offline — sin lectura en vivo. Los datos históricos siguen abajo.",
+      "noLive": "Tuya no devolvió datos de potencia/energía en vivo.",
+      "power": "Potencia",
+      "costPerHour": "Costo / hora · {currency}",
+      "projection24h": "Proyección 24 h · {currency}",
+      "ifConsumption": "si se mantiene este consumo",
+      "totalAccumulated": "Acumulado total",
+      "current": "Corriente",
+      "consumption": "Consumo",
+      "consumptionToday": "Consumo hoy",
+      "consumptionLast": "Consumo · {range}",
+      "partialTitle": "Histórico parcial",
+      "partialBody": "Sólo tenemos datos desde el {date}. Las capturas horarias arrancaron hace poco; el rango de {range} se irá llenando."
+    }
   },
   "billsPage": {
     "title": "Facturas",

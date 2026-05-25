@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { backfillSnapshots } from "./actions";
@@ -16,14 +17,10 @@ import { backfillSnapshots } from "./actions";
  */
 export function BackfillButton() {
   const [pending, startTransition] = useTransition();
+  const t = useTranslations("energyPage.backfillButton");
 
   function onClick() {
-    if (
-      !confirm(
-        "Esto va a pedir ~30 días de logs históricos a Tuya y crear los snapshots correspondientes. ¿Continuar?",
-      )
-    )
-      return;
+    if (!confirm(t("confirm"))) return;
     startTransition(async () => {
       const result = await backfillSnapshots(1);
       if ("error" in result && result.error) {
@@ -33,7 +30,12 @@ export function BackfillButton() {
       if ("summary" in result && result.summary) {
         const s = result.summary;
         toast.success(
-          `Backfill OK · ${s.inserted} insertados, ${s.skipped_duplicate} duplicados, ${s.errors} con error en ${s.devicesProcessed} dispositivos.`,
+          t("okToast", {
+            inserted: s.inserted,
+            duplicates: s.skipped_duplicate,
+            errors: s.errors,
+            devices: s.devicesProcessed,
+          }),
           { duration: 6000 },
         );
         if (s.errors > 0) {
@@ -42,7 +44,7 @@ export function BackfillButton() {
             .map((r) => `${r.tuya_device_id.slice(0, 8)}: ${r.error}`)
             .join("\n");
           console.warn("[backfill] errores:\n" + errs);
-          toast.message("Hay errores — ver consola del navegador para detalle.");
+          toast.message(t("errorHint"));
         }
       }
     });
@@ -50,7 +52,7 @@ export function BackfillButton() {
 
   return (
     <Button variant="outline" size="sm" onClick={onClick} disabled={pending}>
-      {pending ? "Cargando histórico…" : "Backfill 30 días"}
+      {pending ? t("pending") : t("default")}
     </Button>
   );
 }

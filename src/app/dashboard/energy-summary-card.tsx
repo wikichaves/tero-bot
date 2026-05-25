@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Zap } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import {
   Card,
   CardContent,
@@ -72,22 +73,23 @@ export async function EnergySummaryCard() {
     if (delta > 0) totalKwh += delta;
   }
 
+  const t = await getTranslations("dashboard.energyCard");
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between text-base">
           <span className="flex items-center gap-2">
             <Zap className="h-4 w-4 text-orange-500" />
-            Energía
+            {t("title")}
           </span>
           <Link
             href="/energy"
             className="text-sm font-normal text-muted-foreground hover:text-foreground"
           >
-            Ver detalle →
+            {t("viewDetail")}
           </Link>
         </CardTitle>
-        <CardDescription>Consumo últimas 24 h</CardDescription>
+        <CardDescription>{t("subtitle")}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex items-baseline gap-1.5">
@@ -101,9 +103,7 @@ export async function EnergySummaryCard() {
           <span className="text-sm text-muted-foreground">kWh</span>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          {byDevice.size > 0
-            ? `Suma de ${byDevice.size} llave${byDevice.size === 1 ? "" : "s"} con lecturas`
-            : "Sin lecturas en 24h"}
+          {byDevice.size > 0 ? t("summary", { n: byDevice.size }) : t("noReadings")}
         </p>
       </CardContent>
     </Card>

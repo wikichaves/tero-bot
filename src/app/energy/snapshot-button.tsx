@@ -1,12 +1,14 @@
 "use client";
 
 import { useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { snapshotNow } from "./actions";
 
 export function SnapshotButton() {
   const [pending, startTransition] = useTransition();
+  const t = useTranslations("energyPage.snapshotButton");
 
   function onClick() {
     startTransition(async () => {
@@ -22,10 +24,14 @@ export function SnapshotButton() {
         (r) => r.ok && !r.inserted,
       ).length;
       const errors = result.result.results.filter((r) => !r.ok);
-      const summary = `${inserted} insertados, ${skipped} omitidos, ${errors.length} con error.`;
+      const summary = t("summary", {
+        inserted,
+        skipped,
+        errors: errors.length,
+      });
 
       if (errors.length === 0) {
-        toast.success(`Snapshot OK · ${summary}`);
+        toast.success(t("okToast", { summary }));
         return;
       }
 
@@ -46,7 +52,7 @@ export function SnapshotButton() {
         .map(([reason, names]) => `· ${names.join(", ")}: ${reason}`)
         .join("\n");
 
-      toast.warning(`Snapshot parcial · ${summary}`, {
+      toast.warning(t("partialToast", { summary }), {
         description,
         duration: 10000,
       });
@@ -55,7 +61,7 @@ export function SnapshotButton() {
 
   return (
     <Button variant="outline" size="sm" onClick={onClick} disabled={pending}>
-      {pending ? "Capturando…" : "Snapshot ahora"}
+      {pending ? t("pending") : t("default")}
     </Button>
   );
 }

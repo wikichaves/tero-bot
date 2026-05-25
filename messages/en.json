@@ -122,7 +122,22 @@
     "unassigned": "Unassigned",
     "myTasksTitle": "My tasks",
     "myTasksEmpty": "You have no pending tasks.",
-    "myTasksCount": "{n, plural, one {# pending task.} other {# pending tasks.}}"
+    "myTasksCount": "{n, plural, one {# pending task.} other {# pending tasks.}}",
+    "energyCard": {
+      "title": "Energy",
+      "viewDetail": "View detail →",
+      "subtitle": "Consumption last 24 h",
+      "summary": "{n, plural, one {Sum of # meter with readings} other {Sum of # meters with readings}}",
+      "noReadings": "No readings in 24h"
+    },
+    "alarmsCard": {
+      "title": "Rooms",
+      "viewAll": "View all →",
+      "activeAlarms": "{n, plural, one {# active alarm} other {# active alarms}}",
+      "reportingOk": "{sensors, plural, one {# sensor} other {# sensors}} in {rooms, plural, one {# room} other {# rooms}} reporting OK.",
+      "thresholdLabel": "threshold {op} {thr}",
+      "moreInAdmin": "+ {n} more in "
+    }
   },
   "guests": {
     "adultsOne": "{n} adult",
@@ -342,7 +357,44 @@
     "noDevicesP2Pre": "We look by category ",
     "noDevicesP2Mid1": " / ",
     "noDevicesP2Mid2": " or by name containing “Circuit breaker” / “breaker” / “Térmica”.",
-    "fxRates": "Exchange rates: "
+    "fxRates": "Exchange rates: ",
+    "snapshotButton": {
+      "default": "Snapshot now",
+      "pending": "Snapshotting…",
+      "summary": "{inserted} inserted, {skipped} skipped, {errors} with errors.",
+      "okToast": "Snapshot OK · {summary}",
+      "partialToast": "Partial snapshot · {summary}"
+    },
+    "backfillButton": {
+      "default": "Backfill 30 days",
+      "pending": "Loading history…",
+      "confirm": "This will request ~30 days of historical logs from Tuya and create the corresponding snapshots. Continue?",
+      "okToast": "Backfill OK · {inserted} inserted, {duplicates} duplicates, {errors} with errors across {devices} devices.",
+      "errorHint": "There are errors — check browser console for details."
+    },
+    "deviceCard": {
+      "home": "Home:",
+      "property": "Property:",
+      "unassigned": "Unassigned",
+      "tariff": "Tariff:",
+      "defaultLabel": "(default)",
+      "amperes": "Amperes",
+      "kwh": "kWh",
+      "readError": "Could not read live state: {error}",
+      "offline": "🔌 Device offline — no live reading. Historical data still below.",
+      "noLive": "Tuya didn't return live power/energy data.",
+      "power": "Power",
+      "costPerHour": "Cost / hour · {currency}",
+      "projection24h": "24h projection · {currency}",
+      "ifConsumption": "if this consumption holds",
+      "totalAccumulated": "Total accumulated",
+      "current": "Current",
+      "consumption": "Consumption",
+      "consumptionToday": "Consumption today",
+      "consumptionLast": "Consumption · {range}",
+      "partialTitle": "Partial history",
+      "partialBody": "We only have data since {date}. The hourly captures started recently; the {range} range will fill in."
+    }
   },
   "billsPage": {
     "title": "Bills",
