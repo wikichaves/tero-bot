@@ -47,7 +47,10 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
         // WIK-128: text-base → text-lg + tighter tracking gives the title
         // a clearer hierarchy vs. the body (was bumping uphill against
         // text-sm body content).
-        "font-heading text-lg leading-snug font-semibold tracking-tight group-data-[size=sm]/card:text-base",
+        // WIK-165: removido `font-semibold` — Source Serif 4 va cargado
+        // solo en weight 300, así que el semibold sintetizaba fake-bold
+        // y se veía borroso. La jerarquía sale por tamaño + serif vs sans.
+        "font-heading text-lg leading-snug tracking-tight group-data-[size=sm]/card:text-base",
         className
       )}
       {...props}

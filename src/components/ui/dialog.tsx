@@ -136,8 +136,11 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
       data-slot="dialog-title"
       // WIK-128: text-base → text-lg + tighter tracking so the title
       // has more presence above the body copy.
+      // WIK-165: ver comment en CardTitle — `font-semibold` removido
+      // porque Source Serif 4 solo carga weight 300 y el semibold
+      // sintetizaba fake-bold.
       className={cn(
-        "font-heading text-lg leading-tight font-semibold tracking-tight",
+        "font-heading text-lg leading-tight tracking-tight",
         className
       )}
       {...props}

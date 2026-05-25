@@ -30,11 +30,9 @@ const geistSans = Geist({
 const sourceSerif = Source_Serif_4({
   variable: "--font-serif",
   subsets: ["latin"],
-  // 300 (light) para los headings del landing — más editorial,
-  // delicado. 400 (normal) para headings del admin app — más
-  // legible a tamaños chicos. 600 (semibold) queda disponible
-  // por si algún heading necesita más peso puntualmente.
-  weight: ["300", "400", "600"],
+  // WIK-165: weight 300 uniforme en landing y admin — look editorial
+  // consistente. Solo cargamos ese weight para no sumar bytes.
+  weight: "300",
   style: ["normal", "italic"],
   display: "swap",
 });
