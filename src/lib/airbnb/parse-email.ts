@@ -84,8 +84,16 @@ const LANDMARKS: Record<Locale, Landmarks> = {
       /(?:vas\s+a\s+recibir|recibir[aá]s)\b[\s:]*(US\$|U\$S|\$|€|[A-Z]{3})\s*([\d.,]+)/i,
     ],
     message: [
-      // "Mensaje de Juan: hola..." (capture up to ~500 chars or paragraph end)
-      /Mensaje\s+(?:de\s+\S+)?:?\s*\n?([\s\S]{1,500}?)(?:\n\s*\n|$)/i,
+      // "Mensaje de Juan: hola..." — capture hasta ~500 chars o paragraph end.
+      // WIK-169 v2: requiere literal "Mensaje de NAME:" con colon obligatorio.
+      // El regex viejo `/Mensaje\s+(?:de\s+\S+)?:?\s*\n?...` se comía:
+      //   - "Mensaje a Anastasia" (CTA "send message to")
+      //   - "mensaje para confirmar los detalles del check-in" (texto inline)
+      //   - "mensaje de bienvenida" (otro CTA)
+      // El colon + "de" estricto descarta todos esos casos. Si el huésped
+      // realmente no manda mensaje, este regex NO matchea y guest_message
+      // queda null — que es la respuesta correcta.
+      /Mensaje\s+de\s+[A-ZÁÉÍÓÚÑa-záéíóúñ][^\n:]{0,40}:\s*\n?([\s\S]{1,500}?)(?:\n\s*\n|$)/i,
     ],
     checkIn: [
       // "vie, 22 may" — current Airbnb 2026 format
@@ -133,7 +141,10 @@ const LANDMARKS: Record<Locale, Landmarks> = {
       /you'?ll\s+receive\b[\s:]*(US\$|\$|€|[A-Z]{3})\s*([\d.,]+)/i,
     ],
     message: [
-      /Message\s+(?:from\s+\S+)?:?\s*\n?([\s\S]{1,500}?)(?:\n\s*\n|$)/i,
+      // WIK-169 v2: require literal "Message from NAME:" w/ mandatory colon.
+      // Same rationale as the ES variant — old regex was too permissive and
+      // matched CTA fragments like "Message to <name>".
+      /Message\s+from\s+[A-Z][^\n:]{0,40}:\s*\n?([\s\S]{1,500}?)(?:\n\s*\n|$)/i,
     ],
     checkIn: [
       /Check-?in\s*\n?\s*[A-Za-z]{3,4}\.?,?\s*(\d{1,2})\s+([A-Za-z]{3,5})\.?/i,
@@ -527,7 +538,16 @@ export function parseAirbnbEmail(input: {
     l.payout,
     body,
   );
-  const guest_message = firstMatch(l.message, body);
+  // WIK-169 v2: defensa adicional contra falsos positivos. Si el regex
+  // se rompe por algún cambio futuro de template y captura una URL de
+  // Airbnb (CTAs típicas tipo "Send a message to Anastasia [https://…]")
+  // descartamos. Un mensaje real de un huésped nunca contiene URLs de
+  // airbnb.com — Airbnb las strip-ea del input por seguridad.
+  const guestMessageRaw = firstMatch(l.message, body);
+  const guest_message =
+    guestMessageRaw && /airbnb\.com|muscache\.com/i.test(guestMessageRaw)
+      ? null
+      : guestMessageRaw;
 
   // Date extraction: regex returns either a single capture (whole string) or
   // two captures (day + month name). normalizeDate handles both.
