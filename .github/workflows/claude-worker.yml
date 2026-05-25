@@ -27,10 +27,18 @@
 #      el futuro habilites auto-merge)
 #   6. Probar: Actions tab → "Claude autonomous worker" → Run workflow
 #
-# Cuando el flow esté validado, descomentar el bloque `schedule` abajo
-# para que corra solo todos los días.
+# El cron diario (14:00 UTC = 11:00 AR) está habilitado (WIK-136). Si
+# en algún momento querés pausar, comentá el bloque `schedule` de abajo
+# o borrá la label `claude:autonomous` de todos los tickets en Todo.
 
 name: Claude autonomous worker
+
+# concurrency (WIK-136): un solo run a la vez. Si llega un manual run
+# durante una corrida (o cron + manual coinciden), se encola sin
+# cancelar el que está corriendo — evita race conditions de branch.
+concurrency:
+  group: claude-worker
+  cancel-in-progress: false
 
 on:
   workflow_dispatch:
@@ -39,9 +47,9 @@ on:
         description: 'Opcional: forzar un ticket específico (ej "WIK-150"). Si vacío, agarra el de mayor prioridad con label claude:autonomous.'
         required: false
         type: string
-  # Descomentá cuando quieras runs automáticos. 14:00 UTC = 11:00 AR.
-  # schedule:
-  #   - cron: '0 14 * * *'
+  schedule:
+    # 14:00 UTC = 11:00 AR/UY. Una corrida por día.
+    - cron: '0 14 * * *'
 
 permissions:
   contents: write       # commit + push
@@ -71,7 +79,30 @@ jobs:
       - name: Install Claude Code CLI
         run: npm install -g @anthropic-ai/claude-code
 
+      # Rate limit (WIK-136): si ya hay >5 PRs abiertos con label
+      # `claude:autonomous`, salir sin error. Evita inundar el queue de
+      # PRs si el user se atrasa con los reviews. El threshold (5) es
+      # arbitrario y conservador — ajustar si se vuelve molesto.
+      - name: Rate limit check
+        id: ratelimit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OPEN=$(gh pr list \
+            --label "claude:autonomous" \
+            --state open \
+            --json number \
+            --jq 'length')
+          echo "open=$OPEN" >> "$GITHUB_OUTPUT"
+          if [ "$OPEN" -gt 5 ]; then
+            echo "::notice::Rate limit: $OPEN PRs autonomous abiertos (>5). Skipping run."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Pick next Linear ticket
+        if: steps.ratelimit.outputs.skip != 'true'
         id: pick
         env:
           LINEAR_API_TOKEN: ${{ secrets.LINEAR_API_TOKEN }}
