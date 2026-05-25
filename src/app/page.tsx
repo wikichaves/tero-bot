@@ -200,10 +200,13 @@ export default async function LandingPage() {
           </div>
         </section>
 
-        {/* The three modules. Cards now have a photo on top instead of
-            an icon — the photo carries the meaning visually. */}
+        {/* The three modules. WIK-178: switched from a compact 3-col grid
+            (cards felt cramped, images tiny) to alternating feature rows.
+            Each module gets full section width with the photo on one side
+            (~60%) and the problem/module/philosophy trio on the other.
+            Rows alternate sides on lg+; stack vertically below. */}
         <section className="border-t border-border/60 px-5 py-20 sm:px-8 sm:py-28">
-          <div className="mx-auto flex max-w-5xl flex-col gap-12">
+          <div className="mx-auto flex max-w-6xl flex-col gap-16 sm:gap-20">
             <div className="mx-auto flex max-w-2xl flex-col items-center gap-3 text-center">
               <span className="label-mono-with-rule">
                 {t("modules.eyebrow")}
@@ -216,7 +219,7 @@ export default async function LandingPage() {
               </p>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="flex flex-col gap-16 sm:gap-24">
               <ModuleCard
                 photoBase="/landing/Tero-Hospitality"
                 photoAlt={t("modules.hospitality.alt")}
@@ -242,6 +245,7 @@ export default async function LandingPage() {
                   module: t("modules.labels.module"),
                   philosophy: t("modules.labels.philosophy"),
                 }}
+                reverse
               />
               <ModuleCard
                 photoBase="/landing/Tero-Team-UI-Context"
@@ -308,9 +312,11 @@ export default async function LandingPage() {
   );
 }
 
-/** A single module card. Image-on-top, then the problem/module/philosophy
- *  trio. The image is responsive across avif/webp/jpg and crops to a
- *  16:9 box via `aspect-video` + object-cover. */
+/** A single module row. WIK-178: switched from a vertical "card" with
+ *  image-on-top to a horizontal feature row — photo on one side (~58%)
+ *  and the problem/module/philosophy trio on the other. Rows stack
+ *  vertically below `lg`. `reverse` flips the photo to the right so the
+ *  parent can alternate sides between modules. */
 function ModuleCard({
   photoBase,
   photoAlt,
@@ -319,6 +325,7 @@ function ModuleCard({
   module,
   philosophy,
   labels,
+  reverse = false,
 }: {
   /** Path without extension — we attach `.avif`, `.webp`, `.jpg` for
    *  the `<picture>` srcset. */
@@ -331,19 +338,29 @@ function ModuleCard({
   /** Translated section labels (problem/module/philosophy). Passed
    *  down by the parent so each card uses the active locale. */
   labels: { challenge: string; module: string; philosophy: string };
+  /** When true, the photo sits on the right instead of the left at lg+.
+   *  Used by the parent to alternate sides between modules. */
+  reverse?: boolean;
 }) {
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-border/40 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
-      {/* WIK-137: imagen clickable → abre lightbox con la versión grande. */}
+    <div
+      className={`flex flex-col gap-8 lg:items-center lg:gap-14 ${
+        reverse ? "lg:flex-row-reverse" : "lg:flex-row"
+      }`}
+    >
+      {/* WIK-137: imagen clickable → abre lightbox con la versión grande.
+          WIK-178: la imagen ahora carga el peso visual de la card — sube
+          a 58% del ancho de la row en lg+ y trae su propio border/shadow
+          (antes lo aportaba el wrapper de card). */}
       <LandingImage
         photoBase={photoBase}
         alt={photoAlt}
-        wrapperClassName="aspect-video w-full"
+        wrapperClassName="aspect-video w-full overflow-hidden rounded-2xl border border-border/60 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-border/40 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4)] lg:w-[58%] lg:shrink-0"
         className="aspect-video w-full object-cover"
       />
-      <div className="flex flex-col gap-4 p-6">
-        <h3 className="text-xl">{title}</h3>
-        <dl className="flex flex-col gap-3 text-sm">
+      <div className="flex flex-col gap-5 lg:flex-1">
+        <h3 className="text-2xl sm:text-3xl">{title}</h3>
+        <dl className="flex flex-col gap-4 text-base">
           <div>
             <dt className="label-mono">{labels.challenge}</dt>
             <dd className="mt-1 leading-relaxed">{challenge}</dd>
