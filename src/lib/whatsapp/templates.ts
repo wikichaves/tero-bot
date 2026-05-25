@@ -386,6 +386,188 @@ export const preCheckinClimateUpdate: WhatsAppTemplate = {
 };
 
 // ────────────────────────────────────────────────────────────────────────
+// EN variants (WIK-151 P5). Meta trata `(name, language)` como pares
+// distintos — el mismo `name` con `language: "en"` es un template separado
+// que también requiere submit + approval. AUTH templates (Meta-provistos,
+// caso de `guestCheckinCode`) NO necesitan EN variant porque Meta sirve el
+// texto fijo por language code automáticamente — el envío decide en runtime.
+//
+// Convención: misma estructura que la variante ES, mismo `name`, mismos
+// placeholders `{{N}}` en el mismo orden. Los exports usan sufijo `En`
+// (ej. `staffTaskAssignedEn`).
+
+export const guestCheckoutReminderEn: WhatsAppTemplate = {
+  name: "guest_checkout_reminder",
+  language: "en",
+  category: "UTILITY",
+  description:
+    "EN variant of guest_checkout_reminder. Check-out reminder sent the day before with time and instructions. Variables: 1=name, 2=check-out date, 3=check-out time.",
+  components: [
+    {
+      type: "BODY",
+      text: `Hi {{1}}! We hope you're enjoying your stay.\n\nReminder: check-out is tomorrow {{2}} at {{3}}.\n\nBefore leaving, please:\n✓ Close windows and doors\n✓ Turn off the AC / heating\n✓ Leave the keys where you found them\n\nThanks for staying with us! Any feedback is much appreciated.\n\n— ${APP_NAME}`,
+      example: {
+        body_text: [["John", "Sunday May 17", "10:00 AM"]],
+      },
+    },
+    { type: "FOOTER", text: APP_NAME },
+  ],
+};
+
+export const staffTaskAssignedEn: WhatsAppTemplate = {
+  name: "staff_task_assigned",
+  language: "en",
+  category: "UTILITY",
+  description:
+    "EN variant of staff_task_assigned. Notifies staff when admin/manager assigns them a task from the panel. Variables: 1=title, 2=property, 3=type (cleaning/maintenance/supplies), 4=when, 5=description.",
+  components: [
+    {
+      type: "BODY",
+      text: "New task assigned:\n\n*{{1}}*\nProperty: {{2}}\nType: {{3}}\nWhen: {{4}}\n\nDetails: {{5}}\n\nReply \"OK\" to confirm. When finished, reply \"DONE\".",
+      example: {
+        body_text: [
+          [
+            "Guest check-out cleaning",
+            APP_NAME,
+            "cleaning",
+            "Friday 15 at 11:00",
+            "Restock towels, toilet paper and coffee.",
+          ],
+        ],
+      },
+    },
+    { type: "FOOTER", text: brandedFooter("Operations") },
+  ],
+};
+
+export const staffSupplyRequestReceivedEn: WhatsAppTemplate = {
+  name: "staff_supply_request_received",
+  language: "en",
+  category: "UTILITY",
+  description:
+    "EN variant of staff_supply_request_received. Auto-reply to staff when they send a report (missing supply, damage, etc.). Confirms receipt and creates the task in the panel. Variables: 1=summarized report text.",
+  components: [
+    {
+      type: "BODY",
+      text: "We received your report:\n\n\"{{1}}\"\n\nIt's been logged as a pending task. We'll let you know when it's resolved. Thanks!",
+      example: {
+        body_text: [[`Missing toilet paper at ${APP_NAME}`]],
+      },
+    },
+    { type: "FOOTER", text: brandedFooter("Operations") },
+  ],
+};
+
+export const sensorAlarmFiredEn: WhatsAppTemplate = {
+  name: "sensor_alarm_fired",
+  language: "en",
+  category: "UTILITY",
+  description:
+    "EN variant of sensor_alarm_fired. Notifies admin/manager when a Tuya sensor crosses a configurable threshold (temperature or humidity). Variables: 1=metric (Temperature/Humidity), 2=value with unit (e.g. 81%), 3=room (e.g. Living · House A), 4=threshold with unit (e.g. > 80%).",
+  components: [
+    {
+      type: "BODY",
+      text: `Sensor alert at ${APP_NAME}: the {{1}} metric in {{3}} crossed the configured threshold.\n\nCurrent reading: {{2}}\nThreshold: {{4}}\n\nIf needed, check the room conditions (ventilation, temperature, sensor battery). The full history is available at ${APP_HOST}/rooms.`,
+      example: {
+        body_text: [["humidity", "81%", "Living · House A", "> 80%"]],
+      },
+    },
+    { type: "FOOTER", text: brandedFooter("Sensors") },
+  ],
+};
+
+export const taskReminderEn: WhatsAppTemplate = {
+  name: "task_reminder",
+  language: "en",
+  category: "UTILITY",
+  description:
+    "EN variant of task_reminder. Reminds the assignee X hours before a task is due. Variables: 1=title, 2=property, 3=when (e.g. 'in 2 hours' or 'today at 16:00').",
+  components: [
+    {
+      type: "BODY",
+      text: `🔔 Task reminder\n\n*{{1}}*\nProperty: {{2}}\nDue: {{3}}\n\nSee details at ${APP_HOST}/tasks`,
+      example: {
+        body_text: [["Guest check-out cleaning", APP_NAME, "in 2 hours"]],
+      },
+    },
+    { type: "FOOTER", text: brandedFooter("Tasks") },
+  ],
+};
+
+export const reservationCheckinReminderEn: WhatsAppTemplate = {
+  name: "reservation_checkin_reminder",
+  language: "en",
+  category: "UTILITY",
+  description:
+    "EN variant of reservation_checkin_reminder. Reminds the manager/admin X hours before a reservation check-in. Variables: 1=guest name, 2=property, 3=when (e.g. 'in 2 hours' or 'today at 16:00').",
+  components: [
+    {
+      type: "BODY",
+      text: `🔔 Upcoming check-in\n\nGuest: *{{1}}*\nProperty: {{2}}\nCheck-in: {{3}}\n\nSee details at ${APP_HOST}/dashboard`,
+      example: {
+        body_text: [["Jane Smith", APP_NAME, "in 2 hours"]],
+      },
+    },
+    { type: "FOOTER", text: brandedFooter("Reservations") },
+  ],
+};
+
+export const preCheckinClimateAlertEn: WhatsAppTemplate = {
+  name: "pre_checkin_climate_alert",
+  language: "en",
+  category: "UTILITY",
+  description:
+    "EN variant of pre_checkin_climate_alert. Alert 2h before check-in when ambient temperature is outside the target range. Buttons Yes/No; bot triggers Tuya scene if YES. Variables: 1=property, 2=current temp with °C, 3=target range ('20°-25°'), 4='It's cold' or 'It's hot'.",
+  components: [
+    {
+      type: "BODY",
+      text:
+        "🌡 *Pre check-in at {{1}}*\n\n" +
+        "Current temperature: *{{2}}* (target {{3}})\n" +
+        "{{4}} for the guest's arrival in 2 hours.\n\n" +
+        "Want me to turn on the conditioning?",
+      example: {
+        body_text: [[APP_NAME, "14°C", "20°–25°", "It's cold"]],
+      },
+    },
+    { type: "FOOTER", text: brandedFooter("Pre check-in") },
+    {
+      type: "BUTTONS",
+      buttons: [
+        { type: "QUICK_REPLY", text: "Yes, turn on" },
+        { type: "QUICK_REPLY", text: "No, thanks" },
+      ],
+    },
+  ],
+};
+
+export const preCheckinClimateUpdateEn: WhatsAppTemplate = {
+  name: "pre_checkin_climate_update",
+  language: "en",
+  category: "UTILITY",
+  description:
+    "EN variant of pre_checkin_climate_update. Informational progress update of the conditioning (no buttons). Variables: 1=property, 2=current temp with °C, 3=status with context (e.g. 'Going well, started at 14°C'), 4='1 hour' or 'less than 30 minutes'.",
+  components: [
+    {
+      type: "BODY",
+      text:
+        "🌡 Pre check-in climate conditioning update.\n\n" +
+        "Property: *{{1}}*\n" +
+        "Current temperature: *{{2}}*\n\n" +
+        "Status: {{3}}\n" +
+        "Time until check-in: {{4}}\n\n" +
+        `If you want to adjust the heaters or AC manually, you can do so in Smart Life. The full history is at ${APP_HOST}/dashboard.`,
+      example: {
+        body_text: [
+          [APP_NAME, "19°C", "Going well, started at 14°C", "1 hour"],
+        ],
+      },
+    },
+    { type: "FOOTER", text: brandedFooter("Pre check-in") },
+  ],
+};
+
+// ────────────────────────────────────────────────────────────────────────
 
 /**
  * Full registry — useful for iterating in scripts or admin UI.
@@ -409,6 +591,7 @@ export const preCheckinClimateUpdate: WhatsAppTemplate = {
  */
 export const allTemplates: WhatsAppTemplate[] = [
   // guestCheckinCode → DESHABILITADO, ver nota arriba.
+  // ES variants (originales).
   guestCheckoutReminder,
   staffTaskAssigned,
   staffSupplyRequestReceived,
@@ -419,4 +602,16 @@ export const allTemplates: WhatsAppTemplate[] = [
   // WIK-125 — climate conditioning pre check-in.
   preCheckinClimateAlert,
   preCheckinClimateUpdate,
+  // WIK-151 P5 — EN variants. Meta los trata como templates separados
+  // (mismo `name`, language: "en"). Hay que submitearlos por separado;
+  // mientras Meta los aprueba, el helper `sendKapsoTemplateWithFallback`
+  // hace fallback a la variante ES si la EN falla.
+  guestCheckoutReminderEn,
+  staffTaskAssignedEn,
+  staffSupplyRequestReceivedEn,
+  sensorAlarmFiredEn,
+  taskReminderEn,
+  reservationCheckinReminderEn,
+  preCheckinClimateAlertEn,
+  preCheckinClimateUpdateEn,
 ];

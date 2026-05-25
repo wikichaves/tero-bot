@@ -112,12 +112,18 @@ export function isInStageWindow(input: {
 
 /**
  * Convert "needs_cooling" / "needs_heating" to the human-readable string
- * used in the template's `{{4}}` variable.
+ * used in the template's `{{4}}` variable. Locale-aware (WIK-151 P5) so
+ * the body hint matches the EN/ES template variant being rendered.
  */
 export function decisionToBodyHint(
   decision: ClimateDecision,
+  locale: "en" | "es" = "es",
 ): string {
-  if (decision.kind === "needs_cooling") return "Está caliente";
-  if (decision.kind === "needs_heating") return "Está frío";
+  if (decision.kind === "needs_cooling") {
+    return locale === "en" ? "It's hot" : "Está caliente";
+  }
+  if (decision.kind === "needs_heating") {
+    return locale === "en" ? "It's cold" : "Está frío";
+  }
   return ""; // for ok / cannot_evaluate we don't send an alert
 }

@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendKapsoTemplate } from "@/lib/whatsapp";
+import { sendKapsoTemplateWithFallback } from "@/lib/whatsapp";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/locales";
 import { getCurrentTempForProperty } from "./current-temp";
 import {
   evaluateClimate,
@@ -8,6 +9,11 @@ import {
   decisionToBodyHint,
 } from "./evaluate";
 import type { PreCheckinCandidate } from "./find-due";
+
+function coerceLocale(raw: string | null | undefined): Locale {
+  if (!raw) return DEFAULT_LOCALE;
+  return isLocale(raw) ? raw : DEFAULT_LOCALE;
+}
 
 /**
  * Evaluate a candidate at the 2h-before stage and, if action is needed,
@@ -115,10 +121,13 @@ export async function sendPreCheckinAlert(
     };
   }
 
-  // 6. Send the alert
+  // 6. Send the alert. Recipient's profile.language drives template lang;
+  //    fallback to ES inside the helper if the EN variant isn't approved
+  //    yet (24-72h post-submit window).
+  const recipientLocale = coerceLocale(candidate.notify_language);
   const tempStr = `${reading.temp_c}°C`;
   const targetStr = `${candidate.target_min_c}°–${candidate.target_max_c}°`;
-  const bodyHint = decisionToBodyHint(decision);
+  const bodyHint = decisionToBodyHint(decision, recipientLocale);
   // Multi-pending disambiguation: prepend the short code to property name
   // so the gestor can tell which one a "Sí, prender" refers to. Cheap:
   // adds it always (the template doesn't show the short code explicitly,
@@ -150,11 +159,11 @@ export async function sendPreCheckinAlert(
   }
 
   try {
-    await sendKapsoTemplate({
+    await sendKapsoTemplateWithFallback({
       phoneNumberId,
       to: candidate.notify_phone,
       templateName: "pre_checkin_climate_alert",
-      languageCode: "es",
+      preferredLanguage: recipientLocale,
       bodyVariables,
     });
     await admin.from("pre_checkin_conditioning").insert({
@@ -209,9 +218,17 @@ export async function sendPreCheckinUpdate(
   const isMock = process.env.MOCK_WHATSAPP_TEMPLATES === "true";
 
   const nextStage = stageBefore === "started" ? "check_1h_done" : "check_0h_done";
-  // WIK-125 v2: el template aprobado tiene 4 vars (no 5). Mantenemos
-  // el texto natural en español para el campo "tiempo hasta check-in".
-  const remainingLabel = stageBefore === "started" ? "1 hora" : "menos de 30 minutos";
+  const recipientLocale = coerceLocale(candidate.notify_language);
+  // WIK-125 v2: el template aprobado tiene 4 vars (no 5). El texto del
+  // campo "tiempo hasta check-in" depende del locale del destinatario.
+  const remainingLabel =
+    recipientLocale === "en"
+      ? stageBefore === "started"
+        ? "1 hour"
+        : "less than 30 minutes"
+      : stageBefore === "started"
+        ? "1 hora"
+        : "menos de 30 minutos";
 
   const reading = await getCurrentTempForProperty(candidate.property_id);
   const initial = candidate.initial_temp_c;
@@ -227,20 +244,31 @@ export async function sendPreCheckinUpdate(
   // 2 separate variables for status + initial-temp).
   const targetMin = candidate.target_min_c;
   const targetMax = candidate.target_max_c;
-  let progressLabel = "sin datos suficientes para evaluar";
+  const isEn = recipientLocale === "en";
+  let progressLabel = isEn
+    ? "not enough data to evaluate"
+    : "sin datos suficientes para evaluar";
   if (reading.temp_c != null && targetMin != null && targetMax != null) {
     const inRange = reading.temp_c >= targetMin && reading.temp_c <= targetMax;
     if (inRange) {
-      progressLabel = `✓ ambiente en rango target${initial != null ? `, inició en ${initial}°C` : ""}`;
+      progressLabel = isEn
+        ? `✓ in target range${initial != null ? `, started at ${initial}°C` : ""}`
+        : `✓ ambiente en rango target${initial != null ? `, inició en ${initial}°C` : ""}`;
     } else if (deltaC != null && initial != null) {
       const wasBelow = initial < targetMin;
       const wasAbove = initial > targetMax;
       if (wasBelow && deltaC > 0.5)
-        progressLabel = `Va bien (subiendo, inició en ${initial}°C)`;
+        progressLabel = isEn
+          ? `Going well (warming, started at ${initial}°C)`
+          : `Va bien (subiendo, inició en ${initial}°C)`;
       else if (wasAbove && deltaC < -0.5)
-        progressLabel = `Va bien (bajando, inició en ${initial}°C)`;
+        progressLabel = isEn
+          ? `Going well (cooling, started at ${initial}°C)`
+          : `Va bien (bajando, inició en ${initial}°C)`;
       else
-        progressLabel = `No está aclimatando como esperado (inició en ${initial}°C)`;
+        progressLabel = isEn
+          ? `Not conditioning as expected (started at ${initial}°C)`
+          : `No está aclimatando como esperado (inició en ${initial}°C)`;
     }
   }
 
@@ -288,11 +316,11 @@ export async function sendPreCheckinUpdate(
   }
 
   try {
-    await sendKapsoTemplate({
+    await sendKapsoTemplateWithFallback({
       phoneNumberId,
       to: candidate.notify_phone,
       templateName: "pre_checkin_climate_update",
-      languageCode: "es",
+      preferredLanguage: recipientLocale,
       bodyVariables,
     });
     if (candidate.existing_id) {

@@ -52,7 +52,7 @@ export default async function WhatsAppAdminPage() {
 
       <div className="flex flex-col gap-3">
         {allTemplates.map((t) => (
-          <Card key={t.name}>
+          <Card key={`${t.name}__${t.language}`}>
             <CardHeader className="pb-2">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <CardTitle className="font-mono text-sm">{t.name}</CardTitle>

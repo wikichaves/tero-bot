@@ -22,6 +22,8 @@ export type TaskCandidate = {
   assignee_id: string;
   assignee_name: string | null;
   assignee_phone: string;
+  /** profile.language del assignee (free-form en DB, ej. "en", "es", null). */
+  assignee_language: string | null;
 };
 
 export type ReservationCandidate = {
@@ -37,6 +39,8 @@ export type ReservationCandidate = {
   notify_profile_id: string;
   notify_phone: string;
   notify_name: string | null;
+  /** profile.language del notify profile (free-form en DB). */
+  notify_language: string | null;
 };
 
 export type AlarmCandidate = TaskCandidate | ReservationCandidate;
@@ -96,7 +100,7 @@ export async function findDueAlarms({
     .from("tasks")
     .select(
       "id, title, due_date, due_time, alarm_hours_before, status, " +
-        "assignee:profiles!tasks_assigned_to_fkey(id, full_name, whatsapp), " +
+        "assignee:profiles!tasks_assigned_to_fkey(id, full_name, whatsapp, language), " +
         "property:properties(name)",
     )
     .not("alarm_hours_before", "is", null)
@@ -117,6 +121,7 @@ export async function findDueAlarms({
       id: string;
       full_name: string | null;
       whatsapp: string | null;
+      language: string | null;
     } | null;
     property: { name: string } | null;
   };
@@ -138,6 +143,7 @@ export async function findDueAlarms({
       assignee_id: t.assignee.id,
       assignee_name: t.assignee.full_name,
       assignee_phone: t.assignee.whatsapp,
+      assignee_language: t.assignee.language,
     });
   }
 
@@ -172,13 +178,18 @@ export async function findDueAlarms({
   ];
   const notifyByProperty = new Map<
     string,
-    { profile_id: string; name: string | null; phone: string }
+    {
+      profile_id: string;
+      name: string | null;
+      phone: string;
+      language: string | null;
+    }
   >();
   if (propertyIds.length > 0) {
     const { data: assignments } = await admin
       .from("profile_properties")
       .select(
-        "property_id, profile:profiles!inner(id, full_name, whatsapp, role)",
+        "property_id, profile:profiles!inner(id, full_name, whatsapp, role, language)",
       )
       .in("property_id", propertyIds);
     type AssignmentJoin = {
@@ -188,6 +199,7 @@ export async function findDueAlarms({
         full_name: string | null;
         whatsapp: string | null;
         role: string;
+        language: string | null;
       };
     };
     const byProperty = new Map<
@@ -197,6 +209,7 @@ export async function findDueAlarms({
         name: string | null;
         phone: string | null;
         role: string;
+        language: string | null;
       }>
     >();
     for (const a of ((assignments ?? []) as unknown) as AssignmentJoin[]) {
@@ -206,19 +219,21 @@ export async function findDueAlarms({
         name: a.profile.full_name,
         phone: a.profile.whatsapp,
         role: a.profile.role,
+        language: a.profile.language,
       });
       byProperty.set(a.property_id, arr);
     }
     // Fallback: list of admins for properties with no specific gestor.
     const { data: adminRows } = await admin
       .from("profiles")
-      .select("id, full_name, whatsapp")
+      .select("id, full_name, whatsapp, language")
       .eq("role", "admin")
       .not("whatsapp", "is", null);
     type AdminRow = {
       id: string;
       full_name: string | null;
       whatsapp: string;
+      language: string | null;
     };
     const adminFallback = (((adminRows ?? []) as unknown) as AdminRow[])[0];
     for (const pid of propertyIds) {
@@ -232,6 +247,7 @@ export async function findDueAlarms({
           profile_id: gestor.profile_id,
           name: gestor.name,
           phone: gestor.phone!,
+          language: gestor.language,
         });
         continue;
       }
@@ -241,6 +257,7 @@ export async function findDueAlarms({
           profile_id: admin2.profile_id,
           name: admin2.name,
           phone: admin2.phone!,
+          language: admin2.language,
         });
         continue;
       }
@@ -249,6 +266,7 @@ export async function findDueAlarms({
           profile_id: adminFallback.id,
           name: adminFallback.full_name,
           phone: adminFallback.whatsapp,
+          language: adminFallback.language,
         });
       }
     }
@@ -273,6 +291,7 @@ export async function findDueAlarms({
       notify_profile_id: notify.profile_id,
       notify_phone: notify.phone,
       notify_name: notify.name,
+      notify_language: notify.language,
     });
   }
 

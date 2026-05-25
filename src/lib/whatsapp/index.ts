@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { WhatsAppDirection } from "@/lib/types";
+import type { Locale } from "@/i18n/locales";
 
 /**
  * Server-only helpers for the Kapso/WhatsApp integration. Persistence layer
@@ -398,4 +399,60 @@ export async function sendKapsoTemplate(input: {
   const messageId =
     (parsed as { messages?: { id?: string }[] })?.messages?.[0]?.id;
   return { messageId, raw: parsed };
+}
+
+/**
+ * Locale-aware wrapper around `sendKapsoTemplate` (WIK-151 P5).
+ *
+ * Each template is registered with Meta as a `(name, language)` pair —
+ * the EN and ES variants are independent records, each with its own
+ * approval state. There's a 24-72h window after submission where the
+ * EN variant is still PENDING / REJECTED while the ES one is APPROVED.
+ *
+ * To keep operational messages flowing during that window, this helper:
+ *  1. Tries the recipient's preferred language (en/es).
+ *  2. On any Meta/Kapso failure, retries with `"es"` (always approved
+ *     since Meta first-pass) and logs that we fell back.
+ *  3. If the fallback was already ES, just re-throws — the caller can
+ *     decide whether to retry on a future cron tick.
+ *
+ * Callers should pass `preferredLanguage` from the recipient's
+ * `profile.language` (coerced to `Locale`), defaulting to "en" when
+ * absent. For guest recipients with no profile, "en" is the conservative
+ * default once Meta approves the EN variants.
+ */
+export async function sendKapsoTemplateWithFallback(input: {
+  phoneNumberId: string;
+  to: string;
+  templateName: string;
+  preferredLanguage: Locale;
+  bodyVariables: string[];
+}): Promise<{
+  messageId?: string;
+  raw: unknown;
+  languageUsed: Locale;
+  fellBack: boolean;
+}> {
+  const { preferredLanguage, ...rest } = input;
+  try {
+    const result = await sendKapsoTemplate({
+      ...rest,
+      languageCode: preferredLanguage,
+    });
+    return { ...result, languageUsed: preferredLanguage, fellBack: false };
+  } catch (err) {
+    if (preferredLanguage === "es") {
+      // No fallback available — propagate the original error.
+      throw err;
+    }
+    const msg = (err as Error).message;
+    console.warn(
+      `[whatsapp] template "${input.templateName}" failed in ${preferredLanguage} (${msg.slice(0, 200)}). Falling back to es.`,
+    );
+    const result = await sendKapsoTemplate({
+      ...rest,
+      languageCode: "es",
+    });
+    return { ...result, languageUsed: "es", fellBack: true };
+  }
 }

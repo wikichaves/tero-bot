@@ -1,8 +1,9 @@
 import "server-only";
 import { format, parseISO } from "date-fns";
-import { es } from "date-fns/locale";
+import { enUS, es } from "date-fns/locale";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendKapsoTemplate } from "@/lib/whatsapp";
+import { sendKapsoTemplateWithFallback } from "@/lib/whatsapp";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/locales";
 import type { AlarmCandidate } from "./find-due";
 
 /**
@@ -27,7 +28,16 @@ export type SendResult = {
   mocked?: boolean;
 };
 
-function formatWhen(targetIso: string, alarmIso: string): string {
+function coerceLocale(raw: string | null | undefined): Locale {
+  if (!raw) return DEFAULT_LOCALE;
+  return isLocale(raw) ? raw : DEFAULT_LOCALE;
+}
+
+function formatWhen(
+  targetIso: string,
+  alarmIso: string,
+  locale: Locale,
+): string {
   const target = parseISO(targetIso);
   const alarm = parseISO(alarmIso);
   const hoursLeft = Math.round(
@@ -36,7 +46,13 @@ function formatWhen(targetIso: string, alarmIso: string): string {
   // Si la alarma sale "en redondo" (1h, 2h, 4h…) preferimos texto natural;
   // si no, mostrar la hora absoluta para no engañar.
   if (hoursLeft > 0 && hoursLeft <= 12) {
+    if (locale === "en") {
+      return `in ${hoursLeft} ${hoursLeft === 1 ? "hour" : "hours"}`;
+    }
     return `en ${hoursLeft} ${hoursLeft === 1 ? "hora" : "horas"}`;
+  }
+  if (locale === "en") {
+    return `on ${format(target, "EEEE MMMM d 'at' HH:mm", { locale: enUS })}`;
   }
   return `el ${format(target, "EEEE d 'de' MMMM 'a las' HH:mm", { locale: es })}`;
 }
@@ -48,24 +64,33 @@ export async function sendAlarmReminder(
   const isMock = process.env.MOCK_WHATSAPP_TEMPLATES === "true";
   const admin = createAdminClient();
 
-  // Build the template name + body variables per kind.
+  // Build the template name + body variables per kind. Recipient's
+  // `profile.language` decides whether we render EN or ES strings — the
+  // template registry has matching (name, language) pairs for both.
   let templateName: string;
   let bodyVariables: string[];
   let toPhone: string;
+  let recipientLocale: Locale;
   if (candidate.kind === "task") {
     templateName = "task_reminder";
+    recipientLocale = coerceLocale(candidate.assignee_language);
     bodyVariables = [
       candidate.title,
       candidate.property_name ?? "—",
-      formatWhen(candidate.due_at_iso, candidate.alarm_at_iso),
+      formatWhen(candidate.due_at_iso, candidate.alarm_at_iso, recipientLocale),
     ];
     toPhone = candidate.assignee_phone;
   } else {
     templateName = "reservation_checkin_reminder";
+    recipientLocale = coerceLocale(candidate.notify_language);
     bodyVariables = [
-      candidate.guest_name ?? "Huésped",
+      candidate.guest_name ?? (recipientLocale === "en" ? "Guest" : "Huésped"),
       candidate.property_name ?? "—",
-      formatWhen(candidate.check_in_at_iso, candidate.alarm_at_iso),
+      formatWhen(
+        candidate.check_in_at_iso,
+        candidate.alarm_at_iso,
+        recipientLocale,
+      ),
     ];
     toPhone = candidate.notify_phone;
   }
@@ -90,11 +115,11 @@ export async function sendAlarmReminder(
   }
 
   try {
-    await sendKapsoTemplate({
+    await sendKapsoTemplateWithFallback({
       phoneNumberId,
       to: toPhone,
       templateName,
-      languageCode: "es",
+      preferredLanguage: recipientLocale,
       bodyVariables,
     });
     // Mark as sent ONLY after a successful Kapso ack. If insert fails

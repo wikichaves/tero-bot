@@ -68,11 +68,12 @@ export async function triggerPreCheckinNow(reservationId: string): Promise<
       full_name: string | null;
       whatsapp: string | null;
       role: string;
+      language: string | null;
     };
   };
   const { data: assignments } = await admin
     .from("profile_properties")
-    .select("profile:profiles!inner(id, full_name, whatsapp, role)")
+    .select("profile:profiles!inner(id, full_name, whatsapp, role, language)")
     .eq("property_id", r.property_id);
   const list = ((assignments ?? []) as unknown) as AssignmentRow[];
   const gestor =
@@ -107,6 +108,7 @@ export async function triggerPreCheckinNow(reservationId: string): Promise<
     notify_profile_id: notify.id,
     notify_phone: notify.whatsapp,
     notify_name: notify.full_name,
+    notify_language: notify.language,
     existing_stage: null,
     existing_id: null,
     initial_temp_c: null,

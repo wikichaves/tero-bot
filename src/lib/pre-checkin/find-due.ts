@@ -29,6 +29,8 @@ export type PreCheckinCandidate = {
   notify_profile_id: string;
   notify_phone: string;
   notify_name: string | null;
+  /** profile.language del notify profile (free-form en DB, ej. "en" / "es" / null). */
+  notify_language: string | null;
   // Existing tracking row (if any) — null when stage = 2h on first hit.
   existing_stage: string | null;
   existing_id: string | null;
@@ -80,7 +82,12 @@ function shortCode(propertyName: string): string {
 async function resolveNotifyProfile(
   admin: ReturnType<typeof createAdminClient>,
   propertyId: string,
-): Promise<{ id: string; name: string | null; phone: string } | null> {
+): Promise<{
+  id: string;
+  name: string | null;
+  phone: string;
+  language: string | null;
+} | null> {
   // Prefer gestor assigned to the property; fallback to any admin with
   // whatsapp set. Mirrors lib/alarm-reminders/find-due.ts logic.
   type AssignmentRow = {
@@ -89,11 +96,12 @@ async function resolveNotifyProfile(
       full_name: string | null;
       whatsapp: string | null;
       role: string;
+      language: string | null;
     };
   };
   const { data: assignments } = await admin
     .from("profile_properties")
-    .select("profile:profiles!inner(id, full_name, whatsapp, role)")
+    .select("profile:profiles!inner(id, full_name, whatsapp, role, language)")
     .eq("property_id", propertyId);
   const list = ((assignments ?? []) as unknown) as AssignmentRow[];
   const gestor = list.find((a) => a.profile.role === "gestor" && a.profile.whatsapp);
@@ -102,6 +110,7 @@ async function resolveNotifyProfile(
       id: gestor.profile.id,
       name: gestor.profile.full_name,
       phone: gestor.profile.whatsapp!,
+      language: gestor.profile.language,
     };
   }
   const admin2 = list.find((a) => a.profile.role === "admin" && a.profile.whatsapp);
@@ -110,18 +119,30 @@ async function resolveNotifyProfile(
       id: admin2.profile.id,
       name: admin2.profile.full_name,
       phone: admin2.profile.whatsapp!,
+      language: admin2.profile.language,
     };
   }
   // Fallback: any admin with whatsapp.
-  type AdminRow = { id: string; full_name: string | null; whatsapp: string };
+  type AdminRow = {
+    id: string;
+    full_name: string | null;
+    whatsapp: string;
+    language: string | null;
+  };
   const { data: adminRows } = await admin
     .from("profiles")
-    .select("id, full_name, whatsapp")
+    .select("id, full_name, whatsapp, language")
     .eq("role", "admin")
     .not("whatsapp", "is", null)
     .limit(1);
   const a = (((adminRows ?? []) as unknown) as AdminRow[])[0];
-  if (a) return { id: a.id, name: a.full_name, phone: a.whatsapp };
+  if (a)
+    return {
+      id: a.id,
+      name: a.full_name,
+      phone: a.whatsapp,
+      language: a.language,
+    };
   return null;
 }
 
@@ -187,6 +208,7 @@ export async function findDueAt2h(nowMs: number): Promise<PreCheckinCandidate[]>
       notify_profile_id: notify.id,
       notify_phone: notify.phone,
       notify_name: notify.name,
+      notify_language: notify.language,
       existing_stage: null,
       existing_id: null,
       initial_temp_c: null,
@@ -252,6 +274,7 @@ export async function findStartedAtStage(
       notify_profile_id: notify.id,
       notify_phone: notify.phone,
       notify_name: notify.name,
+      notify_language: notify.language,
       existing_stage: row.stage,
       existing_id: row.id,
       initial_temp_c: row.initial_temp_c,
