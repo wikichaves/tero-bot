@@ -176,23 +176,32 @@ export default async function RoomDetailPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <Link
-          href="/rooms"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          {t("back")}
-        </Link>
-        <h1 className="mt-2 text-2xl">{room.name}</h1>
-        <p className="text-sm text-muted-foreground">
-          {t("subtitle", {
-            property: room.properties?.name ?? "—",
-            sensorsLabel: t("sensorsCount", { n: sensors.length }),
-            readingsLabel: t("readingsCount", { n: snapshots.length }),
-            range: rangeLabel,
-          })}
-        </p>
+      {/* WIK-172 v2: scenes card sube al header. En mobile queda debajo
+          del título (sigue visible al toque); en desktop se va a la
+          derecha — quedaba muerto al final de la página y se perdía
+          después del chart + stats. */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <Link
+            href="/rooms"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {t("back")}
+          </Link>
+          <h1 className="mt-2 text-2xl">{room.name}</h1>
+          <p className="text-sm text-muted-foreground">
+            {t("subtitle", {
+              property: room.properties?.name ?? "—",
+              sensorsLabel: t("sensorsCount", { n: sensors.length }),
+              readingsLabel: t("readingsCount", { n: snapshots.length }),
+              range: rangeLabel,
+            })}
+          </p>
+        </div>
+        <Suspense fallback={null}>
+          <ScenesCard roomId={id} isAdmin={isAdmin} />
+        </Suspense>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -309,15 +318,6 @@ export default async function RoomDetailPage({
         </>
       )}
 
-      {/* WIK-172: tap-to-run scenes que afectan a este room. Solo
-          se renderiza para admin y solo si hay scenes que matcheen
-          (i.e. controlan al menos un device de este room).
-          Wrapeado en Suspense porque el filtering requiere N calls
-          a la Tuya API (una por scene para el detalle) — streameamos
-          mientras la página de arriba se muestra al toque. */}
-      <Suspense fallback={null}>
-        <ScenesCard roomId={id} isAdmin={isAdmin} />
-      </Suspense>
     </div>
   );
 }
