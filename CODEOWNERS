@@ -1,0 +1,46 @@
+# CODEOWNERS (WIK-137).
+#
+# Define qué archivos requieren review explícita del owner antes de
+# poder mergear (cuando branch protection tiene "Require review from
+# Code Owners" activado). Pensado como guard-rail para el worker
+# autónomo de Claude: cambios en estas paths NUNCA se auto-mergean,
+# obligan a un PR review manual.
+#
+# Default: nada requiere review (vos podés mergear cualquier cosa).
+# Las patterns abajo son los archivos críticos donde un cambio mal
+# interpretado podría romper el sistema o costar plata.
+
+# Bot logic + integraciones externas (WhatsApp, Telegram, Linear,
+# GitHub Actions). Un bug acá afecta usuarios reales / templates Meta /
+# costos Anthropic.
+/src/lib/whatsapp/  @wikichaves
+/src/lib/telegram/  @wikichaves
+/src/lib/linear/    @wikichaves
+/src/lib/github/    @wikichaves
+/src/lib/pre-checkin/  @wikichaves
+/src/lib/alarm-reminders/  @wikichaves
+/src/lib/tuya/      @wikichaves
+/src/lib/bills/     @wikichaves
+/src/lib/airbnb/    @wikichaves
+/src/lib/sensors/   @wikichaves
+
+# Server routes — webhook handlers, cron jobs, admin actions.
+/src/app/api/       @wikichaves
+
+# Schema + scripts de DB. Migrations destructivas / RLS policies.
+/supabase/          @wikichaves
+
+# Auth / middleware / supabase setup. Cambios acá afectan auth flow.
+/src/lib/supabase/  @wikichaves
+/src/lib/auth.ts    @wikichaves
+/src/lib/auth/      @wikichaves
+/src/proxy.ts       @wikichaves
+
+# Config + deploy. Cambios pueden romper el build o costar plata.
+/.env.example       @wikichaves
+/.github/           @wikichaves
+/vercel.json        @wikichaves
+/next.config.ts     @wikichaves
+/package.json       @wikichaves
+/package-lock.json  @wikichaves
+/tsconfig.json      @wikichaves

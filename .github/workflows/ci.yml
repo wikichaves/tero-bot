@@ -1,0 +1,43 @@
+# CI gate (WIK-137).
+#
+# Corre en cada PR contra main. Sus checks son el gate que
+# `claude-worker.yml` espera con `gh pr merge --auto` antes de
+# completar el squash-merge. Sin branch protection, este workflow
+# es informativo; con branch protection (ver doc abajo), bloquea
+# merges hasta que pase.
+#
+# Para activar el gate real, en GitHub:
+#   Settings → Branches → Add rule
+#   Branch name pattern: main
+#   Tildar:
+#     - Require a pull request before merging
+#     - Require status checks to pass before merging
+#         → seleccionar "build" como required
+#     - (opcional) Require review from Code Owners
+#     - Do not allow bypassing the above settings
+#
+# Sin estos toggles activos, `--auto` no espera — mergea inmediato
+# como antes. La compat con behaviour anterior se mantiene.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install deps
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build

@@ -278,9 +278,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # WIK-137: `--auto` espera a que pasen los required status
+          # checks (definidos en branch protection de main) antes de
+          # mergear. Sin branch protection activa, `--auto` mergea
+          # inmediato como antes — la compat queda intacta. Con
+          # branch protection que requiere `build` (de ci.yml),
+          # esperás a que CI pase verde, después merge.
+          # Si el merge falla acá (ej. mergeable_state CONFLICTING),
+          # el step revienta y el run queda Failure — el PR queda open
+          # para resolver manual.
           gh pr merge "${{ steps.pr.outputs.number }}" \
-            --squash --delete-branch
-          echo "::notice::✅ PR #${{ steps.pr.outputs.number }} mergeado automáticamente."
+            --auto --squash --delete-branch
+          echo "::notice::✅ PR #${{ steps.pr.outputs.number }} auto-merge habilitado (espera CI checks)."
 
       - name: Mark PR as needs-review (manual case)
         if: steps.classify.outputs.safe == 'false' && steps.pr.outputs.number != ''

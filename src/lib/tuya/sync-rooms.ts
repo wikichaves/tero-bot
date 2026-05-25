@@ -182,7 +182,7 @@ export async function runSyncRooms(): Promise<SyncRoomsResult> {
     let roomsInserted = 0;
     let roomsExisting = 0;
     let roomsRenamed = 0;
-    let roomsReordered = 0;
+    const roomsReordered = 0;
     let devicesAssigned = 0;
     let devicesAlreadyAssigned = 0;
     let devicesNotInDb = 0;
