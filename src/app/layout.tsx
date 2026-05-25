@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -12,11 +12,13 @@ import "./globals.css";
 /**
  * Fonts del theme "tero.bot":
  *   - Geist Sans → sans (body / UI). WIK-128.
- *   - Instrument Serif → serif (used as `--font-heading` for all h1..h3
- *     and `<em>` inside headings — editorial feel, magazine-like.
- *     WIK-135 (era Source Serif 4 desde WIK-131). Sólo weight 400
- *     disponible — los headings ya no llevan `font-semibold`, los
- *     styles base se setean en globals.css.
+ *   - Source Serif 4 → serif (used as `--font-heading` for all h1..h3
+ *     and `<em>` inside headings). Vuelvo a esta fuente (WIK-165) tras
+ *     probar Instrument Serif en WIK-135 — Instrument tiene x-height
+ *     muy bajo y se veía chica al lado del sans. Source Serif 4 tiene
+ *     mejor proporción óptica y multiple weights (acá uso 400 + 600
+ *     para que los headings tengan algo de peso sin recurrir al italic
+ *     synth). Aligned con wikichaves.com.
  *   - Geist Mono → mono (code, IDs, editorial labels). WIK-128.
  */
 const geistSans = Geist({
@@ -25,10 +27,10 @@ const geistSans = Geist({
   display: "swap",
 });
 
-const instrumentSerif = Instrument_Serif({
+const sourceSerif = Source_Serif_4({
   variable: "--font-serif",
   subsets: ["latin"],
-  weight: "400",
+  weight: ["400", "600"],
   style: ["normal", "italic"],
   display: "swap",
 });
@@ -92,7 +94,7 @@ export default async function RootLayout({
     // we don't want React to warn about the resulting class mismatch.
     <html
       lang={locale}
-      className={`${geistSans.variable} ${instrumentSerif.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${sourceSerif.variable} ${geistMono.variable} h-full antialiased`}
       // WIK-92: el BG inicial del <html> lo maneja globals.css via
       // `prefers-color-scheme` CSS media query — sin inline style.
       // Light OS → white-ish, Dark OS → black, antes que next-themes
