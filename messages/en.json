@@ -202,5 +202,98 @@
       "notFound": "No user found with that phone.",
       "credentials": "Invalid credentials."
     }
+  },
+  "rooms": {
+    "title": "Rooms",
+    "subtitle": "Live temperature and humidity per room. Hourly capture from Tuya. Tap a card to see the history.",
+    "ranges": {
+      "24h": "24 hours",
+      "7d": "7 days",
+      "30d": "30 days"
+    },
+    "empty": {
+      "intro": "No T/H sensors assigned to any property yet. To get started:",
+      "step1Pre": "Go to ",
+      "step1Link": "/admin/tuya",
+      "step1Post": " and assign the Tuya devices by tagging them as “T/H Sensor”.",
+      "step2": "Click “Sync rooms” to create rooms from Smart Life.",
+      "step3": "Click “Capture sensors” to force the first reading."
+    },
+    "noRoom": "No room",
+    "avgLabel": "avg",
+    "sensorsCount": "{n, plural, one {# sensor} other {# sensors}}",
+    "lastReading": "Last reading: {time}",
+    "noRecentTitle": "No recent readings",
+    "noRecentBody": "The sensor did not respond in {range}. Check connection / battery in Smart Life or trigger a capture.",
+    "viewDetail": "View detail of {room}",
+    "timeAgo": {
+      "now": "just now",
+      "minutes": "{n}min ago",
+      "hours": "{n}h ago",
+      "days": "{n}d ago"
+    }
+  },
+  "roomDetail": {
+    "back": "Back",
+    "subtitle": "{property} · {sensorsLabel} · {readingsLabel} in {range}",
+    "sensorsCount": "{n, plural, one {# sensor} other {# sensors}}",
+    "readingsCount": "{n, plural, one {# reading} other {# readings}}",
+    "ranges": {
+      "24h": "24 hours",
+      "7d": "7 days",
+      "30d": "30 days"
+    },
+    "noSensorsPre": "This room has no sensors assigned. Assign a device in ",
+    "noSensorsLink": "/admin/tuya",
+    "noSensorsPost": ".",
+    "noReadingsPre": "No readings in the last {range}. Trigger a capture with the “Capture sensors” button in ",
+    "noReadingsLink": "/admin/tuya",
+    "noReadingsPost": ".",
+    "partialTitle": "Partial history",
+    "partialBody": "We only have data since {date}. The sensor wasn't capturing before that date (hourly snapshot enabled recently).",
+    "chart": {
+      "title": "History",
+      "description": "Temperature (orange) and humidity (blue) in {range}."
+    },
+    "sensorFallback": "Sensor",
+    "sensorNumbered": "Sensor {n}",
+    "temperature": "Temperature",
+    "humidity": "Humidity",
+    "tempTooltip": "Min/max computed with p5/p95 percentiles to filter outliers (cold sensor on boot, erratic readings). For series <20 samples falls back to raw min/max.",
+    "humTooltip": "Min/max computed with p5/p95 percentiles to filter outliers.",
+    "avgShort": "avg"
+  },
+  "energyPage": {
+    "title": "Energy",
+    "subtitlePre": "Live consumption per property. History via hourly snapshots. Tariff and currency are configured per property in ",
+    "subtitleLink": "/admin/properties",
+    "subtitlePost": ".",
+    "ranges": {
+      "24h": "24 hours",
+      "7d": "7 days",
+      "30d": "30 days"
+    },
+    "rangesShort": {
+      "24h": "24h",
+      "7d": "7d",
+      "30d": "30d"
+    },
+    "tuyaError": "Could not talk to Tuya: {error}",
+    "noDevicesP1": "No devices identifiable as energy meters were found among the {n} devices in the cloud project.",
+    "noDevicesP2Pre": "We look by category ",
+    "noDevicesP2Mid1": " / ",
+    "noDevicesP2Mid2": " or by name containing “Circuit breaker” / “breaker” / “Térmica”.",
+    "fxRates": "Exchange rates: "
+  },
+  "billsPage": {
+    "title": "Bills",
+    "subtitlePre": "Forward bills to ",
+    "subtitleFallback": "bills@<your-inbound-domain>",
+    "subtitlePost": " or load them manually. For historical backfills, send up to 3–4 PDFs per email (Vercel caps the payload at 4.5 MB).",
+    "newBill": "New bill",
+    "emptyPre": "Forward the first email from UTE / OSE / Antel / Edenor / AySA / Personal Flow / Prosegur to ",
+    "emptyPost": " and you'll see it here. Meanwhile, you can use «New bill».",
+    "noProperty": "No property assigned",
+    "billsCount": "{n, plural, one {# bill} other {# bills}}"
   }
 }

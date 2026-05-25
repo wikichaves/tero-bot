@@ -49,6 +49,18 @@ export function formatDayShortDate(date: Date, locale: string): string {
 }
 
 /**
+ * "25 may 14:30" / "May 25 14:30". Para timestamps cortos con hora —
+ * usado en banners de histórico parcial donde indicamos desde qué día
+ * y hora empieza la data disponible.
+ */
+export function formatShortDateTime(date: Date, locale: string): string {
+  if (locale === "es") {
+    return format(date, "d MMM HH:mm", { locale: es });
+  }
+  return format(date, "MMM d HH:mm", { locale: enUS });
+}
+
+/**
  * Wrapper para `format` que respeta el locale activo. Acepta la format
  * string ICU-style; el `locale` se pasa automáticamente. Útil cuando
  * necesitás un format específico no cubierto por los helpers de arriba.

@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Info } from "lucide-react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { getLocale, getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { avg, percentile } from "@/lib/stats";
+import { formatShortDateTime } from "@/lib/i18n/date";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -31,9 +31,9 @@ import { RoomHistoryChart } from "./room-history-chart-wrapper";
 export const dynamic = "force-dynamic";
 
 const RANGES = {
-  "24h": { hours: 24, label: "24 horas" },
-  "7d": { hours: 7 * 24, label: "7 días" },
-  "30d": { hours: 30 * 24, label: "30 días" },
+  "24h": { hours: 24 },
+  "7d": { hours: 7 * 24 },
+  "30d": { hours: 30 * 24 },
 } as const;
 
 type RangeKey = keyof typeof RANGES;
@@ -50,6 +50,10 @@ export default async function RoomDetailPage({
   const sp = await searchParams;
   const range: RangeKey =
     sp.range === "7d" || sp.range === "30d" ? sp.range : "24h";
+
+  const t = await getTranslations("roomDetail");
+  const locale = await getLocale();
+  const rangeLabel = t(`ranges.${range}` as const);
 
   const supabase = await createClient();
   const since = new Date(
@@ -152,7 +156,7 @@ export default async function RoomDetailPage({
   // Series para chart: una serie por sensor en este room (para no
   // promediar y esconder outliers).
   const chartSeries = sensors.map((s, idx) => ({
-    label: s.tuya_device_name ?? `Sensor ${idx + 1}`,
+    label: s.tuya_device_name ?? t("sensorNumbered", { n: idx + 1 }),
     deviceId: s.id,
     points: snapshots
       .filter((sn) => sn.property_device_id === s.id)
@@ -171,13 +175,16 @@ export default async function RoomDetailPage({
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Volver
+          {t("back")}
         </Link>
         <h1 className="mt-2 text-2xl">{room.name}</h1>
         <p className="text-sm text-muted-foreground">
-          {room.properties?.name ?? "—"} ·{" "}
-          {sensors.length} sensor{sensors.length === 1 ? "" : "es"} ·{" "}
-          {snapshots.length} lecturas en {RANGES[range].label}
+          {t("subtitle", {
+            property: room.properties?.name ?? "—",
+            sensorsLabel: t("sensorsCount", { n: sensors.length }),
+            readingsLabel: t("readingsCount", { n: snapshots.length }),
+            range: rangeLabel,
+          })}
         </p>
       </div>
 
@@ -188,7 +195,7 @@ export default async function RoomDetailPage({
               variant={range === r ? "default" : "outline"}
               size="sm"
             >
-              {RANGES[r].label}
+              {t(`ranges.${r}` as const)}
             </Button>
           </Link>
         ))}
@@ -197,22 +204,21 @@ export default async function RoomDetailPage({
       {sensors.length === 0 ? (
         <Card>
           <CardContent className="pt-6 text-sm text-muted-foreground">
-            Este ambiente no tiene sensores asignados. Asigná un device en{" "}
+            {t("noSensorsPre")}
             <Link href="/admin/tuya" className="underline">
-              /admin/tuya
+              {t("noSensorsLink")}
             </Link>
-            .
+            {t("noSensorsPost")}
           </CardContent>
         </Card>
       ) : snapshots.length === 0 ? (
         <Card>
           <CardContent className="pt-6 text-sm text-muted-foreground">
-            No hay lecturas en los últimos {RANGES[range].label}. Forzá una
-            captura con el botón &ldquo;Capturar sensores&rdquo; en{" "}
+            {t("noReadingsPre", { range: rangeLabel })}
             <Link href="/admin/tuya" className="underline">
-              /admin/tuya
+              {t("noReadingsLink")}
             </Link>
-            .
+            {t("noReadingsPost")}
           </CardContent>
         </Card>
       ) : (
@@ -221,25 +227,23 @@ export default async function RoomDetailPage({
             <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <div>
-                <p className="font-medium">
-                  Histórico parcial
-                </p>
+                <p className="font-medium">{t("partialTitle")}</p>
                 <p className="opacity-80">
-                  Sólo tenemos datos desde el{" "}
-                  {format(new Date(firstSnapshotTs), "d MMM HH:mm", {
-                    locale: es,
+                  {t("partialBody", {
+                    date: formatShortDateTime(
+                      new Date(firstSnapshotTs),
+                      locale,
+                    ),
                   })}
-                  . El sensor no estaba capturando antes de esa fecha
-                  (snapshot horario activado hace poco).
                 </p>
               </div>
             </div>
           )}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Histórico</CardTitle>
+              <CardTitle className="text-base">{t("chart.title")}</CardTitle>
               <CardDescription>
-                Temperatura (naranja) y humedad (azul) en {RANGES[range].label}.
+                {t("chart.description", { range: rangeLabel })}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -256,23 +260,23 @@ export default async function RoomDetailPage({
               <Card key={s.sensor.id}>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">
-                    {s.sensor.tuya_device_name ?? "Sensor"}
+                    {s.sensor.tuya_device_name ?? t("sensorFallback")}
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    {s.count} lecturas
+                    {t("readingsCount", { n: s.count })}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div>
                     <p
                       className="text-xs text-muted-foreground"
-                      title="Min/max calculados con percentiles p5/p95 para filtrar outliers (sensor frío al arrancar, lecturas erráticas). Para series <20 muestras usa min/max raw."
+                      title={t("tempTooltip")}
                     >
-                      Temperatura
+                      {t("temperature")}
                     </p>
                     <p className="tabular-nums">
                       {s.tempMin?.toFixed(1) ?? "—"}°C ·{" "}
-                      <span className="text-foreground/70">prom</span>{" "}
+                      <span className="text-foreground/70">{t("avgShort")}</span>{" "}
                       {s.tempAvg?.toFixed(1) ?? "—"}°C ·{" "}
                       {s.tempMax?.toFixed(1) ?? "—"}°C
                     </p>
@@ -280,13 +284,13 @@ export default async function RoomDetailPage({
                   <div>
                     <p
                       className="text-xs text-muted-foreground"
-                      title="Min/max calculados con percentiles p5/p95 para filtrar outliers."
+                      title={t("humTooltip")}
                     >
-                      Humedad
+                      {t("humidity")}
                     </p>
                     <p className="tabular-nums">
                       {s.humMin?.toFixed(0) ?? "—"}% ·{" "}
-                      <span className="text-foreground/70">prom</span>{" "}
+                      <span className="text-foreground/70">{t("avgShort")}</span>{" "}
                       {s.humAvg?.toFixed(0) ?? "—"}% ·{" "}
                       {s.humMax?.toFixed(0) ?? "—"}%
                     </p>
@@ -300,4 +304,3 @@ export default async function RoomDetailPage({
     </div>
   );
 }
-

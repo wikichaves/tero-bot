@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AlertTriangle, Droplet, Thermometer } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
@@ -49,9 +50,9 @@ type Device = {
 
 // WIK-98: rango configurable por ?range=. Default 24h.
 const RANGES = {
-  "24h": { hours: 24, label: "24 horas" },
-  "7d": { hours: 7 * 24, label: "7 días" },
-  "30d": { hours: 30 * 24, label: "30 días" },
+  "24h": { hours: 24 },
+  "7d": { hours: 7 * 24 },
+  "30d": { hours: 30 * 24 },
 } as const;
 
 type RangeKey = keyof typeof RANGES;
@@ -67,6 +68,8 @@ export default async function AmbientesPage({
   const allowedIds = await getAllowedPropertyIds(profile);
   // Best-effort: si la última lectura está vieja, dispara captura nueva.
   await maybeSnapshotSensorsIfStale(60).catch(() => null);
+
+  const t = await getTranslations("rooms");
 
   const sp = await searchParams;
   const range: RangeKey =
@@ -147,27 +150,26 @@ export default async function AmbientesPage({
     devices.some((d) => d.property_id === p.id),
   );
 
+  const noRoomLabel = t("noRoom");
+  const rangeLabel = t(`ranges.${range}` as const);
+
   if (propertiesWithSensors.length === 0) {
     return (
       <div className="flex flex-col gap-6">
         <Header range={range} />
         <Card>
           <CardContent className="pt-6 text-sm text-muted-foreground space-y-2">
-            <p>
-              No hay sensores T/H asignados a ninguna propiedad todavía.
-              Para empezar:
-            </p>
+            <p>{t("empty.intro")}</p>
             <ol className="ml-5 list-decimal space-y-1">
               <li>
-                Ir a <Link href="/admin/tuya" className="underline">/admin/tuya</Link>{" "}
-                y asignar los devices Tuya marcándolos con tipo &ldquo;Sensor T/H&rdquo;.
+                {t("empty.step1Pre")}
+                <Link href="/admin/tuya" className="underline">
+                  {t("empty.step1Link")}
+                </Link>
+                {t("empty.step1Post")}
               </li>
-              <li>
-                Apretar &ldquo;Sincronizar ambientes&rdquo; para crear los rooms desde Smart Life.
-              </li>
-              <li>
-                Apretar &ldquo;Capturar sensores&rdquo; para forzar la primera lectura.
-              </li>
+              <li>{t("empty.step2")}</li>
+              <li>{t("empty.step3")}</li>
             </ol>
           </CardContent>
         </Card>
@@ -195,7 +197,7 @@ export default async function AmbientesPage({
         // para que de un vistazo veas cómo está cada casa, sin tener
         // que sumar room por room.
         const propStats = computePropertyStats(
-          [...visibleRooms, ...(hasOrphans ? [{ id: noRoomKey, property_id: property.id, name: "Sin ambiente", sort_order: 0 } as Pick<Room, "id" | "property_id" | "name" | "sort_order">] : [])],
+          [...visibleRooms, ...(hasOrphans ? [{ id: noRoomKey, property_id: property.id, name: noRoomLabel, sort_order: 0 } as Pick<Room, "id" | "property_id" | "name" | "sort_order">] : [])],
           devicesByRoom,
           snapshotsByDevice,
         );
@@ -206,7 +208,7 @@ export default async function AmbientesPage({
               <h2 className="text-lg">{property.name}</h2>
               {propStats && (
                 <span className="text-sm text-muted-foreground tabular-nums">
-                  prom{" "}
+                  {t("avgLabel")}{" "}
                   <span className="text-orange-600 dark:text-orange-400">
                     {propStats.avgT != null
                       ? `${propStats.avgT.toFixed(1)}°C`
@@ -232,6 +234,7 @@ export default async function AmbientesPage({
                     devices={roomDevices}
                     snapshotsByDevice={snapshotsByDevice}
                     range={range}
+                    rangeLabel={rangeLabel}
                     canReorder={canReorder}
                     isFirst={idx === 0}
                     isLast={idx === visibleRooms.length - 1}
@@ -242,10 +245,11 @@ export default async function AmbientesPage({
                 <RoomCard
                   key={noRoomKey}
                   roomId={null}
-                  roomName="Sin ambiente"
+                  roomName={noRoomLabel}
                   devices={devicesByRoom.get(noRoomKey) ?? []}
                   snapshotsByDevice={snapshotsByDevice}
                   range={range}
+                  rangeLabel={rangeLabel}
                   canReorder={false}
                   isFirst={false}
                   isLast={false}
@@ -259,16 +263,14 @@ export default async function AmbientesPage({
   );
 }
 
-function Header({ range }: { range: RangeKey }) {
+async function Header({ range }: { range: RangeKey }) {
+  const t = await getTranslations("rooms");
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-2xl">Ambientes</h1>
-          <p className="text-sm text-muted-foreground">
-            Temperatura y humedad en vivo por ambiente. Captura horaria
-            desde Tuya. Tocá una card para ver el histórico.
-          </p>
+          <h1 className="text-2xl">{t("title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <SnapshotSensorsButton />
       </div>
@@ -279,7 +281,7 @@ function Header({ range }: { range: RangeKey }) {
               variant={range === r ? "default" : "outline"}
               size="sm"
             >
-              {RANGES[r].label}
+              {t(`ranges.${r}` as const)}
             </Button>
           </Link>
         ))}
@@ -288,12 +290,13 @@ function Header({ range }: { range: RangeKey }) {
   );
 }
 
-function RoomCard({
+async function RoomCard({
   roomId,
   roomName,
   devices,
   snapshotsByDevice,
   range,
+  rangeLabel,
   canReorder,
   isFirst,
   isLast,
@@ -303,10 +306,12 @@ function RoomCard({
   devices: Device[];
   snapshotsByDevice: Map<string, Snapshot[]>;
   range: RangeKey;
+  rangeLabel: string;
   canReorder: boolean;
   isFirst: boolean;
   isLast: boolean;
 }) {
+  const t = await getTranslations("rooms");
   // Tomamos la lectura más reciente entre todos los sensores del room.
   // Si hay varios, promediamos (típicamente un room tiene 1, pero el
   // schema lo soporta).
@@ -344,7 +349,6 @@ function RoomCard({
   //   - Sensores con problemas (offline, sin batería, firmware que no
   //     responde al endpoint /status — ver WIK-87 "Jugacion Temp")
   const hasNoRecentReadings = latestByDevice.length === 0;
-  const rangeLabel = RANGES[range].label;
 
   // Layout (WIK-101 fix):
   //   - La card es `position: relative` y contiene un Link absolute
@@ -365,7 +369,7 @@ function RoomCard({
         <Link
           href={detailHref}
           className="absolute inset-0 z-10 rounded-[inherit]"
-          aria-label={`Ver detalle de ${roomName}`}
+          aria-label={t("viewDetail", { room: roomName })}
         />
       )}
       <CardHeader className="pb-2">
@@ -378,7 +382,7 @@ function RoomCard({
           */}
           <div className="relative z-20 flex items-center gap-1.5">
             <Badge variant="secondary" className="text-[10px] font-normal">
-              {devices.length} sensor{devices.length === 1 ? "" : "es"}
+              {t("sensorsCount", { n: devices.length })}
             </Badge>
             {canReorder && roomId && (
               <RoomSortControls
@@ -391,7 +395,7 @@ function RoomCard({
         </CardTitle>
         {lastTs && (
           <CardDescription className="text-xs">
-            Última lectura: {timeAgo(lastTs)}
+            {t("lastReading", { time: timeAgo(lastTs, t) })}
           </CardDescription>
         )}
       </CardHeader>
@@ -400,10 +404,9 @@ function RoomCard({
           <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <div>
-              <p className="font-medium">Sin lecturas recientes</p>
+              <p className="font-medium">{t("noRecentTitle")}</p>
               <p className="opacity-80">
-                El sensor no respondió en {rangeLabel}. Revisar
-                conexión / batería en Smart Life o forzá una captura.
+                {t("noRecentBody", { range: rangeLabel })}
               </p>
             </div>
           </div>
@@ -476,13 +479,16 @@ function computePropertyStats(
   };
 }
 
-function timeAgo(iso: string): string {
+function timeAgo(
+  iso: string,
+  t: (key: string, values?: Record<string, string | number | Date>) => string,
+): string {
   const ms = Date.now() - new Date(iso).getTime();
   const min = Math.round(ms / 60000);
-  if (min < 1) return "ahora";
-  if (min < 60) return `hace ${min}min`;
+  if (min < 1) return t("timeAgo.now");
+  if (min < 60) return t("timeAgo.minutes", { n: min });
   const hr = Math.round(min / 60);
-  if (hr < 24) return `hace ${hr}h`;
+  if (hr < 24) return t("timeAgo.hours", { n: hr });
   const d = Math.round(hr / 24);
-  return `hace ${d}d`;
+  return t("timeAgo.days", { n: d });
 }

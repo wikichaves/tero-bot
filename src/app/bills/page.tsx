@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { requireRole } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import { createClient } from "@/lib/supabase/server";
@@ -44,6 +45,7 @@ export default async function FacturasPage() {
   // WIK-94: scope por property.
   const allowedIds = await getAllowedPropertyIds(profile);
   const supabase = await createClient();
+  const t = await getTranslations("billsPage");
 
   let billsQuery = supabase
     .from("utility_bills")
@@ -89,36 +91,38 @@ export default async function FacturasPage() {
     billsByProperty.set(b.property_id, list);
   }
 
+  const inboundCode = INBOUND_DOMAIN
+    ? `bills@${INBOUND_DOMAIN}`
+    : t("subtitleFallback");
+
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6">
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row">
         <div>
-          <h1 className="text-2xl">Facturas</h1>
+          <h1 className="text-2xl">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">
-            Forwardeá facturas a{" "}
+            {t("subtitlePre")}
             <code className="rounded bg-muted px-1 py-0.5 text-xs">
-              {INBOUND_DOMAIN ? `bills@${INBOUND_DOMAIN}` : "bills@<tu-dominio-inbound>"}
-            </code>{" "}
-            o cargá manual. Para backfills históricos, mandá hasta 3–4 PDFs por
-            email (Vercel limita el payload a 4.5 MB).
+              {inboundCode}
+            </code>
+            {t("subtitlePost")}
           </p>
         </div>
         <BillFormDialog
           bill={null}
           properties={properties}
-          trigger={<Button>Nueva factura</Button>}
+          trigger={<Button>{t("newBill")}</Button>}
         />
       </div>
 
       {bills.length === 0 ? (
         <Card>
           <CardContent className="px-4 py-6 text-sm text-muted-foreground sm:px-6">
-            Reenviá el primer email de UTE / OSE / Antel / Edenor / AySA /
-            Personal Flow / Prosegur a{" "}
+            {t("emptyPre")}
             <code className="rounded bg-muted px-1 py-0.5 text-xs">
-              {INBOUND_DOMAIN ? `bills@${INBOUND_DOMAIN}` : "bills@<tu-dominio-inbound>"}
-            </code>{" "}
-            y vas a verla acá. Mientras, podés usar &laquo;Nueva factura&raquo;.
+              {inboundCode}
+            </code>
+            {t("emptyPost")}
           </CardContent>
         </Card>
       ) : (
@@ -156,7 +160,7 @@ export default async function FacturasPage() {
   );
 }
 
-function PropertyBillsCard({
+async function PropertyBillsCard({
   property,
   bills,
   allProperties,
@@ -165,14 +169,15 @@ function PropertyBillsCard({
   bills: BillRowDerived[];
   allProperties: Pick<Property, "id" | "name" | "currency">[];
 }) {
+  const t = await getTranslations("billsPage");
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">
-          {property?.name ?? "Sin propiedad asignada"}
+          {property?.name ?? t("noProperty")}
         </CardTitle>
         <CardDescription>
-          {bills.length} factura{bills.length === 1 ? "" : "s"}
+          {t("billsCount", { n: bills.length })}
           {property?.currency ? ` · ${property.currency}` : ""}
         </CardDescription>
       </CardHeader>
@@ -185,4 +190,3 @@ function PropertyBillsCard({
     </Card>
   );
 }
-

@@ -1,22 +1,12 @@
 import Link from "next/link";
-import { format, parseISO } from "date-fns";
-import { es } from "date-fns/locale";
 import { Info } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
-  estimateCost,
-  formatKwh,
-  formatMoney,
-  formatNumeric,
-  formatPower,
   getDefaultTariff,
   getDeviceStatus,
   isEnergyDevice,
@@ -33,20 +23,17 @@ import { formatRate, getRatesToUsd, type FxRate } from "@/lib/fx";
 import {
   getConsumptionSince,
   maybeSnapshotIfStale,
-  startOfDaysAgoIso,
   startOfTodayIso,
 } from "@/lib/tuya/snapshots";
 import {
   computeTuyaConsumption,
   deltaLevel,
-  type DeltaLevel,
 } from "@/lib/bills/tuya-comparison";
 import {
   enrichWithEffectivePeriod,
   type BillRow,
   type BillRowDerived,
 } from "@/lib/bills/enrich-period";
-import { DeltaBadge } from "@/components/bills/delta-badge";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
@@ -64,9 +51,9 @@ export const dynamic = "force-dynamic";
 
 // WIK-99: rangos seleccionables del histórico de consumo. Default 24h.
 const RANGES = {
-  "24h": { hours: 24, label: "24 horas", shortLabel: "24h" },
-  "7d": { hours: 7 * 24, label: "7 días", shortLabel: "7d" },
-  "30d": { hours: 30 * 24, label: "30 días", shortLabel: "30d" },
+  "24h": { hours: 24 },
+  "7d": { hours: 7 * 24 },
+  "30d": { hours: 30 * 24 },
 } as const;
 type RangeKey = keyof typeof RANGES;
 
@@ -117,6 +104,7 @@ export default async function EnergyPage({
 }: {
   searchParams: Promise<{ range?: string }>;
 }) {
+  const t = await getTranslations("energyPage");
   const defaultTariff = getDefaultTariff();
   const sp = await searchParams;
   const range: RangeKey =
@@ -152,7 +140,7 @@ export default async function EnergyPage({
         <Header range={range} />
         <Card>
           <CardContent className="pt-6 text-sm text-destructive">
-            No se pudo hablar con Tuya: {flatRes.error}
+            {t("tuyaError", { error: flatRes.error })}
           </CardContent>
         </Card>
       </div>
@@ -373,6 +361,9 @@ export default async function EnergyPage({
   ]);
   const fxRates = await getRatesToUsd(distinctCurrencies);
 
+  const rangeLabel = t(`ranges.${range}` as const);
+  const rangeShortLabel = t(`rangesShort.${range}` as const);
+
   return (
     <div className="flex flex-col gap-6">
       <Header range={range} />
@@ -380,15 +371,15 @@ export default async function EnergyPage({
       {devicesWithContext.length === 0 ? (
         <Card>
           <CardContent className="pt-6 text-sm text-muted-foreground space-y-2">
+            <p>{t("noDevicesP1", { n: flatRes.devices.length })}</p>
             <p>
-              No se encontraron dispositivos identificables como medidores
-              de consumo entre los {flatRes.devices.length} devices del cloud
-              project.
-            </p>
-            <p>
-              Buscamos por categoría <code>dlq</code> / <code>pc</code> /{" "}
-              <code>znyk</code> o nombre que contenga &ldquo;Circuit breaker&rdquo; /
-              &ldquo;breaker&rdquo; / &ldquo;Térmica&rdquo;.
+              {t("noDevicesP2Pre")}
+              <code>dlq</code>
+              {t("noDevicesP2Mid1")}
+              <code>pc</code>
+              {t("noDevicesP2Mid1")}
+              <code>znyk</code>
+              {t("noDevicesP2Mid2")}
             </p>
           </CardContent>
         </Card>
@@ -401,8 +392,8 @@ export default async function EnergyPage({
               fxRates={fxRates}
               nowMs={nowMs}
               rangeStartMs={rangeStartMs}
-              rangeLabel={RANGES[range].label}
-              rangeShortLabel={RANGES[range].shortLabel}
+              rangeLabel={rangeLabel}
+              rangeShortLabel={rangeShortLabel}
             />
           ))}
 
@@ -413,22 +404,22 @@ export default async function EnergyPage({
   );
 }
 
-function Header({ range }: { range: RangeKey }) {
+async function Header({ range }: { range: RangeKey }) {
+  const t = await getTranslations("energyPage");
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl">Energía</h1>
+          <h1 className="text-2xl">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">
-            Consumo en vivo por propiedad. Histórico vía snapshots horarios.
-            Tarifa y moneda se configuran por propiedad en{" "}
+            {t("subtitlePre")}
             <a
               href="/admin/properties"
               className="underline hover:text-foreground"
             >
-              /admin/properties
+              {t("subtitleLink")}
             </a>
-            .
+            {t("subtitlePost")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -446,7 +437,7 @@ function Header({ range }: { range: RangeKey }) {
               variant={range === r ? "default" : "outline"}
               size="sm"
             >
-              {RANGES[r].label}
+              {t(`ranges.${r}` as const)}
             </Button>
           </Link>
         ))}
@@ -455,30 +446,13 @@ function Header({ range }: { range: RangeKey }) {
   );
 }
 
-function Stat({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: React.ReactNode;
-}) {
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-2xl font-semibold tabular-nums">{value}</p>
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-    </div>
-  );
-}
-
-function FxFooter({ rates }: { rates: Map<string, FxRate> }) {
+async function FxFooter({ rates }: { rates: Map<string, FxRate> }) {
+  const t = await getTranslations("energyPage");
   const nonUsd = Array.from(rates.values()).filter((r) => r.currency !== "USD");
   if (nonUsd.length === 0) return null;
   return (
     <p className="text-xs text-muted-foreground">
-      Tasas de cambio:{" "}
+      {t("fxRates")}
       {nonUsd
         .map((r) => `1 USD ≈ ${formatRate(r.per_usd, 2)} ${r.currency}`)
         .join(" · ")}

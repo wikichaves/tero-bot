@@ -202,5 +202,98 @@
       "notFound": "No encontré un usuario con ese teléfono.",
       "credentials": "Credenciales inválidas."
     }
+  },
+  "rooms": {
+    "title": "Ambientes",
+    "subtitle": "Temperatura y humedad en vivo por ambiente. Captura horaria desde Tuya. Tocá una card para ver el histórico.",
+    "ranges": {
+      "24h": "24 horas",
+      "7d": "7 días",
+      "30d": "30 días"
+    },
+    "empty": {
+      "intro": "No hay sensores T/H asignados a ninguna propiedad todavía. Para empezar:",
+      "step1Pre": "Ir a ",
+      "step1Link": "/admin/tuya",
+      "step1Post": " y asignar los devices Tuya marcándolos con tipo “Sensor T/H”.",
+      "step2": "Apretar “Sincronizar ambientes” para crear los rooms desde Smart Life.",
+      "step3": "Apretar “Capturar sensores” para forzar la primera lectura."
+    },
+    "noRoom": "Sin ambiente",
+    "avgLabel": "prom",
+    "sensorsCount": "{n, plural, one {# sensor} other {# sensores}}",
+    "lastReading": "Última lectura: {time}",
+    "noRecentTitle": "Sin lecturas recientes",
+    "noRecentBody": "El sensor no respondió en {range}. Revisar conexión / batería en Smart Life o forzá una captura.",
+    "viewDetail": "Ver detalle de {room}",
+    "timeAgo": {
+      "now": "ahora",
+      "minutes": "hace {n}min",
+      "hours": "hace {n}h",
+      "days": "hace {n}d"
+    }
+  },
+  "roomDetail": {
+    "back": "Volver",
+    "subtitle": "{property} · {sensorsLabel} · {readingsLabel} en {range}",
+    "sensorsCount": "{n, plural, one {# sensor} other {# sensores}}",
+    "readingsCount": "{n, plural, one {# lectura} other {# lecturas}}",
+    "ranges": {
+      "24h": "24 horas",
+      "7d": "7 días",
+      "30d": "30 días"
+    },
+    "noSensorsPre": "Este ambiente no tiene sensores asignados. Asigná un device en ",
+    "noSensorsLink": "/admin/tuya",
+    "noSensorsPost": ".",
+    "noReadingsPre": "No hay lecturas en los últimos {range}. Forzá una captura con el botón “Capturar sensores” en ",
+    "noReadingsLink": "/admin/tuya",
+    "noReadingsPost": ".",
+    "partialTitle": "Histórico parcial",
+    "partialBody": "Sólo tenemos datos desde el {date}. El sensor no estaba capturando antes de esa fecha (snapshot horario activado hace poco).",
+    "chart": {
+      "title": "Histórico",
+      "description": "Temperatura (naranja) y humedad (azul) en {range}."
+    },
+    "sensorFallback": "Sensor",
+    "sensorNumbered": "Sensor {n}",
+    "temperature": "Temperatura",
+    "humidity": "Humedad",
+    "tempTooltip": "Min/max calculados con percentiles p5/p95 para filtrar outliers (sensor frío al arrancar, lecturas erráticas). Para series <20 muestras usa min/max raw.",
+    "humTooltip": "Min/max calculados con percentiles p5/p95 para filtrar outliers.",
+    "avgShort": "prom"
+  },
+  "energyPage": {
+    "title": "Energía",
+    "subtitlePre": "Consumo en vivo por propiedad. Histórico vía snapshots horarios. Tarifa y moneda se configuran por propiedad en ",
+    "subtitleLink": "/admin/properties",
+    "subtitlePost": ".",
+    "ranges": {
+      "24h": "24 horas",
+      "7d": "7 días",
+      "30d": "30 días"
+    },
+    "rangesShort": {
+      "24h": "24h",
+      "7d": "7d",
+      "30d": "30d"
+    },
+    "tuyaError": "No se pudo hablar con Tuya: {error}",
+    "noDevicesP1": "No se encontraron dispositivos identificables como medidores de consumo entre los {n} devices del cloud project.",
+    "noDevicesP2Pre": "Buscamos por categoría ",
+    "noDevicesP2Mid1": " / ",
+    "noDevicesP2Mid2": " o nombre que contenga “Circuit breaker” / “breaker” / “Térmica”.",
+    "fxRates": "Tasas de cambio: "
+  },
+  "billsPage": {
+    "title": "Facturas",
+    "subtitlePre": "Forwardeá facturas a ",
+    "subtitleFallback": "bills@<tu-dominio-inbound>",
+    "subtitlePost": " o cargá manual. Para backfills históricos, mandá hasta 3–4 PDFs por email (Vercel limita el payload a 4.5 MB).",
+    "newBill": "Nueva factura",
+    "emptyPre": "Reenviá el primer email de UTE / OSE / Antel / Edenor / AySA / Personal Flow / Prosegur a ",
+    "emptyPost": " y vas a verla acá. Mientras, podés usar «Nueva factura».",
+    "noProperty": "Sin propiedad asignada",
+    "billsCount": "{n, plural, one {# factura} other {# facturas}}"
   }
 }
