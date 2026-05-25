@@ -273,18 +273,10 @@ export default async function LandingPage() {
               >
                 {t("source.ctaCode")} <ArrowRight />
               </Button>
-              <Button
-                variant="outline"
-                render={
-                  <a
-                    href="https://wikichaves.com/design/projects/tero"
-                    target="_blank"
-                    rel="noopener"
-                  />
-                }
-              >
-                {t("source.ctaCaseStudy")}
-              </Button>
+              {/* WIK-153: removí el segundo "Leer case study" — ya está
+                  como CTA primario en el hero. Acá queda solo "Ver
+                  código en GitHub" que es coherente con el header de
+                  esta sección (source-available). */}
             </div>
           </div>
         </section>
