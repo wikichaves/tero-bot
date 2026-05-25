@@ -1,8 +1,10 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Info } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireProfile } from "@/lib/auth";
 import { avg, percentile } from "@/lib/stats";
 import { formatShortDateTime } from "@/lib/i18n/date";
 import { Button } from "@/components/ui/button";
@@ -14,6 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { RoomHistoryChart } from "./room-history-chart-wrapper";
+import { ScenesCard } from "./scenes-card";
 
 /**
  * /rooms/[id] — detalle de un room con histórico T+H.
@@ -45,7 +48,11 @@ export default async function RoomDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ range?: string }>;
 }) {
-  // requireRole en el layout.
+  // requireRole en el layout. Acá pedimos el profile para chequear si
+  // es admin (necesario para WIK-172: card de scenes solo se muestra
+  // a admin porque `runScene` también es admin-only).
+  const profile = await requireProfile();
+  const isAdmin = profile.role === "admin";
   const { id } = await params;
   const sp = await searchParams;
   const range: RangeKey =
@@ -301,6 +308,16 @@ export default async function RoomDetailPage({
           </div>
         </>
       )}
+
+      {/* WIK-172: tap-to-run scenes que afectan a este room. Solo
+          se renderiza para admin y solo si hay scenes que matcheen
+          (i.e. controlan al menos un device de este room).
+          Wrapeado en Suspense porque el filtering requiere N calls
+          a la Tuya API (una por scene para el detalle) — streameamos
+          mientras la página de arriba se muestra al toque. */}
+      <Suspense fallback={null}>
+        <ScenesCard roomId={id} isAdmin={isAdmin} />
+      </Suspense>
     </div>
   );
 }

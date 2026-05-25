@@ -313,7 +313,14 @@
     "humidity": "Humedad",
     "tempTooltip": "Min/max calculados con percentiles p5/p95 para filtrar outliers (sensor frío al arrancar, lecturas erráticas). Para series <20 muestras usa min/max raw.",
     "humTooltip": "Min/max calculados con percentiles p5/p95 para filtrar outliers.",
-    "avgShort": "prom"
+    "avgShort": "prom",
+    "scenes": {
+      "title": "Acciones rápidas",
+      "description": "Tap-to-run scenes que controlan devices en este ambiente.",
+      "running": "Ejecutando…",
+      "ran": "Ejecutado: {name}",
+      "error": "No se pudo ejecutar {name}: {error}"
+    }
   },
   "energyPage": {
     "title": "Energía",

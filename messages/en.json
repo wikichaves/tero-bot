@@ -313,7 +313,14 @@
     "humidity": "Humidity",
     "tempTooltip": "Min/max computed with p5/p95 percentiles to filter outliers (cold sensor on boot, erratic readings). For series <20 samples falls back to raw min/max.",
     "humTooltip": "Min/max computed with p5/p95 percentiles to filter outliers.",
-    "avgShort": "avg"
+    "avgShort": "avg",
+    "scenes": {
+      "title": "Quick actions",
+      "description": "Tap-to-run scenes that control devices in this room.",
+      "running": "Running…",
+      "ran": "Ran: {name}",
+      "error": "Could not run {name}: {error}"
+    }
   },
   "energyPage": {
     "title": "Energy",

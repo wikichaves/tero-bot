@@ -72,6 +72,60 @@ export async function listScenesForHome(
 }
 
 /**
+ * Detalle de un scene (WIK-172) — incluye `actions[]` con los
+ * `entity_id` de cada device que el scene controla. Tuya devuelve
+ * además otros campos (delay, sub-rules) pero solo nos interesan los
+ * device IDs para hacer match contra los devices de un room.
+ *
+ * Endpoint: GET /v2.0/cloud/scene/rule/{rule_id}.
+ */
+export type SceneDetail = {
+  id: string;
+  name: string;
+  /** Tuya device IDs que la scene controla (los actions cuyo executor
+   *  es device — delays / ruleTrigger / etc. quedan filtrados). */
+  device_ids: string[];
+};
+
+type TuyaSceneDetailResponse = {
+  id?: string;
+  name?: string;
+  actions?: Array<{
+    /** "dpIssue" o "deviceIssue" para acciones sobre device.
+     *  "delay", "ruleTrigger" para otros tipos. */
+    action_executor?: string;
+    /** Para device actions, este es el Tuya device ID. */
+    entity_id?: string;
+  }>;
+};
+
+export async function getSceneDetail(sceneId: string): Promise<SceneDetail> {
+  const r = await tuyaFetch<TuyaSceneDetailResponse>(
+    "GET",
+    `/v2.0/cloud/scene/rule/${sceneId}`,
+  );
+  const deviceIds = new Set<string>();
+  for (const a of r.actions ?? []) {
+    // Cualquier action que tenga `entity_id` no-nulo y empiece con
+    // un device executor cuenta. Patterns observados:
+    //   - "dpIssue", "deviceIssue", "deviceGroupIssue" → device action
+    //   - "delay", "ruleTrigger", "notification" → no son devices
+    const executor = a.action_executor ?? "";
+    if (
+      a.entity_id &&
+      (executor.includes("Issue") || executor.includes("device"))
+    ) {
+      deviceIds.add(String(a.entity_id));
+    }
+  }
+  return {
+    id: String(r.id ?? sceneId),
+    name: String(r.name ?? ""),
+    device_ids: Array.from(deviceIds),
+  };
+}
+
+/**
  * Ejecuta un tap-to-run scene en el cloud. Tuya devuelve `success`
  * boolean — convertimos a error si es false.
  */
