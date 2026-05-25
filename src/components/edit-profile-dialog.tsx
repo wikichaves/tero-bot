@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +16,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Profile } from "@/lib/types";
 import { updateOwnProfile } from "@/app/account/actions";
+import {
+  LOCALES,
+  LOCALE_LABELS,
+  isLocale,
+  type Locale,
+} from "@/i18n/locales";
 
 /**
  * Dialog para que cualquier user edite su propio perfil (WIK-112).
@@ -30,8 +37,12 @@ export function EditProfileDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useTranslations();
   const [fullName, setFullName] = useState(profile.full_name ?? "");
   const [whatsapp, setWhatsapp] = useState(profile.whatsapp ?? "");
+  const [language, setLanguage] = useState<Locale>(
+    isLocale(profile.language) ? profile.language : "en",
+  );
   const [pending, startTransition] = useTransition();
 
   function submit() {
@@ -39,6 +50,7 @@ export function EditProfileDialog({
       const r = await updateOwnProfile({
         full_name: fullName,
         whatsapp,
+        language,
       });
       if (r?.error) {
         toast.error(r.error);
@@ -101,6 +113,23 @@ export function EditProfileDialog({
               Usado para recibir mensajes del bot y para login con
               teléfono.
             </p>
+          </div>
+          <div>
+            <Label htmlFor="language" className="text-sm">
+              {t("lang.label")}
+            </Label>
+            <select
+              id="language"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as Locale)}
+              className="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+            >
+              {LOCALES.map((loc) => (
+                <option key={loc} value={loc}>
+                  {LOCALE_LABELS[loc]}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
         <DialogFooter>

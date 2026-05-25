@@ -115,6 +115,15 @@ const updateReservationSchema = z.object({
       if (!Number.isFinite(n) || n <= 0 || n > 168) return null;
       return Math.round(n);
     }),
+  // WIK-155: idioma del huésped (en | es). Default `en` a nivel DB.
+  // Opcional acá — si no viene, no se toca.
+  guest_language: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) =>
+      v === "en" || v === "es" ? (v as "en" | "es") : undefined,
+    ),
 });
 
 export async function updateReservation(input: {
@@ -132,6 +141,7 @@ export async function updateReservation(input: {
   check_in_time?: string;
   check_out_time?: string;
   alarm_hours_before?: string;
+  guest_language?: string;
 }) {
   await requireRole(["admin", "gestor"]);
   const parsed = updateReservationSchema.safeParse(input);
@@ -155,6 +165,9 @@ export async function updateReservation(input: {
       check_in_time: parsed.data.check_in_time,
       check_out_time: parsed.data.check_out_time,
       alarm_hours_before: parsed.data.alarm_hours_before,
+      ...(parsed.data.guest_language
+        ? { guest_language: parsed.data.guest_language }
+        : {}),
     })
     .eq("id", parsed.data.id);
   if (error) return { error: error.message };

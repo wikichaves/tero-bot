@@ -30,6 +30,14 @@ const createSchema = z.object({
   role: z.enum(ROLES),
   // Teléfono ahora obligatorio.
   whatsapp: z.string().min(1, "El teléfono es obligatorio."),
+  // WIK-155: idioma preferido. Default `en` a nivel DB; opcional acá.
+  language: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) =>
+      v === "en" || v === "es" ? (v as "en" | "es") : undefined,
+    ),
 });
 
 /**
@@ -52,6 +60,7 @@ export async function createUser(formData: FormData) {
     full_name: formData.get("full_name"),
     role: formData.get("role"),
     whatsapp: formData.get("whatsapp"),
+    language: formData.get("language"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
@@ -85,7 +94,12 @@ export async function createUser(formData: FormData) {
 
   const { error: profileError } = await admin
     .from("profiles")
-    .update({ role, full_name, whatsapp })
+    .update({
+      role,
+      full_name,
+      whatsapp,
+      ...(parsed.data.language ? { language: parsed.data.language } : {}),
+    })
     .eq("id", created.user.id);
   if (profileError) {
     // Roll back the auth user so we don't leave orphans with the default role.
@@ -105,12 +119,21 @@ const updateProfileSchema = z.object({
     .optional()
     .or(z.literal(""))
     .transform((v) => (v ? v : null)),
+  // WIK-155: idioma preferido. Opcional — si no viene, no se toca.
+  language: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) =>
+      v === "en" || v === "es" ? (v as "en" | "es") : undefined,
+    ),
 });
 
 export async function updateProfile(input: {
   id: string;
   full_name: string;
   whatsapp: string;
+  language?: string;
 }) {
   await requireRole(["admin"]);
   const parsed = updateProfileSchema.safeParse(input);
@@ -123,6 +146,7 @@ export async function updateProfile(input: {
     .update({
       full_name: parsed.data.full_name,
       whatsapp: normalizePhone(parsed.data.whatsapp),
+      ...(parsed.data.language ? { language: parsed.data.language } : {}),
     })
     .eq("id", parsed.data.id);
   if (error) return { error: error.message };

@@ -21,11 +21,15 @@ const schema = z.object({
     .optional()
     .or(z.literal(""))
     .transform((v) => (v ? v : null)),
+  // WIK-155: idioma preferido del usuario. Default `en` a nivel DB,
+  // así que opcional acá — si no viene, no se toca.
+  language: z.enum(["en", "es"]).optional(),
 });
 
 export async function updateOwnProfile(input: {
   full_name: string;
   whatsapp: string;
+  language?: string;
 }) {
   const profile = await requireProfile();
   const parsed = schema.safeParse(input);
@@ -38,6 +42,7 @@ export async function updateOwnProfile(input: {
     .update({
       full_name: parsed.data.full_name,
       whatsapp: normalizePhone(parsed.data.whatsapp ?? ""),
+      ...(parsed.data.language ? { language: parsed.data.language } : {}),
     })
     .eq("id", profile.id);
   if (error) return { error: error.message };

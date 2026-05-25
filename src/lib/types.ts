@@ -90,6 +90,10 @@ export type Reservation = {
   /** Opcional. Si está seteado, el cron `/api/cron/alarm-reminders` manda
    *  un WhatsApp esta cantidad de horas antes del check-in (WIK-124). */
   alarm_hours_before: number | null;
+  /** WIK-155: idioma preferido del huésped (`en` | `es`). Default `en` a
+   *  nivel DB. El bot usa este valor cuando manda templates/free-form al
+   *  `guest_phone` (ej. recordatorio de check-out). */
+  guest_language?: string | null;
 };
 
 /** Persisted raw + parsed payload of an inbound Airbnb email. */

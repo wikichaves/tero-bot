@@ -923,3 +923,16 @@ create policy pre_checkin_conditioning_admin_write
   on public.pre_checkin_conditioning
   for all using (public.current_role() in ('admin', 'gestor'))
   with check (public.current_role() in ('admin', 'gestor'));
+
+-- ─── WIK-155: idioma preferido del huésped (en reservas) ─────────────
+-- Default 'en' (consistente con el resto del sistema). El bot usa este
+-- valor para mandar templates al guest_phone (recordatorios de check-in/
+-- out, etc.). Cuando un admin crea/edita una reserva, el dialog tiene
+-- un selector EN/ES — sino queda en 'en'.
+alter table public.reservations
+  add column if not exists guest_language text not null default 'en';
+alter table public.reservations
+  drop constraint if exists reservations_guest_language_supported;
+alter table public.reservations
+  add constraint reservations_guest_language_supported
+  check (guest_language in ('en', 'es'));

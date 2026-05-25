@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import type { Reservation } from "@/lib/types";
 import { updateReservation } from "./actions";
+import { LOCALES, LOCALE_LABELS, isLocale } from "@/i18n/locales";
 
 export function EditReservationDialog({
   reservation,
@@ -25,7 +27,11 @@ export function EditReservationDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useTranslations();
   const [pending, startTransition] = useTransition();
+  const defaultGuestLanguage = isLocale(reservation.guest_language)
+    ? reservation.guest_language
+    : "en";
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -46,6 +52,7 @@ export function EditReservationDialog({
         check_in_time: String(formData.get("check_in_time") ?? ""),
         check_out_time: String(formData.get("check_out_time") ?? ""),
         alarm_hours_before: String(formData.get("alarm_hours_before") ?? ""),
+        guest_language: String(formData.get("guest_language") ?? ""),
       });
       if (result?.error) {
         toast.error(result.error);
@@ -90,6 +97,24 @@ export function EditReservationDialog({
               <p className="text-xs text-muted-foreground">
                 Formato internacional (con prefijo de país). Necesario para
                 enviar templates de WhatsApp al huésped.
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="guest_language">{t("lang.label")}</Label>
+              <select
+                id="guest_language"
+                name="guest_language"
+                defaultValue={defaultGuestLanguage}
+                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+              >
+                {LOCALES.map((loc) => (
+                  <option key={loc} value={loc}>
+                    {LOCALE_LABELS[loc]}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Idioma en el que el bot le va a hablar al huésped.
               </p>
             </div>
             <div className="grid grid-cols-[1fr_1fr_1fr] gap-3">

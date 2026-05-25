@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import type { Profile } from "@/lib/types";
 import { updateProfile } from "./actions";
+import { LOCALES, LOCALE_LABELS, isLocale } from "@/i18n/locales";
 
 export function EditUserDialog({
   profile,
@@ -25,7 +27,9 @@ export function EditUserDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useTranslations();
   const [pending, startTransition] = useTransition();
+  const defaultLanguage = isLocale(profile.language) ? profile.language : "en";
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -35,6 +39,7 @@ export function EditUserDialog({
         id: profile.id,
         full_name: String(formData.get("full_name") ?? ""),
         whatsapp: String(formData.get("whatsapp") ?? ""),
+        language: String(formData.get("language") ?? ""),
       });
       if (result?.error) {
         toast.error(result.error);
@@ -72,6 +77,21 @@ export function EditUserDialog({
                 defaultValue={profile.whatsapp ?? ""}
                 placeholder="+598 99 123 456"
               />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="language">{t("lang.label")}</Label>
+              <select
+                id="language"
+                name="language"
+                defaultValue={defaultLanguage}
+                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+              >
+                {LOCALES.map((loc) => (
+                  <option key={loc} value={loc}>
+                    {LOCALE_LABELS[loc]}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <DialogFooter>

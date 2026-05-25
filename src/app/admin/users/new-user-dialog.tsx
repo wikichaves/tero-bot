@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,8 +16,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { createUser } from "./actions";
+import { LOCALES, LOCALE_LABELS } from "@/i18n/locales";
 
 export function NewUserDialog() {
+  const t = useTranslations();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -97,6 +100,21 @@ export function NewUserDialog() {
               <p className="text-xs text-muted-foreground">
                 Obligatorio. Usado para login y para mensajes del bot.
               </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="language">{t("lang.label")}</Label>
+              <select
+                id="language"
+                name="language"
+                defaultValue="en"
+                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+              >
+                {LOCALES.map((loc) => (
+                  <option key={loc} value={loc}>
+                    {LOCALE_LABELS[loc]}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <DialogFooter>
