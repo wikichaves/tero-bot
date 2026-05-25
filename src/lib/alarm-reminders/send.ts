@@ -72,7 +72,9 @@ export async function sendAlarmReminder(
   let toPhone: string;
   let recipientLocale: Locale;
   if (candidate.kind === "task") {
-    templateName = "task_reminder";
+    // WIK-130: nombres `_v2` para esquivar el lockout de 4 semanas
+    // que Meta aplica al name cuando borrás un template ES aprobado.
+    templateName = "task_reminder_v2";
     recipientLocale = coerceLocale(candidate.assignee_language);
     bodyVariables = [
       candidate.title,
@@ -81,7 +83,7 @@ export async function sendAlarmReminder(
     ];
     toPhone = candidate.assignee_phone;
   } else {
-    templateName = "reservation_checkin_reminder";
+    templateName = "reservation_checkin_reminder_v2";
     recipientLocale = coerceLocale(candidate.notify_language);
     bodyVariables = [
       candidate.guest_name ?? (recipientLocale === "en" ? "Guest" : "Huésped"),

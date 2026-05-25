@@ -162,7 +162,8 @@ export async function sendPreCheckinAlert(
     await sendKapsoTemplateWithFallback({
       phoneNumberId,
       to: candidate.notify_phone,
-      templateName: "pre_checkin_climate_alert",
+      // WIK-130: `_v2` por el lockout de Meta — ver send.ts (alarm-reminders).
+      templateName: "pre_checkin_climate_alert_v2",
       preferredLanguage: recipientLocale,
       bodyVariables,
     });
@@ -319,7 +320,7 @@ export async function sendPreCheckinUpdate(
     await sendKapsoTemplateWithFallback({
       phoneNumberId,
       to: candidate.notify_phone,
-      templateName: "pre_checkin_climate_update",
+      templateName: "pre_checkin_climate_update_v2",
       preferredLanguage: recipientLocale,
       bodyVariables,
     });

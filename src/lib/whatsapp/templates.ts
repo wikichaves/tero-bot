@@ -160,7 +160,7 @@ export const guestCheckinCode: WhatsAppTemplate = {
 // 2. Recordatorio de check-out
 
 export const guestCheckoutReminder: WhatsAppTemplate = {
-  name: "guest_checkout_reminder",
+  name: "guest_checkout_reminder_v2",
   language: "es",
   category: "UTILITY",
   description:
@@ -181,7 +181,7 @@ export const guestCheckoutReminder: WhatsAppTemplate = {
 // 3. Asignación de tarea a personal interno
 
 export const staffTaskAssigned: WhatsAppTemplate = {
-  name: "staff_task_assigned",
+  name: "staff_task_assigned_v2",
   language: "es",
   category: "UTILITY",
   description:
@@ -210,7 +210,7 @@ export const staffTaskAssigned: WhatsAppTemplate = {
 // 4. Confirmación automática al recibir un reporte de daño/insumo
 
 export const staffSupplyRequestReceived: WhatsAppTemplate = {
-  name: "staff_supply_request_received",
+  name: "staff_supply_request_received_v2",
   language: "es",
   category: "UTILITY",
   description:
@@ -242,7 +242,7 @@ export const staffSupplyRequestReceived: WhatsAppTemplate = {
  * que es genuinamente útil para el admin (sugerencia de acción).
  */
 export const sensorAlarmFired: WhatsAppTemplate = {
-  name: "sensor_alarm_fired",
+  name: "sensor_alarm_fired_v2",
   language: "es",
   category: "UTILITY",
   description:
@@ -266,7 +266,7 @@ export const sensorAlarmFired: WhatsAppTemplate = {
 //    `alarm_notifications_sent`.
 
 export const taskReminder: WhatsAppTemplate = {
-  name: "task_reminder",
+  name: "task_reminder_v2",
   language: "es",
   category: "UTILITY",
   description:
@@ -291,7 +291,7 @@ export const taskReminder: WhatsAppTemplate = {
 //    en lugar de título de tarea).
 
 export const reservationCheckinReminder: WhatsAppTemplate = {
-  name: "reservation_checkin_reminder",
+  name: "reservation_checkin_reminder_v2",
   language: "es",
   category: "UTILITY",
   description:
@@ -318,7 +318,7 @@ export const reservationCheckinReminder: WhatsAppTemplate = {
 //    dispara la Tuya scene si es SI.
 
 export const preCheckinClimateAlert: WhatsAppTemplate = {
-  name: "pre_checkin_climate_alert",
+  name: "pre_checkin_climate_alert_v2",
   language: "es",
   category: "UTILITY",
   description:
@@ -362,7 +362,7 @@ export const preCheckinClimateAlert: WhatsAppTemplate = {
  * variable propia.
  */
 export const preCheckinClimateUpdate: WhatsAppTemplate = {
-  name: "pre_checkin_climate_update",
+  name: "pre_checkin_climate_update_v2",
   language: "es",
   category: "UTILITY",
   description:
@@ -404,7 +404,7 @@ export const preCheckinClimateUpdate: WhatsAppTemplate = {
 // (ej. `staffTaskAssignedEn`).
 
 export const guestCheckoutReminderEn: WhatsAppTemplate = {
-  name: "guest_checkout_reminder",
+  name: "guest_checkout_reminder_v2",
   language: "en",
   category: "UTILITY",
   description:
@@ -422,7 +422,7 @@ export const guestCheckoutReminderEn: WhatsAppTemplate = {
 };
 
 export const staffTaskAssignedEn: WhatsAppTemplate = {
-  name: "staff_task_assigned",
+  name: "staff_task_assigned_v2",
   language: "en",
   category: "UTILITY",
   description:
@@ -448,7 +448,7 @@ export const staffTaskAssignedEn: WhatsAppTemplate = {
 };
 
 export const staffSupplyRequestReceivedEn: WhatsAppTemplate = {
-  name: "staff_supply_request_received",
+  name: "staff_supply_request_received_v2",
   language: "en",
   category: "UTILITY",
   description:
@@ -466,7 +466,7 @@ export const staffSupplyRequestReceivedEn: WhatsAppTemplate = {
 };
 
 export const sensorAlarmFiredEn: WhatsAppTemplate = {
-  name: "sensor_alarm_fired",
+  name: "sensor_alarm_fired_v2",
   language: "en",
   category: "UTILITY",
   description:
@@ -484,7 +484,7 @@ export const sensorAlarmFiredEn: WhatsAppTemplate = {
 };
 
 export const taskReminderEn: WhatsAppTemplate = {
-  name: "task_reminder",
+  name: "task_reminder_v2",
   language: "en",
   category: "UTILITY",
   description:
@@ -502,7 +502,7 @@ export const taskReminderEn: WhatsAppTemplate = {
 };
 
 export const reservationCheckinReminderEn: WhatsAppTemplate = {
-  name: "reservation_checkin_reminder",
+  name: "reservation_checkin_reminder_v2",
   language: "en",
   category: "UTILITY",
   description:
@@ -520,7 +520,7 @@ export const reservationCheckinReminderEn: WhatsAppTemplate = {
 };
 
 export const preCheckinClimateAlertEn: WhatsAppTemplate = {
-  name: "pre_checkin_climate_alert",
+  name: "pre_checkin_climate_alert_v2",
   language: "en",
   category: "UTILITY",
   description:
@@ -549,7 +549,7 @@ export const preCheckinClimateAlertEn: WhatsAppTemplate = {
 };
 
 export const preCheckinClimateUpdateEn: WhatsAppTemplate = {
-  name: "pre_checkin_climate_update",
+  name: "pre_checkin_climate_update_v2",
   language: "en",
   category: "UTILITY",
   description:
