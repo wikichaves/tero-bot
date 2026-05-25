@@ -295,5 +295,80 @@
     "emptyPost": " y vas a verla acá. Mientras, podés usar «Nueva factura».",
     "noProperty": "Sin propiedad asignada",
     "billsCount": "{n, plural, one {# factura} other {# facturas}}"
+  },
+  "whatsapp": {
+    "help": {
+      "headerFull": "*{appName} Comandos*\n\n📊 *Consumo* (admin/gestor)\n• `consumo` — resumen total (hoy + 7 días)\n• `consumo <nombre>` — filtrar por propiedad\n   _ej:_ `consumo merced` o `consumo 14 julio`\n\n🌡️ *Ambientes* (admin/gestor)\n• `ambientes` — T/H promedio últimas 24 h por ambiente\n\n📋 *Tareas*\n• `tareas` — tus tareas pendientes\n• `tarea <descripción>` — crear una tarea nueva\n   _ej:_ `tarea se rompió la canilla del baño`\n• 📸 mandá una *foto* (con o sin caption) → crea tarea automática\n\n❓ *Ayuda*\n• `ayuda` — esta lista",
+      "headerStaff": "*{appName} Comandos*\n\n📋 *Tareas*\n• `tareas` — tus tareas pendientes\n• `tarea <descripción>` — crear una tarea (te queda asignada)\n   _ej:_ `tarea se rompió la canilla del baño`\n• 📸 mandá una *foto* → crea tarea automática\n\n❓ *Ayuda*\n• `ayuda` — esta lista"
+    },
+    "myTasks": {
+      "errorQuery": "❌ No pude consultar tus tareas: {message}",
+      "empty": "✨ ¡No tenés tareas pendientes!",
+      "header": "📋 *Tus tareas pendientes* ({n})",
+      "overdue": "⚠️ vencida ",
+      "footer": "_Marcá hechas en: {host}/my-tasks_"
+    },
+    "consumption": {
+      "errorReport": "❌ No pude generar el reporte: {message}",
+      "noMatchFilter": "No encontré una propiedad que coincida con \"{filter}\". Probá sin filtro o con otro nombre.",
+      "noProperties": "No hay propiedades cargadas todavía.",
+      "title": "*{appName} · Consumo*",
+      "todayHeader": "*Hoy* (desde 00:00):",
+      "weekHeader": "*Últimos 7 días*:",
+      "totalLine": "• *Total: {usd}*",
+      "noDataItem": "• {name}: _sin datos suficientes_ (necesita 2+ snapshots)",
+      "noWeekDataItem": "• {name}: _sin datos_",
+      "fxFooter": "_Cambio del día: 1 USD ≈ {rates}_"
+    },
+    "rooms": {
+      "errorReport": "❌ No pude generar el reporte de ambientes: {message}",
+      "noVisibleProperties": "📭 No tenés propiedades visibles con tu usuario.",
+      "noSensors": "📭 No hay sensores T/H asignados. Asignalos en {host}/admin/tuya",
+      "noRecent": "📭 Ningún ambiente tiene lecturas en las últimas 24h. Forzá una captura desde /admin/tuya.",
+      "title": "🌡️ *Ambientes — últimas 24 h*",
+      "noReadings": "_sin lecturas_",
+      "footer": "_Detalle: {host}/rooms_"
+    },
+    "sensorSummary": {
+      "title": "*Ambientes* (24h):",
+      "noData": "_sin datos_"
+    },
+    "auth": {
+      "myTasksUnlinked": "🔒 Tu número (`{phone}`) no está vinculado a ningún usuario.\n\nPedile a un admin/gestor que te cargue ese número exacto en tu perfil ({host} → Usuarios → editar) y reintentá.",
+      "notAuthorized": "🔒 Tu número (`{phone}`) no está autorizado para usar comandos.\n\nSi sos admin/gestor de {appName}, cargá ese número exacto en tu profile ({host} → Usuarios → editar) y reintentá."
+    },
+    "guestReplyNamed": "Hola {name}, gracias por escribir a {appName}. Te respondemos a la brevedad.",
+    "guestReplyAnon": "¡Hola! Gracias por escribir a {appName}. Te respondemos a la brevedad.",
+    "unknownReply": "Hola, gracias por escribir a {appName}. Te respondemos a la brevedad.",
+    "staffUnknownCommand": "Hola, soy *{appName}* 🐦. No entendí ese mensaje. Mandá `ayuda` para ver los comandos disponibles.",
+    "createTask": {
+      "needsDescription": "📝 Necesito una descripción o una foto para crear la tarea.\n\nProbá:\n• `tarea <propiedad> se rompió la canilla`\n• o mandá una foto del problema (con caption opcional)",
+      "errorFindProperties": "❌ No pude buscar propiedades: {message}",
+      "noPropertiesYet": "❌ No hay propiedades cargadas todavía. Pedile a un admin que las cree.",
+      "propertyGone": "❌ Esa propiedad ya no existe. Reintentá.",
+      "errorInsert": "❌ No pude crear la tarea: {message}",
+      "errorUnknown": "error desconocido",
+      "askWhichProperty": "🤔 *¿En qué propiedad?* Respondé con el número:",
+      "cancelOption": "*0.* Cancelar",
+      "previewText": "_Para: \"{preview}\"_",
+      "previewPhoto": "_Para tu foto adjunta._",
+      "invalidChoice": "Esa opción no está. Probá con un número entre 1 y {max}, o *0* para cancelar.",
+      "cancelled": "👍 Cancelado. La tarea no se creó.",
+      "unlinkedSender": "🔒 Tu número (`{phone}`) no está vinculado a ningún usuario, así que no puedo crear la tarea. Pedile a un admin que te cargue el número en tu perfil.",
+      "createdHeader": "✅ *Tarea creada*",
+      "photoTitleFallback": "Reporte con foto · {property}",
+      "untitledFallback": "Reporte WhatsApp",
+      "reportedBy": "🟢 Reportado por WhatsApp por {who}",
+      "photoLine": "📸 Foto: {url}",
+      "assignedToYou": "👤 Asignada a vos.",
+      "assignedTriage": "👤 Sin asignar — algún admin/gestor te la deriva.",
+      "kindLabel": {
+        "limpieza": "🧹 Limpieza",
+        "mantenimiento": "🔧 Mantenimiento",
+        "insumos": "📦 Insumos",
+        "otro": "📋 Tarea"
+      },
+      "viewAt": "_Verla en: {url}_"
+    }
   }
 }

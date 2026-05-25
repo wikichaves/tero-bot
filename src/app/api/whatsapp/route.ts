@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { getTranslations } from "next-intl/server";
 import {
   normalizePhone,
   persistMessage,
@@ -17,6 +18,7 @@ import {
 import { handlePreCheckinResponse } from "@/lib/pre-checkin/handle-response";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { APP_NAME } from "@/lib/brand";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/locales";
 import type { Profile } from "@/lib/types";
 
 /**
@@ -35,13 +37,25 @@ import type { Profile } from "@/lib/types";
  *   4. Always 200 if signature valid (so Kapso doesn't retry endlessly).
  */
 
-const REPLY_GUEST = (name: string | null) =>
-  name
-    ? `Hola ${name}, gracias por escribir a ${APP_NAME}. Te respondemos a la brevedad.`
-    : `¡Hola! Gracias por escribir a ${APP_NAME}. Te respondemos a la brevedad.`;
+/**
+ * WIK-151: respuestas "default" (no-comando) traducidas según el locale
+ * resuelto del recipient. Antes eran constantes en español; ahora son
+ * funciones async que pulen la string del dictionary.
+ */
+async function replyGuest(
+  name: string | null,
+  locale: Locale,
+): Promise<string> {
+  const t = await getTranslations({ locale, namespace: "whatsapp" });
+  return name
+    ? t("guestReplyNamed", { name, appName: APP_NAME })
+    : t("guestReplyAnon", { appName: APP_NAME });
+}
 
-const REPLY_UNKNOWN =
-  `Hola, gracias por escribir a ${APP_NAME}. Te respondemos a la brevedad.`;
+async function replyUnknown(locale: Locale): Promise<string> {
+  const t = await getTranslations({ locale, namespace: "whatsapp" });
+  return t("unknownReply", { appName: APP_NAME });
+}
 
 /**
  * Reply para staff (admin/gestor/mantenimiento) cuando manda algo que no
@@ -49,9 +63,10 @@ const REPLY_UNKNOWN =
  * al usuario porque no sabe si el bot lo escuchó. Ahora le respondemos
  * recordándole que mande "ayuda" para ver las opciones. (WIK-89)
  */
-const REPLY_STAFF_UNKNOWN_COMMAND =
-  `Hola, soy *${APP_NAME}* 🐦. No entendí ese mensaje. ` +
-  "Mandá `ayuda` para ver los comandos disponibles.";
+async function replyStaffUnknownCommand(locale: Locale): Promise<string> {
+  const t = await getTranslations({ locale, namespace: "whatsapp" });
+  return t("staffUnknownCommand", { appName: APP_NAME });
+}
 
 function isAutoReplyEnabled(): boolean {
   const v = process.env.WHATSAPP_AUTO_REPLY_ENABLED?.toLowerCase();
@@ -288,6 +303,21 @@ async function autoReply(opts: {
 }) {
   if (!isAutoReplyEnabled()) return;
 
+  // WIK-151: resolver el locale del recipient antes que cualquier respuesta
+  // free-form. Si no hay profile (guest/unknown), default `en`. Cacheamos
+  // el profile lookup en `cachedProfile` para no pegarle 3 veces al DB.
+  let cachedProfile: Profile | null | undefined = undefined;
+  const getProfile = async (): Promise<Profile | null> => {
+    if (cachedProfile !== undefined) return cachedProfile;
+    cachedProfile = await lookupProfileByPhone(opts.peer);
+    return cachedProfile;
+  };
+  const getLocale = async (): Promise<Locale> => {
+    const p = await getProfile();
+    const lang = p?.language;
+    return lang && isLocale(lang) ? lang : DEFAULT_LOCALE;
+  };
+
   // 0) Numbered selection reply — if user previously got a "qué propiedad?"
   // prompt, a short reply like "1" / "2" / "0" picks (or cancels) that
   // pending create-task. Has to run BEFORE the create-task triggers below
@@ -297,12 +327,17 @@ async function autoReply(opts: {
     if (selection !== null) {
       const pending = await findPendingPropertyChoice(opts.conversationId);
       if (pending) {
+        const locale = await getLocale();
+        const tCreate = await getTranslations({
+          locale,
+          namespace: "whatsapp.createTask",
+        });
         if (selection === 0) {
           await sendAndPersist({
             phoneNumberId: opts.phoneNumberId,
             peer: opts.peer,
             conversationId: opts.conversationId,
-            text: "👍 Cancelado. La tarea no se creó.",
+            text: tCreate("cancelled"),
           });
           return;
         }
@@ -312,13 +347,13 @@ async function autoReply(opts: {
             phoneNumberId: opts.phoneNumberId,
             peer: opts.peer,
             conversationId: opts.conversationId,
-            text:
-              `Esa opción no está. Probá con un número entre 1 y ` +
-              `${pending.properties.length}, o *0* para cancelar.`,
+            text: tCreate("invalidChoice", {
+              max: pending.properties.length,
+            }),
           });
           return;
         }
-        const profile = await lookupProfileByPhone(opts.peer);
+        const profile = await getProfile();
         if (!profile) {
           // Edge case: profile was removed between prompt and reply.
           return;
@@ -330,6 +365,7 @@ async function autoReply(opts: {
             mediaUrl: pending.mediaUrl,
             prefetchedProperties: pending.properties,
             forcePropertyId: pending.properties[idx].id,
+            locale,
           });
           await sendAndPersist({
             phoneNumberId: opts.phoneNumberId,
@@ -382,7 +418,7 @@ async function autoReply(opts: {
     // DB roundtrip of latency.
     const startedAt = Date.now();
     const [profile, properties] = await Promise.all([
-      lookupProfileByPhone(opts.peer),
+      getProfile(),
       fetchPropertiesForCreate(),
     ]);
     if (profile) {
@@ -392,6 +428,7 @@ async function autoReply(opts: {
           text: opts.messageBody,
           mediaUrl: opts.mediaUrl,
           prefetchedProperties: properties,
+          locale: await getLocale(),
         });
         await sendAndPersist({
           phoneNumberId: opts.phoneNumberId,
@@ -416,14 +453,16 @@ async function autoReply(opts: {
     } else {
       // Text-based create attempt from an unknown sender → tell them.
       const normalized = normalizePhone(opts.peer) ?? opts.peer;
+      const locale = await getLocale();
+      const tCreate = await getTranslations({
+        locale,
+        namespace: "whatsapp.createTask",
+      });
       await sendAndPersist({
         phoneNumberId: opts.phoneNumberId,
         peer: opts.peer,
         conversationId: opts.conversationId,
-        text:
-          `🔒 Tu número (\`${normalized}\`) no está vinculado a ningún ` +
-          `usuario, así que no puedo crear la tarea. Pedile a un admin ` +
-          `que te cargue el número en tu perfil.`,
+        text: tCreate("unlinkedSender", { phone: normalized }),
       });
       return;
     }
@@ -433,7 +472,7 @@ async function autoReply(opts: {
   const command = parseCommand(opts.messageBody);
   if (command) {
     try {
-      const reply = await runCommand(command, opts.peer);
+      const reply = await runCommand(command, opts.peer, await getLocale());
       if (reply) {
         await sendAndPersist({
           phoneNumberId: opts.phoneNumberId,
@@ -452,12 +491,15 @@ async function autoReply(opts: {
   // no-comando — generaba confusión porque parecía que el bot no
   // escuchaba. Ahora le respondemos con un hint para que sepa que
   // recibimos pero no entendimos.
+  // WIK-151: locale del recipient — para guest/unknown no hay profile,
+  // así que cae al default.
+  const locale = await getLocale();
   const text =
     opts.audience === "staff"
-      ? REPLY_STAFF_UNKNOWN_COMMAND
+      ? await replyStaffUnknownCommand(locale)
       : opts.audience === "guest"
-        ? REPLY_GUEST(opts.displayName)
-        : REPLY_UNKNOWN;
+        ? await replyGuest(opts.displayName, locale)
+        : await replyUnknown(locale);
 
   try {
     await sendAndPersist({

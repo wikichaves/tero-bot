@@ -1,6 +1,8 @@
 import "server-only";
+import { getTranslations } from "next-intl/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { APP_HOST } from "@/lib/brand";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/locales";
 import type { Profile, Property, Task } from "@/lib/types";
 
 /**
@@ -20,6 +22,11 @@ import type { Profile, Property, Task } from "@/lib/types";
  *    as `📸 Foto: <url>` (no schema change required for media storage).
  *  - **Assignee**: staff (limpieza/mantenimiento) auto-assign to themselves;
  *    admin/gestor leave unassigned for triage.
+ *  - **Locale (WIK-151)**: reply strings are localized via the sender
+ *    profile's `language` (or the caller-supplied override). DB-stored
+ *    content (title, description, photo line) stays in Spanish for
+ *    consistency across the dashboard — only the WhatsApp reply text is
+ *    translated.
  */
 
 export type CreateTaskFromWAResult =
@@ -49,6 +56,11 @@ export type CreateTaskFromWAInput = {
    * one from the numbered prompt we sent on a previous ambiguous message.
    */
   forcePropertyId?: string;
+  /**
+   * WIK-151: locale override for reply strings. Defaults to the profile's
+   * `language` (or DEFAULT_LOCALE if unset/invalid).
+   */
+  locale?: Locale;
 };
 
 // extractPhotos lives in `@/lib/tasks/format` because client components need
@@ -96,23 +108,31 @@ export function parsePropertyChoiceReply(
  * Build the numbered prompt body we send when we can't infer the property
  * from the user's text. Returns the body + the intent to persist alongside.
  */
-export function buildPropertyChoicePrompt(
+export async function buildPropertyChoicePrompt(
   properties: Pick<Property, "id" | "name">[],
   cleanText: string,
   mediaUrl: string | null,
-): { body: string; intent: PropertyChoiceIntent } {
+  locale: Locale = DEFAULT_LOCALE,
+): Promise<{ body: string; intent: PropertyChoiceIntent }> {
+  const t = await getTranslations({
+    locale,
+    namespace: "whatsapp.createTask",
+  });
   const numbered = properties
     .map((p, i) => `*${i + 1}.* ${p.name}`)
     .join("\n");
   const preview = cleanText
-    ? `\n\n_Para: "${cleanText.slice(0, 80)}${cleanText.length > 80 ? "…" : ""}"_`
+    ? `\n\n${t("previewText", {
+        preview:
+          cleanText.slice(0, 80) + (cleanText.length > 80 ? "…" : ""),
+      })}`
     : mediaUrl
-      ? `\n\n_Para tu foto adjunta._`
+      ? `\n\n${t("previewPhoto")}`
       : "";
   const body =
-    `🤔 *¿En qué propiedad?* Respondé con el número:\n\n` +
+    `${t("askWhichProperty")}\n\n` +
     numbered +
-    `\n*0.* Cancelar` +
+    `\n${t("cancelOption")}` +
     preview;
   const intent: PropertyChoiceIntent = {
     intent: "create-task-property-choice",
@@ -124,14 +144,14 @@ export function buildPropertyChoicePrompt(
 }
 
 const KIND_PATTERNS: Array<{ kind: Task["kind"]; rx: RegExp }> = [
-  { kind: "limpieza", rx: /\b(limpi[ae][rz]?|aspirar|lavar|barrer|trapear)\b/i },
+  { kind: "limpieza", rx: /\b(limpi[ae][rz]?|aspirar|lavar|barrer|trapear|clean(ing)?|wash|sweep|mop)\b/i },
   {
     kind: "mantenimiento",
-    rx: /\b(mantenimiento|mantener|arreglar|reparar|rota|roto|romp[ie]ron?|fuga|gotea|no\s+func|cambia[rs]|fall[ao])\b/i,
+    rx: /\b(mantenimiento|mantener|arreglar|reparar|rota|roto|romp[ie]ron?|fuga|gotea|no\s+func|cambia[rs]|fall[ao]|maintenance|broken|fix|repair|leak)\b/i,
   },
   {
     kind: "insumos",
-    rx: /\b(insumos?|comprar|falta|hay\s+que\s+comprar|reposici[oó]n|stock)\b/i,
+    rx: /\b(insumos?|comprar|falta|hay\s+que\s+comprar|reposici[oó]n|stock|supplies?|need\s+to\s+buy|restock)\b/i,
   },
 ];
 
@@ -141,7 +161,7 @@ const KIND_PATTERNS: Array<{ kind: Task["kind"]; rx: RegExp }> = [
  * keyword was found.
  */
 export function stripCreateKeyword(text: string): string {
-  return text.replace(/^(nueva\s+tarea|tarea|reportar|report)\b[:\s]*/i, "").trim();
+  return text.replace(/^(nueva\s+tarea|tarea|reportar|report|task|new\s+task)\b[:\s]*/i, "").trim();
 }
 
 /**
@@ -152,7 +172,7 @@ export function looksLikeCreateTaskCommand(
   text: string | null | undefined,
 ): boolean {
   if (!text) return false;
-  return /^(nueva\s+tarea|tarea|reportar|report)\b/i.test(text.trim());
+  return /^(nueva\s+tarea|tarea|reportar|report|task|new\s+task)\b/i.test(text.trim());
 }
 
 function detectKind(text: string, hasPhoto: boolean): Task["kind"] {
@@ -186,13 +206,16 @@ function detectProperty(
 
 const MAX_TITLE_LEN = 120;
 
-function splitTitleDescription(text: string): {
+function splitTitleDescription(
+  text: string,
+  untitledFallback: string,
+): {
   title: string;
   description: string | null;
 } {
   const cleaned = text.trim();
   if (!cleaned) {
-    return { title: "Reporte WhatsApp", description: null };
+    return { title: untitledFallback, description: null };
   }
   // First line as title; rest as description. If first line is too long, cut.
   const lines = cleaned.split(/\r?\n/);
@@ -206,12 +229,25 @@ function splitTitleDescription(text: string): {
   return { title, description: description || null };
 }
 
+/** Coerce a free-form language string from the DB into a supported Locale. */
+function resolveTaskLocale(input: CreateTaskFromWAInput): Locale {
+  if (input.locale && isLocale(input.locale)) return input.locale;
+  const lang = input.profile.language;
+  if (lang && isLocale(lang)) return lang;
+  return DEFAULT_LOCALE;
+}
+
 export async function createTaskFromWhatsApp(
   input: CreateTaskFromWAInput,
 ): Promise<CreateTaskFromWAResult> {
   const { profile, mediaUrl } = input;
   const hasPhoto = !!mediaUrl;
   const cleanText = stripCreateKeyword(input.text ?? "");
+  const locale = resolveTaskLocale(input);
+  const t = await getTranslations({
+    locale,
+    namespace: "whatsapp.createTask",
+  });
 
   // Guard: command without any content (e.g. just "tarea") and no photo.
   // Ask the user to retry with a description so we don't end up with empty
@@ -219,10 +255,7 @@ export async function createTaskFromWhatsApp(
   if (!cleanText && !hasPhoto) {
     return {
       ok: false,
-      reply:
-        `📝 Necesito una descripción o una foto para crear la tarea.\n\n` +
-        `Probá:\n• \`tarea <propiedad> se rompió la canilla\`\n` +
-        `• o mandá una foto del problema (con caption opcional)`,
+      reply: t("needsDescription"),
     };
   }
 
@@ -238,7 +271,7 @@ export async function createTaskFromWhatsApp(
     if (propsErr) {
       return {
         ok: false,
-        reply: `❌ No pude buscar propiedades: ${propsErr.message}`,
+        reply: t("errorFindProperties", { message: propsErr.message }),
       };
     }
     properties = (propertyRows ?? []) as Pick<Property, "id" | "name">[];
@@ -246,8 +279,7 @@ export async function createTaskFromWhatsApp(
   if (properties.length === 0) {
     return {
       ok: false,
-      reply:
-        "❌ No hay propiedades cargadas todavía. Pedile a un admin que las cree.",
+      reply: t("noPropertiesYet"),
     };
   }
 
@@ -264,29 +296,32 @@ export async function createTaskFromWhatsApp(
     if (input.forcePropertyId) {
       return {
         ok: false,
-        reply: "❌ Esa propiedad ya no existe. Reintentá.",
+        reply: t("propertyGone"),
       };
     }
-    const { body, intent } = buildPropertyChoicePrompt(
+    const { body, intent } = await buildPropertyChoicePrompt(
       properties,
       cleanText,
       mediaUrl ?? null,
+      locale,
     );
     return { ok: false, reply: body, pendingIntent: intent };
   }
 
   const kind = detectKind(cleanText, hasPhoto);
   const { title: rawTitle, description: rawDescription } =
-    splitTitleDescription(cleanText);
+    splitTitleDescription(cleanText, t("untitledFallback"));
 
   // For a no-caption photo, use a friendlier default title.
   const title =
     !cleanText && hasPhoto
-      ? `Reporte con foto · ${property.name}`
+      ? t("photoTitleFallback", { property: property.name })
       : rawTitle;
 
-  const photoLine = mediaUrl ? `📸 Foto: ${mediaUrl}` : "";
-  const reportedBy = `🟢 Reportado por WhatsApp por ${profile.full_name ?? profile.email}`;
+  const photoLine = mediaUrl ? t("photoLine", { url: mediaUrl }) : "";
+  const reportedBy = t("reportedBy", {
+    who: profile.full_name ?? profile.email,
+  });
   const description = [rawDescription, photoLine, reportedBy]
     .filter(Boolean)
     .join("\n\n");
@@ -311,28 +346,25 @@ export async function createTaskFromWhatsApp(
   if (error || !inserted) {
     return {
       ok: false,
-      reply: `❌ No pude crear la tarea: ${error?.message ?? "error desconocido"}`,
+      reply: t("errorInsert", {
+        message: error?.message ?? t("errorUnknown"),
+      }),
     };
   }
 
-  const KIND_LABEL: Record<Task["kind"], string> = {
-    limpieza: "🧹 Limpieza",
-    mantenimiento: "🔧 Mantenimiento",
-    insumos: "📦 Insumos",
-    otro: "📋 Tarea",
-  };
+  const kindLabel = t(`kindLabel.${kind}` as const);
   const assignedLine = isStaff
-    ? `\n👤 Asignada a vos.`
-    : `\n👤 Sin asignar — algún admin/gestor te la deriva.`;
+    ? `\n${t("assignedToYou")}`
+    : `\n${t("assignedTriage")}`;
   const link = isStaff
     ? `${APP_HOST}/my-tasks`
     : `${APP_HOST}/tasks/${inserted.id}`;
   const reply =
-    `✅ *Tarea creada*\n\n` +
+    `${t("createdHeader")}\n\n` +
     `*${title}*\n` +
-    `${KIND_LABEL[kind]} · 🏠 ${property.name}` +
+    `${kindLabel} · 🏠 ${property.name}` +
     assignedLine +
-    `\n\n_Verla en: ${link}_`;
+    `\n\n${t("viewAt", { url: link })}`;
 
   return { ok: true, taskId: inserted.id, reply };
 }

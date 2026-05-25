@@ -1,4 +1,5 @@
 import "server-only";
+import { getTranslations } from "next-intl/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   formatKwh,
@@ -12,6 +13,7 @@ import {
 } from "@/lib/tuya/snapshots";
 import { buildSensorSummary } from "@/lib/sensors/reports";
 import { APP_NAME } from "@/lib/brand";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
 import type { Property } from "@/lib/types";
 
 type PropertyRow = Pick<
@@ -39,9 +41,17 @@ export async function buildConsumptionReport(opts?: {
   /** WIK-94: si está set, restringe el reporte a esas property_ids. null
    *  o undefined = sin restricción (admin / cron). Array vacío = nada. */
   allowedPropertyIds?: string[] | null;
+  /** WIK-151: locale de la respuesta. Default `en`. El caller pasa el
+   *  locale del recipient (no del request del browser). */
+  locale?: Locale;
 }): Promise<string> {
   console.time("[consumo] total");
   const admin = createAdminClient();
+  const locale = opts?.locale ?? DEFAULT_LOCALE;
+  const t = await getTranslations({
+    locale,
+    namespace: "whatsapp.consumption",
+  });
 
   // Fire FX in parallel with the DB queries — we don't yet know which
   // currencies are in `visible`, but we pre-fetch the common set (USD +
@@ -91,9 +101,9 @@ export async function buildConsumptionReport(opts?: {
   if (visible.length === 0) {
     console.timeEnd("[consumo] total");
     if (filter) {
-      return `No encontré una propiedad que coincida con "${opts?.propertyFilter}". Probá sin filtro o con otro nombre.`;
+      return t("noMatchFilter", { filter: opts?.propertyFilter ?? "" });
     }
-    return "No hay propiedades cargadas todavía.";
+    return t("noProperties");
   }
 
   const defaultTariff = getDefaultTariff();
@@ -217,18 +227,16 @@ export async function buildConsumptionReport(opts?: {
 
   // Build the message.
   const lines: string[] = [];
-  lines.push(`*${APP_NAME} · Consumo*`);
+  lines.push(t("title", { appName: APP_NAME }));
   lines.push("");
 
   // Today section
-  lines.push("*Hoy* (desde 00:00):");
+  lines.push(t("todayHeader"));
   let totalTodayUsd = 0;
   let anyTodayData = false;
   for (const p of perProperty) {
     if (p.today_kwh === 0 && p.today_local === 0) {
-      lines.push(
-        `• ${p.name}: _sin datos suficientes_ (necesita 2+ snapshots)`,
-      );
+      lines.push(t("noDataItem", { name: p.name }));
       continue;
     }
     anyTodayData = true;
@@ -238,17 +246,17 @@ export async function buildConsumptionReport(opts?: {
     );
   }
   if (anyTodayData && perProperty.length > 1) {
-    lines.push(`• *Total: ${formatUsd(totalTodayUsd)}*`);
+    lines.push(t("totalLine", { usd: formatUsd(totalTodayUsd) }));
   }
   lines.push("");
 
   // 7 days section
-  lines.push("*Últimos 7 días*:");
+  lines.push(t("weekHeader"));
   let totalWeekUsd = 0;
   let anyWeekData = false;
   for (const p of perProperty) {
     if (p.week_kwh === 0 && p.week_local === 0) {
-      lines.push(`• ${p.name}: _sin datos_`);
+      lines.push(t("noWeekDataItem", { name: p.name }));
       continue;
     }
     anyWeekData = true;
@@ -258,7 +266,7 @@ export async function buildConsumptionReport(opts?: {
     );
   }
   if (anyWeekData && perProperty.length > 1) {
-    lines.push(`• *Total: ${formatUsd(totalWeekUsd)}*`);
+    lines.push(t("totalLine", { usd: formatUsd(totalWeekUsd) }));
   }
   lines.push("");
 
@@ -267,6 +275,7 @@ export async function buildConsumptionReport(opts?: {
   const sensorLines = await buildSensorSummary(
     opts?.propertyFilter ?? undefined,
     opts?.allowedPropertyIds ?? null,
+    locale,
   );
   if (sensorLines.length > 0) {
     for (const l of sensorLines) lines.push(l);
@@ -280,7 +289,7 @@ export async function buildConsumptionReport(opts?: {
     const parts: string[] = [];
     if (uyuRate) parts.push(`UYU ${uyuRate.toFixed(2)}`);
     if (arsRate) parts.push(`ARS ${arsRate.toFixed(0)}`);
-    lines.push(`_Cambio del día: 1 USD ≈ ${parts.join(" · ")}_`);
+    lines.push(t("fxFooter", { rates: parts.join(" · ") }));
   }
 
   console.timeEnd("[consumo] total");

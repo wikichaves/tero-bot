@@ -49,6 +49,18 @@ export function formatDayShortDate(date: Date, locale: string): string {
 }
 
 /**
+ * "EEE d 'de' MMMM" / "EEE, MMMM d". Para WhatsApp task due dates —
+ * versión más larga que `formatDayShortDate`, usada en bot responses
+ * donde el espacio no es tan crítico.
+ */
+export function formatTaskDueDate(date: Date, locale: string): string {
+  if (locale === "es") {
+    return format(date, "EEE d 'de' MMMM", { locale: es });
+  }
+  return format(date, "EEE, MMMM d", { locale: enUS });
+}
+
+/**
  * "25 may 14:30" / "May 25 14:30". Para timestamps cortos con hora —
  * usado en banners de histórico parcial donde indicamos desde qué día
  * y hora empieza la data disponible.

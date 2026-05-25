@@ -1,7 +1,9 @@
 import "server-only";
+import { getTranslations } from "next-intl/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { percentile } from "@/lib/stats";
 import { APP_HOST } from "@/lib/brand";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/locales";
 
 /**
  * Build the "Ambientes" section of the daily report (WIK-82 F4).
@@ -17,9 +19,15 @@ export async function buildSensorSummary(
   propertyFilter?: string,
   /** WIK-94: scope opcional. null/undefined = sin restricción. */
   allowedPropertyIds?: string[] | null,
+  /** WIK-151: locale del recipient. Default `en`. */
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<string[]> {
   const admin = createAdminClient();
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const t = await getTranslations({
+    locale,
+    namespace: "whatsapp.sensorSummary",
+  });
 
   // Pull snapshots + device + property in one query for fast aggregation.
   let q = admin
@@ -75,7 +83,7 @@ export async function buildSensorSummary(
   if (byProperty.size === 0) return [];
 
   const lines: string[] = [];
-  lines.push("*Ambientes* (24h):");
+  lines.push(t("title"));
   // Ordenado por nombre para consistency con el resto del report.
   const entries = Array.from(byProperty.values()).sort((a, b) =>
     a.name.localeCompare(b.name),
@@ -97,7 +105,7 @@ export async function buildSensorSummary(
         ? `H ${Math.round(hMin)}–${Math.round(hMax)}%`
         : null;
     const parts = [tPart, hPart].filter(Boolean).join(" · ");
-    lines.push(`• ${p.name}: ${parts || "_sin datos_"}`);
+    lines.push(`• ${p.name}: ${parts || t("noData")}`);
   }
   return lines;
 }
@@ -128,9 +136,12 @@ export async function buildSensorSummary(
 export async function buildRoomsReport(
   /** WIK-94: scope. null = admin (sin filtro). */
   allowedPropertyIds: string[] | null,
+  /** WIK-151: locale del recipient. Default `en`. */
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<string> {
   const admin = createAdminClient();
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const t = await getTranslations({ locale, namespace: "whatsapp.rooms" });
 
   // 1. Properties (respetando scope).
   let propsQuery = admin
@@ -148,7 +159,7 @@ export async function buildRoomsReport(
     sort_order: number;
   }>;
   if (properties.length === 0) {
-    return "📭 No tenés propiedades visibles con tu usuario.";
+    return t("noVisibleProperties");
   }
   const propIds = properties.map((p) => p.id);
 
@@ -179,7 +190,7 @@ export async function buildRoomsReport(
   }>;
 
   if (devices.length === 0) {
-    return `📭 No hay sensores T/H asignados. Asignalos en ${APP_HOST}/admin/tuya`;
+    return t("noSensors", { host: APP_HOST });
   }
 
   // 4. Snapshots últimas 24h para esos devices.
@@ -224,7 +235,7 @@ export async function buildRoomsReport(
   const avg = (arr: number[]): number | null =>
     arr.length === 0 ? null : arr.reduce((a, b) => a + b, 0) / arr.length;
 
-  const lines: string[] = ["🌡️ *Ambientes — últimas 24 h*", ""];
+  const lines: string[] = [t("title"), ""];
   let totalLines = 0;
   for (const property of properties) {
     const propRooms = rooms.filter((r) => r.property_id === property.id);
@@ -244,13 +255,13 @@ export async function buildRoomsReport(
         temps.push(...s.temps);
         hums.push(...s.hums);
       }
-      const t = avg(temps);
-      const h = avg(hums);
-      if (t == null && h == null) {
-        lines.push(`• ${room.name}: _sin lecturas_`);
+      const tAvg = avg(temps);
+      const hAvg = avg(hums);
+      if (tAvg == null && hAvg == null) {
+        lines.push(`• ${room.name}: ${t("noReadings")}`);
       } else {
-        const tPart = t != null ? `${t.toFixed(1)}°C` : "—";
-        const hPart = h != null ? `${Math.round(h)}%` : "—";
+        const tPart = tAvg != null ? `${tAvg.toFixed(1)}°C` : "—";
+        const hPart = hAvg != null ? `${Math.round(hAvg)}%` : "—";
         lines.push(`• ${room.name}: ${tPart} · ${hPart}`);
       }
       totalLines++;
@@ -259,9 +270,9 @@ export async function buildRoomsReport(
   }
 
   if (totalLines === 0) {
-    return "📭 Ningún ambiente tiene lecturas en las últimas 24h. Forzá una captura desde /admin/tuya.";
+    return t("noRecent");
   }
 
-  lines.push(`_Detalle: ${APP_HOST}/rooms_`);
+  lines.push(t("footer", { host: APP_HOST }));
   return lines.join("\n").trim();
 }

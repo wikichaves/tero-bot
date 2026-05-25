@@ -1,11 +1,13 @@
 import "server-only";
-import { format, parseISO } from "date-fns";
-import { es } from "date-fns/locale";
+import { parseISO } from "date-fns";
+import { getTranslations } from "next-intl/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildConsumptionReport } from "@/lib/energy/reports";
 import { buildRoomsReport } from "@/lib/sensors/reports";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import { APP_NAME, APP_HOST } from "@/lib/brand";
+import { formatTaskDueDate } from "@/lib/i18n/date";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/locales";
 import type { Profile, Task } from "@/lib/types";
 import { normalizePhone } from "./index";
 
@@ -22,39 +24,25 @@ export type ParsedCommand =
 // WIK-97: los cmds `linear` y `claude` se movieron al bot de Telegram
 // (dev/admin channel — sin restricción de 24h window, code blocks,
 // inline keyboards, etc.). Acá quedan solo los cmds operativos.
-const HELP_TEXT_FULL = `*${APP_NAME} Comandos*
+// WIK-151: HELP_TEXT_* dejaron de ser constantes — ahora son funciones
+// de `locale` que arman el string desde el dictionary correspondiente.
+async function helpTextFull(locale: Locale): Promise<string> {
+  const t = await getTranslations({ locale, namespace: "whatsapp.help" });
+  return t("headerFull", { appName: APP_NAME });
+}
 
-📊 *Consumo* (admin/gestor)
-• \`consumo\` — resumen total (hoy + 7 días)
-• \`consumo <nombre>\` — filtrar por propiedad
-   _ej:_ \`consumo merced\` o \`consumo 14 julio\`
-
-🌡️ *Ambientes* (admin/gestor)
-• \`ambientes\` — T/H promedio últimas 24 h por ambiente
-
-📋 *Tareas*
-• \`tareas\` — tus tareas pendientes
-• \`tarea <descripción>\` — crear una tarea nueva
-   _ej:_ \`tarea se rompió la canilla del baño\`
-• 📸 mandá una *foto* (con o sin caption) → crea tarea automática
-
-❓ *Ayuda*
-• \`ayuda\` — esta lista`;
-
-const HELP_TEXT_STAFF = `*${APP_NAME} Comandos*
-
-📋 *Tareas*
-• \`tareas\` — tus tareas pendientes
-• \`tarea <descripción>\` — crear una tarea (te queda asignada)
-   _ej:_ \`tarea se rompió la canilla del baño\`
-• 📸 mandá una *foto* → crea tarea automática
-
-❓ *Ayuda*
-• \`ayuda\` — esta lista`;
+async function helpTextStaff(locale: Locale): Promise<string> {
+  const t = await getTranslations({ locale, namespace: "whatsapp.help" });
+  return t("headerStaff", { appName: APP_NAME });
+}
 
 /**
  * Parse a free-form WhatsApp text into a command. Returns null if it doesn't
  * look like a command — caller should fall through to default behavior.
+ *
+ * Note: keywords are intentionally bilingual-friendly (`tasks?`, `help`)
+ * to accept English shortcuts even when the user's profile is set to
+ * Spanish — the *response* will still come back in their locale.
  */
 export function parseCommand(text: string | null | undefined): ParsedCommand {
   if (!text) return null;
@@ -108,6 +96,27 @@ async function getProfileByPhone(
 }
 
 /**
+ * Coerce `profile.language` (a free-form text in the DB) to a supported
+ * Locale, falling back to DEFAULT_LOCALE (en).
+ */
+function profileLocale(profile: Profile | null): Locale {
+  if (!profile?.language) return DEFAULT_LOCALE;
+  return isLocale(profile.language) ? profile.language : DEFAULT_LOCALE;
+}
+
+/**
+ * Resolve the preferred locale for a WhatsApp phone number. If there's no
+ * matching profile (guest / unknown), default to `en`. Exposed so the
+ * webhook can resolve the locale once and pass it into `runCommand`.
+ */
+export async function resolveLocaleForPhone(
+  phoneNumber: string,
+): Promise<Locale> {
+  const profile = await getProfileByPhone(phoneNumber);
+  return profileLocale(profile);
+}
+
+/**
  * Check whether a phone number belongs to a profile that's authorized to
  * issue admin-level commands (admin or gestor). Used by `consumption`/`help`
  * which expose business-wide data; `my_tasks` is open to any profile and
@@ -136,8 +145,12 @@ const STATUS_EMOJI: Record<Task["status"], string> = {
 
 type TaskWithProperty = Task & { property: { name: string } | null };
 
-async function buildMyTasksReport(profileId: string): Promise<string> {
+async function buildMyTasksReport(
+  profileId: string,
+  locale: Locale,
+): Promise<string> {
   const admin = createAdminClient();
+  const t = await getTranslations({ locale, namespace: "whatsapp.myTasks" });
   const { data, error } = await admin
     .from("tasks")
     .select("*, property:properties(name)")
@@ -148,18 +161,18 @@ async function buildMyTasksReport(profileId: string): Promise<string> {
     .order("created_at", { ascending: false })
     .limit(20);
   if (error) {
-    return `❌ No pude consultar tus tareas: ${error.message}`;
+    return t("errorQuery", { message: error.message });
   }
   const tasks = (data ?? []) as TaskWithProperty[];
   if (tasks.length === 0) {
-    return "✨ ¡No tenés tareas pendientes!";
+    return t("empty");
   }
 
   const todayIso = new Date().toISOString().slice(0, 10);
   const lines = tasks.map((t, i) => {
     const overdue = !!t.due_date && t.due_date < todayIso;
     const dueLabel = t.due_date
-      ? `${overdue ? "⚠️ vencida " : "📅 "}${format(parseISO(t.due_date), "EEE d MMM", { locale: es })}`
+      ? `${overdue ? "⚠️ " : "📅 "}${formatTaskDueDate(parseISO(t.due_date), locale)}`
       : "";
     const statusBit = STATUS_EMOJI[t.status];
     const propertyBit = t.property?.name ? ` · ${t.property.name}` : "";
@@ -167,9 +180,9 @@ async function buildMyTasksReport(profileId: string): Promise<string> {
   });
 
   return (
-    `📋 *Tus tareas pendientes* (${tasks.length})\n\n` +
+    `${t("header", { n: tasks.length })}\n\n` +
     lines.join("\n\n") +
-    `\n\n_Marcá hechas en: ${APP_HOST}/my-tasks_`
+    `\n\n${t("footer", { host: APP_HOST })}`
   );
 }
 
@@ -181,10 +194,15 @@ async function buildMyTasksReport(profileId: string): Promise<string> {
  * Authorization model:
  *  - `my_tasks`: any profile with whatsapp configured (results scoped to them)
  *  - `consumption` / `help`: admin or gestor only (business-wide data)
+ *
+ * `locale` controls the response language — caller should resolve it from
+ * the sender's profile (via `resolveLocaleForPhone`) before invoking. If
+ * the caller omits it, defaults to `en`.
  */
 export async function runCommand(
   command: ParsedCommand,
   fromPhone: string,
+  locale: Locale = DEFAULT_LOCALE,
 ): Promise<string | null> {
   if (!command) return null;
 
@@ -193,13 +211,18 @@ export async function runCommand(
     const profile = await getProfileByPhone(fromPhone);
     if (!profile) {
       const normalized = normalizePhone(fromPhone) ?? fromPhone;
-      return (
-        `🔒 Tu número (\`${normalized}\`) no está vinculado a ningún usuario.\n\n` +
-        `Pedile a un admin/gestor que te cargue ese número exacto en tu perfil ` +
-        `(${APP_HOST} → Usuarios → editar) y reintentá.`
-      );
+      const tAuth = await getTranslations({
+        locale,
+        namespace: "whatsapp.auth",
+      });
+      return tAuth("myTasksUnlinked", {
+        phone: normalized,
+        host: APP_HOST,
+      });
     }
-    return await buildMyTasksReport(profile.id);
+    // Use the profile's own locale for its tasks report — overrides the
+    // caller-supplied one (which may have been the default).
+    return await buildMyTasksReport(profile.id, profileLocale(profile));
   }
 
   // Admin-level commands.
@@ -209,15 +232,25 @@ export async function runCommand(
     if (profile) {
       // Profile exists but isn't admin/gestor — show staff help instead of
       // a flat "denied" so they discover the `tareas` command.
-      return HELP_TEXT_STAFF;
+      return await helpTextStaff(profileLocale(profile));
     }
     const normalized = normalizePhone(fromPhone) ?? fromPhone;
-    return `🔒 Tu número (\`${normalized}\`) no está autorizado para usar comandos.\n\nSi sos admin/gestor de ${APP_NAME}, cargá ese número exacto en tu profile (${APP_HOST} → Usuarios → editar) y reintentá.`;
+    const tAuth = await getTranslations({
+      locale,
+      namespace: "whatsapp.auth",
+    });
+    return tAuth("notAuthorized", {
+      phone: normalized,
+      host: APP_HOST,
+      appName: APP_NAME,
+    });
   }
 
   switch (command.type) {
-    case "help":
-      return HELP_TEXT_FULL;
+    case "help": {
+      const profile = await getProfileByPhone(fromPhone);
+      return await helpTextFull(profileLocale(profile));
+    }
     case "consumption":
       try {
         // WIK-94: scope por property — gestor solo ve consumo de sus
@@ -229,9 +262,14 @@ export async function runCommand(
         return await buildConsumptionReport({
           propertyFilter: command.propertyFilter,
           allowedPropertyIds: allowedIds,
+          locale: profileLocale(profile),
         });
       } catch (e) {
-        return `❌ No pude generar el reporte: ${(e as Error).message}`;
+        const t = await getTranslations({
+          locale,
+          namespace: "whatsapp.consumption",
+        });
+        return t("errorReport", { message: (e as Error).message });
       }
     case "rooms":
       try {
@@ -240,9 +278,13 @@ export async function runCommand(
         const allowedIds = profile
           ? await getAllowedPropertyIds(profile)
           : null;
-        return await buildRoomsReport(allowedIds);
+        return await buildRoomsReport(allowedIds, profileLocale(profile));
       } catch (e) {
-        return `❌ No pude generar el reporte de ambientes: ${(e as Error).message}`;
+        const t = await getTranslations({
+          locale,
+          namespace: "whatsapp.rooms",
+        });
+        return t("errorReport", { message: (e as Error).message });
       }
   }
 }

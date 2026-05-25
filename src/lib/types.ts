@@ -15,6 +15,10 @@ export type Profile = {
   role: UserRole;
   whatsapp: string | null;
   created_at: string;
+  /** WIK-151: idioma preferido del usuario (`en` | `es`). Controla la
+   *  UI del dashboard y las respuestas free-form del bot de WhatsApp.
+   *  Default `en` a nivel DB. */
+  language?: string | null;
 };
 
 export type Property = {

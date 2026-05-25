@@ -295,5 +295,80 @@
     "emptyPost": " and you'll see it here. Meanwhile, you can use «New bill».",
     "noProperty": "No property assigned",
     "billsCount": "{n, plural, one {# bill} other {# bills}}"
+  },
+  "whatsapp": {
+    "help": {
+      "headerFull": "*{appName} Commands*\n\n📊 *Consumption* (admin/manager)\n• `consumo` — total summary (today + 7 days)\n• `consumo <name>` — filter by property\n   _ex:_ `consumo merced` or `consumo 14 julio`\n\n🌡️ *Rooms* (admin/manager)\n• `ambientes` — avg T/H over the last 24 h per room\n\n📋 *Tasks*\n• `tareas` — your pending tasks\n• `tarea <description>` — create a new task\n   _ex:_ `tarea the bathroom tap broke`\n• 📸 send a *photo* (with or without caption) → auto-creates a task\n\n❓ *Help*\n• `ayuda` — this list",
+      "headerStaff": "*{appName} Commands*\n\n📋 *Tasks*\n• `tareas` — your pending tasks\n• `tarea <description>` — create a task (assigned to you)\n   _ex:_ `tarea the bathroom tap broke`\n• 📸 send a *photo* → auto-creates a task\n\n❓ *Help*\n• `ayuda` — this list"
+    },
+    "myTasks": {
+      "errorQuery": "❌ Could not query your tasks: {message}",
+      "empty": "✨ You have no pending tasks!",
+      "header": "📋 *Your pending tasks* ({n})",
+      "overdue": "⚠️ overdue ",
+      "footer": "_Mark them done at: {host}/my-tasks_"
+    },
+    "consumption": {
+      "errorReport": "❌ Could not generate the report: {message}",
+      "noMatchFilter": "No property matches \"{filter}\". Try without a filter or with a different name.",
+      "noProperties": "No properties loaded yet.",
+      "title": "*{appName} · Consumption*",
+      "todayHeader": "*Today* (since 00:00):",
+      "weekHeader": "*Last 7 days*:",
+      "totalLine": "• *Total: {usd}*",
+      "noDataItem": "• {name}: _not enough data_ (needs 2+ snapshots)",
+      "noWeekDataItem": "• {name}: _no data_",
+      "fxFooter": "_Today's rate: 1 USD ≈ {rates}_"
+    },
+    "rooms": {
+      "errorReport": "❌ Could not generate the rooms report: {message}",
+      "noVisibleProperties": "📭 You have no properties visible with your user.",
+      "noSensors": "📭 No T/H sensors assigned. Assign them at {host}/admin/tuya",
+      "noRecent": "📭 No room has readings in the last 24h. Force a capture from /admin/tuya.",
+      "title": "🌡️ *Rooms — last 24 h*",
+      "noReadings": "_no readings_",
+      "footer": "_Details: {host}/rooms_"
+    },
+    "sensorSummary": {
+      "title": "*Rooms* (24h):",
+      "noData": "_no data_"
+    },
+    "auth": {
+      "myTasksUnlinked": "🔒 Your number (`{phone}`) is not linked to any user.\n\nAsk an admin/manager to add that exact number to your profile ({host} → Users → edit) and try again.",
+      "notAuthorized": "🔒 Your number (`{phone}`) is not authorized to use commands.\n\nIf you're an admin/manager of {appName}, add that exact number to your profile ({host} → Users → edit) and try again."
+    },
+    "guestReplyNamed": "Hi {name}, thanks for messaging {appName}. We'll get back to you shortly.",
+    "guestReplyAnon": "Hi! Thanks for messaging {appName}. We'll get back to you shortly.",
+    "unknownReply": "Hi, thanks for messaging {appName}. We'll get back to you shortly.",
+    "staffUnknownCommand": "Hi, I'm *{appName}* 🐦. I didn't understand that message. Send `ayuda` to see the available commands.",
+    "createTask": {
+      "needsDescription": "📝 I need a description or a photo to create the task.\n\nTry:\n• `tarea <property> the tap broke`\n• or send a photo of the issue (caption optional)",
+      "errorFindProperties": "❌ Could not look up properties: {message}",
+      "noPropertiesYet": "❌ No properties loaded yet. Ask an admin to create them.",
+      "propertyGone": "❌ That property no longer exists. Try again.",
+      "errorInsert": "❌ Could not create the task: {message}",
+      "errorUnknown": "unknown error",
+      "askWhichProperty": "🤔 *Which property?* Reply with the number:",
+      "cancelOption": "*0.* Cancel",
+      "previewText": "_For: \"{preview}\"_",
+      "previewPhoto": "_For your attached photo._",
+      "invalidChoice": "That option isn't available. Try a number between 1 and {max}, or *0* to cancel.",
+      "cancelled": "👍 Cancelled. The task was not created.",
+      "unlinkedSender": "🔒 Your number (`{phone}`) is not linked to any user, so I can't create the task. Ask an admin to add the number to your profile.",
+      "createdHeader": "✅ *Task created*",
+      "photoTitleFallback": "Photo report · {property}",
+      "untitledFallback": "WhatsApp report",
+      "reportedBy": "🟢 Reported via WhatsApp by {who}",
+      "photoLine": "📸 Photo: {url}",
+      "assignedToYou": "👤 Assigned to you.",
+      "assignedTriage": "👤 Unassigned — an admin/manager will route it.",
+      "kindLabel": {
+        "limpieza": "🧹 Cleaning",
+        "mantenimiento": "🔧 Maintenance",
+        "insumos": "📦 Supplies",
+        "otro": "📋 Task"
+      },
+      "viewAt": "_View it at: {url}_"
+    }
   }
 }
