@@ -9,7 +9,83 @@
     "cancel": "Cancel",
     "edit": "Edit",
     "delete": "Delete",
-    "search": "Search"
+    "search": "Search",
+    "back": "Back"
+  },
+  "nav": {
+    "openMenu": "Open menu",
+    "home": "Home",
+    "tasks": "Tasks",
+    "bills": "Bills",
+    "energy": "Energy",
+    "rooms": "Rooms",
+    "config": "Settings",
+    "properties": "Properties",
+    "users": "Users",
+    "tuyaDevices": "Tuya devices",
+    "locks": "Locks",
+    "alarms": "Alarms",
+    "whatsappInbox": "WhatsApp Inbox",
+    "whatsappTemplates": "WhatsApp Templates",
+    "overdueTooltip": "There are overdue tasks"
+  },
+  "user": {
+    "displayFallback": "User",
+    "edit": "Edit",
+    "signOut": "Sign out"
+  },
+  "tasks": {
+    "kind": {
+      "limpieza": "Cleaning",
+      "mantenimiento": "Maintenance",
+      "insumos": "Supplies",
+      "otro": "Other"
+    },
+    "status": {
+      "pending": "Pending",
+      "in_progress": "In progress",
+      "done": "Done"
+    }
+  },
+  "dashboard": {
+    "title": "Next {days} days",
+    "errorLoadingReservations": "Could not load reservations: {error}",
+    "checkInsTitle": "Check-ins",
+    "checkInsDescription": "Upcoming arrivals",
+    "checkOutsTitle": "Check-outs",
+    "checkOutsDescription": "Upcoming departures",
+    "noReservations": "No reservations.",
+    "noProperty": "No property",
+    "guest": "Guest",
+    "verifiedTooltip": "Identity Verified by Airbnb",
+    "verifiedLabel": "verified",
+    "tasksTitle": "Tasks for today",
+    "viewAll": "View all →",
+    "tasksDescriptionOverdue": "{overdue} overdue, {today} for today",
+    "tasksDescriptionNoOverdue": "{today} for today{noDateSuffix}",
+    "tasksNoDateSuffix": ", {n} without date",
+    "tasksAllClear": "No overdue or today tasks.",
+    "tableTask": "Task",
+    "tableProperty": "Property",
+    "tableKind": "Kind",
+    "tableAssigned": "Assigned",
+    "tableDue": "Due",
+    "overdueShort": "Overdue",
+    "unassigned": "Unassigned",
+    "myTasksTitle": "My tasks",
+    "myTasksEmpty": "You have no pending tasks.",
+    "myTasksCount": "{n, plural, one {# pending task.} other {# pending tasks.}}"
+  },
+  "guests": {
+    "adultsOne": "{n} adult",
+    "adultsOther": "{n} adults",
+    "childrenOne": "{n} child",
+    "childrenOther": "{n} children",
+    "infantsOne": "{n} infant",
+    "infantsOther": "{n} infants",
+    "guestsOne": "{n} guest",
+    "guestsOther": "{n} guests",
+    "and": "and"
   },
   "footer": {
     "createdBy": "Created by",

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Bird, ChevronDown, Menu } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,6 +51,7 @@ type NavGroup = {
 };
 
 export async function SiteHeader({ profile }: { profile: Profile }) {
+  const t = await getTranslations("nav");
   // WIK-74: "limpieza" se unificó en "mantenimiento". Antes el chequeo
   // era `role === "limpieza" || role === "mantenimiento"`.
   const isStaff = profile.role === "mantenimiento";
@@ -108,7 +110,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
     ? [
         {
           href: "/tasks",
-          label: "Tareas",
+          label: t("tasks"),
           badge: myOpen,
           urgent: myOverdue > 0,
         },
@@ -126,15 +128,15 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
           // tareas asignadas a mí — admin con 0 asignadas no ve badge.
           {
             href: "/tasks",
-            label: "Tareas",
+            label: t("tasks"),
             badge: myOpen,
             urgent: myOverdue > 0,
           },
-          { href: "/bills", label: "Facturas" },
-          { href: "/energy", label: "Energía" },
+          { href: "/bills", label: t("bills") },
+          { href: "/energy", label: t("energy") },
           {
             href: "/rooms",
-            label: "Ambientes",
+            label: t("rooms"),
             badge: alarmsActive,
             urgent: alarmsActive > 0,
           },
@@ -146,19 +148,19 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
   const configGroup: NavGroup | null =
     profile.role === "admin"
       ? {
-          label: "Configuración",
+          label: t("config"),
           items: [
-            { href: "/admin/properties", label: "Propiedades" },
-            { href: "/admin/users", label: "Usuarios" },
-            { href: "/admin/tuya", label: "Tuya devices" },
-            { href: "/admin/tuya/lock", label: "Cerraduras" },
-            { href: "/admin/alarms", label: "Alarmas" },
+            { href: "/admin/properties", label: t("properties") },
+            { href: "/admin/users", label: t("users") },
+            { href: "/admin/tuya", label: t("tuyaDevices") },
+            { href: "/admin/tuya/lock", label: t("locks") },
+            { href: "/admin/alarms", label: t("alarms") },
             // WIK-108: WhatsApp inbox movido acá. Antes era un leaf
             // del nav principal — el admin usa /whatsapp con poca
             // frecuencia comparado con Energía/Ambientes, ubicación
             // en submenu refleja mejor la frecuencia de uso.
-            { href: "/whatsapp", label: "WhatsApp Inbox" },
-            { href: "/admin/whatsapp", label: "WhatsApp Templates" },
+            { href: "/whatsapp", label: t("whatsappInbox") },
+            { href: "/admin/whatsapp", label: t("whatsappTemplates") },
           ],
         }
       : null;
@@ -175,7 +177,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
                 variant="ghost"
                 size="icon"
                 className="md:hidden"
-                aria-label="Abrir menú"
+                aria-label={t("openMenu")}
               />
             }
           >
@@ -185,7 +187,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
             {/* WIK-110: link "Inicio" como primer item del menú.
                 WIK-115: sin icono — solo texto. */}
             <DropdownMenuItem render={<Link href={homeHref} />}>
-              <span className="flex-1">Inicio</span>
+              <span className="flex-1">{t("home")}</span>
             </DropdownMenuItem>
             {staffLeaves.map((it) => (
               <DropdownMenuItem key={it.href} render={<Link href={it.href} />}>
@@ -236,15 +238,15 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
           <Link
             href={homeHref}
             className="hover:text-foreground"
-            aria-label="Inicio"
+            aria-label={t("home")}
           >
-            Inicio
+            {t("home")}
           </Link>
           {staffLeaves.map((it) => (
-            <NavLink key={it.href} {...it} />
+            <NavLink key={it.href} {...it} overdueTooltip={t("overdueTooltip")} />
           ))}
           {operationalLeaves.map((it) => (
-            <NavLink key={it.href} {...it} />
+            <NavLink key={it.href} {...it} overdueTooltip={t("overdueTooltip")} />
           ))}
           {configGroup && <NavDropdown group={configGroup} />}
         </nav>
@@ -290,13 +292,19 @@ function NavRow({
 }
 
 /** Item plano del nav inline (desktop). Usa hover:text-foreground para
- *  match con el estilo previo. */
+ *  match con el estilo previo.
+ *
+ *  El `overdueTooltip` viene como prop porque NavLink es una pure
+ *  function (no async server component), así que no puede llamar a
+ *  `getTranslations` directamente — el SiteHeader lo resuelve y se lo
+ *  pasa. (WIK-151) */
 function NavLink({
   href,
   label,
   badge,
   urgent = false,
-}: NavLeaf) {
+  overdueTooltip,
+}: NavLeaf & { overdueTooltip?: string }) {
   return (
     <Link
       href={href}
@@ -310,7 +318,7 @@ function NavLink({
               ? "bg-destructive text-destructive-foreground"
               : "bg-muted text-foreground"
           }`}
-          title={urgent ? "Hay tareas vencidas" : undefined}
+          title={urgent ? overdueTooltip : undefined}
         >
           {badge}
         </span>

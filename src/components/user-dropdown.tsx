@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { User as UserIcon, ChevronDown, LogOut, Pencil } from "lucide-react";
 import { signOut } from "@/app/login/actions";
 import { Button } from "@/components/ui/button";
@@ -25,12 +25,13 @@ import { EditProfileDialog } from "./edit-profile-dialog";
  * email para que el header siempre tenga algo legible.
  */
 export function UserDropdown({ profile }: { profile: Profile }) {
+  const t = useTranslations("user");
   const [editOpen, setEditOpen] = useState(false);
 
   const displayName =
     profile.full_name?.trim() ||
     profile.email.split("@")[0] ||
-    "Usuario";
+    t("displayFallback");
 
   return (
     <>
@@ -64,7 +65,7 @@ export function UserDropdown({ profile }: { profile: Profile }) {
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setEditOpen(true)}>
             <Pencil className="mr-2 h-4 w-4" />
-            Editar
+            {t("edit")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -75,7 +76,7 @@ export function UserDropdown({ profile }: { profile: Profile }) {
                   className="flex w-full items-center text-left"
                 >
                   <LogOut className="mr-2 h-4 w-4" />
-                  Salir
+                  {t("signOut")}
                 </button>
               </form>
             }

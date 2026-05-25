@@ -9,7 +9,83 @@
     "cancel": "Cancelar",
     "edit": "Editar",
     "delete": "Eliminar",
-    "search": "Buscar"
+    "search": "Buscar",
+    "back": "Volver"
+  },
+  "nav": {
+    "openMenu": "Abrir menú",
+    "home": "Inicio",
+    "tasks": "Tareas",
+    "bills": "Facturas",
+    "energy": "Energía",
+    "rooms": "Ambientes",
+    "config": "Configuración",
+    "properties": "Propiedades",
+    "users": "Usuarios",
+    "tuyaDevices": "Tuya devices",
+    "locks": "Cerraduras",
+    "alarms": "Alarmas",
+    "whatsappInbox": "WhatsApp Inbox",
+    "whatsappTemplates": "WhatsApp Templates",
+    "overdueTooltip": "Hay tareas vencidas"
+  },
+  "user": {
+    "displayFallback": "Usuario",
+    "edit": "Editar",
+    "signOut": "Salir"
+  },
+  "tasks": {
+    "kind": {
+      "limpieza": "Limpieza",
+      "mantenimiento": "Mantenimiento",
+      "insumos": "Insumos",
+      "otro": "Otro"
+    },
+    "status": {
+      "pending": "Pendiente",
+      "in_progress": "En curso",
+      "done": "Hecha"
+    }
+  },
+  "dashboard": {
+    "title": "Próximos {days} días",
+    "errorLoadingReservations": "No se pudo cargar reservas: {error}",
+    "checkInsTitle": "Check-ins",
+    "checkInsDescription": "Llegadas próximas",
+    "checkOutsTitle": "Check-outs",
+    "checkOutsDescription": "Salidas próximas",
+    "noReservations": "Sin reservas.",
+    "noProperty": "Sin propiedad",
+    "guest": "Huésped",
+    "verifiedTooltip": "Identity Verified por Airbnb",
+    "verifiedLabel": "verificado",
+    "tasksTitle": "Tareas para hoy",
+    "viewAll": "Ver todas →",
+    "tasksDescriptionOverdue": "{overdue} vencida{s}, {today} para hoy",
+    "tasksDescriptionNoOverdue": "{today} para hoy{noDateSuffix}",
+    "tasksNoDateSuffix": ", {n} sin fecha",
+    "tasksAllClear": "Sin tareas vencidas ni para hoy.",
+    "tableTask": "Tarea",
+    "tableProperty": "Propiedad",
+    "tableKind": "Tipo",
+    "tableAssigned": "Asignado",
+    "tableDue": "Vence",
+    "overdueShort": "Vencida",
+    "unassigned": "Sin asignar",
+    "myTasksTitle": "Mis tareas",
+    "myTasksEmpty": "No tenés tareas pendientes.",
+    "myTasksCount": "{n, plural, one {# tarea pendiente.} other {# tareas pendientes.}}"
+  },
+  "guests": {
+    "adultsOne": "{n} adulto",
+    "adultsOther": "{n} adultos",
+    "childrenOne": "{n} niño",
+    "childrenOther": "{n} niños",
+    "infantsOne": "{n} bebé",
+    "infantsOther": "{n} bebés",
+    "guestsOne": "{n} huésped",
+    "guestsOther": "{n} huéspedes",
+    "and": "y"
   },
   "footer": {
     "createdBy": "Creado por",

@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { addDays, format, isSameDay, parseISO } from "date-fns";
-import { es } from "date-fns/locale";
+import { addDays, isSameDay, parseISO } from "date-fns";
+import { getLocale, getTranslations } from "next-intl/server";
 import {
   BadgeCheck,
   CheckCircle2,
@@ -11,6 +11,11 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
+import {
+  formatDayShortDate,
+  formatLongDate,
+  formatShortDate,
+} from "@/lib/i18n/date";
 import { PropertyThumb } from "@/components/property-thumb";
 import {
   Card,
@@ -45,13 +50,6 @@ type DashTask = Task & {
   assignee: { full_name: string | null; email: string } | null;
 };
 
-const TASK_KIND_LABEL: Record<Task["kind"], string> = {
-  limpieza: "Limpieza",
-  mantenimiento: "Mantenimiento",
-  insumos: "Insumos",
-  otro: "Otro",
-};
-
 export default async function DashboardPage() {
   // Scope por property (WIK-94): admin ve todo, gestor/mantenimiento
   // solo sus properties asignadas. Si gestor sin properties, queries
@@ -66,6 +64,8 @@ export default async function DashboardPage() {
   }
 
   const allowedIds = await getAllowedPropertyIds(profile);
+  const t = await getTranslations("dashboard");
+  const locale = await getLocale();
 
   const supabase = await createClient();
   const today = new Date();
@@ -127,31 +127,31 @@ export default async function DashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl">Próximos {HORIZON_DAYS} días</h1>
+        <h1 className="text-2xl">{t("title", { days: HORIZON_DAYS })}</h1>
         <p className="text-sm text-muted-foreground">
-          {format(today, "EEEE d 'de' MMMM", { locale: es })}
+          {formatLongDate(today, locale)}
         </p>
       </div>
 
       {error && (
         <Card>
           <CardContent className="pt-6 text-sm text-destructive">
-            No se pudo cargar reservas: {error.message}
+            {t("errorLoadingReservations", { error: error.message })}
           </CardContent>
         </Card>
       )}
 
       <div className="grid gap-6 md:grid-cols-2">
         <ReservationsCard
-          title="Check-ins"
-          description="Llegadas próximas"
+          title={t("checkInsTitle")}
+          description={t("checkInsDescription")}
           rows={checkIns}
           dateField="check_in"
           showProperty={showProperty}
         />
         <ReservationsCard
-          title="Check-outs"
-          description="Salidas próximas"
+          title={t("checkOutsTitle")}
+          description={t("checkOutsDescription")}
           rows={checkOuts}
           dateField="check_out"
           showProperty={showProperty}
@@ -182,6 +182,7 @@ export default async function DashboardPage() {
  * business-wide (reservas, sensors, energy).
  */
 async function MantenimientoDashboard({ profileId }: { profileId: string }) {
+  const t = await getTranslations("dashboard");
   const supabase = await createClient();
   const todayIso = new Date().toISOString().slice(0, 10);
 
@@ -199,11 +200,11 @@ async function MantenimientoDashboard({ profileId }: { profileId: string }) {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl">Mis tareas</h1>
+        <h1 className="text-2xl">{t("myTasksTitle")}</h1>
         <p className="text-sm text-muted-foreground">
           {tasks.length === 0
-            ? "No tenés tareas pendientes."
-            : `${tasks.length} tarea${tasks.length === 1 ? "" : "s"} pendiente${tasks.length === 1 ? "" : "s"}.`}
+            ? t("myTasksEmpty")
+            : t("myTasksCount", { n: tasks.length })}
         </p>
       </div>
       <TodayTasksCard tasks={tasks} todayIso={todayIso} />
@@ -211,184 +212,115 @@ async function MantenimientoDashboard({ profileId }: { profileId: string }) {
   );
 }
 
-function KindTasksCard({
-  title,
-  description,
-  tasks,
-  emptyText,
-  filterHref,
-  todayIso,
-}: {
-  title: string;
-  description: string;
-  tasks: DashTask[];
-  emptyText: string;
-  filterHref: string;
-  todayIso: string;
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>{title}</span>
-          <Link
-            href={filterHref}
-            className="text-sm font-normal text-muted-foreground hover:text-foreground"
-          >
-            Ver todas →
-          </Link>
-        </CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {tasks.length === 0 ? (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />
-            {emptyText}
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-2 text-sm">
-            {tasks.map((t) => {
-              const isOverdue = !!t.due_date && t.due_date < todayIso;
-              return (
-                <li
-                  key={t.id}
-                  className="flex items-start justify-between gap-3 border-b pb-2 last:border-0 last:pb-0"
-                >
-                  <div className="min-w-0 flex-1">
-                    <Link
-                      href={`/tasks/${t.id}`}
-                      className="font-medium hover:underline"
-                    >
-                      {t.title}
-                    </Link>
-                    <div className="text-xs text-muted-foreground">
-                      {t.property?.name ?? "—"}
-                      {t.assignee && (
-                        <>
-                          {" · "}
-                          {t.assignee.full_name ?? t.assignee.email}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  {t.due_date && (
-                    <span
-                      className={`whitespace-nowrap text-xs ${isOverdue ? "text-destructive font-medium" : "text-muted-foreground"}`}
-                    >
-                      {isOverdue ? "Vencida " : ""}
-                      {format(parseISO(t.due_date), "d MMM", { locale: es })}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function TodayTasksCard({
+async function TodayTasksCard({
   tasks,
   todayIso,
 }: {
   tasks: DashTask[];
   todayIso: string;
 }) {
+  const t = await getTranslations("dashboard");
+  const tKind = await getTranslations("tasks.kind");
+  const locale = await getLocale();
   const overdue = tasks.filter(
-    (t) => t.due_date && t.due_date < todayIso,
+    (task) => task.due_date && task.due_date < todayIso,
   );
-  const dueToday = tasks.filter((t) => t.due_date === todayIso);
-  const noDate = tasks.filter((t) => !t.due_date);
+  const dueToday = tasks.filter((task) => task.due_date === todayIso);
+  const noDate = tasks.filter((task) => !task.due_date);
+  const noDateSuffix =
+    noDate.length > 0 ? t("tasksNoDateSuffix", { n: noDate.length }) : "";
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          <span>Tareas para hoy</span>
+          <span>{t("tasksTitle")}</span>
           <Link
             href="/tasks?status=pending"
             className="text-sm font-normal text-muted-foreground hover:text-foreground"
           >
-            Ver todas →
+            {t("viewAll")}
           </Link>
         </CardTitle>
         <CardDescription>
           {overdue.length > 0
-            ? `${overdue.length} vencida${overdue.length === 1 ? "" : "s"}, ${dueToday.length} para hoy`
-            : `${dueToday.length} para hoy${noDate.length > 0 ? `, ${noDate.length} sin fecha` : ""}`}
+            ? t("tasksDescriptionOverdue", {
+                overdue: overdue.length,
+                s: overdue.length === 1 ? "" : "s",
+                today: dueToday.length,
+              })
+            : t("tasksDescriptionNoOverdue", {
+                today: dueToday.length,
+                noDateSuffix,
+              })}
         </CardDescription>
       </CardHeader>
       <CardContent>
         {tasks.length === 0 ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />
-            Sin tareas vencidas ni para hoy.
+            {t("tasksAllClear")}
           </p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Tarea</TableHead>
+                <TableHead>{t("tableTask")}</TableHead>
                 <TableHead className="hidden md:table-cell">
-                  Propiedad
+                  {t("tableProperty")}
                 </TableHead>
-                <TableHead className="hidden lg:table-cell">Tipo</TableHead>
                 <TableHead className="hidden lg:table-cell">
-                  Asignado
+                  {t("tableKind")}
                 </TableHead>
-                <TableHead>Vence</TableHead>
+                <TableHead className="hidden lg:table-cell">
+                  {t("tableAssigned")}
+                </TableHead>
+                <TableHead>{t("tableDue")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {[...overdue, ...dueToday, ...noDate].map((t) => {
-                const isOverdue = !!t.due_date && t.due_date < todayIso;
+              {[...overdue, ...dueToday, ...noDate].map((task) => {
+                const isOverdue = !!task.due_date && task.due_date < todayIso;
                 return (
-                  <TableRow key={t.id}>
+                  <TableRow key={task.id}>
                     <TableCell className="font-medium">
-                      <div>{t.title}</div>
+                      <div>{task.title}</div>
                       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground md:hidden">
                         <Badge variant="outline" className="text-xs">
-                          {TASK_KIND_LABEL[t.kind]}
+                          {tKind(task.kind)}
                         </Badge>
-                        <span>{t.property?.name ?? "—"}</span>
+                        <span>{task.property?.name ?? "—"}</span>
                         <span>·</span>
                         <span>
-                          {t.assignee
-                            ? (t.assignee.full_name ?? t.assignee.email)
-                            : "Sin asignar"}
+                          {task.assignee
+                            ? (task.assignee.full_name ?? task.assignee.email)
+                            : t("unassigned")}
                         </span>
                       </div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
-                      {t.property?.name ?? "—"}
+                      {task.property?.name ?? "—"}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
-                      <Badge variant="outline">
-                        {TASK_KIND_LABEL[t.kind]}
-                      </Badge>
+                      <Badge variant="outline">{tKind(task.kind)}</Badge>
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
-                      {t.assignee ? (
-                        t.assignee.full_name ?? t.assignee.email
+                      {task.assignee ? (
+                        task.assignee.full_name ?? task.assignee.email
                       ) : (
                         <span className="text-muted-foreground">
-                          Sin asignar
+                          {t("unassigned")}
                         </span>
                       )}
                     </TableCell>
                     <TableCell>
-                      {t.due_date ? (
+                      {task.due_date ? (
                         <span
                           className={
                             isOverdue ? "text-destructive font-medium" : ""
                           }
                         >
-                          {isOverdue ? "Vencida " : ""}
-                          {format(parseISO(t.due_date), "d MMM", {
-                            locale: es,
-                          })}
+                          {isOverdue ? `${t("overdueShort")} ` : ""}
+                          {formatShortDate(parseISO(task.due_date), locale)}
                         </span>
                       ) : (
                         <span className="text-muted-foreground">—</span>
@@ -405,7 +337,7 @@ function TodayTasksCard({
   );
 }
 
-function ReservationsCard({
+async function ReservationsCard({
   title,
   description,
   rows,
@@ -418,6 +350,7 @@ function ReservationsCard({
   dateField: "check_in" | "check_out";
   showProperty: boolean;
 }) {
+  const t = await getTranslations("dashboard");
   // Group rows by property when there are multiple distinct properties so
   // the admin can scan check-ins/outs of each place at a glance.
   const grouped = new Map<
@@ -440,7 +373,7 @@ function ReservationsCard({
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Sin reservas.</p>
+          <p className="text-sm text-muted-foreground">{t("noReservations")}</p>
         ) : (
           <div className="flex flex-col gap-5">
             {Array.from(grouped.values()).map((group, gi) => (
@@ -455,7 +388,7 @@ function ReservationsCard({
                       />
                     )}
                     <span className="text-sm font-semibold">
-                      {group.property?.name ?? "Sin propiedad"}
+                      {group.property?.name ?? t("noProperty")}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       ({group.rows.length})
@@ -478,24 +411,26 @@ function ReservationsCard({
   );
 }
 
-function ReservationRow({
+async function ReservationRow({
   row,
   dateField,
 }: {
   row: ReservationWithProperty;
   dateField: "check_in" | "check_out";
 }) {
-  const dateStr = format(parseISO(row[dateField]), "EEE d MMM", { locale: es });
+  const t = await getTranslations("dashboard");
+  const locale = await getLocale();
+  const dateStr = formatDayShortDate(parseISO(row[dateField]), locale);
   const timeStr =
     dateField === "check_in" ? row.check_in_time : row.check_out_time;
-  const groupStr = formatGuestGroup(row);
+  const groupStr = await formatGuestGroup(row);
   return (
     <div className="flex items-start gap-3">
       {row.guest_photo_url ? (
         /* eslint-disable-next-line @next/next/no-img-element */
         <img
           src={row.guest_photo_url}
-          alt={row.guest_name ?? "Huésped"}
+          alt={row.guest_name ?? t("guest")}
           className="h-12 w-12 shrink-0 rounded-full border object-cover"
           loading="lazy"
         />
@@ -513,10 +448,10 @@ function ReservationRow({
           {row.guest_identity_verified && (
             <span
               className="inline-flex items-center gap-1 text-xs text-muted-foreground"
-              title="Identity Verified por Airbnb"
+              title={t("verifiedTooltip")}
             >
               <BadgeCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500" />
-              verificado
+              {t("verifiedLabel")}
             </span>
           )}
           <Badge variant="secondary" className="text-xs">
@@ -547,32 +482,48 @@ function ReservationRow({
 }
 
 /**
- * Build the Spanish string for the guest group composition.
- * - adults=1, children=0, infants=0 → "1 adulto"
- * - adults=2, children=1, infants=0 → "2 adultos y 1 niño"
- * - adults=2, children=1, infants=1 → "2 adultos, 1 niño y 1 bebé"
- * Falls back to "N huésped(es)" when only `guest_count` is set.
+ * Build the guest group composition string in the active locale.
+ * - adults=1 → "1 adulto" / "1 adult"
+ * - adults=2, children=1 → "2 adultos y 1 niño" / "2 adults and 1 child"
+ * Falls back to "N huésped(es)" / "N guest(s)" when only `guest_count`
+ * is set.
  */
-function formatGuestGroup(r: ReservationWithProperty): string | null {
+async function formatGuestGroup(
+  r: ReservationWithProperty,
+): Promise<string | null> {
+  const t = await getTranslations("guests");
   const parts: string[] = [];
   if (r.guest_adults && r.guest_adults > 0) {
-    parts.push(`${r.guest_adults} ${r.guest_adults === 1 ? "adulto" : "adultos"}`);
+    parts.push(
+      r.guest_adults === 1
+        ? t("adultsOne", { n: 1 })
+        : t("adultsOther", { n: r.guest_adults }),
+    );
   }
   if (r.guest_children && r.guest_children > 0) {
     parts.push(
-      `${r.guest_children} ${r.guest_children === 1 ? "niño" : "niños"}`,
+      r.guest_children === 1
+        ? t("childrenOne", { n: 1 })
+        : t("childrenOther", { n: r.guest_children }),
     );
   }
   if (r.guest_infants && r.guest_infants > 0) {
-    parts.push(`${r.guest_infants} ${r.guest_infants === 1 ? "bebé" : "bebés"}`);
+    parts.push(
+      r.guest_infants === 1
+        ? t("infantsOne", { n: 1 })
+        : t("infantsOther", { n: r.guest_infants }),
+    );
   }
   if (parts.length > 0) {
     if (parts.length === 1) return parts[0];
-    if (parts.length === 2) return `${parts[0]} y ${parts[1]}`;
-    return `${parts.slice(0, -1).join(", ")} y ${parts[parts.length - 1]}`;
+    const and = t("and");
+    if (parts.length === 2) return `${parts[0]} ${and} ${parts[1]}`;
+    return `${parts.slice(0, -1).join(", ")} ${and} ${parts[parts.length - 1]}`;
   }
   if (r.guest_count && r.guest_count > 0) {
-    return `${r.guest_count} ${r.guest_count === 1 ? "huésped" : "huéspedes"}`;
+    return r.guest_count === 1
+      ? t("guestsOne", { n: 1 })
+      : t("guestsOther", { n: r.guest_count });
   }
   return null;
 }
