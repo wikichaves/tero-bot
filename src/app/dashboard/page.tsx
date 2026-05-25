@@ -11,6 +11,8 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
+import { maybeSnapshotIfStale } from "@/lib/tuya/snapshots";
+import { maybeSnapshotSensorsIfStale } from "@/lib/sensors/snapshots";
 import {
   formatDayShortDate,
   formatLongDate,
@@ -66,6 +68,20 @@ export default async function DashboardPage() {
   const allowedIds = await getAllowedPropertyIds(profile);
   const t = await getTranslations("dashboard");
   const locale = await getLocale();
+
+  // WIK-161: snapshot opportunistically si la última captura tiene
+  // >60min. Históricamente esto solo corría en /energy y /rooms, pero
+  // Vercel Hobby plan limita el total de cron invocations diarios
+  // (~2/día) — con 7 crons declarados, el hourly de energy/sensores
+  // termina firing una vez al día. Resultado: gaps de horas en los
+  // charts. Añadir el trigger al dashboard (la página que admin/gestor
+  // abren varias veces por día) eleva la frecuencia efectiva de
+  // snapshots y reduce los gaps visibles. Best-effort, fire-and-
+  // forget — errors no rompen el render.
+  await Promise.all([
+    maybeSnapshotIfStale(60).catch(() => null),
+    maybeSnapshotSensorsIfStale(60).catch(() => null),
+  ]);
 
   const supabase = await createClient();
   const today = new Date();

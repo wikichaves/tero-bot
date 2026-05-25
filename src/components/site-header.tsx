@@ -126,20 +126,26 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
           // WIK-109: leaf "Tareas" para admin y gestor también
           // (mantenimiento ya lo tiene en `staffLeaves`). Badge =
           // tareas asignadas a mí — admin con 0 asignadas no ve badge.
+          //
+          // WIK-162: orden actualizado a Tasks → Rooms → Energy →
+          // Bills. Refleja la frecuencia de uso diaria: las tareas son
+          // first-touch, los rooms (sensores T/H) se chequean varias
+          // veces por día con sus alarmas, energy y bills son
+          // overview semanal/mensual.
           {
             href: "/tasks",
             label: t("tasks"),
             badge: myOpen,
             urgent: myOverdue > 0,
           },
-          { href: "/bills", label: t("bills") },
-          { href: "/energy", label: t("energy") },
           {
             href: "/rooms",
             label: t("rooms"),
             badge: alarmsActive,
             urgent: alarmsActive > 0,
           },
+          { href: "/energy", label: t("energy") },
+          { href: "/bills", label: t("bills") },
           // WIK-108: WhatsApp se movió al submenú Configuración (definido
           // abajo) — antes vivía como leaf operacional para admin.
         ]
