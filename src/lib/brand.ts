@@ -53,8 +53,7 @@ export const APP_URL = (
 /**
  * Just the host portion of `APP_URL` (no scheme). Used internally —
  * console logs, dev tools, anywhere the runtime origin is what matters.
- * E.g. "admin.casabosquemontoya.com" en una deploy actual, "tero.bot"
- * cuando la migración WIK-130 esté completa, "localhost:3000" en dev.
+ * E.g. "tero.bot" en producción, "localhost:3000" en dev.
  */
 export const APP_HOST = APP_URL.replace(/^https?:\/\//, "");
 

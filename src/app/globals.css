@@ -69,7 +69,7 @@
 }
 
 :root {
-  /* WIK-135: bg + card warm-cream para alinear con casabosquemontoya.com.
+  /* WIK-135: bg + card warm-cream — paleta editorial del theme.
      `--background` antes era 253,253,253 (frío), ahora un tint mínimo de
      paper. Card va levemente más claro para que las cards "leviten"
      sobre el bg en vez de fundirse. */
@@ -205,11 +205,11 @@
   }
 
   /* WIK-128 / WIK-131 / WIK-135: page heading rhythm. Headings use the
-     serif (`font-heading` resolves a Instrument Serif — same fuente que
-     casabosquemontoya.com). Instrument Serif sólo tiene weight 400, así
+     serif (`font-heading` resolves a Instrument Serif — editorial feel,
+     magazine-like). Instrument Serif sólo tiene weight 400, así
      que eliminé `font-semibold` y bajé el line-height para que las h1
-     "respiren" estilo magazine. Negative letter-spacing leve para que
-     los headings grandes se compacten.
+     "respiren". Negative letter-spacing leve para que los headings
+     grandes se compacten.
 
      WIK-165: Instrument Serif tiene x-height más bajo que Geist/Inter,
      entonces al mismo tamaño nominal se ve más chico. Subimos cada

@@ -13,10 +13,10 @@ import "./globals.css";
  * Fonts del theme "tero.bot":
  *   - Geist Sans → sans (body / UI). WIK-128.
  *   - Instrument Serif → serif (used as `--font-heading` for all h1..h3
- *     and `<em>` inside headings — same family que casabosquemontoya.com
- *     para alinear el sistema visual. WIK-135 (era Source Serif 4
- *     desde WIK-131). Sólo weight 400 disponible — los headings ya no
- *     llevan `font-semibold`, los styles base se setean en globals.css.
+ *     and `<em>` inside headings — editorial feel, magazine-like.
+ *     WIK-135 (era Source Serif 4 desde WIK-131). Sólo weight 400
+ *     disponible — los headings ya no llevan `font-semibold`, los
+ *     styles base se setean en globals.css.
  *   - Geist Mono → mono (code, IDs, editorial labels). WIK-128.
  */
 const geistSans = Geist({
@@ -68,7 +68,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: [
     // WIK-135: BG warm-paper (era #fdfdfd) y warm-near-black (era #000)
-    // para alinear con la paleta de casabosquemontoya.com.
+    // para alinear con la paleta editorial del theme.
     { media: "(prefers-color-scheme: light)", color: "#fcfaf5" },
     { media: "(prefers-color-scheme: dark)", color: "#0d0c0a" },
   ],
