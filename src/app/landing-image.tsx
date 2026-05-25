@@ -93,7 +93,15 @@ export function LandingImage({
         // viewport disponible. Ahora `!max-w-[96vw]` en todos los
         // breakpoints + altura aumentada a 90vh dan el feel "real
         // lightbox" en cualquier display.
-        className="!w-auto !max-w-[96vw] gap-2 border-border/40 bg-popover/95 p-2 sm:p-3"
+        //
+        // WIK-160 v2: removido `!w-auto` que rompía el sizing — el
+        // primitive base tiene `w-full` (=100% del viewport en
+        // position:fixed). Con `w-auto` el dialog hacía shrink-to-fit
+        // y se quedaba a ~735px aún con monitor de 1470 (max-w sí
+        // aplicaba a 1411 pero el ancho real nunca llegaba ahí porque
+        // el contenido auto-sized antes). Con `w-full` + `!max-w-[96vw]`
+        // el ancho final es min(100vw, 96vw) = 96vw siempre.
+        className="!max-w-[96vw] gap-2 border-border/40 bg-popover/95 p-2 sm:p-3"
       >
         <picture>
           <source srcSet={`${photoBase}.avif`} type="image/avif" />
