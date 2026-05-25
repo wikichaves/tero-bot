@@ -209,23 +209,32 @@
      casabosquemontoya.com). Instrument Serif sólo tiene weight 400, así
      que eliminé `font-semibold` y bajé el line-height para que las h1
      "respiren" estilo magazine. Negative letter-spacing leve para que
-     los headings grandes se compacten. */
+     los headings grandes se compacten.
+
+     WIK-165: Instrument Serif tiene x-height más bajo que Geist/Inter,
+     entonces al mismo tamaño nominal se ve más chico. Subimos cada
+     heading un step para compensar (h1 3xl→4xl, h2 2xl→3xl, h3 xl→2xl).
+     `font-size-adjust: 0.47` además normaliza el x-height vs el sans
+     que aparece al lado, ayudando con la consistencia óptica. */
   h1 {
-    @apply font-heading text-3xl;
+    @apply font-heading text-4xl;
     font-weight: 400;
     line-height: 1.05;
     letter-spacing: -0.01em;
+    font-size-adjust: 0.47;
   }
   h2 {
-    @apply font-heading text-2xl;
+    @apply font-heading text-3xl;
     font-weight: 400;
     line-height: 1.15;
     letter-spacing: -0.01em;
+    font-size-adjust: 0.47;
   }
   h3 {
-    @apply font-heading text-xl;
+    @apply font-heading text-2xl;
     font-weight: 400;
     line-height: 1.25;
+    font-size-adjust: 0.47;
   }
 
   /* WIK-135: `<em>` dentro de un heading pinta italic + accent color

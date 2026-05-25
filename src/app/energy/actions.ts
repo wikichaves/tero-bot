@@ -9,9 +9,13 @@ import { backfillAllDevices } from "@/lib/tuya/backfill";
  * Triggers the snapshot routine on demand from the UI. Same logic as the
  * hourly cron — useful to populate data immediately after assigning a
  * device or to verify everything is wired correctly.
+ *
+ * WIK-167: restringido a admin. Antes admin+gestor, pero el button que
+ * dispara esta action ahora solo se renderiza para admin, y un gestor
+ * disparando snapshots arbitrarios no es algo que necesitemos habilitar.
  */
 export async function snapshotNow() {
-  await requireRole(["admin", "gestor"]);
+  await requireRole(["admin"]);
   try {
     const result = await snapshotAllDevices();
     revalidatePath("/energy");

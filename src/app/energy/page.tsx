@@ -129,6 +129,13 @@ export default async function EnergyPage({
   // Best-effort, fire-and-forget — errors don't block rendering.
   await maybeSnapshotIfStale(60).catch(() => null);
 
+  // WIK-94/166/167: profile + allowedIds antes que la fetch de Tuya
+  // para que el Header pueda condicionar buttons admin y el filter
+  // de devices use el scope correcto.
+  const profile = await requireProfile();
+  const allowedIds = await getAllowedPropertyIds(profile);
+  const isAdmin = profile.role === "admin";
+
   const [flatRes, groupedRes] = await Promise.all([
     listAllDevices().catch((err: Error) => ({ error: err.message })),
     listDevicesGroupedByHome().catch((err: Error) => ({ error: err.message })),
@@ -137,7 +144,7 @@ export default async function EnergyPage({
   if ("error" in flatRes) {
     return (
       <div className="flex flex-col gap-6">
-        <Header range={range} />
+        <Header range={range} isAdmin={isAdmin} />
         <Card>
           <CardContent className="pt-6 text-sm text-destructive">
             {t("tuyaError", { error: flatRes.error })}
@@ -156,11 +163,10 @@ export default async function EnergyPage({
     }
   }
 
-  const energyDevices = flatRes.devices.filter(isEnergyDevice);
-
-  // WIK-94: scope por property — gestor solo ve sus properties.
-  const profile = await requireProfile();
-  const allowedIds = await getAllowedPropertyIds(profile);
+  const allEnergyDevices = flatRes.devices.filter(isEnergyDevice);
+  // profile + allowedIds ya están arriba (movidos antes de la fetch de
+  // Tuya para que el Header pueda renderizar buttons admin aún en el
+  // path de error).
 
   const supabase = await createClient();
   let propsQuery = supabase
@@ -185,6 +191,24 @@ export default async function EnergyPage({
   ]);
   const properties = (propertiesRes.data ?? []) as PropertySummary[];
   const propertyById = new Map(properties.map((p) => [p.id, p]));
+
+  // WIK-166: filtrar devices al scope del user. Tuya retorna todos los
+  // devices del cloud account, pero un gestor con solo 1 property
+  // asignada no debe ver devices de las otras. Filter rules:
+  //   - device sin assignment en `property_devices` → admin lo ve (es
+  //     útil para asignarlo), gestor no lo ve.
+  //   - device assigned to una property fuera de `allowedIds` → nadie
+  //     lo ve (solo admin con allowedIds=null).
+  const energyDevices =
+    allowedIds === null
+      ? allEnergyDevices
+      : allEnergyDevices.filter((d) => {
+          const assignment = deviceMap.get(d.id);
+          return (
+            assignment?.property_id != null &&
+            allowedIds.includes(assignment.property_id)
+          );
+        });
 
   // Enriquecemos con effective_period_from/to igual que /bills, para que
   // facturas sin período explícito puedan compararse usando el período
@@ -366,7 +390,7 @@ export default async function EnergyPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <Header range={range} />
+      <Header range={range} isAdmin={isAdmin} />
 
       {devicesWithContext.length === 0 ? (
         <Card>
@@ -404,7 +428,13 @@ export default async function EnergyPage({
   );
 }
 
-async function Header({ range }: { range: RangeKey }) {
+async function Header({
+  range,
+  isAdmin,
+}: {
+  range: RangeKey;
+  isAdmin: boolean;
+}) {
   const t = await getTranslations("energyPage");
   return (
     <div className="flex flex-col gap-3">
@@ -422,10 +452,16 @@ async function Header({ range }: { range: RangeKey }) {
             {t("subtitlePost")}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <SnapshotButton />
-          <BackfillButton />
-        </div>
+        {/* WIK-167: estos buttons solo le sirven a admin. El snapshot
+            ahora es manual override del cron (Backfill) o un debug
+            tool — un gestor no debería poder disparar requests a Tuya
+            ni pisar la tabla con backfills. */}
+        {isAdmin && (
+          <div className="flex flex-wrap items-center gap-2">
+            <SnapshotButton />
+            <BackfillButton />
+          </div>
+        )}
       </div>
       <div className="flex flex-wrap gap-2">
         {(Object.keys(RANGES) as RangeKey[]).map((r) => (
