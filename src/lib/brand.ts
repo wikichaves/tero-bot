@@ -51,11 +51,25 @@ export const APP_URL = (
 ).replace(/\/$/, "");
 
 /**
- * Just the host portion of `APP_URL` (no scheme). Used in WhatsApp
- * deeplinks where we want short `tero.bot/tasks/<id>` instead of the
- * full URL. E.g. "tero.bot".
+ * Just the host portion of `APP_URL` (no scheme). Used internally —
+ * console logs, dev tools, anywhere the runtime origin is what matters.
+ * E.g. "admin.casabosquemontoya.com" en una deploy actual, "tero.bot"
+ * cuando la migración WIK-130 esté completa, "localhost:3000" en dev.
  */
 export const APP_HOST = APP_URL.replace(/^https?:\/\//, "");
+
+/**
+ * Host de marca, usado en strings user-facing que viajan a sistemas
+ * externos donde el rebrand tiene que verse independientemente del
+ * dominio actual de la app — específicamente WhatsApp templates
+ * aprobados por Meta (WIK-157), email footers, daily reports.
+ *
+ * Hardcoded a `tero.bot` deliberadamente: el contenido aprobado por
+ * Meta no puede depender del runtime env var (si cambia, hay que
+ * re-submit + esperar re-approval). Cuando el dominio final cambie,
+ * actualizá acá + re-submitir templates.
+ */
+export const BRAND_HOST = "tero.bot";
 
 /**
  * Subdomain configured to receive Postmark Inbound MX (Airbnb forwards,

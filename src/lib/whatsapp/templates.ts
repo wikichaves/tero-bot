@@ -1,4 +1,11 @@
-import { APP_NAME, APP_HOST, brandedFooter } from "@/lib/brand";
+// WIK-157: las URLs user-facing dentro de plantillas Meta usan
+// BRAND_HOST (hardcoded "tero.bot") en vez de APP_HOST (deriv del
+// env var del runtime). El contenido aprobado por Meta no debe
+// depender del dominio donde corre la app — si cambiamos APP_HOST
+// (preview deploys, migración, etc.) los templates aprobados quedan
+// consistentes con la marca. Cambiar BRAND_HOST en `brand.ts`
+// requiere re-submitir todos los templates y esperar re-approval.
+import { APP_NAME, BRAND_HOST, brandedFooter } from "@/lib/brand";
 
 /**
  * WhatsApp template definitions for Meta Business approval.
@@ -243,7 +250,7 @@ export const sensorAlarmFired: WhatsAppTemplate = {
   components: [
     {
       type: "BODY",
-      text: `Alerta de sensor en ${APP_NAME}: la métrica {{1}} en {{3}} cruzó el umbral configurado.\n\nLectura actual: {{2}}\nUmbral establecido: {{4}}\n\nSi corresponde, verificá las condiciones del ambiente (ventilación, temperatura, batería del sensor). Podés ver el histórico completo en ${APP_HOST}/rooms.`,
+      text: `Alerta de sensor en ${APP_NAME}: la métrica {{1}} en {{3}} cruzó el umbral configurado.\n\nLectura actual: {{2}}\nUmbral establecido: {{4}}\n\nSi corresponde, verificá las condiciones del ambiente (ventilación, temperatura, batería del sensor). Podés ver el histórico completo en ${BRAND_HOST}/rooms.`,
       example: {
         body_text: [["humedad", "81%", "Living · Casa A", "> 80%"]],
       },
@@ -267,7 +274,7 @@ export const taskReminder: WhatsAppTemplate = {
   components: [
     {
       type: "BODY",
-      text: `🔔 Recordatorio de tarea\n\n*{{1}}*\nPropiedad: {{2}}\nVence: {{3}}\n\nVer detalles en ${APP_HOST}/tasks`,
+      text: `🔔 Recordatorio de tarea\n\n*{{1}}*\nPropiedad: {{2}}\nVence: {{3}}\n\nVer detalles en ${BRAND_HOST}/tasks`,
       example: {
         body_text: [
           ["Limpieza salida huésped", APP_NAME, "en 2 horas"],
@@ -292,7 +299,7 @@ export const reservationCheckinReminder: WhatsAppTemplate = {
   components: [
     {
       type: "BODY",
-      text: `🔔 Próximo check-in\n\nHuésped: *{{1}}*\nPropiedad: {{2}}\nCheck-in: {{3}}\n\nVer detalles en ${APP_HOST}/dashboard`,
+      text: `🔔 Próximo check-in\n\nHuésped: *{{1}}*\nPropiedad: {{2}}\nCheck-in: {{3}}\n\nVer detalles en ${BRAND_HOST}/dashboard`,
       example: {
         body_text: [
           ["Juana Pérez", APP_NAME, "en 2 horas"],
@@ -369,7 +376,7 @@ export const preCheckinClimateUpdate: WhatsAppTemplate = {
         "Temperatura actual: *{{2}}*\n\n" +
         "Estado: {{3}}\n" +
         "Tiempo hasta el check-in: {{4}}\n\n" +
-        `Si querés ajustar manualmente las estufas o el aire, podés hacerlo en Smart Life. El histórico completo está en ${APP_HOST}/dashboard.`,
+        `Si querés ajustar manualmente las estufas o el aire, podés hacerlo en Smart Life. El histórico completo está en ${BRAND_HOST}/dashboard.`,
       example: {
         body_text: [
           [
@@ -467,7 +474,7 @@ export const sensorAlarmFiredEn: WhatsAppTemplate = {
   components: [
     {
       type: "BODY",
-      text: `Sensor alert at ${APP_NAME}: the {{1}} metric in {{3}} crossed the configured threshold.\n\nCurrent reading: {{2}}\nThreshold: {{4}}\n\nIf needed, check the room conditions (ventilation, temperature, sensor battery). The full history is available at ${APP_HOST}/rooms.`,
+      text: `Sensor alert at ${APP_NAME}: the {{1}} metric in {{3}} crossed the configured threshold.\n\nCurrent reading: {{2}}\nThreshold: {{4}}\n\nIf needed, check the room conditions (ventilation, temperature, sensor battery). The full history is available at ${BRAND_HOST}/rooms.`,
       example: {
         body_text: [["humidity", "81%", "Living · House A", "> 80%"]],
       },
@@ -485,7 +492,7 @@ export const taskReminderEn: WhatsAppTemplate = {
   components: [
     {
       type: "BODY",
-      text: `🔔 Task reminder\n\n*{{1}}*\nProperty: {{2}}\nDue: {{3}}\n\nSee details at ${APP_HOST}/tasks`,
+      text: `🔔 Task reminder\n\n*{{1}}*\nProperty: {{2}}\nDue: {{3}}\n\nSee details at ${BRAND_HOST}/tasks`,
       example: {
         body_text: [["Guest check-out cleaning", APP_NAME, "in 2 hours"]],
       },
@@ -503,7 +510,7 @@ export const reservationCheckinReminderEn: WhatsAppTemplate = {
   components: [
     {
       type: "BODY",
-      text: `🔔 Upcoming check-in\n\nGuest: *{{1}}*\nProperty: {{2}}\nCheck-in: {{3}}\n\nSee details at ${APP_HOST}/dashboard`,
+      text: `🔔 Upcoming check-in\n\nGuest: *{{1}}*\nProperty: {{2}}\nCheck-in: {{3}}\n\nSee details at ${BRAND_HOST}/dashboard`,
       example: {
         body_text: [["Jane Smith", APP_NAME, "in 2 hours"]],
       },
@@ -556,7 +563,7 @@ export const preCheckinClimateUpdateEn: WhatsAppTemplate = {
         "Current temperature: *{{2}}*\n\n" +
         "Status: {{3}}\n" +
         "Time until check-in: {{4}}\n\n" +
-        `If you want to adjust the heaters or AC manually, you can do so in Smart Life. The full history is at ${APP_HOST}/dashboard.`,
+        `If you want to adjust the heaters or AC manually, you can do so in Smart Life. The full history is at ${BRAND_HOST}/dashboard.`,
       example: {
         body_text: [
           [APP_NAME, "19°C", "Going well, started at 14°C", "1 hour"],

@@ -101,7 +101,10 @@ export default async function LandingPage() {
             {/* WIK-149: la instancia es privada (solo el operador entra),
                 así que el CTA principal no apunta a /login — lleva al case
                 study externo, que es la acción productiva para visitantes.
-                El login sigue accesible desde el header sticky. */}
+                El login sigue accesible desde el header sticky.
+                WIK-159: removido el botón secundario "View code" — el link
+                a GitHub vive en la sección "source" más abajo, que es su
+                ubicación natural (junto al texto que habla del repo). */}
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Button
                 size="lg"
@@ -114,19 +117,6 @@ export default async function LandingPage() {
                 }
               >
                 {t("hero.ctaCaseStudy")} <ArrowRight />
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                render={
-                  <a
-                    href="https://github.com/wikichaves/tero-bot"
-                    target="_blank"
-                    rel="noopener"
-                  />
-                }
-              >
-                {t("hero.ctaCode")}
               </Button>
             </div>
           </div>
@@ -355,9 +345,14 @@ function ModuleCard({
           </div>
           <div>
             <dt className="label-mono">{labels.philosophy}</dt>
-            <dd className="mt-1 leading-relaxed text-muted-foreground">
-              {philosophy}
-            </dd>
+            {/* WIK-158: el body de la philosophy row antes usaba
+                text-muted-foreground, lo que hacía que el texto se
+                viera notablemente más light que el de challenge/module.
+                Por consistencia entre las 3 rows de la card, ahora
+                comparten el color del foreground. El "label" del row
+                (label-mono) ya provee la jerarquía visual — el
+                contenido va igual de contrastado en las 3. */}
+            <dd className="mt-1 leading-relaxed">{philosophy}</dd>
           </div>
         </dl>
       </div>
