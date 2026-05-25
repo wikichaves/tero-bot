@@ -1,8 +1,8 @@
 "use client";
 
 import { useTransition } from "react";
-import { format, parseISO } from "date-fns";
-import { es } from "date-fns/locale";
+import { parseISO } from "date-fns";
+import { useLocale, useTranslations } from "next-intl";
 import { CheckCircle2, PlayCircle, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,21 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Task } from "@/lib/types";
 import { extractPhotos } from "@/lib/tasks/format";
+import { formatDayShortDate } from "@/lib/i18n/date";
 import { markOwnTaskStatus } from "./actions";
 
-const KIND_LABEL: Record<Task["kind"], string> = {
-  limpieza: "Limpieza",
-  mantenimiento: "Mantenimiento",
-  insumos: "Insumos",
-  otro: "Otro",
-};
-
-const STATUS_LABEL: Record<Task["status"], string> = {
-  pending: "Pendiente",
-  in_progress: "En curso",
-  done: "Hecha",
-};
-
+// WIK-163: status badge variant queda en mapping (no es texto traducible
+// — controla el color). Los labels de status/kind se resuelven via t()
+// abajo.
 const STATUS_BADGE: Record<Task["status"], "default" | "secondary" | "outline"> = {
   pending: "secondary",
   in_progress: "default",
@@ -37,6 +28,15 @@ type MyTask = Task & {
 
 export function MyTaskCard({ task }: { task: MyTask }) {
   const [pending, startTransition] = useTransition();
+  // WIK-163/164: traducciones de labels (kind/status) y de los botones
+  // (start/markDone/reopen). El "Vencida"/"Vence" del due-line también
+  // se traduce, y la fecha se formatea con formatTaskDueDate del helper
+  // i18n que acepta el locale activo.
+  const tKind = useTranslations("tasks.kind");
+  const tStatus = useTranslations("tasks.status");
+  const tActions = useTranslations("tasks.actions");
+  const tOverdue = useTranslations("tasks");
+  const locale = useLocale();
   const todayIso = new Date().toISOString().slice(0, 10);
   const isOverdue =
     task.status !== "done" && !!task.due_date && task.due_date < todayIso;
@@ -44,11 +44,11 @@ export function MyTaskCard({ task }: { task: MyTask }) {
     task.description,
   );
 
-  function setStatus(status: Task["status"], successMsg: string) {
+  function setStatus(status: Task["status"]) {
     startTransition(async () => {
       const r = await markOwnTaskStatus({ id: task.id, status });
       if (r?.error) toast.error(r.error);
-      else toast.success(successMsg);
+      else toast.success("OK");
     });
   }
 
@@ -63,7 +63,7 @@ export function MyTaskCard({ task }: { task: MyTask }) {
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <span>{task.property?.name ?? "—"}</span>
               <span>·</span>
-              <Badge variant="outline">{KIND_LABEL[task.kind]}</Badge>
+              <Badge variant="outline">{tKind(task.kind)}</Badge>
               {task.due_date && (
                 <>
                   <span>·</span>
@@ -72,17 +72,17 @@ export function MyTaskCard({ task }: { task: MyTask }) {
                       isOverdue ? "text-destructive font-medium" : ""
                     }
                   >
-                    {isOverdue ? "Vencida " : "Vence "}
-                    {format(parseISO(task.due_date), "EEE d MMM", {
-                      locale: es,
-                    })}
+                    {isOverdue
+                      ? `${tOverdue("overdue")} `
+                      : ""}
+                    {formatDayShortDate(parseISO(task.due_date), locale)}
                   </span>
                 </>
               )}
             </div>
           </div>
           <Badge variant={STATUS_BADGE[task.status]}>
-            {STATUS_LABEL[task.status]}
+            {tStatus(task.status)}
           </Badge>
         </div>
 
@@ -118,39 +118,39 @@ export function MyTaskCard({ task }: { task: MyTask }) {
           {task.status === "pending" && (
             <>
               <Button
-                onClick={() => setStatus("in_progress", "Empezaste la tarea.")}
+                onClick={() => setStatus("in_progress")}
                 disabled={pending}
               >
                 <PlayCircle className="mr-2 h-4 w-4" />
-                Empezar
+                {tActions("start")}
               </Button>
               <Button
                 variant="outline"
-                onClick={() => setStatus("done", "¡Tarea hecha!")}
+                onClick={() => setStatus("done")}
                 disabled={pending}
               >
                 <CheckCircle2 className="mr-2 h-4 w-4" />
-                Marcar hecha
+                {tActions("markDone")}
               </Button>
             </>
           )}
           {task.status === "in_progress" && (
             <Button
-              onClick={() => setStatus("done", "¡Tarea hecha!")}
+              onClick={() => setStatus("done")}
               disabled={pending}
             >
               <CheckCircle2 className="mr-2 h-4 w-4" />
-              Marcar hecha
+              {tActions("markDone")}
             </Button>
           )}
           {task.status === "done" && (
             <Button
               variant="outline"
-              onClick={() => setStatus("pending", "Tarea reabierta.")}
+              onClick={() => setStatus("pending")}
               disabled={pending}
             >
               <RotateCcw className="mr-2 h-4 w-4" />
-              Reabrir
+              {tActions("reopen")}
             </Button>
           )}
         </div>

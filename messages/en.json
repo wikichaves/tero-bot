@@ -45,6 +45,54 @@
       "pending": "Pending",
       "in_progress": "In progress",
       "done": "Done"
+    },
+    "actions": {
+      "edit": "Edit",
+      "delete": "Delete",
+      "markDone": "Mark done",
+      "reopen": "Reopen",
+      "start": "Start",
+      "confirmDelete": "Delete this task?"
+    },
+    "overdue": "Overdue",
+    "form": {
+      "newTitle": "New task",
+      "editTitle": "Edit task",
+      "save": "Save",
+      "saving": "Saving…",
+      "alarmWhatsapp": "Send WhatsApp alarm before due"
+    }
+  },
+  "myTasksPage": {
+    "report": "Report task",
+    "form": {
+      "title": "Report task",
+      "labelTitle": "Title",
+      "labelProperty": "Property",
+      "labelKind": "Kind",
+      "submit": "Create task",
+      "submitting": "Saving…"
+    }
+  },
+  "reservations": {
+    "actions": {
+      "edit": "Edit",
+      "viewOrRegenerateCode": "View / regenerate code",
+      "generateCode": "Generate access code",
+      "sendWhatsapp": "Send WhatsApp"
+    },
+    "form": {
+      "editTitle": "Edit reservation",
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "status": {
+      "cancelled": "Cancelled"
+    },
+    "sources": {
+      "airbnb": "Airbnb",
+      "booking": "Booking",
+      "manual": "Manual"
     }
   },
   "dashboard": {

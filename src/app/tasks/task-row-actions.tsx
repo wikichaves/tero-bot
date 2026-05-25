@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { MoreHorizontal } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,21 +36,24 @@ export function TaskRowActions({
 }) {
   const [pending, startTransition] = useTransition();
   const [editOpen, setEditOpen] = useState(false);
+  // WIK-164: textos del menú via next-intl. `tasks.actions.*` para
+  // las acciones; el confirm() reusa la misma key.
+  const tActions = useTranslations("tasks.actions");
 
   function setStatus(status: Task["status"]) {
     startTransition(async () => {
       const r = await setTaskStatus({ id: task.id, status });
       if (r?.error) toast.error(r.error);
-      else toast.success("Estado actualizado.");
+      else toast.success("OK");
     });
   }
 
   function remove() {
-    if (!confirm(`¿Eliminar la tarea "${task.title}"?`)) return;
+    if (!confirm(tActions("confirmDelete"))) return;
     startTransition(async () => {
       const r = await deleteTask(task.id);
       if (r?.error) toast.error(r.error);
-      else toast.success("Tarea eliminada.");
+      else toast.success("OK");
     });
   }
 
@@ -63,19 +67,19 @@ export function TaskRowActions({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => setEditOpen(true)}>
-            Editar
+            {tActions("edit")}
           </DropdownMenuItem>
           {/* WIK-104: simplificación a 2 estados visibles (pendiente /
               hecha). "Marcar en curso" eliminado del menu — el dato
               sigue en DB para tareas legacy pero el user no lo elige. */}
           {task.status !== "done" && (
             <DropdownMenuItem onClick={() => setStatus("done")}>
-              Marcar hecha
+              {tActions("markDone")}
             </DropdownMenuItem>
           )}
           {task.status === "done" && (
             <DropdownMenuItem onClick={() => setStatus("pending")}>
-              Reabrir
+              {tActions("reopen")}
             </DropdownMenuItem>
           )}
           {isAdmin && (
@@ -85,7 +89,7 @@ export function TaskRowActions({
                 onClick={remove}
                 className="text-destructive focus:text-destructive"
               >
-                Eliminar
+                {tActions("delete")}
               </DropdownMenuItem>
             </>
           )}

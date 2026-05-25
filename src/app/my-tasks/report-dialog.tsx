@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,9 +31,10 @@ export function ReportTaskDialog({
   properties: Pick<Property, "id" | "name">[];
 }) {
   const [open, setOpen] = useState(false);
+  const t = useTranslations("myTasksPage");
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button />}>Reportar tarea</DialogTrigger>
+      <DialogTrigger render={<Button />}>{t("report")}</DialogTrigger>
       <DialogContent>
         <ReportForm
           properties={properties}
@@ -51,6 +53,7 @@ function ReportForm({
   onDone: () => void;
 }) {
   const [pending, startTransition] = useTransition();
+  const t = useTranslations("myTasksPage.form");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [kind, setKind] = useState<Task["kind"]>("mantenimiento");
@@ -85,7 +88,7 @@ function ReportForm({
   return (
     <form onSubmit={onSubmit}>
       <DialogHeader>
-        <DialogTitle>Reportar tarea</DialogTitle>
+        <DialogTitle>{t("title")}</DialogTitle>
         <DialogDescription>
           La tarea queda asignada a vos. Si querés reasignarla a otro,
           editala desde la lista global de tareas.
@@ -93,7 +96,7 @@ function ReportForm({
       </DialogHeader>
       <div className="grid gap-4 py-4">
         <div className="grid gap-2">
-          <Label htmlFor="title">Título</Label>
+          <Label htmlFor="title">{t("labelTitle")}</Label>
           <Input
             id="title"
             value={title}
@@ -105,7 +108,7 @@ function ReportForm({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="grid gap-2">
-            <Label htmlFor="property_id">Propiedad</Label>
+            <Label htmlFor="property_id">{t("labelProperty")}</Label>
             <select
               id="property_id"
               value={propertyId}
@@ -122,7 +125,7 @@ function ReportForm({
             </select>
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="kind">Tipo</Label>
+            <Label htmlFor="kind">{t("labelKind")}</Label>
             <select
               id="kind"
               value={kind}
@@ -152,7 +155,7 @@ function ReportForm({
       </div>
       <DialogFooter>
         <Button type="submit" disabled={pending}>
-          {pending ? "Guardando…" : "Crear tarea"}
+          {pending ? t("submitting") : t("submit")}
         </Button>
       </DialogFooter>
     </form>

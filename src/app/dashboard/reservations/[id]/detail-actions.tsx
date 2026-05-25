@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { LockPassword, Reservation } from "@/lib/types";
@@ -24,6 +25,8 @@ export function ReservationDetailActions({
     initialAccessCode,
   );
   const [pending, startTransition] = useTransition();
+  // WIK-164: textos de los botones de actions en la reserva.
+  const tActions = useTranslations("reservations.actions");
 
   function onGenerateCode() {
     startTransition(async () => {
@@ -60,7 +63,7 @@ export function ReservationDetailActions({
   return (
     <>
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => setEditOpen(true)}>Editar</Button>
+        <Button onClick={() => setEditOpen(true)}>{tActions("edit")}</Button>
         <Button
           variant="outline"
           onClick={onGenerateCode}
@@ -71,18 +74,16 @@ export function ReservationDetailActions({
               : undefined
           }
         >
-          {pending
-            ? "Generando…"
-            : accessCode
-              ? "Ver / regenerar código"
-              : "Generar código de acceso"}
+          {accessCode
+            ? tActions("viewOrRegenerateCode")
+            : tActions("generateCode")}
         </Button>
         <Button
           variant="outline"
           disabled
           title="Disponible cuando los templates de Meta estén aprobados (WIK-28)"
         >
-          Enviar WhatsApp
+          {tActions("sendWhatsapp")}
         </Button>
         {/* WIK-125: override del cron de pre-checkin conditioning. */}
         <PreCheckinTriggerButton reservationId={reservation.id} />

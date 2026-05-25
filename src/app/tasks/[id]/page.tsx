@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
+import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import {
@@ -19,23 +20,13 @@ import { PhotoThumb } from "./photo-thumb";
 
 export const dynamic = "force-dynamic";
 
-const STATUS_LABEL: Record<Task["status"], string> = {
-  pending: "Pendiente",
-  in_progress: "En curso",
-  done: "Hecha",
-};
-
+// WIK-163: STATUS_LABEL y KIND_LABEL se removieron a favor de
+// getTranslations("tasks.{status,kind}") en el body. STATUS_BADGE queda
+// porque controla la *variante visual* (no es texto).
 const STATUS_BADGE: Record<Task["status"], "default" | "secondary" | "outline"> = {
   pending: "secondary",
   in_progress: "default",
   done: "outline",
-};
-
-const KIND_LABEL: Record<Task["kind"], string> = {
-  limpieza: "Limpieza",
-  mantenimiento: "Mantenimiento",
-  insumos: "Insumos",
-  otro: "Otro",
 };
 
 type TaskDetail = Task & {
@@ -52,6 +43,12 @@ export default async function TaskDetailPage({
   const profile = await requireRole(["admin", "gestor"]);
   const { id } = await params;
   const supabase = await createClient();
+  // WIK-163: labels via next-intl. Reusamos `tasks.status` + `tasks.kind`
+  // (definidos para esto desde WIK-151) y `tasks.overdue` para el badge
+  // de vencimiento.
+  const tStatus = await getTranslations("tasks.status");
+  const tKind = await getTranslations("tasks.kind");
+  const tCommon = await getTranslations("tasks");
 
   const [taskRes, propertiesRes, assigneesRes] = await Promise.all([
     supabase
@@ -105,12 +102,12 @@ export default async function TaskDetailPage({
 
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">{KIND_LABEL[task.kind]}</Badge>
+          <Badge variant="outline">{tKind(task.kind)}</Badge>
           <Badge variant={STATUS_BADGE[task.status]}>
-            {STATUS_LABEL[task.status]}
+            {tStatus(task.status)}
           </Badge>
           {isOverdue && (
-            <Badge variant="destructive">Vencida</Badge>
+            <Badge variant="destructive">{tCommon("overdue")}</Badge>
           )}
         </div>
         <h1 className="mt-2 text-2xl leading-tight">

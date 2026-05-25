@@ -68,7 +68,7 @@ export function EditReservationDialog({
       <DialogContent>
         <form onSubmit={onSubmit}>
           <DialogHeader>
-            <DialogTitle>Editar reserva</DialogTitle>
+            <DialogTitle>{t("reservations.form.editTitle")}</DialogTitle>
             <DialogDescription>
               {reservation.source === "airbnb" && "Reserva de Airbnb · "}
               {reservation.check_in} → {reservation.check_out}
@@ -261,7 +261,7 @@ export function EditReservationDialog({
           </div>
           <DialogFooter>
             <Button type="submit" disabled={pending}>
-              {pending ? "Guardando…" : "Guardar"}
+              {pending ? t("reservations.form.saving") : t("reservations.form.save")}
             </Button>
           </DialogFooter>
         </form>

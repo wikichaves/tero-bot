@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -48,9 +49,10 @@ export function NewTaskDialog({
   defaultPropertyId?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const tForm = useTranslations("tasks.form");
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button />}>Nueva tarea</DialogTrigger>
+      <DialogTrigger render={<Button />}>{tForm("newTitle")}</DialogTrigger>
       <DialogContent>
         <TaskForm
           properties={properties}
@@ -108,6 +110,10 @@ function TaskForm({
   onDone: () => void;
 }) {
   const [pending, startTransition] = useTransition();
+  // WIK-164: traducciones de los textos visibles del form. Los selects
+  // y placeholders los dejamos en español por ahora (lower visibility)
+  // y los podemos i18n-iar en un follow-up si el user lo pide.
+  const tForm = useTranslations("tasks.form");
   const [propertyId, setPropertyId] = useState(
     task?.property_id ?? defaultPropertyId ?? properties[0]?.id ?? "",
   );
@@ -174,7 +180,7 @@ function TaskForm({
   return (
     <form onSubmit={onSubmit}>
       <DialogHeader>
-        <DialogTitle>{task ? "Editar tarea" : "Nueva tarea"}</DialogTitle>
+        <DialogTitle>{task ? tForm("editTitle") : tForm("newTitle")}</DialogTitle>
         <DialogDescription>
           Asigná una tarea a un usuario del personal o dejala sin asignar
           para retomarla más tarde.
@@ -278,7 +284,7 @@ function TaskForm({
               className="h-4 w-4"
               disabled={!dueDate}
             />
-            Enviar alarma por WhatsApp antes del vencimiento
+            {tForm("alarmWhatsapp")}
           </label>
           {alarmEnabled && (
             <div className="flex items-center gap-2 pl-6 text-sm">
@@ -331,7 +337,7 @@ function TaskForm({
       </div>
       <DialogFooter>
         <Button type="submit" disabled={pending}>
-          {pending ? "Guardando…" : "Guardar"}
+          {pending ? tForm("saving") : tForm("save")}
         </Button>
       </DialogFooter>
     </form>

@@ -45,6 +45,54 @@
       "pending": "Pendiente",
       "in_progress": "En curso",
       "done": "Hecha"
+    },
+    "actions": {
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "markDone": "Marcar hecha",
+      "reopen": "Reabrir",
+      "start": "Empezar",
+      "confirmDelete": "¿Eliminar esta tarea?"
+    },
+    "overdue": "Vencida",
+    "form": {
+      "newTitle": "Nueva tarea",
+      "editTitle": "Editar tarea",
+      "save": "Guardar",
+      "saving": "Guardando…",
+      "alarmWhatsapp": "Enviar alarma por WhatsApp antes del vencimiento"
+    }
+  },
+  "myTasksPage": {
+    "report": "Reportar tarea",
+    "form": {
+      "title": "Reportar tarea",
+      "labelTitle": "Título",
+      "labelProperty": "Propiedad",
+      "labelKind": "Tipo",
+      "submit": "Crear tarea",
+      "submitting": "Guardando…"
+    }
+  },
+  "reservations": {
+    "actions": {
+      "edit": "Editar",
+      "viewOrRegenerateCode": "Ver / regenerar código",
+      "generateCode": "Generar código de acceso",
+      "sendWhatsapp": "Enviar WhatsApp"
+    },
+    "form": {
+      "editTitle": "Editar reserva",
+      "save": "Guardar",
+      "saving": "Guardando…"
+    },
+    "status": {
+      "cancelled": "Cancelada"
+    },
+    "sources": {
+      "airbnb": "Airbnb",
+      "booking": "Booking",
+      "manual": "Manual"
     }
   },
   "dashboard": {
