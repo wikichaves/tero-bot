@@ -3,10 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "tsx scripts/generate-landing-stats.ts",
     "dev": "next dev",
+    "prebuild": "tsx scripts/generate-landing-stats.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "stats:landing": "tsx scripts/generate-landing-stats.ts",
     "wa:templates:submit": "tsx scripts/whatsapp-templates-submit.ts",
     "wa:templates:submit:dry": "tsx scripts/whatsapp-templates-submit.ts --dry-run",
     "wa:templates:update": "tsx scripts/whatsapp-templates-submit.ts --update",
