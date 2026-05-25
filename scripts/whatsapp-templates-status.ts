@@ -83,8 +83,22 @@ function statusEmoji(s: string | undefined): string {
 async function main() {
   const apiKey = envOrFail("KAPSO_API_KEY");
   const wabaId = envOrFail("WHATSAPP_WABA_ID");
-  const remote = await fetchAll(apiKey, wabaId);
 
+  // WIK-124 paso 8: la decisión "mock vs real send" se hace en runtime
+  // por env vars en `src/lib/alarm-reminders/send.ts`. Logueamos acá la
+  // config actual para que el operador vea de un vistazo si los crons
+  // van a mandar de verdad o quedan en log-only.
+  const mockEnabled = process.env.MOCK_WHATSAPP_TEMPLATES === "true";
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const sendMode = mockEnabled
+    ? "🟡 MOCK (env MOCK_WHATSAPP_TEMPLATES=true)"
+    : phoneNumberId
+      ? "🟢 LIVE"
+      : "🟡 MOCK (falta WHATSAPP_PHONE_NUMBER_ID)";
+  console.log(`Send mode: ${sendMode}`);
+  console.log();
+
+  const remote = await fetchAll(apiKey, wabaId);
   console.log(`Templates registradas en WABA ${wabaId}: ${remote.length}`);
   console.log();
 
