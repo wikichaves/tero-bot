@@ -25,6 +25,11 @@ import { Badge } from "@/components/ui/badge";
  *   - 🟢 OK: avg gap reciente entre 45-75min
  *   - 🟡 Irregular: gap razonable pero algún hueco >3h
  *   - 🔴 Caído: último snapshot >4h o gap reciente >2h
+ *
+ * WIK-161 v2: agregado el "Resumen actual" card al top que cuenta cuántos
+ * devices fueron capturados en la última hora redondeada. Es el indicador
+ * más útil para ver si el cron horario está firing — si el number es
+ * total/total, todo OK.
  */
 
 export const dynamic = "force-dynamic";
@@ -283,6 +288,12 @@ export default async function DiagnosticoPage() {
         </p>
       </div>
 
+      {/* WIK-161 v2: card resumen al top — mira cuántos devices fueron
+          capturados en la HORA actual (rounded). Si el cron horario está
+          firing, debería ser total/total. Si dice 0/total entonces la
+          última hora no se ejecutó (cron caído o falló silenciosamente). */}
+      <HealthSummary sensors={sensors} energy={energy} />
+
       <Section title="Sensores T/H" devices={sensors} expectedGapMin={60} />
       <Section title="Llaves de energía" devices={energy} expectedGapMin={60} />
 
@@ -321,6 +332,119 @@ export default async function DiagnosticoPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/**
+ * Card resumen al top (WIK-161 v2). Cuenta cuántos devices fueron
+ * capturados en la HORA actual (rounded), separado por sensors / energy.
+ * Es el indicator más útil al entrar a la página: si todos los devices
+ * tienen captura esta hora, el cron está sano. Si no, alguno (o todo)
+ * falló — ir al detalle de abajo para ver cuál.
+ */
+function HealthSummary({
+  sensors,
+  energy,
+}: {
+  sensors: DeviceStat[];
+  energy: DeviceStat[];
+}) {
+  const now = Date.now();
+  const hourStart = new Date(now);
+  hourStart.setMinutes(0, 0, 0);
+  const hourStartMs = hourStart.getTime();
+
+  function summarize(devices: DeviceStat[]) {
+    let capturedThisHour = 0;
+    for (const d of devices) {
+      if (!d.last) continue;
+      const lastMs = new Date(d.last).getTime();
+      if (lastMs >= hourStartMs) capturedThisHour++;
+    }
+    return {
+      total: devices.length,
+      captured: capturedThisHour,
+      missing: devices.length - capturedThisHour,
+    };
+  }
+  const s = summarize(sensors);
+  const e = summarize(energy);
+
+  function status(captured: number, total: number) {
+    if (total === 0) return { label: "—", className: "text-muted-foreground" };
+    if (captured === total)
+      return {
+        label: "OK",
+        className: "text-emerald-600 dark:text-emerald-400",
+      };
+    if (captured === 0)
+      return {
+        label: "Caído",
+        className: "text-red-600 dark:text-red-400",
+      };
+    return {
+      label: "Parcial",
+      className: "text-amber-600 dark:text-amber-400",
+    };
+  }
+  const sStatus = status(s.captured, s.total);
+  const eStatus = status(e.captured, e.total);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Resumen hora actual</CardTitle>
+        <CardDescription>
+          Devices capturados desde las{" "}
+          {format(hourStart, "HH:mm", { locale: es })} (UTC local). Si el
+          cron horario funciona, debería ser total/total para ambas categorías.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-md border p-3">
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+            Sensores T/H
+          </p>
+          <div className="mt-1 flex items-baseline gap-2">
+            <p className="text-2xl tabular-nums">
+              {s.captured}
+              <span className="text-base text-muted-foreground">
+                /{s.total}
+              </span>
+            </p>
+            <span className={`text-sm font-medium ${sStatus.className}`}>
+              {sStatus.label}
+            </span>
+          </div>
+          {s.missing > 0 && s.total > 0 && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {s.missing} sin captura — ver detalle abajo
+            </p>
+          )}
+        </div>
+        <div className="rounded-md border p-3">
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+            Llaves de energía
+          </p>
+          <div className="mt-1 flex items-baseline gap-2">
+            <p className="text-2xl tabular-nums">
+              {e.captured}
+              <span className="text-base text-muted-foreground">
+                /{e.total}
+              </span>
+            </p>
+            <span className={`text-sm font-medium ${eStatus.className}`}>
+              {eStatus.label}
+            </span>
+          </div>
+          {e.missing > 0 && e.total > 0 && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {e.missing} sin captura — ver detalle abajo
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

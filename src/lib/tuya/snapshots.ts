@@ -1,6 +1,16 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { mapWithConcurrency, withRetry } from "@/lib/util/concurrent";
 import { getDeviceStatus, parseEnergyReading } from "./energy";
+
+/**
+ * WIK-161 v2: cap de concurrencia para llamadas Tuya. Antes hacíamos
+ * `Promise.all` sobre todos los devices → Tuya tiraba 429s en ráfaga
+ * cuando el account tenía ~10+ devices y los snapshots quedaban
+ * silenciosamente con gaps. 3 paralelos es conservador para no
+ * golpear Tuya rate limit (10 req/s en plan free).
+ */
+const TUYA_CONCURRENCY = 3;
 
 export type SnapshotResult = {
   property_device_id: string;
@@ -33,10 +43,14 @@ export async function snapshotAllDevices(): Promise<{
     throw new Error(`property_devices read failed: ${error.message}`);
   }
 
-  const results: SnapshotResult[] = await Promise.all(
-    (devices ?? []).map(async (d): Promise<SnapshotResult> => {
+  const results: SnapshotResult[] = await mapWithConcurrency(
+    devices ?? [],
+    async (d): Promise<SnapshotResult> => {
       try {
-        const status = await getDeviceStatus(d.tuya_device_id);
+        // WIK-161 v2: retry con backoff ante 429 / timeouts. El
+        // `shouldRetry` default solo reintenta esos casos —
+        // "function not supported" se propaga inmediato.
+        const status = await withRetry(() => getDeviceStatus(d.tuya_device_id));
         const reading = parseEnergyReading(status);
         // Skip if nothing useful — most devices won't be energy meters.
         if (
@@ -131,7 +145,8 @@ export async function snapshotAllDevices(): Promise<{
           reason: msg,
         };
       }
-    }),
+    },
+    TUYA_CONCURRENCY,
   );
 
   return { ranAt: new Date().toISOString(), results };

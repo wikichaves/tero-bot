@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { mapWithConcurrency, withRetry } from "@/lib/util/concurrent";
 import { getDeviceStatus } from "@/lib/tuya/energy";
 import { parseSensorReading, type SensorReading } from "@/lib/tuya/sensors";
 import {
@@ -8,6 +9,12 @@ import {
   type AlarmDeviceContext,
 } from "./alarms";
 import { notifyAlarmEvent } from "./notify";
+
+/**
+ * WIK-161 v2: cap de concurrencia para Tuya. Ver doc en
+ * `src/lib/tuya/snapshots.ts` — mismo razonamiento.
+ */
+const TUYA_CONCURRENCY = 3;
 
 /**
  * Snapshot horario de sensores T/H. Mirrorea el patrón de
@@ -107,10 +114,12 @@ export async function snapshotAllSensors(): Promise<{
   const rules = await loadEnabledRules(admin);
 
   const ranAt = new Date().toISOString();
-  const results: SensorSnapshotResult[] = await Promise.all(
-    (devices ?? []).map(async (d): Promise<SensorSnapshotResult> => {
+  const results: SensorSnapshotResult[] = await mapWithConcurrency(
+    devices ?? [],
+    async (d): Promise<SensorSnapshotResult> => {
       try {
-        const status = await getDeviceStatus(d.tuya_device_id);
+        // WIK-161 v2: retry con backoff ante 429 / network errors.
+        const status = await withRetry(() => getDeviceStatus(d.tuya_device_id));
         const reading = parseSensorReading(status);
         if (reading.temperature_c == null && reading.humidity_pct == null) {
           return {
@@ -166,7 +175,8 @@ export async function snapshotAllSensors(): Promise<{
           reason: (e as Error).message,
         };
       }
-    }),
+    },
+    TUYA_CONCURRENCY,
   );
 
   // Evaluación de alarmas — corre después del INSERT por cada device que
