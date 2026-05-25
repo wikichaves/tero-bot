@@ -88,20 +88,26 @@ async function main() {
   console.log(`Templates registradas en WABA ${wabaId}: ${remote.length}`);
   console.log();
 
-  // Index remote by name for quick lookup.
-  const byName = new Map<string, RemoteTemplate>();
-  for (const t of remote) if (t.name) byName.set(t.name, t);
+  // WIK-156: matchear por (name, language) — un mismo `name` puede
+  // existir en Meta dos veces (es + en) y son rows distintas con IDs
+  // distintos. El mapping viejo `byName` colapsaba las dos versiones
+  // y mostraba solo una.
+  const byKey = new Map<string, RemoteTemplate>();
+  for (const t of remote) {
+    if (t.name && t.language) byKey.set(`${t.name}::${t.language}`, t);
+  }
 
   console.log(
-    `${"name".padEnd(34)} ${"status".padEnd(12)} ${"id".padEnd(20)} reason`,
+    `${"name".padEnd(34)} ${"lang".padEnd(5)} ${"status".padEnd(12)} ${"id".padEnd(20)} reason`,
   );
-  console.log("─".repeat(90));
+  console.log("─".repeat(95));
 
   for (const local of allTemplates) {
-    const r = byName.get(local.name);
+    const key = `${local.name}::${local.language}`;
+    const r = byKey.get(key);
     if (!r) {
       console.log(
-        `${local.name.padEnd(34)} ${statusEmoji(undefined)} ${"NOT_SUBMITTED".padEnd(10)} ${"—".padEnd(20)} run submit script`,
+        `${local.name.padEnd(34)} ${(local.language ?? "").padEnd(5)} ${statusEmoji(undefined)} ${"NOT_SUBMITTED".padEnd(10)} ${"—".padEnd(20)} run submit script`,
       );
       continue;
     }
@@ -109,24 +115,32 @@ async function main() {
     const id = r.id ?? "—";
     const reason = r.rejected_reason ? ` ${r.rejected_reason}` : "";
     console.log(
-      `${local.name.padEnd(34)} ${statusEmoji(status)} ${status.padEnd(10)} ${id.padEnd(20)}${reason}`,
+      `${local.name.padEnd(34)} ${(local.language ?? "").padEnd(5)} ${statusEmoji(status)} ${status.padEnd(10)} ${id.padEnd(20)}${reason}`,
     );
   }
 
   // Flag any remote templates we don't have locally (probably submitted
-  // ad-hoc from the dashboard — worth knowing).
-  const localNames = new Set(allTemplates.map((t) => t.name));
-  const extras = remote.filter((r) => r.name && !localNames.has(r.name));
+  // ad-hoc from the dashboard — worth knowing). Matchear también por
+  // (name, language) para no flagear erróneamente la versión en de un
+  // template que sí tenemos pero solo en es.
+  const localKeys = new Set(
+    allTemplates.map((t) => `${t.name}::${t.language}`),
+  );
+  const extras = remote.filter(
+    (r) => r.name && r.language && !localKeys.has(`${r.name}::${r.language}`),
+  );
   if (extras.length > 0) {
     console.log();
-    console.log(`⚠ ${extras.length} template(s) en Meta NO presentes en código:`);
+    console.log(
+      `⚠ ${extras.length} template version(es) en Meta NO presentes en código:`,
+    );
     for (const e of extras) {
-      console.log(`  ${e.name} (${e.status})`);
+      console.log(`  ${e.name} (${e.language}) — ${e.status}`);
     }
   }
 
   const allApproved = allTemplates.every(
-    (t) => byName.get(t.name)?.status === "APPROVED",
+    (t) => byKey.get(`${t.name}::${t.language}`)?.status === "APPROVED",
   );
   console.log();
   console.log(
