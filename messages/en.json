@@ -193,9 +193,9 @@
   },
   "landing": {
     "hero": {
-      "titlePre": "A modular architecture that",
-      "titleEm": "orchestrates",
-      "titlePost": " a short-term rental complex.",
+      "titlePre": "A single, monolithic architecture",
+      "titleEm": "collapsing",
+      "titlePost": " operational complexity.",
       "intro": "Every business signal — IoT, invisible integrations, a WhatsApp bot — collapsed into a single interface. Thin, replaceable layers that keep the product surface small and operational entropy under control.",
       "atmosphereCaption": "The guest arrives and the house is already at 22°C — the climate was set hours before.",
       "atmosphereAlt": "A couple just arrived at a forest cabin, holding hot mugs by a lit stove; the thermostat shows 22°C."
