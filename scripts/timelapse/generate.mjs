@@ -252,6 +252,31 @@ async function main() {
       let browser = null;
       try {
         execGit(`checkout -f ${commit}`);
+
+        // WIK-198 v5: reinstall deps por commit. Sin esto, los commits
+        // viejos fallaban silenciosamente — el node_modules instalado
+        // matchea el HEAD actual (Next 16 + deps modernas), pero los
+        // commits previos pedían Next 14/15 o paquetes que no existían
+        // todavía. `npm install` actualiza node_modules al lockfile del
+        // commit actual. `--prefer-offline --no-audit --no-fund` lo
+        // baja a ~10-20s usando el cache de npm (que el setup-node
+        // action ya tiene warm). En caso de error, seguimos: skip
+        // explícito en lugar de explosión silenciosa.
+        try {
+          execSync(`npm install --prefer-offline --no-audit --no-fund`, {
+            cwd: REPO_ROOT,
+            stdio: "ignore",
+            timeout: 180_000,
+          });
+        } catch (installErr) {
+          console.warn(`  ⚠ npm install falló — skipeando este commit`);
+          failures.push({
+            commit: short,
+            reason: `npm install: ${installErr.message.slice(0, 80)}`,
+          });
+          continue;
+        }
+
         serverProc = startDevServer();
         // Drain stdout/stderr para que el buffer no se llene y bloquee
         // el child process. No imprimimos por defecto — demasiado ruido
