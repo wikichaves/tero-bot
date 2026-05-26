@@ -59,3 +59,10 @@ next-env.d.ts
 # local u otro). Hoy NO se usa — el archivo puede estar presente con
 # un token random pero no hay código que lo lea. NUNCA committear.
 /.claude-debug-token
+
+# WIK-186 follow-up: stats.generated.json se regenera siempre vía el
+# script `prebuild`/`predev` (GH API → git local fallback), y Vercel
+# lo crea fresh en cada build. Trackearlo causaba conflicts recurrentes
+# en branches paralelas porque cada commit lo regenera con un commits
+# count distinto. Ahora vive solo localmente / en el build artifact.
+/src/lib/landing/stats.generated.json
