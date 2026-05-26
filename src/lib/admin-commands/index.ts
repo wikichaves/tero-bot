@@ -272,8 +272,7 @@ export async function runAdminCommand(cmd: AdminCommand): Promise<string> {
           `🚀 <b>Worker disparado</b>\n\n` +
           targetLine +
           `${runLink}\n\n` +
-          `<i>Tarda 5-10 min. Te aviso cuando termine (si WIK-138 está activo) o ` +
-          `revisás el PR en GitHub directamente.</i>`
+          `<i>Tarda 5-10 min. Te aviso por acá cuando termine.</i>`
         );
       } catch (e) {
         return `❌ No pude disparar el worker: <code>${escapeHtml(
