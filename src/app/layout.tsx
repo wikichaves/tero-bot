@@ -101,10 +101,9 @@ export const metadata: Metadata = {
  *   texto oscuro.
  * - Dark mode: negro puro #000000. Status bar oscura con texto blanco.
  *
- * El splash de PWA (manifest.background_color) sí queda HARDCODED a
- * negro — ese se elige por la composición visual del icon (bird mint
- * sobre fondo negro). El fade icon→splash queda smooth solo si splash
- * también es negro.
+ * El splash de PWA (manifest.background_color) está HARDCODED a
+ * #1A3E35 (mint oscuro) — se elige por branding, independiente del
+ * theme_color del chrome del browser.
  */
 export const viewport: Viewport = {
   themeColor: [
