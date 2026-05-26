@@ -59,7 +59,7 @@ const OG_IMAGE = "/og-image.jpg";
 //   - description 110-160 chars: pitch real del producto
 // Hardcoded en EN porque OG es estático (no per-locale) y el copy EN
 // del hero ya es el aprobado para share previews.
-const OG_TITLE = `${APP_NAME} — Monolithic architecture dissolving complexity`;
+const OG_TITLE = `${APP_NAME} — Crafted architecture dissolving operational complexity`;
 const OG_DESCRIPTION =
   "Every business signal — IoT, sensors, WhatsApp — collapsed into a single interface. Thin, replaceable layers, operational entropy under control.";
 const OG_IMAGE_ALT = OG_TITLE;

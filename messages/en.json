@@ -193,9 +193,9 @@
   },
   "landing": {
     "hero": {
-      "titlePre": "Monolithic architecture",
+      "titlePre": "Crafted architecture",
       "titleEm": "dissolving",
-      "titlePost": " complexity.",
+      "titlePost": " operational complexity.",
       "intro": "Every business signal — IoT, invisible integrations, a WhatsApp bot — collapsed into a single interface. Thin, replaceable layers that keep the product surface small and operational entropy under control.",
       "atmosphereCaption": "One surface orchestrates the sensors, integrations, and chat — every signal collapsed into a single command layer.",
       "atmosphereAlt": "Conceptual render: a walnut command surface with a 22°C ambient thermostat, a holographic 'invisible operations' pipeline, and Tero Bot in WhatsApp."
@@ -210,13 +210,13 @@
       "eyebrow": "Problem",
       "title": "The trap of packaged software.",
       "p1": "Hiring a generic SaaS to manage your rentals is like renting a five-story building for a team of three. You pay through the nose for tools you don't need, while your day-to-day is still full of manual tasks.",
-      "p2": "That's why I built <appLink>tero.bot</appLink>. Instead of fighting rigid third-party systems, I built a modular architecture. It's a <podLink><em>‘Pod-of-One’</em></podLink> model: I operate solo but leveraged by AI and automations, so I run at the speed of a full team. We only build the modules that solve real problems, no filler."
+      "p2": "That's why I built <appLink>tero.bot</appLink>. Instead of fighting rigid third-party systems, I built a modular architecture. It's a <podLink><em>‘Pod-of-One’</em></podLink> model: I operate solo but leveraged by AI and automations. Just the modules that solve real problems, no junk."
     },
     "modules": {
       "eyebrow": "Architecture",
       "titlePre": "Three modules.",
       "titleEm": "One system.",
-      "subtitle": "Thin, composable, replaceable layers. Each one solves a real problem of daily operations.",
+      "subtitle": "Thin, composable, replaceable layers — each solves a real operational problem.",
       "labels": {
         "challenge": "The problem",
         "module": "The module",
@@ -240,7 +240,7 @@
         "title": "Zero-friction UI",
         "challenge": "Forcing staff to download another app and learn a new system creates resistance and errors.",
         "module": "Incident reports, task assignment, tracking, and notifications — all via WhatsApp.",
-        "philosophy": "The best interface is the one the user already knows. Instead of forcing people into a new system, I brought the system to them.",
+        "philosophy": "The best tool is the one we all use. Instead of forcing people into a new system, I brought the system to them.",
         "alt": "A hand holds a phone showing the WhatsApp chat with the tero.bot creating a task."
       }
     },
@@ -250,7 +250,7 @@
       "titleEm": "available",
       "titlePost": ".",
       "p1": "I believe in <em>context engineering</em> and learning in public. <appName>tero.bot</appName> is the real operational engine of my complex — the code is open to share the system design and accelerate collective learning.",
-      "p2": "It is not a community-maintained open-source project. It is provided \"as is\", without third-party support and without accepting Pull Requests. Feel free to explore the code, fork it, and use the concepts to build your own systems.",
+      "p2": "It is not a community-maintained open-source project. Feel free to explore the code, fork it, and use the concepts to build your own systems.",
       "ctaCode": "View code on GitHub"
     }
   },

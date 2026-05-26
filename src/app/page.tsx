@@ -140,7 +140,10 @@ export default async function LandingPage() {
           {/* Atmosphere shot — wide, centered, sits between hero copy
               and the next section. Establishes the "warm cabin" tone.
               WIK-137: clickable → abre lightbox. */}
-          <figure className="mx-auto mt-16 max-w-5xl sm:mt-20">
+          {/* WIK-* alignment: max-w-6xl matchea el ancho de header,
+              modules section y footer — los bordes izq/der de los
+              bloques visuales coinciden en todo el page. */}
+          <figure className="mx-auto mt-16 max-w-6xl sm:mt-20">
             <LandingImage
               photoBase="/landing/Tero-Atmosphere"
               alt={t("hero.atmosphereAlt")}
@@ -161,7 +164,7 @@ export default async function LandingPage() {
             dial para horas, stack de plates para días, scaffolding tower
             para status (WIP). */}
         <section className="border-t border-border/60 px-5 py-12 sm:px-8 sm:py-16">
-          <div className="mx-auto grid max-w-5xl grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4 sm:gap-x-10">
+          <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4 sm:gap-x-10">
             {stats.map((s) => {
               const Icon = STAT_ICONS[s.labelKey];
               return (
@@ -308,10 +311,18 @@ export default async function LandingPage() {
                 em: (chunks) => <em>{chunks}</em>,
                 // next-intl v4: tags self-closing (`<appName/>`) no se
                 // renderean, hay que usar la forma paired. El nombre
-                // vive en la traducción (igual a APP_NAME), acá solo
-                // le aplicamos el text-foreground accent.
+                // vive en la traducción (igual a APP_NAME). Linkea al
+                // repo de GitHub — anchor in-line al mismo destino que
+                // el CTA "View code on GitHub" de más abajo.
                 appName: (chunks) => (
-                  <span className="text-foreground">{chunks}</span>
+                  <a
+                    href="https://github.com/wikichaves/tero-bot"
+                    target="_blank"
+                    rel="noopener"
+                    className="text-foreground underline-offset-4 hover:underline"
+                  >
+                    {chunks}
+                  </a>
                 ),
               })}
             </p>
