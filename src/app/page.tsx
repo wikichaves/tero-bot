@@ -94,13 +94,14 @@ export default async function LandingPage() {
           so the header stays minimal. Sticky + backdrop-blur a la
           linear.app — semi-transparent background sees the noise/
           content scroll underneath.
-          WIK-201 follow-up: el bar exterior se queda full-width para
-          la sticky/blur, pero el contenido + la border-bottom se cap-
-          ean al mismo `max-w-6xl` que usa el resto del landing (módu-
-          los, atmosphere photo). En resoluciones grandes el header ya
-          no se siente "más ancho" que el contenido. */}
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
-        <div className="mx-auto flex max-w-6xl items-center justify-between border-b border-border/60 px-5 py-4 sm:px-8">
+          WIK-201 → reverted: la border-bottom vuelve a ir en el
+          `<header>` exterior para que cruce todo el ancho del
+          viewport. El contenido (logo + Sign in) sigue capeado a
+          max-w-6xl, pero la línea horizontal divide la página de
+          punta a punta — match con la sticky/blur bar de Linear y
+          Vercel. */}
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
           <Link
             href="/"
             className="flex items-center gap-2 text-base font-semibold tracking-tight"
