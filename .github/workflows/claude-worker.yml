@@ -408,6 +408,28 @@ jobs:
             --arg text "$(printf '%b' "$TEXT")" \
             --argjson rm "${KEYBOARD:-null}" \
             '{chat_id: $chat_id, text: $text, parse_mode: "HTML", disable_web_page_preview: true} + (if $rm == null then {} else {reply_markup: $rm} end)')
-          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+
+          # WIK-194: capturar respuesta de Telegram en vez de swallow
+          # silente con `|| true`. Antes el step pasaba en verde aunque
+          # Telegram devolviera 401/400 — el user reportaba "no recibo
+          # notifs" sin pista en el log.
+          HTTP_STATUS=$(curl -sS -o /tmp/tg-response.json -w "%{http_code}" \
+            -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -H "Content-Type: application/json" \
-            -d "$PAYLOAD" || true
+            -d "$PAYLOAD" || echo "0")
+          echo "[notify] Telegram HTTP $HTTP_STATUS"
+          # `ok` field de Telegram indica success real; loguear el body
+          # para diagnosticar cuando falla (description suele decir
+          # "chat not found" / "Unauthorized" / etc.).
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::warning::Telegram respondió HTTP $HTTP_STATUS — revisar TELEGRAM_BOT_TOKEN y TELEGRAM_ADMIN_CHAT_ID secrets."
+            cat /tmp/tg-response.json 2>/dev/null || echo "(no response body)"
+          else
+            # Aún con 200, el `ok: false` indica error del lado de
+            # Telegram (ej. parse_mode malo, reply_markup inválido).
+            TG_OK=$(jq -r '.ok // false' /tmp/tg-response.json 2>/dev/null)
+            if [ "$TG_OK" != "true" ]; then
+              echo "::warning::Telegram devolvió ok=false:"
+              cat /tmp/tg-response.json
+            fi
+          fi
