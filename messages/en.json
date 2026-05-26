@@ -193,7 +193,7 @@
   },
   "landing": {
     "hero": {
-      "titlePre": "A single, monolithic architecture",
+      "titlePre": "Monolithic architecture",
       "titleEm": "collapsing",
       "titlePost": " operational complexity.",
       "intro": "Every business signal — IoT, invisible integrations, a WhatsApp bot — collapsed into a single interface. Thin, replaceable layers that keep the product surface small and operational entropy under control.",

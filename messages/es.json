@@ -193,7 +193,7 @@
   },
   "landing": {
     "hero": {
-      "titlePre": "Arquitectura única y monolítica,",
+      "titlePre": "Arquitectura monolítica,",
       "titleEm": "colapsando",
       "titlePost": " complejidad operativa.",
       "intro": "Cada señal del negocio — IoT, integraciones invisibles, un bot de WhatsApp — colapsada en una sola interfaz. Capas finas y reemplazables que mantienen la superficie del producto chica y la entropía operativa bajo control.",
