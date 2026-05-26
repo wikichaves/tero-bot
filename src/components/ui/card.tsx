@@ -17,7 +17,11 @@ function Card({
         // read as floating panels instead of bordered boxes. Bumped radius
         // (rounded-xl → rounded-2xl) + padding (py-4 → py-5) for a less
         // "shadcn out-of-the-box" feel.
-        "group/card flex flex-col gap-5 overflow-hidden rounded-2xl border border-border/60 bg-card py-5 text-sm text-card-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.4)] dark:border-border/40 has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3.5 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-2xl *:[img:last-child]:rounded-b-2xl",
+        // WIK-192: tactility pass. `shadow-hard-sm` swaps the diffuse 1px
+        // blur for a 2px sharp offset (contact shadow), and `border-b-2`
+        // gives the card asymmetric weight at the bottom so it reads as
+        // a physical object resting on the page instead of a flat panel.
+        "group/card flex flex-col gap-5 overflow-hidden rounded-2xl border border-b-2 border-border/60 bg-card py-5 text-sm text-card-foreground shadow-hard-sm dark:border-border/40 has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3.5 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-2xl *:[img:last-child]:rounded-b-2xl",
         className
       )}
       {...props}
