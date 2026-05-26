@@ -6,7 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ServiceWorkerRegister } from "@/components/sw-register";
 import { SiteFooter } from "@/components/site-footer";
 import { Toaster } from "@/components/ui/sonner";
-import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
+import { APP_NAME, APP_TAGLINE, APP_URL } from "@/lib/brand";
 import "./globals.css";
 
 /**
@@ -29,9 +29,60 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
+/**
+ * WIK-205: social share metadata (Open Graph + Twitter Card).
+ *
+ * Cubre los previews al pegar la URL en Twitter/X, LinkedIn, WhatsApp,
+ * Slack, Telegram, Discord, iMessage, etc. — todos usan OG con algún
+ * fallback a Twitter card.
+ *
+ * `metadataBase` es necesaria para que Next resuelva las URLs relativas
+ * de `images` a absolutas (los scrapers de FB/Twitter no entienden
+ * relativas). Sale de `APP_URL` para que dev (localhost) y producción
+ * resuelvan al host correcto.
+ *
+ * La imagen `/og-image.jpg` es un crop 1200x630 de Tero-Atmosphere
+ * (ratio 1.91:1 — el sweet spot para FB/LinkedIn/WhatsApp). 133KB,
+ * bien debajo del cap de 8MB que tienen los scrapers.
+ *
+ * `locale: es_UY` porque el copy aprobado en el landing es Spanish-AR/UY.
+ * `alternateLocale: en_US` declara el otro idioma soportado por la app
+ * (next-intl resuelve EN al renderizar pero el OG es estático — single
+ * preview en español aplicable a ambas variantes).
+ */
+const OG_IMAGE = "/og-image.jpg";
+const OG_IMAGE_ALT = `${APP_NAME} — ${APP_TAGLINE}`;
+
 export const metadata: Metadata = {
+  metadataBase: new URL(APP_URL),
   title: APP_NAME,
   description: APP_TAGLINE,
+  openGraph: {
+    title: APP_NAME,
+    description: APP_TAGLINE,
+    url: APP_URL,
+    siteName: APP_NAME,
+    type: "website",
+    locale: "es_UY",
+    alternateLocale: ["en_US"],
+    images: [
+      {
+        url: OG_IMAGE,
+        width: 1200,
+        height: 630,
+        alt: OG_IMAGE_ALT,
+        type: "image/jpeg",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: APP_NAME,
+    description: APP_TAGLINE,
+    images: [{ url: OG_IMAGE, alt: OG_IMAGE_ALT }],
+    creator: "@wikichaves",
+    site: "@wikichaves",
+  },
   appleWebApp: {
     capable: true,
     title: APP_NAME,
