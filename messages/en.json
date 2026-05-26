@@ -412,8 +412,8 @@
   },
   "whatsapp": {
     "help": {
-      "headerFull": "*{appName} Commands*\n\n📊 *Consumption* (admin/manager)\n• `consumo` — total summary (today + 7 days)\n• `consumo <name>` — filter by property\n   _ex:_ `consumo merced` or `consumo 14 julio`\n\n🌡️ *Rooms* (admin/manager)\n• `ambientes` — avg T/H over the last 24 h per room\n\n📋 *Tasks*\n• `tareas` — your pending tasks\n• `tarea <description>` — create a new task\n   _ex:_ `tarea the bathroom tap broke`\n• 📸 send a *photo* (with or without caption) → auto-creates a task\n\n❓ *Help*\n• `ayuda` — this list",
-      "headerStaff": "*{appName} Commands*\n\n📋 *Tasks*\n• `tareas` — your pending tasks\n• `tarea <description>` — create a task (assigned to you)\n   _ex:_ `tarea the bathroom tap broke`\n• 📸 send a *photo* → auto-creates a task\n\n❓ *Help*\n• `ayuda` — this list"
+      "headerFull": "*{appName} Commands*\n\n📊 *Consumption* (admin/manager)\n• _consumo_ — total summary (today + 7 days)\n• _consumo <name>_ — filter by property\n   Ex: _consumo merced_ or _consumo 14 julio_\n\n🌡️ *Rooms* (admin/manager)\n• _ambientes_ — avg T/H over the last 24 h per room\n\n📋 *Tasks*\n• _tareas_ — your pending tasks\n• _tarea <description>_ — create a new task\n   Ex: _tarea the bathroom tap broke_\n• 📸 send a *photo* (with or without caption) → auto-creates a task\n\n❓ *Help*\n• _ayuda_ — this list",
+      "headerStaff": "*{appName} Commands*\n\n📋 *Tasks*\n• _tareas_ — your pending tasks\n• _tarea <description>_ — create a task (assigned to you)\n   Ex: _tarea the bathroom tap broke_\n• 📸 send a *photo* → auto-creates a task\n\n❓ *Help*\n• _ayuda_ — this list"
     },
     "myTasks": {
       "errorQuery": "❌ Could not query your tasks: {message}",

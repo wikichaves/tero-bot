@@ -412,8 +412,8 @@
   },
   "whatsapp": {
     "help": {
-      "headerFull": "*{appName} Comandos*\n\n📊 *Consumo* (admin/gestor)\n• `consumo` — resumen total (hoy + 7 días)\n• `consumo <nombre>` — filtrar por propiedad\n   _ej:_ `consumo merced` o `consumo 14 julio`\n\n🌡️ *Ambientes* (admin/gestor)\n• `ambientes` — T/H promedio últimas 24 h por ambiente\n\n📋 *Tareas*\n• `tareas` — tus tareas pendientes\n• `tarea <descripción>` — crear una tarea nueva\n   _ej:_ `tarea se rompió la canilla del baño`\n• 📸 mandá una *foto* (con o sin caption) → crea tarea automática\n\n❓ *Ayuda*\n• `ayuda` — esta lista",
-      "headerStaff": "*{appName} Comandos*\n\n📋 *Tareas*\n• `tareas` — tus tareas pendientes\n• `tarea <descripción>` — crear una tarea (te queda asignada)\n   _ej:_ `tarea se rompió la canilla del baño`\n• 📸 mandá una *foto* → crea tarea automática\n\n❓ *Ayuda*\n• `ayuda` — esta lista"
+      "headerFull": "*{appName} Comandos*\n\n📊 *Consumo* (admin/gestor)\n• _consumo_ — resumen total (hoy + 7 días)\n• _consumo <nombre>_ — filtrar por propiedad\n   Ej: _consumo merced_ o _consumo 14 julio_\n\n🌡️ *Ambientes* (admin/gestor)\n• _ambientes_ — T/H promedio últimas 24 h por ambiente\n\n📋 *Tareas*\n• _tareas_ — tus tareas pendientes\n• _tarea <descripción>_ — crear una tarea nueva\n   Ej: _tarea se rompió la canilla del baño_\n• 📸 mandá una *foto* (con o sin caption) → crea tarea automática\n\n❓ *Ayuda*\n• _ayuda_ — esta lista",
+      "headerStaff": "*{appName} Comandos*\n\n📋 *Tareas*\n• _tareas_ — tus tareas pendientes\n• _tarea <descripción>_ — crear una tarea (te queda asignada)\n   Ej: _tarea se rompió la canilla del baño_\n• 📸 mandá una *foto* → crea tarea automática\n\n❓ *Ayuda*\n• _ayuda_ — esta lista"
     },
     "myTasks": {
       "errorQuery": "❌ No pude consultar tus tareas: {message}",
