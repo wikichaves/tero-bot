@@ -51,15 +51,26 @@ const geistMono = Geist_Mono({
  * preview en español aplicable a ambas variantes).
  */
 const OG_IMAGE = "/og-image.jpg";
-const OG_IMAGE_ALT = `${APP_NAME} — ${APP_TAGLINE}`;
+// WIK-205 polish: OG title/description decoupled del page <title> y
+// <meta description> (que siguen cortos — "tero.bot" + tagline ES son
+// para el browser tab y SEO básico). Los OG son los que ven los social
+// previews — necesitan ser ricos:
+//   - title 50-60 chars: brand + hero copy
+//   - description 110-160 chars: pitch real del producto
+// Hardcoded en EN porque OG es estático (no per-locale) y el copy EN
+// del hero ya es el aprobado para share previews.
+const OG_TITLE = `${APP_NAME} — Monolithic architecture dissolving complexity`;
+const OG_DESCRIPTION =
+  "Every business signal — IoT, sensors, WhatsApp — collapsed into a single interface. Thin, replaceable layers, operational entropy under control.";
+const OG_IMAGE_ALT = OG_TITLE;
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   title: APP_NAME,
   description: APP_TAGLINE,
   openGraph: {
-    title: APP_NAME,
-    description: APP_TAGLINE,
+    title: OG_TITLE,
+    description: OG_DESCRIPTION,
     url: APP_URL,
     siteName: APP_NAME,
     type: "website",
@@ -77,8 +88,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: APP_NAME,
-    description: APP_TAGLINE,
+    title: OG_TITLE,
+    description: OG_DESCRIPTION,
     images: [{ url: OG_IMAGE, alt: OG_IMAGE_ALT }],
     creator: "@wikichaves",
     site: "@wikichaves",
