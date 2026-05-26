@@ -79,7 +79,9 @@ export default async function LandingPage() {
           <Bird className="h-5 w-5" />
           {APP_NAME}
         </Link>
-        <Button render={<Link href="/login" />}>{tCommon("signIn")}</Button>
+        <Button variant="secondary" render={<Link href="/login" />}>
+          {tCommon("signIn")}
+        </Button>
       </header>
 
       <main className="flex flex-1 flex-col">
