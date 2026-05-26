@@ -193,9 +193,9 @@
   },
   "landing": {
     "hero": {
-      "titlePre": "Arquitectura modular que",
-      "titleEm": "orquesta",
-      "titlePost": " un complejo de alquileres temporarios.",
+      "titlePre": "Arquitectura única y monolítica,",
+      "titleEm": "colapsando",
+      "titlePost": " complejidad operativa.",
       "intro": "Cada señal del negocio — IoT, integraciones invisibles, un bot de WhatsApp — colapsada en una sola interfaz. Capas finas y reemplazables que mantienen la superficie del producto chica y la entropía operativa bajo control.",
       "atmosphereCaption": "El huésped llega y la casa ya está a 22°C — el clima se configuró horas antes.",
       "atmosphereAlt": "Una pareja recién llegada a una cabaña en el bosque sostiene tazas calientes junto a una estufa encendida; el termostato muestra 22°C."
