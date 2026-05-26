@@ -7,6 +7,24 @@ import { createClient } from "@/lib/supabase/server";
 import { APP_NAME } from "@/lib/brand";
 import { getLandingStats } from "@/lib/landing/stats";
 import { LandingImage } from "./landing-image";
+import {
+  CommitsFiberCount,
+  HoursClockFace,
+  DaysStack,
+} from "./landing-stat-icons";
+
+/**
+ * WIK-203: map de stat → icono abstracto. `status` (WIP) intencional-
+ * mente no lleva ícono — la palabra "WIP" en accent color ya carga el
+ * peso visual y agregarle un SVG generaría ruido sin meaning. Los
+ * otros 3 keys mapean a sus respectivos "instrumentos de precisión".
+ */
+const STAT_ICONS: Record<string, React.ComponentType | undefined> = {
+  commits: CommitsFiberCount,
+  activeHours: HoursClockFace,
+  activeDays: DaysStack,
+  status: undefined,
+};
 
 /**
  * Public landing page (WIK-131 → WIK-151 i18n).
@@ -131,28 +149,36 @@ export default async function LandingPage() {
           </figure>
         </section>
 
-        {/* WIK-154 / WIK-165 refresh: Stats minimalistas. Mismas dimensiones
-            que el case study en wikichaves.com — números grandes serif +
-            label mono uppercase. Stats actualizadas: Commits, Active
-            hours, Active days, Status. El Status va en accent color
-            para que destaque visualmente. */}
+        {/* WIK-154 / WIK-165 / WIK-203 refresh: Stats como "instrumentos
+            de precisión". Cada stat tiene un SVG abstracto encima del
+            número — fiber-count grid para commits, clock-face dial para
+            horas, stack de plates para días. Status (WIP) no lleva
+            icono — la palabra ya hace el peso visual. */}
         <section className="border-t border-border/60 px-5 py-12 sm:px-8 sm:py-16">
           <div className="mx-auto grid max-w-5xl grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4 sm:gap-x-10">
-            {stats.map((s) => (
-              <div
-                key={s.labelKey}
-                className="flex flex-col items-start gap-2"
-              >
-                <span
-                  className={`font-heading text-4xl leading-none tracking-tight sm:text-5xl ${
-                    s.accent ? "text-[var(--heading-accent)]" : ""
-                  }`}
+            {stats.map((s) => {
+              const Icon = STAT_ICONS[s.labelKey];
+              return (
+                <div
+                  key={s.labelKey}
+                  className="flex flex-col items-start gap-2"
                 >
-                  {s.value}
-                </span>
-                <span className="label-mono">{tStats(s.labelKey)}</span>
-              </div>
-            ))}
+                  {Icon ? (
+                    <div className="mb-2 h-12 w-12">
+                      <Icon />
+                    </div>
+                  ) : null}
+                  <span
+                    className={`font-heading text-4xl leading-none tracking-tight sm:text-5xl ${
+                      s.accent ? "text-[var(--heading-accent)]" : ""
+                    }`}
+                  >
+                    {s.value}
+                  </span>
+                  <span className="label-mono">{tStats(s.labelKey)}</span>
+                </div>
+              );
+            })}
           </div>
         </section>
 
