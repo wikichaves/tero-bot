@@ -31,6 +31,13 @@ const buttonVariants = cva(
           "bg-deep-accent text-deep-accent-foreground hover:bg-deep-accent/90 aria-expanded:bg-deep-accent aria-expanded:text-deep-accent-foreground",
         ghost:
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
+        // WIK-201: el quieter de la familia — sin fondo, sin borde, sin
+        // shadow. Color muted que se intensifica en hover. Pensado para
+        // CTAs secundarios donde el primario ya carga peso visual
+        // (ej. "Sign in" del header — vive junto al `Read case study`
+        // que es el CTA fuerte).
+        tertiary:
+          "text-muted-foreground hover:text-foreground aria-expanded:text-foreground",
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",

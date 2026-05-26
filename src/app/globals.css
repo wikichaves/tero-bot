@@ -84,11 +84,11 @@
   /* Times New Roman como font serif del theme — system font, sin fetch
      remoto. Se aplica a headings via --font-heading. */
   --font-serif: "Times New Roman", Times, serif;
-  /* WIK-135: bg + card warm-cream — paleta editorial del theme.
-     `--background` antes era 253,253,253 (frío), ahora un tint mínimo de
-     paper. Card va levemente más claro para que las cards "leviten"
-     sobre el bg en vez de fundirse. */
-  --background: rgb(252, 250, 245);
+  /* WIK-199: Light Theme "Craftsmanship" — bg cream premium (#F8F7F5)
+     que pega con el walnut wood de los assets. Antes era 252,250,245
+     (cream tenue) — el ticket pide ligeramente más cuerpo para que el
+     paper grain SVG tenga superficie sobre la que lucir. */
+  --background: rgb(248, 247, 245);
   --foreground: rgb(0, 0, 0);
   --card: rgb(254, 253, 250);
   --card-foreground: rgb(0, 0, 0);
@@ -120,6 +120,11 @@
   /* WIK-196: italic-em accent en headings — ahora negro puro (era verde
      profundo). El énfasis sale del italic + peso, no del color. */
   --heading-accent: rgb(20, 20, 20);
+  /* WIK-199: heading color (h1/h2/h3) — bronze sofisticado #3A2E28.
+     Sale del black puro hacia un marrón cálido que combina con el
+     walnut wood de los assets. Contraste vs cream bg (#F8F7F5) =
+     ~13:1, sobra para WCAG AAA en texto large. */
+  --heading-color: rgb(58, 46, 40);
   --chart-1: rgb(81, 240, 168);
   --chart-2: rgb(126, 254, 143);
   --chart-3: rgb(255, 72, 56);
@@ -148,17 +153,19 @@
 }
 
 .dark {
-  /* WIK-196: dark gray neutro (era warm-near-black rgb 13,12,10). El
-     undertone cálido y el negro casi-puro se pisaban con el accent
-     verde — ahora una paleta gris pura para máxima sobriedad. Acompañan
-     surfaces con steps progresivos (card > bg, popover > card) para
-     mantener jerarquía visual sin tinte. */
-  --background: rgb(38, 38, 38);
-  --foreground: rgb(245, 245, 245);
-  --card: rgb(48, 48, 48);
-  --card-foreground: rgb(245, 245, 245);
-  --popover: rgb(52, 52, 52);
-  --popover-foreground: rgb(245, 245, 245);
+  /* WIK-200: Dark Theme "Orchestration" — bg ultra-deep obsidian
+     (#050505). Antes era rgb(38,38,38) — demasiado claro, los assets
+     walnut tenían bounding box visible y los acentos amber no
+     "popeaban". El salto a casi-negro hace que los assets se fundan
+     visualmente con el bg y deja a la luz cálida de los pixels brillar.
+     Surfaces (card/popover) suben en steps para mantener jerarquía:
+     bg #050505 → card #0F0F0F → popover #141414. */
+  --background: rgb(5, 5, 5);
+  --foreground: rgb(250, 250, 250);
+  --card: rgb(15, 15, 15);
+  --card-foreground: rgb(250, 250, 250);
+  --popover: rgb(20, 20, 20);
+  --popover-foreground: rgb(250, 250, 250);
   /* WIK-196: acentos a blanco puro / gris muy claro. Reemplaza el mint
      `rgb(81,240,168)` por blanco — botones primarios y enlaces ahora
      usan blanco sobre el gris oscuro, máxima sobriedad. El foreground
@@ -188,6 +195,12 @@
      sobre el gris oscuro. La cursiva sigue marcando el acento pero sin
      color (peso visual via italic + alta lightness). */
   --heading-accent: rgb(255, 255, 255);
+  /* WIK-200: heading color (h1/h2/h3) — brilliant titanium white
+     #FAFAFA. Maximum contrast contra el obsidian bg (#050505) =
+     ~20:1, WCAG AAA. Más blanco que el foreground genérico para
+     que los headings tengan extra peso óptico — el serif gris se
+     hubiera leído más muted que el sans. */
+  --heading-color: rgb(250, 250, 250);
   --chart-1: rgb(81, 240, 168);
   --chart-2: rgb(158, 255, 161);
   --chart-3: rgb(255, 183, 207);
@@ -235,7 +248,10 @@
        carga. Solo si el OS prefiere light Y next-themes resuelve a light,
        el body bg-background sobrescribe a cream post-hidratación. */
     color-scheme: dark light;
-    background-color: rgb(38, 38, 38);
+    /* WIK-200: matchear el nuevo obsidian del .dark theme — evita
+       flash de gris claro durante la primera carga antes de que
+       next-themes pinte el bg correcto. */
+    background-color: rgb(5, 5, 5);
   }
   /* WIK-128: mobile gets a slightly larger base (~21px → 20px) so
      buttons, inputs, and text aren't cramped on phone screens. iOS
@@ -248,7 +264,8 @@
   }
   @media (prefers-color-scheme: light) {
     html {
-      background-color: rgb(252, 250, 245);
+      /* WIK-199: matchear el nuevo cream del :root theme. */
+      background-color: rgb(248, 247, 245);
     }
   }
 
@@ -260,20 +277,26 @@
      steps (3xl→4xl, 2xl→3xl, xl→2xl) porque Times New Roman lee chico al
      mismo tamaño en pt que sans, y los page headings se sentían poco
      jerárquicos. */
+  /* WIK-199/200: headings usan `--heading-color` (bronze cálido en
+     light, titanium white en dark) en vez del default foreground. El
+     contraste sigue dentro de WCAG AAA en ambos modos. */
   h1 {
     @apply font-heading text-4xl;
+    color: var(--heading-color);
     font-weight: 300;
     line-height: 1;
     letter-spacing: -0.03em;
   }
   h2 {
     @apply font-heading text-3xl;
+    color: var(--heading-color);
     font-weight: 300;
     line-height: 1.1;
     letter-spacing: -0.025em;
   }
   h3 {
     @apply font-heading text-2xl;
+    color: var(--heading-color);
     font-weight: 300;
     line-height: 1.25;
     letter-spacing: -0.02em;

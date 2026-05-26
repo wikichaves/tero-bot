@@ -79,7 +79,11 @@ export default async function LandingPage() {
           <Bird className="h-5 w-5" />
           {APP_NAME}
         </Link>
-        <Button variant="secondary" render={<Link href="/login" />}>
+        {/* WIK-201: "Sign in" pasa a tertiary — el header sticky tenía
+            CTA secundario con peso visual de deep-accent, pero junto al
+            CTA principal de "Read case study" (default-variant fuerte)
+            se sentía competitivo. Tertiary lo deja como un link discreto. */}
+        <Button variant="tertiary" render={<Link href="/login" />}>
           {tCommon("signIn")}
         </Button>
       </header>
