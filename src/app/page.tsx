@@ -110,7 +110,7 @@ export default async function LandingPage() {
               photoBase="/landing/Tero-Atmosphere"
               alt={t("hero.atmosphereAlt")}
               loading="eager"
-              wrapperClassName="block w-full rounded-2xl border border-border/60 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-border/40 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4)]"
+              wrapperClassName="block w-full rounded-2xl border border-b-2 border-border/60 shadow-hard-sm dark:border-border/40"
               className="w-full rounded-2xl object-cover"
               caption={t("hero.atmosphereCaption")}
             />
@@ -336,7 +336,7 @@ function ModuleCard({
       <LandingImage
         photoBase={photoBase}
         alt={photoAlt}
-        wrapperClassName="aspect-video w-full overflow-hidden rounded-2xl border border-border/60 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-border/40 dark:shadow-[0_1px_2px_rgba(0,0,0,0.4)] lg:w-[58%] lg:shrink-0"
+        wrapperClassName="aspect-video w-full overflow-hidden rounded-2xl border border-b-2 border-border/60 shadow-hard-sm dark:border-border/40 lg:w-[58%] lg:shrink-0"
         className="aspect-video w-full object-cover"
       />
       <div className="flex flex-col gap-5 lg:flex-1">

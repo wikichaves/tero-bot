@@ -67,6 +67,13 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  /* WIK-192: hard contact shadows — sharp offset, zero blur. Replaces
+     the diffuse `shadow-sm`-style drop shadow for cards/surfaces so
+     containers read as solid objects pressed onto the page instead of
+     "floating gauze". Theme-aware via `--shadow-contact*` below — dark
+     mode needs a deeper alpha to register over the warm-near-black bg. */
+  --shadow-hard-sm: var(--shadow-contact);
+  --shadow-hard: var(--shadow-contact-md);
 }
 
 :root {
@@ -119,6 +126,12 @@
      more "squared" and editorial. Cards stay rounded via the
      explicit `rounded-2xl` they apply on top of this. */
   --radius: 0.375rem;
+  /* WIK-192: hard contact shadow values — light mode. 2px offset, no
+     blur, low-alpha black. Pairs with the `border-b-2` asymmetry on
+     cards (see card.tsx) for a "stamped onto the page" feel vs the
+     prior diffuse gauze. */
+  --shadow-contact: 2px 2px 0 0 rgba(0, 0, 0, 0.08);
+  --shadow-contact-md: 3px 3px 0 0 rgba(0, 0, 0, 0.10);
 }
 
 .dark {
@@ -162,6 +175,11 @@
   --sidebar-accent-foreground: rgb(81, 240, 168);
   --sidebar-border: rgb(53, 58, 62);
   --sidebar-ring: rgb(81, 240, 168);
+  /* WIK-192: hard contact shadow values — dark mode. Deeper alpha so
+     the shadow still registers over the warm-near-black background
+     (light-mode alpha would be invisible against bg). */
+  --shadow-contact: 2px 2px 0 0 rgba(0, 0, 0, 0.45);
+  --shadow-contact-md: 3px 3px 0 0 rgba(0, 0, 0, 0.55);
 }
 
 @layer base {

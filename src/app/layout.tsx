@@ -90,7 +90,23 @@ export default async function RootLayout({
       // children usan `bg-background` del theme.
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <body className="isolate min-h-full flex flex-col bg-background text-foreground">
+        {/* WIK-192: global film-grain texture. Fixed, full viewport,
+            pointer-events-none, low opacity — every page (dashboard,
+            admin, login, landing) picks up the same subtle tactile
+            grain so the UI escapes the flat-shadcn look. `isolate` on
+            body creates the stacking context that lets `-z-10` sit
+            above body's bg but below all child content. Landing layers
+            an additional gradient + stronger noise on top of this for
+            its hero treatment. */}
+        <div
+          aria-hidden
+          className="pointer-events-none fixed inset-0 -z-10 opacity-[0.10] dark:opacity-[0.18]"
+          style={{
+            backgroundImage: "url(/landing/noise.svg)",
+            backgroundSize: "240px",
+          }}
+        />
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ThemeProvider
             attribute="class"
