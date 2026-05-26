@@ -1,7 +1,7 @@
 /**
- * Iconos abstractos para las stats de la landing (WIK-203).
+ * Iconos abstractos para las stats de la landing (WIK-203, WIK-210).
  *
- * Tres SVGs inline minimalistas pensados como "instrumentos de precisión"
+ * Cuatro SVGs inline minimalistas pensados como "instrumentos de precisión"
  * en vez de iconos genéricos:
  *
  * 1. <CommitsFiberCount /> — nodal graph (filamentos de fibra óptica
@@ -10,6 +10,8 @@
  *    selectivos en ámbar
  * 3. <DaysStack /> — pilas de placas tipo titanio/obsidiana con un
  *    edge highlight en ámbar
+ * 4. <StatusScaffold /> — torre de scaffolding con X-braces; el beam
+ *    superior + un nodo "active" en ámbar comunican "work in progress"
  *
  * Todos usan `currentColor` para el stroke base (heredan del text-color
  * del contenedor) y un amber dorado `#D4AF37` para los acentos puntuales.
@@ -197,6 +199,47 @@ export function DaysStack() {
           </g>
         );
       })}
+    </IconBase>
+  );
+}
+
+/**
+ * Status (WIP) — scaffolding tower. Dos postes verticales, tres
+ * cross-beams y dos niveles de X-braces. El beam superior va en ámbar
+ * y un pequeño nodo "active" arriba del todo (tipo crane hook) sugiere
+ * el nivel donde se está trabajando. Metáfora directa de WIP: la torre
+ * está parada pero sigue creciendo desde arriba (WIK-210).
+ */
+export function StatusScaffold() {
+  return (
+    <IconBase>
+      {/* Postes verticales */}
+      <line x1="18" y1="14" x2="18" y2="54" opacity={0.6} />
+      <line x1="46" y1="14" x2="46" y2="54" opacity={0.6} />
+
+      {/* Cross-beams */}
+      <line
+        x1="18"
+        y1="14"
+        x2="46"
+        y2="14"
+        stroke={AMBER}
+        strokeWidth={1.4}
+      />
+      <line x1="18" y1="34" x2="46" y2="34" opacity={0.6} />
+      <line x1="18" y1="54" x2="46" y2="54" opacity={0.5} />
+
+      {/* X-braces — nivel superior */}
+      <line x1="18" y1="14" x2="46" y2="34" opacity={0.4} />
+      <line x1="46" y1="14" x2="18" y2="34" opacity={0.4} />
+
+      {/* X-braces — nivel inferior */}
+      <line x1="18" y1="34" x2="46" y2="54" opacity={0.3} />
+      <line x1="46" y1="34" x2="18" y2="54" opacity={0.3} />
+
+      {/* Active node — hook/indicador encima del beam superior */}
+      <line x1="32" y1="8" x2="32" y2="14" stroke={AMBER} opacity={0.8} />
+      <circle cx="32" cy="8" r="2" fill={AMBER} stroke="none" />
     </IconBase>
   );
 }
