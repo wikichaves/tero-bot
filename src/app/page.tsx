@@ -70,22 +70,29 @@ export default async function LandingPage() {
       {/* Header — logo + sign-in. WIK-131: ModeToggle moved to footer
           so the header stays minimal. Sticky + backdrop-blur a la
           linear.app — semi-transparent background sees the noise/
-          content scroll underneath. */}
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border/60 bg-background/80 px-5 py-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/60 sm:px-8">
-        <Link
-          href="/"
-          className="flex items-center gap-2 text-base font-semibold tracking-tight"
-        >
-          <Bird className="h-5 w-5" />
-          {APP_NAME}
-        </Link>
-        {/* WIK-201: "Sign in" pasa a tertiary — el header sticky tenía
-            CTA secundario con peso visual de deep-accent, pero junto al
-            CTA principal de "Read case study" (default-variant fuerte)
-            se sentía competitivo. Tertiary lo deja como un link discreto. */}
-        <Button variant="tertiary" render={<Link href="/login" />}>
-          {tCommon("signIn")}
-        </Button>
+          content scroll underneath.
+          WIK-201 follow-up: el bar exterior se queda full-width para
+          la sticky/blur, pero el contenido + la border-bottom se cap-
+          ean al mismo `max-w-6xl` que usa el resto del landing (módu-
+          los, atmosphere photo). En resoluciones grandes el header ya
+          no se siente "más ancho" que el contenido. */}
+      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
+        <div className="mx-auto flex max-w-6xl items-center justify-between border-b border-border/60 px-5 py-4 sm:px-8">
+          <Link
+            href="/"
+            className="flex items-center gap-2 text-base font-semibold tracking-tight"
+          >
+            <Bird className="h-5 w-5" />
+            {APP_NAME}
+          </Link>
+          {/* WIK-201: "Sign in" pasa a tertiary — el header sticky tenía
+              CTA secundario con peso visual de deep-accent, pero junto al
+              CTA principal de "Read case study" (default-variant fuerte)
+              se sentía competitivo. Tertiary lo deja como un link discreto. */}
+          <Button variant="tertiary" render={<Link href="/login" />}>
+            {tCommon("signIn")}
+          </Button>
+        </div>
       </header>
 
       <main className="flex flex-1 flex-col">
