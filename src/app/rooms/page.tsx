@@ -269,7 +269,7 @@ async function Header({ range }: { range: RangeKey }) {
     <div className="flex flex-col gap-3">
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-2xl">{t("title")}</h1>
+          <h1 className="text-4xl">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <SnapshotSensorsButton />
