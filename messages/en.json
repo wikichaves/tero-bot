@@ -227,7 +227,7 @@
         "challenge": "The guest experience doesn't start with the keys — it starts with thermal comfort the moment they walk in.",
         "module": "Integrated temperature and humidity control. Pre-conditioning 2 hours before check-in.",
         "philosophy": "Sometimes the best UI isn't a screen — it's the perfect climate when someone walks in.",
-        "alt": "A person holds an iPad showing the rooms panel with live temperature and humidity per room."
+        "alt": "Conceptual render: a Zigbee ambient thermostat glowing 22°C on walnut wood, beside a holographic 'Check-in Preparation' graph showing the room ramping from 19.5°C to 22.0°C by 16:00 (T-minus 2h)."
       },
       "operations": {
         "title": "Invisible operations",

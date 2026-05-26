@@ -227,7 +227,7 @@
         "challenge": "La experiencia del huésped no empieza con las llaves — empieza con el confort térmico al cruzar la puerta.",
         "module": "Control de temperatura y humedad integrado. Pre-acondicionamiento 2h antes del check-in.",
         "philosophy": "A veces la mejor UI no es una pantalla — es el clima perfecto cuando alguien entra.",
-        "alt": "Una persona sostiene un iPad mostrando el panel de ambientes con temperatura y humedad en vivo por habitación."
+        "alt": "Render conceptual: un termóstato Zigbee brillando a 22°C sobre madera walnut, junto a un gráfico holográfico de 'Check-in Preparation' que muestra la habitación subiendo de 19.5°C a 22.0°C antes de las 16:00 (T-menos 2h)."
       },
       "operations": {
         "title": "Operaciones invisibles",
