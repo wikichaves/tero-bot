@@ -240,7 +240,13 @@ export default async function LandingPage() {
               </p>
             </div>
 
-            <div className="flex flex-col gap-16 sm:gap-24">
+            {/* WIK-208: aumento el gap entre los 3 ModuleCard para que
+                cada módulo respire y se lea como una unidad propia, no
+                como un stack apretado. gap-16 (64px) → gap-28 (112px)
+                en mobile, sm:gap-24 (96px) → sm:gap-40 (160px) en lg+
+                — match con el ritmo vertical de las secciones grandes
+                (py-28 = 112px). */}
+            <div className="flex flex-col gap-28 sm:gap-40">
               <ModuleCard
                 photoBase="/landing/Tero-Hospitality"
                 photoAlt={t("modules.hospitality.alt")}
