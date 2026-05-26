@@ -7,6 +7,7 @@ import { buildRoomsReport } from "@/lib/sensors/reports";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import { APP_NAME, APP_HOST } from "@/lib/brand";
 import { formatTaskDueDate } from "@/lib/i18n/date";
+import { tr } from "@/lib/i18n/messages";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/locales";
 import type { Profile, Task } from "@/lib/types";
 import { normalizePhone } from "./index";
@@ -26,14 +27,16 @@ export type ParsedCommand =
 // inline keyboards, etc.). Acá quedan solo los cmds operativos.
 // WIK-151: HELP_TEXT_* dejaron de ser constantes — ahora son funciones
 // de `locale` que arman el string desde el dictionary correspondiente.
+// WIK-215 v3: bypasseamos `getTranslations` de next-intl porque en
+// contexto webhook (sin request scope) devolvía el key path literal
+// como fallback ("whatsapp.help.headerFull"). `tr()` lee el JSON
+// directo + hace template substitution, sin magia.
 async function helpTextFull(locale: Locale): Promise<string> {
-  const t = await getTranslations({ locale, namespace: "whatsapp.help" });
-  return t("headerFull", { appName: APP_NAME });
+  return tr(locale, "whatsapp.help.headerFull", { appName: APP_NAME });
 }
 
 async function helpTextStaff(locale: Locale): Promise<string> {
-  const t = await getTranslations({ locale, namespace: "whatsapp.help" });
-  return t("headerStaff", { appName: APP_NAME });
+  return tr(locale, "whatsapp.help.headerStaff", { appName: APP_NAME });
 }
 
 /**
