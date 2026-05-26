@@ -65,7 +65,10 @@ export function LanguageSelector() {
             key={loc}
             onClick={() => onSelect(loc)}
             data-active={loc === currentLocale}
-            className="data-[active=true]:font-semibold"
+            // WIK-191: el locale activo además de font-semibold pinta
+            // en deep-accent — refuerza visualmente "selected" con el
+            // mismo token que el ring / Sign in / FilterPill activo.
+            className="data-[active=true]:font-semibold data-[active=true]:text-deep-accent"
           >
             <span className="font-mono text-xs uppercase tracking-wider mr-2 opacity-70">
               {LOCALE_SHORT[loc]}

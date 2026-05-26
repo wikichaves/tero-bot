@@ -57,6 +57,10 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  /* WIK-191: deep accent token expuesto a Tailwind como
+     `bg-deep-accent` / `text-deep-accent` / `border-deep-accent`. */
+  --color-deep-accent: var(--deep-accent);
+  --color-deep-accent-foreground: var(--deep-accent-foreground);
   --font-sans: var(--font-sans);
   --font-serif: var(--font-serif);
   --font-mono: var(--font-mono);
@@ -98,7 +102,18 @@
   /* WIK-131: borders pulled into the same warm-grey family. */
   --border: rgb(228, 224, 215);
   --input: rgb(235, 232, 224);
-  --ring: rgb(81, 240, 168);
+  /* WIK-191: ring (focus/selection border) ahora usa el deep-accent —
+     mismo gesto editorial que el botón secundario de Sign in. El mint
+     primary queda para los CTAs principales; el verde bosque profundo
+     se reserva para "selected" / "active" / Sign in. */
+  --ring: var(--deep-accent);
+  /* WIK-191: deep accent — verde bosque profundo #1A3E35 (ejemplo del
+     ticket). Maduro y sofisticado, complementa el mint primary sin
+     competir. Usado *ultra restrictivamente*: solo en (1) bordes de
+     selección/focus, (2) estados active (FilterPill, locale selector),
+     y (3) el botón secundario de Sign in en la landing. */
+  --deep-accent: rgb(26, 62, 53);
+  --deep-accent-foreground: rgb(252, 250, 245);
   /* WIK-135: color del `<em>` dentro de headings (italic accent estilo
      casabosque). Verde profundo legible sobre cream. */
   --heading-accent: rgb(13, 121, 78);
@@ -145,7 +160,15 @@
   /* WIK-131: warm-tinted borders/inputs to match the muted family. */
   --border: rgb(45, 45, 41);
   --input: rgb(59, 58, 53);
-  --ring: rgb(81, 240, 168);
+  /* WIK-191: misma estrategia que en light — el ring usa el deep-accent
+     (acá en su variante clara, legible sobre warm-near-black). */
+  --ring: var(--deep-accent);
+  /* WIK-191: deep accent dark — el #1A3E35 puro no contrastaria contra
+     el warm-near-black (ratio <2:1), así que bajamos saturación y
+     subimos lightness para mantener el matiz forest pero leerse en
+     dark mode. Foreground vuelve al warm-near-black para contraste. */
+  --deep-accent: rgb(122, 168, 154);
+  --deep-accent-foreground: rgb(13, 12, 10);
   /* WIK-135: italic-em accent en dark mode usa el mint directo del
      primary — alto contraste sobre el warm-near-black. */
   --heading-accent: rgb(126, 254, 143);

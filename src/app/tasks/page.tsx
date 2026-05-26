@@ -452,11 +452,18 @@ function FilterPill({
   label: string;
   active: boolean;
 }) {
+  // WIK-191: el pill activo ahora usa el deep-accent (verde bosque
+  // profundo). Antes era `bg-foreground text-background` (near-black
+  // sobre cream) — el deep-accent da el mismo peso visual pero con
+  // el tono editorial del nuevo token, consistente con el ring y
+  // el Sign in button.
   return (
     <Link
       href={href}
       className={`rounded-full px-3 py-1 ${
-        active ? "bg-foreground text-background font-medium" : "hover:bg-muted"
+        active
+          ? "bg-deep-accent text-deep-accent-foreground font-medium"
+          : "hover:bg-muted"
       }`}
     >
       {label}
