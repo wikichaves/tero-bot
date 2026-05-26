@@ -212,21 +212,24 @@
      Look editorial consistente, valores tomados de wikichaves.com — el
      `.display` ahí usa line-height 0.96 + letter-spacing -0.03em. Acá lo
      aplicamos a h1 y aflojamos progresivo en h2/h3 para que los tamaños
-     chicos no se sientan pegoteados. Tamaños base 3xl/2xl/xl (Tailwind). */
+     chicos no se sientan pegoteados. WIK-187: bumped la escala base 2
+     steps (3xl→4xl, 2xl→3xl, xl→2xl) porque Times New Roman lee chico al
+     mismo tamaño en pt que sans, y los page headings se sentían poco
+     jerárquicos. */
   h1 {
-    @apply font-heading text-3xl;
+    @apply font-heading text-4xl;
     font-weight: 300;
     line-height: 1;
     letter-spacing: -0.03em;
   }
   h2 {
-    @apply font-heading text-2xl;
+    @apply font-heading text-3xl;
     font-weight: 300;
     line-height: 1.1;
     letter-spacing: -0.025em;
   }
   h3 {
-    @apply font-heading text-xl;
+    @apply font-heading text-2xl;
     font-weight: 300;
     line-height: 1.25;
     letter-spacing: -0.02em;

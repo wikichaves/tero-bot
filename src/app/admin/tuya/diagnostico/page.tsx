@@ -281,7 +281,7 @@ export default async function DiagnosticoPage() {
           <ArrowLeft className="h-4 w-4" />
           Volver
         </Link>
-        <h1 className="mt-2 text-2xl">Diagnóstico de captura</h1>
+        <h1 className="mt-2 text-4xl">Diagnóstico de captura</h1>
         <p className="text-sm text-muted-foreground">
           Salud del cron horario por device. Se computa con los últimos 200
           snapshots por tabla.

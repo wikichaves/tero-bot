@@ -143,7 +143,7 @@ export default async function DashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl">{t("title", { days: HORIZON_DAYS })}</h1>
+        <h1 className="text-4xl">{t("title", { days: HORIZON_DAYS })}</h1>
         <p className="text-sm text-muted-foreground">
           {formatLongDate(today, locale)}
         </p>
@@ -216,7 +216,7 @@ async function MantenimientoDashboard({ profileId }: { profileId: string }) {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl">{t("myTasksTitle")}</h1>
+        <h1 className="text-4xl">{t("myTasksTitle")}</h1>
         <p className="text-sm text-muted-foreground">
           {tasks.length === 0
             ? t("myTasksEmpty")

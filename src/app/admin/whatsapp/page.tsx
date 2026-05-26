@@ -41,7 +41,7 @@ export default async function WhatsAppAdminPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-2xl">WhatsApp Templates</h1>
+          <h1 className="text-4xl">WhatsApp Templates</h1>
           <p className="text-sm text-muted-foreground">
             {allTemplates.length} templates registradas. Submit a Kapso/Meta
             para aprobación — toma 1-2 días por template.

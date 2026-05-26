@@ -169,7 +169,7 @@ export default async function ReservationDetailPage({
       </div>
 
       <div>
-        <h1 className="text-2xl">
+        <h1 className="text-4xl">
           {reservation.guest_name ?? "Reserva sin nombre"}
         </h1>
         <p className="text-sm text-muted-foreground">
