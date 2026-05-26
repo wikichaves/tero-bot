@@ -158,8 +158,12 @@
      El negro absoluto deja que los assets walnut floten en vacío y
      maximiza el contrast ratio para los acentos amber del case study.
      Surfaces (card/popover) suben en steps para mantener jerarquía:
-     bg #000000 → card #0F0F0F → popover #141414. */
-  --background: rgb(0, 0, 0);
+     bg #000000 → card #0F0F0F → popover #141414.
+     WIK-213: pelin de #1A3E35 (forest green) al ~8% sobre el black para
+     romper la frialdad del negro puro sin perder el "vacío" — el tinte
+     verde casi-imperceptible empuja el bg hacia un negro cálido que pega
+     con los acentos walnut/amber. Resultado: rgb(2, 5, 4). */
+  --background: rgb(2, 5, 4);
   --foreground: rgb(250, 250, 250);
   --card: rgb(15, 15, 15);
   --card-foreground: rgb(250, 250, 250);
@@ -247,10 +251,12 @@
        carga. Solo si el OS prefiere light Y next-themes resuelve a light,
        el body bg-background sobrescribe a cream post-hidratación. */
     color-scheme: dark light;
-    /* WIK-202/207: matchear el true black del .dark theme — evita
+    /* WIK-202/207/213: matchear el bg del .dark theme — evita
        flash de gris claro durante la primera carga antes de que
-       next-themes pinte el bg correcto. */
-    background-color: rgb(0, 0, 0);
+       next-themes pinte el bg correcto. Incluye el pelin de
+       #1A3E35 (~8%) para que no haya flash entre el html bg y
+       el dark theme una vez hidratado. */
+    background-color: rgb(2, 5, 4);
   }
   /* WIK-128: mobile gets a slightly larger base (~21px → 20px) so
      buttons, inputs, and text aren't cramped on phone screens. iOS
