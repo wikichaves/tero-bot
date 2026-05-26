@@ -1,5 +1,9 @@
 # tero.bot
 
+<p align="center">
+  <img src="public/landing/Tero-Atmosphere.jpg" alt="Monolithic architecture dissolving complexity — a walnut command surface with a 22°C ambient thermostat, a holographic 'invisible operations' pipeline, and Tero Bot in WhatsApp." width="900" />
+</p>
+
 A modular, AI-leveraged property management system built to eliminate operational friction across a vacation rental complex with four houses. Zero bloatware, zero generic SaaS — every signal collapsed into one operating surface.
 
 ## The Philosophy
