@@ -194,7 +194,7 @@
   "landing": {
     "hero": {
       "titlePre": "Monolithic architecture",
-      "titleEm": "collapsing",
+      "titleEm": "dissolving",
       "titlePost": " operational complexity.",
       "intro": "Every business signal — IoT, invisible integrations, a WhatsApp bot — collapsed into a single interface. Thin, replaceable layers that keep the product surface small and operational entropy under control.",
       "atmosphereCaption": "The guest arrives and the house is already at 22°C — the climate was set hours before.",
