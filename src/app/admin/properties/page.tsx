@@ -32,7 +32,7 @@ export default async function PropertiesPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-2xl">Propiedades</h1>
+          <h1 className="text-4xl">Propiedades</h1>
           <p className="text-sm text-muted-foreground">
             {properties.length} propiedad
             {properties.length === 1 ? "" : "es"} en el sistema.

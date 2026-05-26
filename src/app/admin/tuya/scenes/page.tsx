@@ -189,7 +189,7 @@ function Header() {
         <ArrowLeft className="h-4 w-4" />
         Volver
       </Link>
-      <h1 className="mt-2 text-2xl">Tap-to-Run</h1>
+      <h1 className="mt-2 text-4xl">Tap-to-Run</h1>
     </div>
   );
 }

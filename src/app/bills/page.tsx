@@ -99,7 +99,7 @@ export default async function FacturasPage() {
     <div className="flex flex-col gap-6 p-4 sm:p-6">
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row">
         <div>
-          <h1 className="text-2xl">{t("title")}</h1>
+          <h1 className="text-4xl">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">
             {t("subtitlePre")}
             <code className="rounded bg-muted px-1 py-0.5 text-xs">

@@ -163,7 +163,7 @@ export default async function TasksPage({
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-2xl">{t("title")}</h1>
+          <h1 className="text-4xl">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">
             {t("count", { n: tasks.length })}
             {statusFilter !== "all" &&
