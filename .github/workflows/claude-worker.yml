@@ -333,3 +333,58 @@ jobs:
             --description "PR autonomous que requiere review manual" \
             2>/dev/null || true
           gh pr edit "${{ steps.pr.outputs.number }}" --add-label "needs-review"
+
+      # WIK-186: cierre del loop conversacional. Independiente del
+      # outcome del run (success/skip/no-changes/risky/safe), mandamos
+      # un mensaje a Telegram con el resultado + inline buttons para que
+      # el user pueda mergear / disparar el próximo sin abandonar el chat.
+      # `if: always()` para cubrir incluso steps que fallaron antes.
+      - name: Notify Telegram
+        if: always() && env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_ADMIN_CHAT_ID != ''
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+          TICKET_ID: ${{ steps.pick.outputs.ticket_id }}
+          TICKET_TITLE: ${{ steps.pick.outputs.ticket_title }}
+          HAS_TICKET: ${{ steps.pick.outputs.has_ticket }}
+          HAS_CHANGES: ${{ steps.commit.outputs.has_changes }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+          SAFE: ${{ steps.classify.outputs.safe }}
+          REASON: ${{ steps.classify.outputs.reason }}
+          LOC: ${{ steps.classify.outputs.loc }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          # Construye el mensaje según el outcome. Tres casos típicos:
+          #   1) No ticket / no changes → ack simple, sin buttons
+          #   2) PR auto-merged (safe) → ack + button "Próximo"
+          #   3) PR open needs-review (risky) → buttons "Mergear" / "Ver PR" / "Stop"
+          #   4) Job failed → notificar con link a logs
+          if [ "$JOB_STATUS" != "success" ]; then
+            TEXT="❌ <b>Worker falló</b>%0A%0ATicket: <b>${TICKET_ID:-(none)}</b>%0A%0A<a href=\"$RUN_URL\">Ver logs del run</a>"
+            KEYBOARD='{"inline_keyboard":[[{"text":"📋 Logs","url":"'"$RUN_URL"'"}]]}'
+          elif [ "$HAS_TICKET" != "true" ]; then
+            TEXT="ℹ️ <b>Worker terminó</b>%0A%0ANo hay tickets con label <code>claude:autonomous</code> en Todo. Queue vacía."
+            KEYBOARD=''
+          elif [ "$HAS_CHANGES" != "true" ]; then
+            TEXT="⚠️ <b>$TICKET_ID</b> procesado pero <b>sin cambios</b>%0A%0A$TICKET_TITLE%0A%0A<i>Claude no encontró nada que tocar (ticket ambiguo o ya hecho).</i>%0A%0A<a href=\"$RUN_URL\">Ver logs</a>"
+            KEYBOARD='{"inline_keyboard":[[{"text":"🚀 Próximo","callback_data":"next"},{"text":"🛑 Stop","callback_data":"noop"}]]}'
+          elif [ "$SAFE" = "true" ]; then
+            TEXT="✅ <b>$TICKET_ID</b> auto-mergeado 🚢%0A%0A$TICKET_TITLE%0A<i>$LOC líneas en allowlist</i>%0A%0A<a href=\"$PR_URL\">PR #$PR_NUMBER</a>"
+            KEYBOARD='{"inline_keyboard":[[{"text":"🚀 Próximo","callback_data":"next"},{"text":"🛑 Stop","callback_data":"noop"}]]}'
+          else
+            TEXT="🔍 <b>$TICKET_ID</b> listo, necesita review%0A%0A$TICKET_TITLE%0A<i>$REASON</i>%0A%0A<a href=\"$PR_URL\">PR #$PR_NUMBER</a>"
+            KEYBOARD='{"inline_keyboard":[[{"text":"🚢 Mergear","callback_data":"merge:'"$PR_NUMBER"'"},{"text":"📋 Ver PR","url":"'"$PR_URL"'"}],[{"text":"🛑 Stop","callback_data":"noop"}]]}'
+          fi
+
+          # POST a Telegram Bot API. Usamos jq para escapar el text
+          # safely y construir el body JSON.
+          PAYLOAD=$(jq -nc \
+            --arg chat_id "$TELEGRAM_ADMIN_CHAT_ID" \
+            --arg text "$(printf '%b' "$TEXT")" \
+            --argjson rm "${KEYBOARD:-null}" \
+            '{chat_id: $chat_id, text: $text, parse_mode: "HTML", disable_web_page_preview: true} + (if $rm == null then {} else {reply_markup: $rm} end)')
+          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" || true

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  answerCallbackQuery,
+  editTelegramMessage,
   getAdminChatId,
   getWebhookSecret,
   sendTelegramMessage,
@@ -12,6 +14,10 @@ import {
   runAdminCommand,
   HELP_TEXT,
 } from "@/lib/admin-commands";
+import {
+  parseCallbackData,
+  runCallback,
+} from "@/lib/admin-commands/callbacks";
 
 /**
  * Telegram webhook receiver (WIK-97).
@@ -57,10 +63,63 @@ export async function POST(req: NextRequest) {
   } catch {
     return new NextResponse("Bad JSON", { status: 400 });
   }
+  // WIK-186: callback_query = tap en un inline button. Lo procesamos
+  // antes que `message` porque viene en updates distintos del usual
+  // text-message flow.
+  if (update.callback_query) {
+    const cb = update.callback_query;
+    const adminId = getAdminChatId();
+    if (!adminId || cb.from.id !== adminId) {
+      // Authz check para callbacks: solo admin. Si no es, ack pero no
+      // hacemos nada (no le filtramos info).
+      await answerCallbackQuery({
+        callbackQueryId: cb.id,
+        text: "🔒 No autorizado.",
+        showAlert: true,
+      });
+      return NextResponse.json({ ok: true });
+    }
+    const parsed = parseCallbackData(cb.data);
+    if (!parsed) {
+      await answerCallbackQuery({
+        callbackQueryId: cb.id,
+        text: "Callback desconocido.",
+      });
+      return NextResponse.json({ ok: true });
+    }
+    try {
+      // Ack rápido para no dejar el spinner pendiente. El resultado real
+      // lo reportamos editando el mensaje.
+      await answerCallbackQuery({ callbackQueryId: cb.id });
+      const result = await runCallback(parsed);
+      if (cb.message) {
+        await editTelegramMessage({
+          chatId: cb.message.chat.id,
+          messageId: cb.message.message_id,
+          text: result.text,
+          parseMode: "HTML",
+          disableWebPagePreview: true,
+          inlineKeyboard: result.nextKeyboard ?? [],
+        });
+      }
+    } catch (err) {
+      console.error("[telegram] callback error", err);
+      if (cb.message) {
+        await editTelegramMessage({
+          chatId: cb.message.chat.id,
+          messageId: cb.message.message_id,
+          text: `❌ Error procesando callback: <code>${escapeHtml((err as Error).message)}</code>`,
+          parseMode: "HTML",
+          inlineKeyboard: [],
+        });
+      }
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   const msg = update.message ?? update.edited_message;
   if (!msg) {
-    // Ignoramos updates que no son mensajes (callback queries,
-    // edited_channel_post, etc.) — no los usamos todavía.
+    // Otros tipos de updates (edited_channel_post, etc.) — ignoramos.
     return NextResponse.json({ ok: true });
   }
 
