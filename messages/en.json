@@ -197,8 +197,8 @@
       "titleEm": "dissolving",
       "titlePost": " complexity.",
       "intro": "Every business signal — IoT, invisible integrations, a WhatsApp bot — collapsed into a single interface. Thin, replaceable layers that keep the product surface small and operational entropy under control.",
-      "atmosphereCaption": "The guest arrives and the house is already at 22°C — the climate was set hours before.",
-      "atmosphereAlt": "A couple just arrived at a forest cabin, holding hot mugs by a lit stove; the thermostat shows 22°C."
+      "atmosphereCaption": "One surface orchestrates the sensors, integrations, and chat — every signal collapsed into a single command layer.",
+      "atmosphereAlt": "Conceptual render: a walnut command surface with a 22°C ambient thermostat, a holographic 'invisible operations' pipeline, and Tero Bot in WhatsApp."
     },
     "stats": {
       "commits": "Commits",

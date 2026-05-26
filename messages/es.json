@@ -197,8 +197,8 @@
       "titleEm": "disolviendo",
       "titlePost": " la complejidad.",
       "intro": "Cada señal del negocio — IoT, integraciones invisibles, un bot de WhatsApp — colapsada en una sola interfaz. Capas finas y reemplazables que mantienen la superficie del producto chica y la entropía operativa bajo control.",
-      "atmosphereCaption": "El huésped llega y la casa ya está a 22°C — el clima se configuró horas antes.",
-      "atmosphereAlt": "Una pareja recién llegada a una cabaña en el bosque sostiene tazas calientes junto a una estufa encendida; el termostato muestra 22°C."
+      "atmosphereCaption": "Una superficie orquesta los sensores, integraciones y chat — cada señal colapsada en una sola capa de comando.",
+      "atmosphereAlt": "Render conceptual: una superficie walnut con termóstato ambiente 22°C, pipeline holográfico de 'invisible operations', y Tero Bot en WhatsApp."
     },
     "stats": {
       "commits": "Commits",
