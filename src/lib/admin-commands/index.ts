@@ -1,6 +1,11 @@
 import "server-only";
 import { createLinearIssue } from "@/lib/linear/create-issue";
-import { triggerClaudeWorker, mergePR } from "@/lib/github/trigger-workflow";
+import { listClaudeTodos } from "@/lib/linear/count-todos";
+import {
+  triggerClaudeWorker,
+  mergePR,
+  mergeAllClaudePRs,
+} from "@/lib/github/trigger-workflow";
 import { APP_NAME } from "@/lib/brand";
 
 /**
@@ -33,12 +38,14 @@ export type AdminCommand =
        *  agarra el top de la cola con label claude:autonomous. */
       ticketId?: string;
     }
+  | { type: "work_all" }
   | {
       type: "merge_pr";
       /** Número del PR. Si no viene, mergea el más reciente PR open
        *  con head branch `claude/*`. */
       prNumber?: number;
     }
+  | { type: "merge_all" }
   | null;
 
 export const HELP_TEXT = `<b>${APP_NAME} — comandos admin</b>
@@ -54,8 +61,10 @@ export const HELP_TEXT = `<b>${APP_NAME} — comandos admin</b>
    <i>El worker (GitHub Action) lo levanta y abre PR.</i>
 /work — disparar el worker ahora mismo (toma el top de la cola)
 /work WIK-XXX — forzar el worker sobre un ticket específico
+/work all — encolar N runs (uno por cada Todo con label claude:autonomous)
 /merge — mergear el último PR autonomous (squash) → Vercel deploya
 /merge &lt;N&gt; — mergear un PR específico por número
+/merge all — mergear TODOS los PRs autonomous open (en orden)
 
 ❓ <b>Help</b>
 /help — esta lista
@@ -128,6 +137,14 @@ export function parseAdminCommand(text: string | null | undefined): AdminCommand
     }
   }
 
+  // /work all — disparar 1 run del worker por CADA Todo con label
+  // claude:autonomous. Concurrency group serializa los runs.
+  // Importante: matchear ANTES de `/work [WIK-XXX]` porque "all" no es
+  // un WIK-id válido pero el regex genérico no lo distinguiría.
+  if (/^\/?(work|run|trabaj[áa])\s+(all|todo|todos)\s*$/i.test(cleaned)) {
+    return { type: "work_all" };
+  }
+
   // /work [WIK-XXX] — disparar el GH Action ahora. Acepta también
   // "run", "trabaja", "trabajá" como aliases.
   {
@@ -140,6 +157,16 @@ export function parseAdminCommand(text: string | null | undefined): AdminCommand
         ticketId: m[2]?.toUpperCase(),
       };
     }
+  }
+
+  // /merge all — mergear TODOS los PRs autonomous open.
+  // Igual que /work, matchear esta variante ANTES de `/merge [N]`.
+  if (
+    /^\/?(merge|merge[ae][rs]?|mergear|mergeá)\s+(all|todo|todos)\s*$/i.test(
+      cleaned,
+    )
+  ) {
+    return { type: "merge_all" };
   }
 
   // /merge [N] — mergear PR via GitHub API. Acepta también
@@ -266,6 +293,119 @@ export async function runAdminCommand(cmd: AdminCommand): Promise<string> {
         );
       } catch (e) {
         return `❌ No pude mergear: <code>${escapeHtml(
+          (e as Error).message,
+        )}</code>`;
+      }
+
+    case "work_all":
+      // Encolá un workflow_dispatch por cada Todo con label autonomous.
+      // El concurrency group `claude-worker` los serializa — vas a ver
+      // una notif por cada run via el flow de WIK-186.
+      try {
+        const todos = await listClaudeTodos();
+        if (todos.length === 0) {
+          return (
+            `📭 <b>Queue vacía</b>\n\n` +
+            `No hay tickets en <b>Todo</b> con label <code>claude:autonomous</code>. ` +
+            `Encolá uno nuevo con /claude &lt;prompt&gt; y movelo a Todo cuando esté listo.`
+          );
+        }
+        // Listado preview con priority emoji.
+        const PRIO_EMOJI: Record<number, string> = {
+          1: "🔴",
+          2: "🟠",
+          3: "🟡",
+          4: "⚪",
+          0: "⚫",
+        };
+        const preview = todos
+          .slice(0, 10)
+          .map(
+            (t) =>
+              `${PRIO_EMOJI[t.priority] ?? "⚫"} <b>${t.identifier}</b> — ${escapeHtml(
+                t.title.slice(0, 60),
+              )}${t.title.length > 60 ? "…" : ""}`,
+          )
+          .join("\n");
+        const tail = todos.length > 10 ? `\n…y ${todos.length - 10} más` : "";
+
+        // Dispatch secuencial (no Promise.all) — el endpoint de GH
+        // workflow_dispatch puede rate-limitar y queremos un orden
+        // predecible si algo falla a mitad de camino.
+        const dispatched: string[] = [];
+        const failed: Array<{ ticket: string; reason: string }> = [];
+        for (const t of todos) {
+          try {
+            await triggerClaudeWorker(t.identifier);
+            dispatched.push(t.identifier);
+          } catch (e) {
+            failed.push({ ticket: t.identifier, reason: (e as Error).message });
+          }
+        }
+        const failedLine =
+          failed.length > 0
+            ? `\n\n⚠ ${failed.length} no se pudieron disparar:\n` +
+              failed
+                .slice(0, 5)
+                .map(
+                  (f) =>
+                    `• ${f.ticket}: <code>${escapeHtml(f.reason.slice(0, 80))}</code>`,
+                )
+                .join("\n")
+            : "";
+        return (
+          `🚀 <b>${dispatched.length} runs en cola</b>\n\n` +
+          `${preview}${tail}\n\n` +
+          `<i>El concurrency group los serializa — vas a ver una notif por cada run cuando termine.</i>` +
+          failedLine
+        );
+      } catch (e) {
+        return `❌ No pude disparar /work all: <code>${escapeHtml(
+          (e as Error).message,
+        )}</code>`;
+      }
+
+    case "merge_all":
+      // Loop secuencial sobre los PRs autonomous open. Cada falla se
+      // reporta inline pero no detiene el loop — útil cuando hay PRs
+      // con conflictos mezclados con PRs limpios.
+      try {
+        const result = await mergeAllClaudePRs();
+        if (result.merged.length === 0 && result.failed.length === 0) {
+          return (
+            `📭 <b>No hay PRs autonomous open</b>\n\n` +
+            `Nada que mergear.`
+          );
+        }
+        const mergedLine =
+          result.merged.length > 0
+            ? `✅ <b>${result.merged.length} mergeados</b>\n` +
+              result.merged
+                .map(
+                  (m) =>
+                    `• #${m.prNumber} <code>${m.mergeSha.slice(0, 7)}</code> — ${escapeHtml(
+                      m.prTitle.slice(0, 60),
+                    )}`,
+                )
+                .join("\n")
+            : "";
+        const failedLine =
+          result.failed.length > 0
+            ? `\n\n⚠ <b>${result.failed.length} con problema</b>\n` +
+              result.failed
+                .map(
+                  (f) =>
+                    `• #${f.prNumber} — <code>${escapeHtml(f.reason.slice(0, 100))}</code>`,
+                )
+                .join("\n")
+            : "";
+        const deployLine =
+          result.merged.length > 0
+            ? `\n\n<i>Vercel deploya en 2-3 min.</i>`
+            : "";
+        return `${mergedLine}${failedLine}${deployLine}`;
+      } catch (e) {
+        return `❌ No pude correr /merge all: <code>${escapeHtml(
           (e as Error).message,
         )}</code>`;
       }

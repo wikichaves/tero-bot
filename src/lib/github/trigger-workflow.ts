@@ -201,3 +201,63 @@ export async function mergePR(
     mergeSha: merged.sha,
   };
 }
+
+export type MergeAllResult = {
+  merged: Array<{ prNumber: number; prTitle: string; mergeSha: string }>;
+  failed: Array<{ prNumber: number; prTitle: string; reason: string }>;
+};
+
+/**
+ * Mergea TODOS los PRs open con head branch `claude/*` (WIK-186
+ * follow-up — `/merge all`).
+ *
+ * Loop secuencial — no paraleliza para evitar race conditions con la
+ * branch protection de main (cada merge updatea main, el siguiente
+ * tiene que re-evaluar mergeability). Los PRs que tienen conflictos o
+ * cualquier otro problema se reportan en `failed` y el loop continúa
+ * con el resto.
+ *
+ * Default method: `squash` (igual que `mergePR`).
+ */
+export async function mergeAllClaudePRs(
+  method: "merge" | "squash" | "rebase" = "squash",
+): Promise<MergeAllResult> {
+  // 1. List open PRs cuyo head branch empieza con `claude/`.
+  const { data } = await gh<
+    Array<{
+      number: number;
+      head: { ref: string };
+      title: string;
+      html_url: string;
+    }>
+  >(
+    `/repos/${REPO_OWNER}/${REPO_NAME}/pulls?state=open&sort=created&direction=asc&per_page=100`,
+  );
+  const claudePrs = (data ?? []).filter((pr) =>
+    pr.head.ref.startsWith("claude/"),
+  );
+
+  const result: MergeAllResult = { merged: [], failed: [] };
+
+  // 2. Loop secuencial. Cada iteración hace su propio
+  //    mergeability check vía `mergePR` (que ya valida estado +
+  //    conflicts antes de PUT /merge).
+  for (const pr of claudePrs) {
+    try {
+      const r = await mergePR(pr.number, method);
+      result.merged.push({
+        prNumber: r.prNumber,
+        prTitle: r.prTitle,
+        mergeSha: r.mergeSha,
+      });
+    } catch (e) {
+      result.failed.push({
+        prNumber: pr.number,
+        prTitle: pr.title,
+        reason: (e as Error).message,
+      });
+    }
+  }
+
+  return result;
+}
