@@ -8,8 +8,8 @@ import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
  *   - El splash screen al abrir (background_color).
  *   - El color de la status bar (theme_color).
  *
- * Ambos colores hardcoded a #000000 para que el splash y la status bar
- * matcheen el fondo del icon (todo negro) — sin flash blanco al abrir.
+ * theme_color hardcoded a #000000 (status bar negra). background_color
+ * en #1A3E35 (mint oscuro) para el splash screen.
  *
  * WIK-131: collapsed product/operator branding into single APP_NAME.
  */
@@ -20,7 +20,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: `${APP_NAME} — ${APP_TAGLINE}.`,
     start_url: "/dashboard",
     display: "standalone",
-    background_color: "#000000",
+    background_color: "#1A3E35",
     theme_color: "#000000",
     orientation: "portrait",
     icons: [
