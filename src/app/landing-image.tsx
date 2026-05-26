@@ -68,6 +68,14 @@ export function LandingImage({
             alt={alt}
             className={cn(
               "transition-transform duration-500 ease-out group-hover:scale-[1.02]",
+              // WIK-202: en dark mode, feather los bordes de la imagen
+              // hacia transparent vía mask radial-gradient. Los assets
+              // walnut tienen bg natural muy oscuro pero JPEG compression
+              // deja artefactos gris-oscuro sutiles en los bordes que
+              // formaban un "bounding box" sobre el obsidian #030303.
+              // Esto los funde sin seams visibles. Light mode no lo
+              // necesita (cream bg, edges OK).
+              "dark:[mask-image:radial-gradient(ellipse_at_center,black_55%,transparent_98%)]",
               className,
             )}
             loading={loading}

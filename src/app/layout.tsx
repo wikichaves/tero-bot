@@ -101,16 +101,16 @@ export default async function RootLayout({
             above body's bg but below all child content. Landing layers
             an additional gradient + stronger noise on top of this for
             its hero treatment. */}
-        {/* WIK-199/200: paper grain (light) / obsidian patina (dark).
+        {/* WIK-199/200/202: paper grain (light) / obsidian patina (dark).
             Misma SVG con `feTurbulence fractalNoise` para ambos themes —
-            irregular orgánico, sin grid visible. Subimos tile size de
-            240px → 480px para borrar los seams que en monitores grandes
-            se notaban como repetición. Opacity light bajada a 0.05 para
-            paper grain sutil; dark a 0.08 para que la patina apenas
-            quiebre el flat black sin distraer. */}
+            irregular orgánico, sin grid visible. Tile size 480px borra
+            los seams en monitores grandes. WIK-202: opacity dark
+            bajada de 0.08 → 0.025 (ticket pide "ultra baja 1-2%") para
+            que la patina apenas quiebre el flat black sin distraer del
+            amber de los assets. Light se queda en 0.05. */}
         <div
           aria-hidden
-          className="pointer-events-none fixed inset-0 -z-10 opacity-[0.05] dark:opacity-[0.08]"
+          className="pointer-events-none fixed inset-0 -z-10 opacity-[0.05] dark:opacity-[0.025]"
           style={{
             backgroundImage: "url(/landing/noise.svg)",
             backgroundSize: "480px",
