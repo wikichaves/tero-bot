@@ -21,8 +21,13 @@ name: UI Timelapse
 on:
   workflow_dispatch:
     inputs:
+      stride:
+        description: "1 de cada N commits (cronológico). Setear > 1 ignora samples_count."
+        required: false
+        type: string
+        default: "4"
       samples_count:
-        description: "Cuántos commits muestrear (default = lo que dice el script)"
+        description: "Cuántos commits muestrear (usado solo si stride=1)"
         required: false
         type: string
         default: "50"
@@ -44,7 +49,9 @@ permissions:
 jobs:
   generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 180  # 3h cap — 50 commits × ~60s = 50 min, holgura
+    # WIK-198 v4: 5h cap — con stride=4 sobre 350+ commits (~88 samples)
+    # y timeout dev-server de 240s, worst case ~5.9h. Avg success ~2-3h.
+    timeout-minutes: 300
 
     steps:
       - name: Checkout (con todo el history)
@@ -84,20 +91,15 @@ jobs:
           fi
           ffmpeg -version | head -1
 
-      - name: Override SAMPLES_COUNT desde input
-        # Reemplaza el `const SAMPLES_COUNT = 10;` del script por
-        # el valor que el usuario pasó en workflow_dispatch.
-        env:
-          SAMPLES: ${{ inputs.samples_count }}
-        run: |
-          sed -i "s|^const SAMPLES_COUNT = .*|const SAMPLES_COUNT = ${SAMPLES};|" \
-            scripts/timelapse/generate.mjs
-          grep "^const SAMPLES_COUNT" scripts/timelapse/generate.mjs
-
       - name: Run timelapse generator
         # En GH Actions el script tiene 16GB y un runner fresh,
         # así que no necesita las safeguards super-conservadoras de
         # local. Igual las mantiene (no rompen nada).
+        # WIK-198 v4: script ahora lee SAMPLES_COUNT/STRIDE de env —
+        # ya no hace falta sed para overridear constantes.
+        env:
+          STRIDE: ${{ inputs.stride }}
+          SAMPLES_COUNT: ${{ inputs.samples_count }}
         run: node scripts/timelapse/generate.mjs
 
       - name: Generate mp4 con ffmpeg

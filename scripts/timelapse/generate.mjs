@@ -47,9 +47,21 @@ const PORT = 3000;
 // spawnea workers que NO mueren con SIGTERM al PGID. Cada iteración
 // dejaba 500MB+ residual en RAM (Next + chromium). Con 10 + kill-port
 // + cooldown, termina sin meter swap. Subí gradualmente si querés más.
-const SAMPLES_COUNT = 10;
+//
+// Override via env: SAMPLES_COUNT=50 npm run timelapse:gen
+//
+// WIK-198 v4: STRIDE — alternativa a SAMPLES_COUNT que toma 1 de cada N
+// commits (uniformemente, en orden cronológico). Útil cuando crece el
+// repo: en vez de "siempre 10 samples" da resolución constante. Si
+// STRIDE está seteado, override a SAMPLES_COUNT. Default: stride=1
+// (= sin stride, usar SAMPLES_COUNT).
+const SAMPLES_COUNT = Number(process.env.SAMPLES_COUNT) || 10;
+const STRIDE = Number(process.env.STRIDE) || 1;
 const START_COMMAND = "npm run dev";
-const DEV_SERVER_TIMEOUT_MS = 90_000;
+// WIK-198 v4: 90s era muy ajustado — el primer cold-boot de Next 16 dev
+// en runners frescos (GH Actions) tomaba 100-140s y todos los commits
+// timeouteaban. 240s da margen.
+const DEV_SERVER_TIMEOUT_MS = 240_000;
 const PAGE_LOAD_TIMEOUT_MS = 30_000;
 const SCREENSHOT_WIDTH = 1440;
 const SCREENSHOT_HEIGHT = 900;
@@ -209,8 +221,21 @@ async function main() {
   const allCommits = execGit("rev-list HEAD --reverse").split("\n").filter(Boolean);
   console.log(`[timelapse] total commits: ${allCommits.length}`);
 
-  const samples = sampleEvenly(allCommits, SAMPLES_COUNT);
-  console.log(`[timelapse] sampling ${samples.length} commits`);
+  // STRIDE > 1: 1 de cada N en orden cronológico (más HEAD para garantizar
+  // el último). STRIDE === 1: sample uniforme de SAMPLES_COUNT.
+  let samples;
+  if (STRIDE > 1) {
+    samples = [];
+    for (let i = 0; i < allCommits.length; i += STRIDE) samples.push(allCommits[i]);
+    // Forzar que el último commit (HEAD) esté siempre incluido.
+    if (samples[samples.length - 1] !== allCommits[allCommits.length - 1]) {
+      samples.push(allCommits[allCommits.length - 1]);
+    }
+    console.log(`[timelapse] stride=${STRIDE} → sampling ${samples.length} commits`);
+  } else {
+    samples = sampleEvenly(allCommits, SAMPLES_COUNT);
+    console.log(`[timelapse] sampling ${samples.length} commits (evenly spaced)`);
+  }
 
   let savedCount = 0;
   const failures = [];
