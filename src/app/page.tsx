@@ -12,7 +12,6 @@ import {
   HoursClockFace,
   DaysStack,
 } from "./landing-stat-icons";
-import { LandingOrchestrationTraces } from "./landing-orchestration-traces";
 
 /**
  * WIK-203: map de stat → icono abstracto. `status` (WIP) intencional-
@@ -224,11 +223,10 @@ export default async function LandingPage() {
             Each module gets full section width with the photo on one side
             (~60%) and the problem/module/philosophy trio on the other.
             Rows alternate sides on lg+; stack vertically below.
-            WIK-204: amber data orchestration traces — rails verticales
-            de PCB con ramas que apuntan a cada ModuleCard. `relative`
-            en la section da el contexto de posición para el SVG. */}
-        <section className="relative border-t border-border/60 px-5 py-20 sm:px-8 sm:py-28">
-          <LandingOrchestrationTraces />
+            WIK-204 → WIK-206: probamos los rails amber de PCB y no
+            convencieron — quitados. La sección vuelve a ser flat sin
+            overlay decorativo. */}
+        <section className="border-t border-border/60 px-5 py-20 sm:px-8 sm:py-28">
           <div className="mx-auto flex max-w-6xl flex-col gap-16 sm:gap-20">
             <div className="mx-auto flex max-w-2xl flex-col items-center gap-3 text-center">
               <span className="label-mono-with-rule">
