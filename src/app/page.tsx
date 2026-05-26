@@ -168,11 +168,17 @@ export default async function LandingPage() {
                   key={s.labelKey}
                   className="flex flex-col items-start gap-2"
                 >
+                  {/* WIK-209: si la stat no tiene icono (caso WIP/status)
+                      renderea un placeholder invisible del mismo tamaño
+                      para que el valor + label se alineen vertical con
+                      las otras 3 stats que sí tienen icono. */}
                   {Icon ? (
                     <div className="mb-2 h-12 w-12">
                       <Icon />
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className="mb-2 h-12 w-12" aria-hidden />
+                  )}
                   <span
                     className={`font-heading text-4xl leading-none tracking-tight sm:text-5xl ${
                       s.accent ? "text-[var(--heading-accent)]" : ""
