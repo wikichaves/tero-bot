@@ -73,12 +73,17 @@ export default async function LandingPage() {
         className="pointer-events-none fixed inset-0 -z-20 bg-gradient-to-b from-[rgb(243,237,219)] via-background to-background dark:from-[rgb(24,21,16)] dark:via-background dark:to-background"
       />
       {/* Film-grain texture. Fixed position so it covers the whole
-          viewport even when scrolling. Opacity is asymmetric: dark
-          mode needs more grain to read on near-black, light mode
-          stays subtler so it doesn't muddy near-white. */}
+          viewport even when scrolling. Opacity asimétrica: dark mode
+          lleva más grano para que se note sobre el negro, light mode
+          se queda más subtle para no enturbiar el cream.
+          WIK-207 follow-up: con el bg ahora en true black (#000), el
+          mismo opacity de antes (0.22) leía con MÁS contraste visual
+          y se sentía "ruido digital". Bajamos dark a 0.10 — la
+          textura se intuye sin gritar. Light queda en 0.12 igual,
+          sigue siendo discreta sobre el cream. */}
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0 -z-10 opacity-[0.12] dark:opacity-[0.22]"
+        className="pointer-events-none fixed inset-0 -z-10 opacity-[0.12] dark:opacity-[0.10]"
         style={{
           backgroundImage: "url(/landing/noise.svg)",
           backgroundSize: "240px",
