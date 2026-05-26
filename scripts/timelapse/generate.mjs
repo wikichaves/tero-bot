@@ -42,12 +42,20 @@ import { chromium } from "playwright";
 
 // ─── CONFIG (modificar acá, no en el body) ───────────────────────────
 const TARGET_URL = "http://localhost:3000";
-const SAMPLES_COUNT = 50;
+const PORT = 3000;
+// WIK-198 v2: 10 default — 50 colgaba la máquina porque Next dev server
+// spawnea workers que NO mueren con SIGTERM al PGID. Cada iteración
+// dejaba 500MB+ residual en RAM (Next + chromium). Con 10 + kill-port
+// + cooldown, termina sin meter swap. Subí gradualmente si querés más.
+const SAMPLES_COUNT = 10;
 const START_COMMAND = "npm run dev";
 const DEV_SERVER_TIMEOUT_MS = 90_000;
 const PAGE_LOAD_TIMEOUT_MS = 30_000;
 const SCREENSHOT_WIDTH = 1440;
 const SCREENSHOT_HEIGHT = 900;
+/** Sleep entre iteraciones — le da tiempo al OS para liberar RAM,
+ *  cerrar file handles y descansar el disco antes del próximo boot. */
+const COOLDOWN_MS = 3_000;
 // ──────────────────────────────────────────────────────────────────────
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -107,24 +115,62 @@ function startDevServer() {
 }
 
 /**
- * Mata el dev server y todos sus children. Usa SIGTERM primero (graceful),
- * después SIGKILL si todavía está vivo. `process.kill(-pid)` apunta al
- * process group entero.
+ * Mata el dev server y TODOS sus descendants. Estrategia layered porque
+ * Next.js spawnea workers que sobreviven al SIGTERM al PGID:
+ *
+ *  1. SIGTERM al PGID (graceful, mata al `npm run dev` y typically
+ *     a sus children directos)
+ *  2. SIGKILL al PGID después de 500ms (por si SIGTERM no fue suficiente)
+ *  3. `kill-by-port`: matar cualquier proceso que SIGA escuchando al
+ *     puerto. Esto cubre el caso típico donde Next workers sobreviven al
+ *     kill del parent.
+ *  4. Wait hasta que el puerto esté libre (max 5s) — si no se libera,
+ *     ABORT antes que el próximo iter empiece a leak RAM exponencialmente.
  */
 async function killServer(proc) {
-  if (!proc || proc.killed || !proc.pid) return;
-  try {
-    process.kill(-proc.pid, "SIGTERM");
-  } catch {
-    // Si ya murió, OK
+  if (proc && !proc.killed && proc.pid) {
+    try { process.kill(-proc.pid, "SIGTERM"); } catch {}
+    await sleep(500);
+    try { process.kill(-proc.pid, "SIGKILL"); } catch {}
+    await sleep(200);
   }
-  await sleep(500);
+  // Layer 2: matar lo que aún esté ocupando el puerto.
+  await killByPort(PORT);
+  // Layer 3: confirmar el puerto está libre antes de seguir.
+  await waitForPortFree(PORT, 5_000);
+}
+
+/** Mata cualquier proceso escuchando al puerto. Cross-platform via lsof. */
+async function killByPort(port) {
   try {
-    process.kill(-proc.pid, "SIGKILL");
+    // `lsof -t` devuelve solo PIDs, uno por línea. -i :PORT filtra
+    // sólo los que tienen ese puerto. `kill -9` SIGKILL inmediato.
+    execSync(
+      `lsof -ti :${port} 2>/dev/null | xargs -r kill -9 2>/dev/null || true`,
+      { stdio: "ignore", shell: "/bin/sh" },
+    );
   } catch {
-    // Idem
+    // Cualquier error en el pipe — lsof no devolvió nada o no está
+    // instalado. No es fatal.
   }
-  await sleep(200);
+}
+
+/** Polling hasta que el puerto se libere. Throws si no pasa en `timeoutMs`. */
+async function waitForPortFree(port, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      execSync(`lsof -ti :${port} 2>/dev/null`, { stdio: "ignore" });
+      // Sigue alguien — esperamos
+      await sleep(300);
+    } catch {
+      // lsof exit code 1 = nadie en el puerto. ✓
+      return;
+    }
+  }
+  throw new Error(
+    `Puerto ${port} sigue ocupado después de ${timeoutMs}ms — aborting para no leak RAM`,
+  );
 }
 
 async function main() {
@@ -214,6 +260,13 @@ async function main() {
       } finally {
         if (browser) await browser.close().catch(() => {});
         if (serverProc) await killServer(serverProc);
+        // Cooldown — RAM free, file handles close, disco descansa antes
+        // del próximo boot. Sin esto, después de ~5 iteraciones la
+        // máquina entra a swap y se cuelga (probado experimentalmente).
+        if (i < samples.length - 1) {
+          console.log(`  · cooldown ${COOLDOWN_MS / 1000}s`);
+          await sleep(COOLDOWN_MS);
+        }
       }
     }
   } finally {
