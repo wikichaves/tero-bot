@@ -94,36 +94,32 @@
   --card-foreground: rgb(0, 0, 0);
   --popover: rgb(252, 251, 247);
   --popover-foreground: rgb(0, 0, 0);
-  --primary: rgb(81, 240, 168);
-  --primary-foreground: rgb(0, 0, 0);
-  --secondary: rgb(252, 251, 247);
-  --secondary-foreground: rgb(8, 8, 8);
+  /* WIK-196: accents a negro (era mint `rgb(81,240,168)`). Espejo de la
+     paleta dark mode — botones primarios negros sobre cream, foreground
+     blanco. Máxima sobriedad sin color. */
+  --primary: rgb(20, 20, 20);
+  --primary-foreground: rgb(255, 255, 255);
+  --secondary: rgb(245, 243, 236);
+  --secondary-foreground: rgb(20, 20, 20);
   --muted: rgb(245, 243, 236);
-  /* WIK-131: warm-grey muted text (matches `--ink-dim` from the design
-     portfolio). Darker version for light bg so it stays readable. */
   --muted-foreground: rgb(120, 116, 105);
-  --accent: rgb(249, 255, 252);
-  --accent-foreground: rgb(13, 159, 93);
+  --accent: rgb(240, 238, 232);
+  --accent-foreground: rgb(20, 20, 20);
   --destructive: rgb(245, 74, 136);
   --destructive-foreground: rgb(255, 255, 255);
   /* WIK-131: borders pulled into the same warm-grey family. */
   --border: rgb(228, 224, 215);
   --input: rgb(235, 232, 224);
-  /* WIK-191: ring (focus/selection border) ahora usa el deep-accent —
-     mismo gesto editorial que el botón secundario de Sign in. El mint
-     primary queda para los CTAs principales; el verde bosque profundo
-     se reserva para "selected" / "active" / Sign in. */
+  /* WIK-196: ring también a negro — mismo gesto sobrio. */
   --ring: var(--deep-accent);
-  /* WIK-191: deep accent — verde bosque profundo #1A3E35 (ejemplo del
-     ticket). Maduro y sofisticado, complementa el mint primary sin
-     competir. Usado *ultra restrictivamente*: solo en (1) bordes de
-     selección/focus, (2) estados active (FilterPill, locale selector),
-     y (3) el botón secundario de Sign in en la landing. */
-  --deep-accent: rgb(26, 62, 53);
+  /* WIK-196: deep-accent (Sign in CTA, active states) ahora es negro —
+     antes era el forest green. Mismo accent neutro que el primary,
+     pero conserva el slot semántico para futuros usos diferenciados. */
+  --deep-accent: rgb(20, 20, 20);
   --deep-accent-foreground: rgb(252, 250, 245);
-  /* WIK-135: color del `<em>` dentro de headings (italic accent estilo
-     casabosque). Verde profundo legible sobre cream. */
-  --heading-accent: rgb(13, 121, 78);
+  /* WIK-196: italic-em accent en headings — ahora negro puro (era verde
+     profundo). El énfasis sale del italic + peso, no del color. */
+  --heading-accent: rgb(20, 20, 20);
   --chart-1: rgb(81, 240, 168);
   --chart-2: rgb(126, 254, 143);
   --chart-3: rgb(255, 72, 56);
@@ -133,7 +129,9 @@
   --sidebar-foreground: rgb(0, 0, 0);
   --sidebar-primary: rgb(0, 0, 0);
   --sidebar-primary-foreground: rgb(255, 255, 255);
-  --sidebar-accent: rgb(228, 254, 243);
+  /* WIK-196: sidebar-accent (selected/hover state) ahora gris neutro,
+     antes era un mint claro `rgb(228,254,243)`. */
+  --sidebar-accent: rgb(240, 238, 232);
   --sidebar-accent-foreground: rgb(0, 0, 0);
   --sidebar-border: rgb(235, 235, 235);
   --sidebar-ring: rgb(0, 0, 0);
@@ -150,57 +148,61 @@
 }
 
 .dark {
-  /* WIK-135: warm near-black (era #000 puro). El undertone cálido evita
-     que el switch dark se sienta "frío shadcn" y empata con el cream-
-     warmed light mode. */
-  --background: rgb(13, 12, 10);
-  --foreground: rgb(240, 240, 240);
-  --card: rgb(20, 18, 14);
-  --card-foreground: rgb(240, 240, 240);
-  --popover: rgb(28, 26, 22);
-  --popover-foreground: rgb(240, 240, 240);
-  --primary: rgb(81, 240, 168);
-  --primary-foreground: rgb(0, 0, 0);
-  --secondary: rgb(33, 106, 73);
-  --secondary-foreground: rgb(240, 240, 240);
-  --muted: rgb(35, 35, 31);
-  /* WIK-131: exact warm-grey from the portfolio's `--ink-dim`. */
-  --muted-foreground: rgb(168, 164, 154);
-  --accent: rgb(9, 55, 35);
-  --accent-foreground: rgb(254, 254, 254);
+  /* WIK-196: dark gray neutro (era warm-near-black rgb 13,12,10). El
+     undertone cálido y el negro casi-puro se pisaban con el accent
+     verde — ahora una paleta gris pura para máxima sobriedad. Acompañan
+     surfaces con steps progresivos (card > bg, popover > card) para
+     mantener jerarquía visual sin tinte. */
+  --background: rgb(38, 38, 38);
+  --foreground: rgb(245, 245, 245);
+  --card: rgb(48, 48, 48);
+  --card-foreground: rgb(245, 245, 245);
+  --popover: rgb(52, 52, 52);
+  --popover-foreground: rgb(245, 245, 245);
+  /* WIK-196: acentos a blanco puro / gris muy claro. Reemplaza el mint
+     `rgb(81,240,168)` por blanco — botones primarios y enlaces ahora
+     usan blanco sobre el gris oscuro, máxima sobriedad. El foreground
+     del primary va a un gris oscuro casi-negro para contraste sobre
+     el botón blanco. */
+  --primary: rgb(255, 255, 255);
+  --primary-foreground: rgb(20, 20, 20);
+  --secondary: rgb(70, 70, 70);
+  --secondary-foreground: rgb(245, 245, 245);
+  --muted: rgb(58, 58, 58);
+  --muted-foreground: rgb(170, 170, 170);
+  --accent: rgb(70, 70, 70);
+  --accent-foreground: rgb(245, 245, 245);
   --destructive: rgb(255, 120, 165);
   --destructive-foreground: rgb(255, 255, 255);
-  /* WIK-131: warm-tinted borders/inputs to match the muted family. */
-  --border: rgb(45, 45, 41);
-  --input: rgb(59, 58, 53);
-  /* WIK-191: misma estrategia que en light — el ring usa el deep-accent
-     (acá en su variante clara, legible sobre warm-near-black). */
-  --ring: var(--deep-accent);
-  /* WIK-191: deep accent dark — el #1A3E35 puro no contrastaria contra
-     el warm-near-black (ratio <2:1), así que bajamos saturación y
-     subimos lightness para mantener el matiz forest pero leerse en
-     dark mode. Foreground vuelve al warm-near-black para contraste. */
-  --deep-accent: rgb(122, 168, 154);
-  --deep-accent-foreground: rgb(13, 12, 10);
-  /* WIK-135: italic-em accent en dark mode usa el mint directo del
-     primary — alto contraste sobre el warm-near-black. */
-  --heading-accent: rgb(126, 254, 143);
+  --border: rgb(70, 70, 70);
+  --input: rgb(80, 80, 80);
+  /* WIK-196: ring también a blanco — focus/selection con el mismo
+     gesto sobrio que el resto de la paleta. */
+  --ring: rgb(255, 255, 255);
+  /* WIK-196: deep-accent (Sign in CTA, active states) ahora es gris
+     muy claro — antes era el forest green. Foreground oscuro para
+     contraste. */
+  --deep-accent: rgb(230, 230, 230);
+  --deep-accent-foreground: rgb(20, 20, 20);
+  /* WIK-196: italic-em accent dentro de headings — ahora blanco puro
+     sobre el gris oscuro. La cursiva sigue marcando el acento pero sin
+     color (peso visual via italic + alta lightness). */
+  --heading-accent: rgb(255, 255, 255);
   --chart-1: rgb(81, 240, 168);
   --chart-2: rgb(158, 255, 161);
   --chart-3: rgb(255, 183, 207);
   --chart-4: rgb(95, 208, 255);
   --chart-5: rgb(255, 177, 136);
-  --sidebar: rgb(10, 10, 10);
-  --sidebar-foreground: rgb(240, 240, 240);
-  --sidebar-primary: rgb(81, 240, 168);
-  --sidebar-primary-foreground: rgb(255, 255, 255);
-  --sidebar-accent: rgb(0, 51, 27);
-  --sidebar-accent-foreground: rgb(81, 240, 168);
-  --sidebar-border: rgb(53, 58, 62);
-  --sidebar-ring: rgb(81, 240, 168);
+  --sidebar: rgb(38, 38, 38);
+  --sidebar-foreground: rgb(245, 245, 245);
+  --sidebar-primary: rgb(255, 255, 255);
+  --sidebar-primary-foreground: rgb(20, 20, 20);
+  --sidebar-accent: rgb(60, 60, 60);
+  --sidebar-accent-foreground: rgb(245, 245, 245);
+  --sidebar-border: rgb(70, 70, 70);
+  --sidebar-ring: rgb(255, 255, 255);
   /* WIK-192: hard contact shadow values — dark mode. Deeper alpha so
-     the shadow still registers over the warm-near-black background
-     (light-mode alpha would be invisible against bg). */
+     the shadow still registers over the dark gray background. */
   --shadow-contact: 2px 2px 0 0 rgba(0, 0, 0, 0.45);
   --shadow-contact-md: 3px 3px 0 0 rgba(0, 0, 0, 0.55);
 }
@@ -227,12 +229,13 @@
        further bump below — phones get hit hardest by the dense shadcn
        defaults. */
     font-size: 19px;
-    /* WIK-92: BG inicial dinámico via OS preference. Antes que next-themes
-       hidrate la clase `dark`, el browser ya pinta el HTML según el
-       prefers-color-scheme del sistema. Evita el flash blanco en dark
-       mode (y el flash negro en light mode). */
-    color-scheme: light dark;
-    background-color: rgb(252, 250, 245);
+    /* WIK-196: BG inicial = dark gray porque el defaultTheme pasó a "dark"
+       (era "system"). Antes de que next-themes hidrate, el browser ya pinta
+       el HTML en dark gray para evitar flash claro → oscuro en la primera
+       carga. Solo si el OS prefiere light Y next-themes resuelve a light,
+       el body bg-background sobrescribe a cream post-hidratación. */
+    color-scheme: dark light;
+    background-color: rgb(38, 38, 38);
   }
   /* WIK-128: mobile gets a slightly larger base (~21px → 20px) so
      buttons, inputs, and text aren't cramped on phone screens. iOS
@@ -243,9 +246,9 @@
       font-size: 20px;
     }
   }
-  @media (prefers-color-scheme: dark) {
+  @media (prefers-color-scheme: light) {
     html {
-      background-color: rgb(13, 12, 10);
+      background-color: rgb(252, 250, 245);
     }
   }
 

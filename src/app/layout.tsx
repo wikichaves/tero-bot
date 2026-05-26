@@ -57,10 +57,12 @@ export const metadata: Metadata = {
  */
 export const viewport: Viewport = {
   themeColor: [
-    // WIK-135: BG warm-paper (era #fdfdfd) y warm-near-black (era #000)
-    // para alinear con la paleta editorial del theme.
+    // WIK-196: dark gray neutro (era warm-near-black #0d0c0a) para dark mode.
+    // Light mode mantiene el warm-paper. El default del browser/PWA chrome
+    // sigue al OS hasta que el usuario elija manualmente — defaultTheme=dark
+    // solo afecta la app shell post-hidratación.
     { media: "(prefers-color-scheme: light)", color: "#fcfaf5" },
-    { media: "(prefers-color-scheme: dark)", color: "#0d0c0a" },
+    { media: "(prefers-color-scheme: dark)", color: "#262626" },
   ],
   colorScheme: "dark light",
 };
@@ -110,7 +112,7 @@ export default async function RootLayout({
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ThemeProvider
             attribute="class"
-            defaultTheme="system"
+            defaultTheme="dark"
             enableSystem
             disableTransitionOnChange
           >
