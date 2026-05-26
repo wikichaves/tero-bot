@@ -12,9 +12,10 @@
  * normalizar a Tailwind/shadcn vars y agregar las shadcn-specific vars
  * (sidebar, chart-1..5) que el ticket no listaba todas.
  *
- * Fonts (registradas en src/app/layout.tsx via next/font/google):
+ * Fonts (Geist registradas en src/app/layout.tsx via next/font/google):
  *   - Geist Sans → --font-sans (default UI) — WIK-128
- *   - Source Serif 4 → --font-serif & --font-heading (all h1..h3) — WIK-131
+ *   - Times New Roman → --font-serif & --font-heading (all h1..h3),
+ *     system font seteado en :root abajo
  *   - Geist Mono → --font-mono (códigos, IDs) — WIK-128
  *
  * WIK-131: bumped the muted/border tones from neutral grey into the
@@ -60,7 +61,7 @@
   --font-serif: var(--font-serif);
   --font-mono: var(--font-mono);
   /* WIK-131: heading utility class + base `<h1..h3>` now use the
-     serif (Source Serif 4). Body / button / input / nav stay sans. */
+     serif (Times New Roman). Body / button / input / nav stay sans. */
   --font-heading: var(--font-serif);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -69,6 +70,9 @@
 }
 
 :root {
+  /* Times New Roman como font serif del theme — system font, sin fetch
+     remoto. Se aplica a headings via --font-heading. */
+  --font-serif: "Times New Roman", Times, serif;
   /* WIK-135: bg + card warm-cream — paleta editorial del theme.
      `--background` antes era 253,253,253 (frío), ahora un tint mínimo de
      paper. Card va levemente más claro para que las cards "leviten"
@@ -204,12 +208,11 @@
     }
   }
 
-  /* WIK-165 / WIK-173: Source Serif 4 weight 300 en todos los headings
-     (landing + admin). Look editorial consistente, valores tomados de
-     wikichaves.com — el `.display` ahí usa line-height 0.96 +
-     letter-spacing -0.03em. Acá lo aplicamos a h1 y aflojamos progresivo
-     en h2/h3 para que los tamaños chicos no se sientan pegoteados.
-     Tamaños base 3xl/2xl/xl (Tailwind). */
+  /* WIK-165 / WIK-173: weight 300 en todos los headings (landing + admin).
+     Look editorial consistente, valores tomados de wikichaves.com — el
+     `.display` ahí usa line-height 0.96 + letter-spacing -0.03em. Acá lo
+     aplicamos a h1 y aflojamos progresivo en h2/h3 para que los tamaños
+     chicos no se sientan pegoteados. Tamaños base 3xl/2xl/xl (Tailwind). */
   h1 {
     @apply font-heading text-3xl;
     font-weight: 300;
