@@ -1,0 +1,255 @@
+#!/usr/bin/env node
+
+/**
+ * UI Timelapse generator (WIK-198).
+ *
+ * Itera por la historia de commits, levanta el dev server en cada uno,
+ * captura una screenshot full-page con Playwright, y deja un set de PNGs
+ * listos para `ffmpeg` (el comando exacto se imprime al final).
+ *
+ * Decisiones de diseño:
+ *
+ * 1. Sampling: tomamos ~50 commits distribuidos uniformemente en
+ *    `git rev-list HEAD --reverse` (el oldest commit es el primer
+ *    frame, el HEAD es el último). No procesamos cada commit porque
+ *    son cientos y muchos viejos no compilan más.
+ *
+ * 2. Resilience: cada commit corre en su propio try/catch. Si el dev
+ *    server no levanta dentro del timeout, o si Playwright falla, el
+ *    commit se skipea y se sigue con el próximo. El usuario obtiene
+ *    el subset de frames que sí funcionaron, no un crash.
+ *
+ * 3. Cleanup: el original branch se restaura siempre (try/finally
+ *    en el outer loop). Si vos cancelás con Ctrl+C, el SIGINT handler
+ *    también restaura.
+ *
+ * 4. Dev server: spawn como detached process group para poder matar
+ *    todos sus children con un SIGTERM al PGID. Sin esto, los workers
+ *    de Next quedan zombis y bloquean el puerto.
+ *
+ * 5. Caveat conocido: NO corremos `npm install` por commit (sería
+ *    prohibitivamente lento). Usamos el `node_modules` que está ahora.
+ *    Commits viejos que introdujeron deps nuevas pueden fallar el
+ *    boot — los skipea resilience. Aceptable para el use case
+ *    (showcase de UI, no audit de cada commit).
+ */
+
+import { spawn, execSync } from "node:child_process";
+import { mkdir } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { chromium } from "playwright";
+
+// ─── CONFIG (modificar acá, no en el body) ───────────────────────────
+const TARGET_URL = "http://localhost:3000";
+const SAMPLES_COUNT = 50;
+const START_COMMAND = "npm run dev";
+const DEV_SERVER_TIMEOUT_MS = 90_000;
+const PAGE_LOAD_TIMEOUT_MS = 30_000;
+const SCREENSHOT_WIDTH = 1440;
+const SCREENSHOT_HEIGHT = 900;
+// ──────────────────────────────────────────────────────────────────────
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, "..", "..");
+const OUTPUT_DIR = path.join(REPO_ROOT, "screenshots");
+
+/** Promisified exec → captura stdout limpio, throw en non-zero. */
+function execGit(args) {
+  return execSync(`git ${args}`, { cwd: REPO_ROOT, encoding: "utf8" }).trim();
+}
+
+/** Sleep helper para waits. */
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Muestrea `n` items uniformemente espaciados de un array `arr`.
+ * Garantiza primero y último siempre incluidos.
+ */
+function sampleEvenly(arr, n) {
+  if (arr.length <= n) return [...arr];
+  if (n <= 1) return [arr[arr.length - 1]];
+  const step = (arr.length - 1) / (n - 1);
+  return Array.from({ length: n }, (_, i) => arr[Math.round(i * step)]);
+}
+
+/**
+ * Polling al TARGET_URL hasta que devuelva algo (200, 3xx, hasta 4xx
+ * está bien — Next puede devolver 404 con todo levantado). 5xx = aún
+ * no listo. Fallamos cuando supera el timeout.
+ */
+async function waitForServer(url, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(url, { method: "HEAD" }).catch(() => null);
+      if (res && res.status < 500) return;
+    } catch {
+      // network error → server aún levantando, seguimos polleando
+    }
+    await sleep(1000);
+  }
+  throw new Error(`Server no respondió en ${url} dentro de ${timeoutMs}ms`);
+}
+
+/**
+ * Levanta el dev server como process group (`detached: true`). Devuelve
+ * el ChildProcess; el caller usa `killServer` para terminarlo.
+ */
+function startDevServer() {
+  return spawn("sh", ["-c", START_COMMAND], {
+    cwd: REPO_ROOT,
+    detached: true,
+    stdio: "pipe",
+  });
+}
+
+/**
+ * Mata el dev server y todos sus children. Usa SIGTERM primero (graceful),
+ * después SIGKILL si todavía está vivo. `process.kill(-pid)` apunta al
+ * process group entero.
+ */
+async function killServer(proc) {
+  if (!proc || proc.killed || !proc.pid) return;
+  try {
+    process.kill(-proc.pid, "SIGTERM");
+  } catch {
+    // Si ya murió, OK
+  }
+  await sleep(500);
+  try {
+    process.kill(-proc.pid, "SIGKILL");
+  } catch {
+    // Idem
+  }
+  await sleep(200);
+}
+
+async function main() {
+  await mkdir(OUTPUT_DIR, { recursive: true });
+
+  // Guardar branch original para restaurar al final.
+  const originalRef = (() => {
+    try {
+      const branch = execGit("rev-parse --abbrev-ref HEAD");
+      if (branch && branch !== "HEAD") return branch;
+    } catch {
+      // fall through
+    }
+    // detached HEAD → guardamos el SHA
+    return execGit("rev-parse HEAD");
+  })();
+  console.log(`[timelapse] original ref: ${originalRef}`);
+
+  // Cleanup handler — si el user cancela, restauramos antes de salir.
+  let cleanupRan = false;
+  const cleanup = (signal) => {
+    if (cleanupRan) return;
+    cleanupRan = true;
+    console.log(`\n[timelapse] cleanup (${signal})…`);
+    try {
+      execGit(`checkout -f ${originalRef}`);
+      console.log(`[timelapse] restored to ${originalRef}`);
+    } catch (e) {
+      console.error(`[timelapse] could not restore: ${e.message}`);
+    }
+    process.exit(signal === "SIGINT" ? 130 : 0);
+  };
+  process.on("SIGINT", () => cleanup("SIGINT"));
+  process.on("SIGTERM", () => cleanup("SIGTERM"));
+
+  const allCommits = execGit("rev-list HEAD --reverse").split("\n").filter(Boolean);
+  console.log(`[timelapse] total commits: ${allCommits.length}`);
+
+  const samples = sampleEvenly(allCommits, SAMPLES_COUNT);
+  console.log(`[timelapse] sampling ${samples.length} commits`);
+
+  let savedCount = 0;
+  const failures = [];
+
+  try {
+    for (let i = 0; i < samples.length; i++) {
+      const commit = samples[i];
+      const short = commit.slice(0, 7);
+      const frameNum = String(i + 1).padStart(3, "0");
+      const outputPath = path.join(OUTPUT_DIR, `frame_${frameNum}_${short}.png`);
+      console.log(`\n[${i + 1}/${samples.length}] ${short}`);
+
+      let serverProc = null;
+      let browser = null;
+      try {
+        execGit(`checkout -f ${commit}`);
+        serverProc = startDevServer();
+        // Drain stdout/stderr para que el buffer no se llene y bloquee
+        // el child process. No imprimimos por defecto — demasiado ruido
+        // del dev server. Si necesitás debug, descomentá las líneas.
+        serverProc.stdout?.on("data", () => {});
+        serverProc.stderr?.on("data", () => {});
+        // serverProc.stdout?.pipe(process.stdout);
+        // serverProc.stderr?.pipe(process.stderr);
+
+        await waitForServer(TARGET_URL, DEV_SERVER_TIMEOUT_MS);
+        console.log(`  · server ready`);
+
+        browser = await chromium.launch({ headless: true });
+        const ctx = await browser.newContext({
+          viewport: { width: SCREENSHOT_WIDTH, height: SCREENSHOT_HEIGHT },
+        });
+        const page = await ctx.newPage();
+        await page.goto(TARGET_URL, {
+          waitUntil: "networkidle",
+          timeout: PAGE_LOAD_TIMEOUT_MS,
+        });
+        // Settle adicional: a veces hay animaciones de mount tardías.
+        await sleep(1500);
+        await page.screenshot({ path: outputPath, fullPage: true });
+        savedCount++;
+        console.log(`  ✓ ${path.basename(outputPath)}`);
+      } catch (err) {
+        const reason = err.message.split("\n")[0].slice(0, 120);
+        console.warn(`  ⚠ skip: ${reason}`);
+        failures.push({ commit: short, reason });
+      } finally {
+        if (browser) await browser.close().catch(() => {});
+        if (serverProc) await killServer(serverProc);
+      }
+    }
+  } finally {
+    // Restore original ref siempre, incluso si el loop tiró excepción
+    // que no atrapamos.
+    console.log(`\n[timelapse] restoring to ${originalRef}`);
+    try {
+      execGit(`checkout -f ${originalRef}`);
+    } catch (e) {
+      console.error(`Could not restore: ${e.message}`);
+    }
+  }
+
+  console.log(
+    `\n[timelapse] done. saved: ${savedCount}/${samples.length} · failed: ${failures.length}`,
+  );
+  if (failures.length > 0 && failures.length <= 20) {
+    console.log("Failures:");
+    for (const f of failures) console.log(`  ${f.commit}: ${f.reason}`);
+  }
+
+  // ── ffmpeg command ──
+  // Pad a dimensions pares — requerido por yuv420p y por la mayoría
+  // de los reproductores de video. fullPage screenshots pueden tener
+  // alturas impares según el contenido.
+  const outVideo = path.join(REPO_ROOT, "tero-bot-timelapse.mp4");
+  console.log(`\nNext step — generar el video con ffmpeg:\n`);
+  console.log(
+    `ffmpeg -framerate 10 -pattern_type glob -i '${OUTPUT_DIR}/frame_*.png' \\\n` +
+      `  -c:v libx264 -pix_fmt yuv420p \\\n` +
+      `  -vf 'pad=ceil(iw/2)*2:ceil(ih/2)*2' \\\n` +
+      `  '${outVideo}'\n`,
+  );
+}
+
+main().catch((err) => {
+  console.error("[timelapse] FATAL:", err);
+  process.exit(1);
+});

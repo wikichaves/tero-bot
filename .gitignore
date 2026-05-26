@@ -66,3 +66,9 @@ next-env.d.ts
 # en branches paralelas porque cada commit lo regenera con un commits
 # count distinto. Ahora vive solo localmente / en el build artifact.
 /src/lib/landing/stats.generated.json
+
+# WIK-198: timelapse tool — node_modules anidado del tool standalone
+# (Playwright ~150MB chromium) y el output de PNGs generados.
+/scripts/timelapse/node_modules/
+/screenshots/
+/tero-bot-timelapse.mp4

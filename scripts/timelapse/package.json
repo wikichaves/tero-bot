@@ -1,0 +1,16 @@
+{
+  "name": "tero-bot-timelapse",
+  "private": true,
+  "type": "module",
+  "description": "Standalone tool para generar timelapse de la UI vía Playwright + git history (WIK-198). Aislado de las deps de la app para no inflar el bundle de producción con Playwright (~150MB chromium).",
+  "scripts": {
+    "generate": "node generate.mjs",
+    "postinstall": "playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
