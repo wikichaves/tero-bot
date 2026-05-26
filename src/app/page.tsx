@@ -11,19 +11,19 @@ import {
   CommitsFiberCount,
   HoursClockFace,
   DaysStack,
+  StatusScaffold,
 } from "./landing-stat-icons";
 
 /**
- * WIK-203: map de stat → icono abstracto. `status` (WIP) intencional-
- * mente no lleva ícono — la palabra "WIP" en accent color ya carga el
- * peso visual y agregarle un SVG generaría ruido sin meaning. Los
- * otros 3 keys mapean a sus respectivos "instrumentos de precisión".
+ * WIK-203 / WIK-210: map de stat → icono abstracto. Cada key mapea a
+ * su respectivo "instrumento de precisión". Status (WIP) usa una
+ * scaffolding tower — metáfora directa de "obra en progreso".
  */
-const STAT_ICONS: Record<string, React.ComponentType | undefined> = {
+const STAT_ICONS: Record<string, React.ComponentType> = {
   commits: CommitsFiberCount,
   activeHours: HoursClockFace,
   activeDays: DaysStack,
-  status: undefined,
+  status: StatusScaffold,
 };
 
 /**
@@ -154,11 +154,11 @@ export default async function LandingPage() {
           </figure>
         </section>
 
-        {/* WIK-154 / WIK-165 / WIK-203 refresh: Stats como "instrumentos
-            de precisión". Cada stat tiene un SVG abstracto encima del
-            número — fiber-count grid para commits, clock-face dial para
-            horas, stack de plates para días. Status (WIP) no lleva
-            icono — la palabra ya hace el peso visual. */}
+        {/* WIK-154 / WIK-165 / WIK-203 / WIK-210 refresh: Stats como
+            "instrumentos de precisión". Cada stat tiene un SVG abstracto
+            encima del número — fiber-count grid para commits, clock-face
+            dial para horas, stack de plates para días, scaffolding tower
+            para status (WIP). */}
         <section className="border-t border-border/60 px-5 py-12 sm:px-8 sm:py-16">
           <div className="mx-auto grid max-w-5xl grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4 sm:gap-x-10">
             {stats.map((s) => {
@@ -168,17 +168,9 @@ export default async function LandingPage() {
                   key={s.labelKey}
                   className="flex flex-col items-start gap-2"
                 >
-                  {/* WIK-209: si la stat no tiene icono (caso WIP/status)
-                      renderea un placeholder invisible del mismo tamaño
-                      para que el valor + label se alineen vertical con
-                      las otras 3 stats que sí tienen icono. */}
-                  {Icon ? (
-                    <div className="mb-2 h-12 w-12">
-                      <Icon />
-                    </div>
-                  ) : (
-                    <div className="mb-2 h-12 w-12" aria-hidden />
-                  )}
+                  <div className="mb-2 h-12 w-12">
+                    <Icon />
+                  </div>
                   <span
                     className={`font-heading text-4xl leading-none tracking-tight sm:text-5xl ${
                       s.accent ? "text-[var(--heading-accent)]" : ""
