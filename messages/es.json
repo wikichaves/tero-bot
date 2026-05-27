@@ -193,10 +193,10 @@
   },
   "landing": {
     "hero": {
-      "titlePre": "Arquitectura artesanal,",
-      "titleEm": "disolviendo",
-      "titlePost": " la complejidad operativa.",
-      "intro": "Cada señal del negocio — IoT, integraciones invisibles, un bot de WhatsApp — colapsada en una sola interfaz. Capas finas y reemplazables que mantienen la superficie del producto chica y la entropía operativa bajo control.",
+      "titlePre": "Software artesanal para",
+      "titleEm": "disolver",
+      "titlePost": " la complejidad.",
+      "intro": "Cada señal del negocio — IoT, integraciones invisibles, un bot de WhatsApp — colapsada en una sola interfaz. Capas finas y reemplazables que minimizan la superficie del producto y mantienen la entropía operativa bajo control.",
       "atmosphereCaption": "Una superficie orquesta los sensores, integraciones y chat — cada señal colapsada en una sola capa de comando.",
       "atmosphereAlt": "Render conceptual: una superficie walnut con termóstato ambiente 22°C, pipeline holográfico de 'invisible operations', y Tero Bot en WhatsApp."
     },
@@ -210,7 +210,7 @@
       "eyebrow": "Problema",
       "title": "La trampa del software empaquetado.",
       "p1": "Contratar un SaaS genérico para gestionar tus alquileres es como alquilar un edificio de cinco pisos para un equipo de tres personas. Pagás carísimo por herramientas que no necesitas, mientras que tu día a día sigue lleno de tareas manuales.",
-      "p2": "Por eso creé <appLink>tero.bot</appLink>. En vez de pelear contra sistemas rígidos de terceros, armé una arquitectura modular. Es un modelo <podLink><em>‘Pod-of-One’</em></podLink>: me permite operar de forma individual, pero apalancado en IA y automatizaciones. Solo los módulos que resuelven problemas reales, lo justo y nada más."
+      "p2": "Por eso creé <appLink>tero.bot</appLink>. En vez de pelear contra sistemas rígidos de terceros, armé una arquitectura modular. Es un modelo <podLink><em>‘Pod-of-One’</em></podLink>: me permite operar de forma individual, pero apalancado en IA y automatizaciones. Solo los módulos que resuelven problemas reales. Lo justo y nada más."
     },
     "modules": {
       "eyebrow": "Arquitectura",
@@ -232,7 +232,7 @@
       "operations": {
         "title": "Operaciones invisibles",
         "challenge": "Trackear costos de energía manualmente y matchearlos contra ocupación real es un sumidero de tiempo administrativo.",
-        "module": "Un flow backend que intercepta facturas reenviadas por email, parsea los datos, y los matchea automáticamente contra el consumo real.",
+        "module": "Un flow backend que intercepta facturas por email, parsea los datos, y los matchea automáticamente contra el consumo real.",
         "philosophy": "Las tareas burocráticas las resuelve el backend. Menos interfaces manuales, más integraciones invisibles.",
         "alt": "Una persona en el escritorio de la cabaña mira el panel de facturas en una MacBook; cargos de luz, agua y alarma listados con monto y vencimiento."
       },

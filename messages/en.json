@@ -193,10 +193,10 @@
   },
   "landing": {
     "hero": {
-      "titlePre": "Crafted architecture",
-      "titleEm": "dissolving",
-      "titlePost": " operational complexity.",
-      "intro": "Every business signal — IoT, invisible integrations, a WhatsApp bot — collapsed into a single interface. Thin, replaceable layers that keep the product surface small and operational entropy under control.",
+      "titlePre": "Crafted software to",
+      "titleEm": "dissolve",
+      "titlePost": " complexity.",
+      "intro": "Every business signal — IoT, invisible integrations, a WhatsApp bot — collapsed into a single interface. Thin, replaceable layers that minimize the product surface and keep operational entropy under control.",
       "atmosphereCaption": "One surface orchestrates the sensors, integrations, and chat — every signal collapsed into a single command layer.",
       "atmosphereAlt": "Conceptual render: a walnut command surface with a 22°C ambient thermostat, a holographic 'invisible operations' pipeline, and Tero Bot in WhatsApp."
     },
@@ -210,7 +210,7 @@
       "eyebrow": "Problem",
       "title": "The trap of packaged software.",
       "p1": "Hiring a generic SaaS to manage your rentals is like renting a five-story building for a team of three. You pay through the nose for tools you don't need, while your day-to-day is still full of manual tasks.",
-      "p2": "That's why I built <appLink>tero.bot</appLink>. Instead of fighting rigid third-party systems, I built a modular architecture. It's a <podLink><em>‘Pod-of-One’</em></podLink> model: I operate solo but leveraged by AI and automations. Just the modules that solve real problems, no junk."
+      "p2": "That's why I built <appLink>tero.bot</appLink>. Instead of fighting rigid third-party systems, I built a modular architecture. It's a <podLink><em>‘Pod-of-One’</em></podLink> model: I operate solo but leveraged by AI and automations. Only the modules that solve real problems. No junk."
     },
     "modules": {
       "eyebrow": "Architecture",
@@ -232,7 +232,7 @@
       "operations": {
         "title": "Invisible operations",
         "challenge": "Tracking energy costs by hand and matching them against real occupancy is an administrative time sink.",
-        "module": "A backend flow that intercepts utility bills forwarded by email, parses the data, and matches them automatically against real consumption.",
+        "module": "A backend flow that intercepts utility bills via email, parses the data, and matches them automatically against real consumption.",
         "philosophy": "The bureaucratic tasks are solved by the backend. Fewer manual interfaces, more invisible integrations.",
         "alt": "A person at the cabin desk looks at the bills panel on a MacBook; utility charges listed with amount and due date."
       },
