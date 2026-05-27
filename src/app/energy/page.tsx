@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Info } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import {
@@ -386,7 +385,6 @@ export default async function EnergyPage({
   const fxRates = await getRatesToUsd(distinctCurrencies);
 
   const rangeLabel = t(`ranges.${range}` as const);
-  const rangeShortLabel = t(`rangesShort.${range}` as const);
 
   return (
     <div className="flex flex-col gap-6">
@@ -417,7 +415,6 @@ export default async function EnergyPage({
               nowMs={nowMs}
               rangeStartMs={rangeStartMs}
               rangeLabel={rangeLabel}
-              rangeShortLabel={rangeShortLabel}
             />
           ))}
 

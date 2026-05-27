@@ -62,7 +62,6 @@ export function LandingImage({
         <picture>
           <source srcSet={`${photoBase}.avif`} type="image/avif" />
           <source srcSet={`${photoBase}.webp`} type="image/webp" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`${photoBase}.jpg`}
             alt={alt}
@@ -114,7 +113,6 @@ export function LandingImage({
         <picture>
           <source srcSet={`${photoBase}.avif`} type="image/avif" />
           <source srcSet={`${photoBase}.webp`} type="image/webp" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`${photoBase}.jpg`}
             alt={alt}
