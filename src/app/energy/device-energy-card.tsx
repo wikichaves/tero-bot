@@ -119,7 +119,6 @@ type Props = {
   /** Inicio de la ventana del rango — también del server. */
   rangeStartMs: number;
   rangeLabel: string;
-  rangeShortLabel: string;
 };
 
 export function DeviceEnergyCard({
@@ -128,7 +127,6 @@ export function DeviceEnergyCard({
   nowMs,
   rangeStartMs,
   rangeLabel,
-  rangeShortLabel,
 }: Props) {
   const {
     device,

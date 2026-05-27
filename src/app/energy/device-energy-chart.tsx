@@ -152,7 +152,7 @@ export function DeviceEnergyChart({
       }
     }
     return rows;
-  }, [data, metric, windowStartMs, windowEndMs, tariff, convertCost]);
+  }, [data, metric, windowEndMs, tariff, convertCost]);
 
   const metricUnit = metric === "amperes" ? "A" : "kWh/h";
   const metricLabel = metric === "amperes" ? "Corriente" : "Consumo";

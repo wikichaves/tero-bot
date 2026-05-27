@@ -3,9 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { homeForRole } from "@/lib/auth";
 import { normalizePhone } from "@/lib/whatsapp";
-import type { UserRole } from "@/lib/types";
 
 /**
  * Detecta si la entrada del user parece teléfono (vs email). Tolera
@@ -65,7 +63,7 @@ export async function signIn(input: {
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
     password: input.password,
   });
@@ -75,17 +73,10 @@ export async function signIn(input: {
     return { error: "errors.credentials" };
   }
 
-  // Look up role to send each user to their natural landing page.
-  let role: UserRole | null = null;
-  if (data?.user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", data.user.id)
-      .maybeSingle();
-    role = (profile?.role as UserRole | undefined) ?? null;
-  }
-  redirect(role ? homeForRole(role) : "/dashboard");
+  // Todos los roles aterrizan en /dashboard (el page condiciona según
+  // role). Antes había un lookup de `role` para alimentar `homeForRole`
+  // — removido al colapsar los homes (WIK-74, WIK-109, WIK-119).
+  redirect("/dashboard");
 }
 
 export async function signOut() {
