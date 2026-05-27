@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import { maybeSnapshotSensorsIfStale } from "@/lib/sensors/snapshots";
+import { serverNow } from "@/lib/util/server-now";
 import {
   Card,
   CardContent,
@@ -77,7 +78,7 @@ export default async function AmbientesPage({
 
   const supabase = await createClient();
   const since = new Date(
-    Date.now() - RANGES[range].hours * 60 * 60 * 1000,
+    serverNow() - RANGES[range].hours * 60 * 60 * 1000,
   ).toISOString();
 
   let propsQuery = supabase

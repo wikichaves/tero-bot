@@ -11,6 +11,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
+import { serverNow } from "@/lib/util/server-now";
 
 /**
  * Widget de energía para /dashboard (WIK-117).
@@ -31,7 +32,7 @@ export async function EnergySummaryCard() {
   }
   const allowedIds = await getAllowedPropertyIds(profile);
   const supabase = await createClient();
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const since = new Date(serverNow() - 24 * 60 * 60 * 1000).toISOString();
 
   // Solo necesitamos saber los snapshots de las últimas 24h scoped.
   // El join filtra por property scope; si gestor sin properties → sin data.

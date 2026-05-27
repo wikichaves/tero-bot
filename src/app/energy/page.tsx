@@ -37,6 +37,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
+import { serverNow } from "@/lib/util/server-now";
 import type { Property } from "@/lib/types";
 import { SnapshotButton } from "./snapshot-button";
 import { BackfillButton } from "./backfill-button";
@@ -111,7 +112,7 @@ export default async function EnergyPage({
   // Capturamos `nowMs` UNA sola vez en el server y lo pasamos al cliente
   // como prop. Si lo calculáramos en el client (durante SSR + después en
   // hydration) daría timestamps distintos → React #418 hydration mismatch.
-  const nowMs = Date.now();
+  const nowMs = serverNow();
   const rangeMs = RANGES[range].hours * 60 * 60 * 1000;
   const rangeStartMs = nowMs - rangeMs;
   const rangeSinceIso = new Date(rangeStartMs).toISOString();
