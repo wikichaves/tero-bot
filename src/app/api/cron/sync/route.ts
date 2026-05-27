@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncAirbnb, type SyncResult } from "@/lib/airbnb";
 import { runSyncRooms, type SyncRoomsResult } from "@/lib/tuya/sync-rooms";
+import { withCronAlerts } from "@/lib/util/cron-alert";
 
 /**
  * Daily sync (Vercel cron). Hace:
@@ -11,7 +12,7 @@ import { runSyncRooms, type SyncRoomsResult } from "@/lib/tuya/sync-rooms";
  *
  * Protegido por CRON_SECRET (Bearer automático de Vercel).
  */
-export async function GET(request: Request) {
+export const GET = withCronAlerts("sync", async (request: Request) => {
   const authHeader = request.headers.get("authorization");
   const expected = `Bearer ${process.env.CRON_SECRET ?? ""}`;
   if (!process.env.CRON_SECRET || authHeader !== expected) {
@@ -55,4 +56,4 @@ export async function GET(request: Request) {
     airbnb: airbnbResults,
     tuyaRooms,
   });
-}
+});

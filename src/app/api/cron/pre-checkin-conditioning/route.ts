@@ -7,6 +7,7 @@ import {
   sendPreCheckinAlert,
   sendPreCheckinUpdate,
 } from "@/lib/pre-checkin/send-alert";
+import { withCronAlerts } from "@/lib/util/cron-alert";
 
 /**
  * Cron `/api/cron/pre-checkin-conditioning` — corre cada 15min en Vercel
@@ -33,7 +34,7 @@ import {
  *
  * Bearer-protected con CRON_SECRET, mismo patrón que los otros crons.
  */
-export async function GET(req: NextRequest) {
+export const GET = withCronAlerts("pre-checkin-conditioning", async (req: NextRequest) => {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.get("authorization");
   if (!secret || auth !== `Bearer ${secret}`) {
@@ -119,4 +120,4 @@ export async function GET(req: NextRequest) {
     summary,
   );
   return NextResponse.json({ ok: true, ...summary });
-}
+});

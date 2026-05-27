@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findDueAlarms } from "@/lib/alarm-reminders/find-due";
 import { sendAlarmReminder } from "@/lib/alarm-reminders/send";
+import { withCronAlerts } from "@/lib/util/cron-alert";
 
 /**
  * Cron `/api/cron/alarm-reminders` — corre cada 15 minutos en Vercel Pro
@@ -18,7 +19,7 @@ import { sendAlarmReminder } from "@/lib/alarm-reminders/send";
  * deja sin disparar (no queremos un flood de alarmas viejas si el cron
  * estuvo caído por horas).
  */
-export async function GET(req: NextRequest) {
+export const GET = withCronAlerts("alarm-reminders", async (req: NextRequest) => {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.get("authorization");
   if (!secret || auth !== `Bearer ${secret}`) {
@@ -74,4 +75,4 @@ export async function GET(req: NextRequest) {
     window_ms: WINDOW_MS,
     errors: errors.length > 0 ? errors : undefined,
   });
-}
+});

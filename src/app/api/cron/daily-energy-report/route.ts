@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildConsumptionReport } from "@/lib/energy/reports";
 import { sendKapsoText, persistMessage, upsertConversation } from "@/lib/whatsapp";
+import { withCronAlerts } from "@/lib/util/cron-alert";
 
 /**
  * Daily energy report — sent every morning to all admin/gestor profiles
@@ -22,7 +23,7 @@ type Recipient = {
   role: string;
 };
 
-export async function GET(request: Request) {
+export const GET = withCronAlerts("daily-energy-report", async (request: Request) => {
   const authHeader = request.headers.get("authorization");
   const expected = `Bearer ${process.env.CRON_SECRET ?? ""}`;
   if (!process.env.CRON_SECRET || authHeader !== expected) {
@@ -111,4 +112,4 @@ export async function GET(request: Request) {
     failed: results.filter((r) => !r.ok).length,
     results,
   });
-}
+});
