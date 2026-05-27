@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -19,12 +19,23 @@ import { Button } from "@/components/ui/button";
  *
  * El modo "sistema" lo saqué — agregaba complejidad para una opción
  * que casi nadie usa. Si querés seguir al OS, configurás el browser/OS.
+ *
+ * Detección de "ya hidraté" via `useSyncExternalStore` con snapshots
+ * server=false / client=true. El pattern previo (`useEffect(setMounted)`)
+ * disparaba la regla `react-hooks/set-state-in-effect` de React 19 por
+ * generar un cascading render.
  */
+const subscribe = () => () => {};
+const getServerSnapshot = () => false;
+const getClientSnapshot = () => true;
+
 export function ModeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
+  const mounted = useSyncExternalStore(
+    subscribe,
+    getClientSnapshot,
+    getServerSnapshot,
+  );
 
   function toggle() {
     setTheme(resolvedTheme === "dark" ? "light" : "dark");
