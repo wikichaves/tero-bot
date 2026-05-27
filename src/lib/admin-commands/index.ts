@@ -245,13 +245,14 @@ export async function runAdminCommand(cmd: AdminCommand): Promise<string> {
           description,
           priority: 3,
           labels: ["claude:autonomous"],
+          // Todo directo → el worker lo levanta sin paso manual del user.
+          state: "Todo",
         });
         return (
           `🤖 <b>Trabajo encolado para Claude</b>\n\n` +
           `<b>${issue.identifier}</b>: ${escapeHtml(issue.title)}\n\n` +
           `<a href="${issue.url}">${issue.url}</a>\n\n` +
-          `<i>Está en <b>Backlog</b>. Cuando lo confirmes, movelo a ` +
-          `<b>Todo</b> en Linear y el worker lo levanta con /work.</i>`
+          `<i>Está en <b>Todo</b>. Disparalo con /work o esperá al próximo /work all.</i>`
         );
       } catch (e) {
         return `❌ No pude encolar: <code>${escapeHtml(

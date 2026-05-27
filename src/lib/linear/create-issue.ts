@@ -38,6 +38,10 @@ type CreateIssueArgs = {
   priority?: LinearIssuePriority;
   /** Labels (names) a agregar al issue. Linear crea las que no existan. */
   labels?: string[];
+  /** Nombre del workflow state (ej "Todo"). Si no se pasa, Linear usa el
+   *  default del team. Match case-insensitive; si no existe, se ignora
+   *  silenciosamente (mismo pattern que labels). */
+  state?: string;
 };
 
 type LinearIssueResult = {
@@ -56,15 +60,21 @@ async function fetchEntityIds(
   teamKey: string,
   projectName: string | null,
   labelNames: string[],
+  stateName: string | null,
 ): Promise<{
   teamId: string;
   projectId: string | null;
   labelIds: string[];
+  stateId: string | null;
 }> {
   const query = `
     query Lookup($teamKey: String!) {
       teams(filter: { key: { eq: $teamKey } }, first: 1) {
-        nodes { id labels(first: 100) { nodes { id name } } }
+        nodes {
+          id
+          labels(first: 100) { nodes { id name } }
+          states(first: 50) { nodes { id name } }
+        }
       }
       projects(first: 100) { nodes { id name } }
     }
@@ -86,6 +96,7 @@ async function fetchEntityIds(
         nodes?: Array<{
           id: string;
           labels?: { nodes?: Array<{ id: string; name: string }> };
+          states?: { nodes?: Array<{ id: string; name: string }> };
         }>;
       };
       projects?: { nodes?: Array<{ id: string; name: string }> };
@@ -119,7 +130,16 @@ async function fetchEntityIds(
       teamLabels.find((l) => l.name.toLowerCase() === name.toLowerCase())?.id,
     )
     .filter((id): id is string => !!id);
-  return { teamId: team.id, projectId, labelIds };
+  // Match state case-insensitive contra los workflow states del team.
+  // Si no existe, devolvemos null y Linear usa el default del team.
+  let stateId: string | null = null;
+  if (stateName) {
+    const teamStates = team.states?.nodes ?? [];
+    stateId =
+      teamStates.find((s) => s.name.toLowerCase() === stateName.toLowerCase())
+        ?.id ?? null;
+  }
+  return { teamId: team.id, projectId, labelIds, stateId };
 }
 
 /**
@@ -148,11 +168,12 @@ export async function createLinearIssue(
     args.projectName === undefined ? DEFAULT_PROJECT_NAME : args.projectName;
   const labels = args.labels ?? [];
 
-  const { teamId, projectId, labelIds } = await fetchEntityIds(
+  const { teamId, projectId, labelIds, stateId } = await fetchEntityIds(
     apiToken,
     teamKey,
     projectName,
     labels,
+    args.state ?? null,
   );
 
   const mutation = `
@@ -171,6 +192,7 @@ export async function createLinearIssue(
   if (args.priority != null) input.priority = args.priority;
   if (projectId) input.projectId = projectId;
   if (labelIds.length > 0) input.labelIds = labelIds;
+  if (stateId) input.stateId = stateId;
 
   const res = await fetch(LINEAR_GRAPHQL_ENDPOINT, {
     method: "POST",
