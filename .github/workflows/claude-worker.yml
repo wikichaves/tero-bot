@@ -395,19 +395,19 @@ jobs:
           #   3) PR open needs-review (risky) → buttons "Mergear" / "Ver PR" / "Stop"
           #   4) Job failed → notificar con link a logs
           if [ "$JOB_STATUS" != "success" ]; then
-            TEXT="❌ <b>Worker falló</b>%0A%0ATicket: <b>${TICKET_ID:-(none)}</b>%0A%0A<a href=\"$RUN_URL\">Ver logs del run</a>"
+            TEXT="❌ <b>Worker falló</b>\n\nTicket: <b>${TICKET_ID:-(none)}</b>\n\n<a href=\"$RUN_URL\">Ver logs del run</a>"
             KEYBOARD='{"inline_keyboard":[[{"text":"📋 Logs","url":"'"$RUN_URL"'"}]]}'
           elif [ "$HAS_TICKET" != "true" ]; then
-            TEXT="ℹ️ <b>Worker terminó</b>%0A%0ANo hay tickets con label <code>claude:autonomous</code> en Todo. Queue vacía."
+            TEXT="ℹ️ <b>Worker terminó</b>\n\nNo hay tickets con label <code>claude:autonomous</code> en Todo. Queue vacía."
             KEYBOARD=''
           elif [ "$HAS_CHANGES" != "true" ]; then
-            TEXT="⚠️ <b>$TICKET_ID</b> procesado pero <b>sin cambios</b>%0A%0A$TICKET_TITLE%0A%0A<i>Claude no encontró nada que tocar (ticket ambiguo o ya hecho).</i>%0A%0A<a href=\"$RUN_URL\">Ver logs</a>"
+            TEXT="⚠️ <b>$TICKET_ID</b> procesado pero <b>sin cambios</b>\n\n$TICKET_TITLE\n\n<i>Claude no encontró nada que tocar (ticket ambiguo o ya hecho).</i>\n\n<a href=\"$RUN_URL\">Ver logs</a>"
             KEYBOARD='{"inline_keyboard":[[{"text":"🚀 Próximo","callback_data":"next"},{"text":"🛑 Stop","callback_data":"noop"}]]}'
           elif [ "$SAFE" = "true" ]; then
-            TEXT="✅ <b>$TICKET_ID</b> auto-mergeado 🚢%0A%0A$TICKET_TITLE%0A<i>$LOC líneas en allowlist</i>%0A%0A<a href=\"$PR_URL\">PR #$PR_NUMBER</a>"
+            TEXT="✅ <b>$TICKET_ID</b> auto-mergeado 🚢\n\n$TICKET_TITLE\n<i>$LOC líneas en allowlist</i>\n\n<a href=\"$PR_URL\">PR #$PR_NUMBER</a>"
             KEYBOARD='{"inline_keyboard":[[{"text":"🚀 Próximo","callback_data":"next"},{"text":"🛑 Stop","callback_data":"noop"}]]}'
           else
-            TEXT="🔍 <b>$TICKET_ID</b> listo, necesita review%0A%0A$TICKET_TITLE%0A<i>$REASON</i>%0A%0A<a href=\"$PR_URL\">PR #$PR_NUMBER</a>"
+            TEXT="🔍 <b>$TICKET_ID</b> listo, necesita review\n\n$TICKET_TITLE\n<i>$REASON</i>\n\n<a href=\"$PR_URL\">PR #$PR_NUMBER</a>"
             KEYBOARD='{"inline_keyboard":[[{"text":"🚢 Mergear","callback_data":"merge:'"$PR_NUMBER"'"},{"text":"📋 Ver PR","url":"'"$PR_URL"'"}],[{"text":"🛑 Stop","callback_data":"noop"}]]}'
           fi
 
