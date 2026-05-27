@@ -1,5 +1,7 @@
 # Vacation checklist
 
+> Last verified: 2026-05-27 — branch protection + cron alerts + 1Password backup en su lugar.
+
 Corré este checklist antes de cualquier ausencia larga (>2 semanas). El objetivo: que el bot siga sirviendo a los huéspedes y el `claude-worker` corra contenido durante tu absencia, sin que algo expire silenciosamente.
 
 ## 1. Credenciales que pueden expirar
