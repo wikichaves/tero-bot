@@ -121,7 +121,7 @@ export default async function LandingPage() {
 
       <main className="flex flex-1 flex-col">
         {/* Hero — copy + photo. */}
-        <section className="px-5 pt-12 pb-16 sm:px-8 sm:pt-20 sm:pb-24">
+        <section className="px-5 pt-12 pb-16 sm:px-14 sm:pt-20 sm:pb-24">
           <div className="mx-auto flex max-w-3xl flex-col items-center gap-8 text-center">
             {/* WIK-134/135: el nombre "tero.bot" ya vive en el header
                 sticky — evitamos repetirlo. El tagline es el descriptor
@@ -163,7 +163,7 @@ export default async function LandingPage() {
             encima del número — fiber-count grid para commits, clock-face
             dial para horas, stack de plates para días, scaffolding tower
             para status (WIP). */}
-        <section className="border-t border-border/60 px-5 py-12 sm:px-8 sm:py-16">
+        <section className="border-t border-border/60 px-5 py-12 sm:px-14 sm:py-16">
           <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4 sm:gap-x-10">
             {stats.map((s) => {
               const Icon = STAT_ICONS[s.labelKey];
@@ -190,7 +190,7 @@ export default async function LandingPage() {
         </section>
 
         {/* The problem. */}
-        <section className="border-t border-border/60 px-5 py-20 sm:px-8 sm:py-28">
+        <section className="border-t border-border/60 px-5 py-20 sm:px-14 sm:py-28">
           <div className="mx-auto flex max-w-2xl flex-col gap-5">
             <span className="label-mono-with-rule">{t("problem.eyebrow")}</span>
             <h2 className="text-3xl sm:text-5xl">{t("problem.title")}</h2>
@@ -233,7 +233,7 @@ export default async function LandingPage() {
             WIK-204 → WIK-206: probamos los rails amber de PCB y no
             convencieron — quitados. La sección vuelve a ser flat sin
             overlay decorativo. */}
-        <section className="border-t border-border/60 px-5 py-20 sm:px-8 sm:py-28">
+        <section className="border-t border-border/60 px-5 py-20 sm:px-14 sm:py-28">
           <div className="mx-auto flex max-w-6xl flex-col gap-16 sm:gap-20">
             <div className="mx-auto flex max-w-2xl flex-col items-center gap-3 text-center">
               <span className="label-mono-with-rule">
@@ -299,7 +299,7 @@ export default async function LandingPage() {
         </section>
 
         {/* Source-available. */}
-        <section className="border-t border-border/60 px-5 py-20 sm:px-8 sm:py-28">
+        <section className="border-t border-border/60 px-5 py-20 sm:px-14 sm:py-28">
           <div className="mx-auto flex max-w-2xl flex-col gap-6">
             <span className="label-mono-with-rule">{t("source.eyebrow")}</span>
             <h2 className="text-3xl sm:text-5xl">
