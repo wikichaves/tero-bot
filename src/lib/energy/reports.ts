@@ -45,7 +45,6 @@ export async function buildConsumptionReport(opts?: {
    *  locale del recipient (no del request del browser). */
   locale?: Locale;
 }): Promise<string> {
-  console.time("[consumo] total");
   const admin = createAdminClient();
   const locale = opts?.locale ?? DEFAULT_LOCALE;
   const t = await getTranslations({
@@ -66,7 +65,6 @@ export async function buildConsumptionReport(opts?: {
   // up-front to just devices with energy data, cutting ~90% of round
   // trips on accounts with mixed device types.
   const sevenDaysAgoIso = startOfDaysAgoIso(7);
-  console.time("[consumo] db.properties+devices+snapshot-ids");
   const [propsRes, devicesRes, snapDevicesRes] = await Promise.all([
     admin.from("properties").select("id, name, currency, tariff_per_kwh"),
     admin
@@ -77,7 +75,6 @@ export async function buildConsumptionReport(opts?: {
       .select("property_device_id")
       .gte("taken_at", sevenDaysAgoIso),
   ]);
-  console.timeEnd("[consumo] db.properties+devices+snapshot-ids");
   const properties = (propsRes.data ?? []) as PropertyRow[];
   const allDevices = (devicesRes.data ?? []) as DeviceRow[];
   const energyDeviceIds = new Set(
@@ -99,7 +96,6 @@ export async function buildConsumptionReport(opts?: {
     : afterScope;
 
   if (visible.length === 0) {
-    console.timeEnd("[consumo] total");
     if (filter) {
       return t("noMatchFilter", { filter: opts?.propertyFilter ?? "" });
     }
@@ -123,7 +119,6 @@ export async function buildConsumptionReport(opts?: {
   // last) → up to 92 round trips on accounts with many non-energy devices.
   // Now: a single query pulls all snapshots in the 7-day window for the
   // pre-filtered energy devices, and we compute first/last in JS.
-  console.time("[consumo] fx + batched snapshots (parallel)");
   const visibleDeviceIds = devices
     .filter((d) => visible.some((p) => p.id === d.property_id))
     .map((d) => d.id);
@@ -144,7 +139,6 @@ export async function buildConsumptionReport(opts?: {
           .order("taken_at", { ascending: true })
       : Promise.resolve({ data: [] as Array<never> }),
   ]);
-  console.timeEnd("[consumo] fx + batched snapshots (parallel)");
 
   type SnapRow = {
     property_device_id: string;
@@ -292,6 +286,5 @@ export async function buildConsumptionReport(opts?: {
     lines.push(t("fxFooter", { rates: parts.join(" · ") }));
   }
 
-  console.timeEnd("[consumo] total");
   return lines.join("\n").trim();
 }
