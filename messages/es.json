@@ -234,14 +234,14 @@
         "challenge": "Trackear costos de energía manualmente y matchearlos contra ocupación real es un sumidero de tiempo administrativo.",
         "module": "Un flow backend que intercepta facturas por email, parsea los datos, y los matchea automáticamente contra el consumo real.",
         "philosophy": "Las tareas burocráticas las resuelve el backend. Menos interfaces manuales, más integraciones invisibles.",
-        "alt": "Una persona en el escritorio de la cabaña mira el panel de facturas en una MacBook; cargos de luz, agua y alarma listados con monto y vencimiento."
+        "alt": "Render conceptual: un holograma 'Invisible Operations / Energy Reconciliation Pipeline' grabado sobre madera walnut — íconos de email e invoice PDF fluyendo por un prisma luminoso hacia una tabla estructurada de costos (bill amount $340, occupancy match 100%, variance 0%, status RECONCILED)."
       },
       "frictionless": {
         "title": "UI cero fricción",
         "challenge": "Forzar al personal a descargar otra app y aprender un sistema nuevo genera resistencia y errores.",
         "module": "Reportes de incidentes, asignación de tareas, tracking y notificaciones — todo por WhatsApp.",
         "philosophy": "La mejor herramienta es la que todos ya usamos. En vez de forzar a la gente a un sistema nuevo, traje el sistema a ellos.",
-        "alt": "Una mano sostiene un celular mostrando el chat de WhatsApp con el bot de tero.bot creando una tarea."
+        "alt": "Render conceptual: un iPhone sobre madera walnut muestra un chat de WhatsApp con Tero Bot ('Set heat to 22C in Cabin 4 for 18:00 check-in'), junto a un log holográfico de terminal del WA_BOT_COMMAND siendo parseado en una tarea IOT_TEMP_SET — 'Zero-friction UI / all signals collapsed.'"
       }
     },
     "source": {
