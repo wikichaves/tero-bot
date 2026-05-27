@@ -234,14 +234,14 @@
         "challenge": "Tracking energy costs by hand and matching them against real occupancy is an administrative time sink.",
         "module": "A backend flow that intercepts utility bills via email, parses the data, and matches them automatically against real consumption.",
         "philosophy": "The bureaucratic tasks are solved by the backend. Fewer manual interfaces, more invisible integrations.",
-        "alt": "Conceptual render: a holographic 'Invisible Operations / Energy Reconciliation Pipeline' etched on walnut wood — email and PDF invoice icons flowing through a glowing prism into a structured cost table (bill amount $340, occupancy match 100%, variance 0%, status RECONCILED)."
+        "alt": "Conceptual render: a walnut surface with a holographic 'Invisible Operations / Energy Reconciliation Pipeline' panel — chaotic email and PDF invoices flow through an amber prism into a structured cost table on the right (TYPE, DATE, BILL_AMOUNT, OCCUPANCY_MATCH, VARIANCE, STATUS — all RECONCILED)."
       },
       "frictionless": {
         "title": "Zero-friction UI",
         "challenge": "Forcing staff to download another app and learn a new system creates resistance and errors.",
         "module": "Incident reports, task assignment, tracking, and notifications — all via WhatsApp.",
         "philosophy": "The best tool is the one we all use. Instead of forcing people into a new system, I brought the system to them.",
-        "alt": "Conceptual render: an iPhone on walnut wood shows a WhatsApp chat with Tero Bot ('Set heat to 22C in Cabin 4 for 18:00 check-in'), beside a holographic terminal log of the WA_BOT_COMMAND being parsed into an IOT_TEMP_SET task — 'Zero-friction UI / all signals collapsed.'"
+        "alt": "Conceptual render: an iPhone on walnut wood shows a WhatsApp chat with Tero Bot ('Set heat to 22C in Cabin 4 for 18:00 check-in'); beside it, a holographic technical log shows the message being received, processed, and queued as an IoT task."
       }
     },
     "source": {
