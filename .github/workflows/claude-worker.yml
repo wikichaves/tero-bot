@@ -61,6 +61,16 @@ jobs:
   work:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # WIK-194 fix: env a nivel JOB para que `env.X` esté disponible en
+    # los `if:` de los steps. Si lo definís a nivel step, el `if:` se
+    # evalúa ANTES de que el step set sus env vars — entonces `env.X`
+    # queda vacío y la condición siempre falsa → step skipeado silente.
+    # Antes el "Notify Telegram" se skipeaba sin loguear nada y el user
+    # nunca recibía la notif. Subiendo los TELEGRAM_* al job-level
+    # ambos `env.X` resuelven correctamente en el if + dentro del step.
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
