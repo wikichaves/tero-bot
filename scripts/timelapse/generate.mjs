@@ -278,13 +278,23 @@ async function main() {
         }
 
         serverProc = startDevServer();
-        // Drain stdout/stderr para que el buffer no se llene y bloquee
-        // el child process. No imprimimos por defecto — demasiado ruido
-        // del dev server. Si necesitás debug, descomentá las líneas.
-        serverProc.stdout?.on("data", () => {});
-        serverProc.stderr?.on("data", () => {});
-        // serverProc.stdout?.pipe(process.stdout);
-        // serverProc.stderr?.pipe(process.stderr);
+        // WIK-198 v6: capturamos el output del dev server en un ring
+        // buffer para poder imprimirlo si el commit falla. Esto evita
+        // el ruido normal en runs exitosos pero da diagnóstico cuando
+        // algo se rompe ("dev server crasheó / mostró este stack").
+        const SERVER_BUFFER_MAX = 60; // últimas 60 líneas
+        const serverBuffer = [];
+        const captureLine = (line) => {
+          serverBuffer.push(line);
+          if (serverBuffer.length > SERVER_BUFFER_MAX) serverBuffer.shift();
+        };
+        const captureChunk = (chunk) => {
+          for (const line of chunk.toString().split(/\r?\n/)) {
+            if (line.trim()) captureLine(line);
+          }
+        };
+        serverProc.stdout?.on("data", captureChunk);
+        serverProc.stderr?.on("data", captureChunk);
 
         await waitForServer(TARGET_URL, DEV_SERVER_TIMEOUT_MS);
         console.log(`  · server ready`);
@@ -306,6 +316,15 @@ async function main() {
       } catch (err) {
         const reason = err.message.split("\n")[0].slice(0, 120);
         console.warn(`  ⚠ skip: ${reason}`);
+        // WIK-198 v6: imprimir últimas líneas del dev server si el commit
+        // falló. Sin esto, los timeouts a 240s eran ciegos — no sabíamos
+        // si el server crashea, se cuelga compilando, o nunca arranca.
+        if (typeof serverBuffer !== "undefined" && serverBuffer.length > 0) {
+          const tail = serverBuffer.slice(-15);
+          console.warn(`  ┌─ últimas ${tail.length} líneas del dev server ─`);
+          for (const l of tail) console.warn(`  │ ${l}`);
+          console.warn(`  └────────────────────────────────────────`);
+        }
         failures.push({ commit: short, reason });
       } finally {
         if (browser) await browser.close().catch(() => {});
