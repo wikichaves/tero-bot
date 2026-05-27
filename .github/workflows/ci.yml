@@ -1,23 +1,12 @@
 # CI gate (WIK-137).
 #
-# Corre en cada PR contra main. Sus checks son el gate que
-# `claude-worker.yml` espera con `gh pr merge --auto` antes de
-# completar el squash-merge. Sin branch protection, este workflow
-# es informativo; con branch protection (ver doc abajo), bloquea
-# merges hasta que pase.
+# Corre en cada PR contra main. Es el status check requerido por la
+# ruleset "main safeguards" (activa desde 2026-05-27) — sin que pase,
+# GitHub no deja mergear.
 #
-# Para activar el gate real, en GitHub:
-#   Settings → Branches → Add rule
-#   Branch name pattern: main
-#   Tildar:
-#     - Require a pull request before merging
-#     - Require status checks to pass before merging
-#         → seleccionar "build" como required
-#     - (opcional) Require review from Code Owners
-#     - Do not allow bypassing the above settings
-#
-# Sin estos toggles activos, `--auto` no espera — mergea inmediato
-# como antes. La compat con behaviour anterior se mantiene.
+# La ruleset también requiere PR + code-owner review (ver CODEOWNERS)
+# para paths sensibles. Configurada en:
+#   Repo Settings → Rules → Rulesets → "main safeguards"
 
 name: CI
 
