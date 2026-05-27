@@ -21,7 +21,8 @@
     "airbnb:reprocess": "tsx scripts/airbnb-reprocess.ts",
     "airbnb:reprocess:dry": "tsx scripts/airbnb-reprocess.ts --dry-run",
     "db:check": "tsx scripts/db-apply.ts --check",
-    "db:apply": "tsx scripts/db-apply.ts"
+    "db:apply": "tsx scripts/db-apply.ts",
+    "op:backup-env": "tsx scripts/backup-env-to-1password.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
