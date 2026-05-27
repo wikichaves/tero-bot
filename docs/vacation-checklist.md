@@ -46,6 +46,21 @@ Los crons (`src/app/api/cron/*`) están wrappeados con `withCronAlerts` (ver [sr
 
 Confirmar que `TELEGRAM_ADMIN_CHAT_ID` está seteado en **Vercel production env** (no solo en local). Si no está, los alerts no se mandan pero los crons siguen corriendo igual.
 
+## 4.bis. Deadman switch (healthchecks.io)
+
+Cubre el failure mode contrario al wrapper: si **Vercel cron deja de disparar** entero (incidente, billing, account issue), ningún cron tira excepción → no recibís Telegram del wrapper. Healthchecks.io ve la ausencia del ping horario y te alerta.
+
+Setup one-time:
+
+1. Crear cuenta gratis en [healthchecks.io](https://healthchecks.io)
+2. New Check: name `tero-bot deadman`, period `1 hour`, grace `15 min`
+3. Integrations → Telegram → seguir el flow (te conecta su bot)
+4. Copiar la ping URL (formato `https://hc-ping.com/<uuid>`)
+5. En Vercel → Settings → Environment Variables → agregar `HEALTHCHECKS_DEADMAN_URL` en **production** con esa URL
+6. Redeploy (o esperá al próximo deploy automático)
+
+Sin la env var seteada, el cron `/api/cron/deadman-ping` corre pero hace noop. No falla. Es opt-in.
+
 ## 5. Mental note del worker autónomo
 
 `claude-worker.yml` corre todos los días a las 14:00 UTC (11:00 AR). Levanta el siguiente ticket con label `claude:autonomous`, escribe código y abre un PR — **no auto-mergea**. Si querés pausarlo del todo durante las vacaciones, comentá el bloque `schedule` en `.github/workflows/claude-worker.yml` (o sacá la label `claude:autonomous` de todos los tickets en Todo).
@@ -69,5 +84,6 @@ Pre-vacaciones, en orden:
 - [ ] Anthropic: saldo > $50
 - [ ] `npm run op:backup-env -- --include-vercel`
 - [ ] `TELEGRAM_ADMIN_CHAT_ID` seteado en Vercel prod
+- [ ] `HEALTHCHECKS_DEADMAN_URL` seteado en Vercel prod (deadman switch)
 - [ ] Branch protection en `main` ON
 - [ ] (Opcional) Pausar `claude-worker` schedule
