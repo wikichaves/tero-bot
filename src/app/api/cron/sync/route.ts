@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { syncAirbnb, type SyncResult } from "@/lib/airbnb";
+import { syncAirbnb, type SyncResult } from "@/lib/airbnb/sync";
 import { runSyncRooms, type SyncRoomsResult } from "@/lib/tuya/sync-rooms";
 import { withCronAlerts } from "@/lib/util/cron-alert";
 

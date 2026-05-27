@@ -5,7 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
-import { syncAirbnb, type SyncResult } from "@/lib/airbnb";
+import { syncAirbnb, type SyncResult } from "@/lib/airbnb/sync";
 
 const upsertSchema = z.object({
   id: z.string().uuid().optional(),
