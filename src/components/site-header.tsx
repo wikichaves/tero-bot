@@ -158,9 +158,9 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
           items: [
             { href: "/admin/users", label: t("users") },
             { href: "/admin/tuya/lock", label: t("locks") },
+            { href: "/admin/alarms", label: t("alarms") },
             { href: "/admin/properties", label: t("properties") },
             { href: "/admin/tuya", label: t("tuyaDevices") },
-            { href: "/admin/alarms", label: t("alarms") },
             // WIK-108: WhatsApp inbox movido acá. Antes era un leaf
             // del nav principal — el admin usa /whatsapp con poca
             // frecuencia comparado con Energía/Ambientes, ubicación
