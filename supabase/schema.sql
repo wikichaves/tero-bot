@@ -936,3 +936,35 @@ alter table public.reservations
 alter table public.reservations
   add constraint reservations_guest_language_supported
   check (guest_language in ('en', 'es'));
+
+-- ─── WIK-223: GRANTs default para tablas futuras en public ──────────
+-- Supabase deprecó el comportamiento de "auto-grant on CREATE TABLE" en el
+-- schema public. Fechas:
+--   • 30 mayo 2026: aplica a proyectos nuevos
+--   • 30 oct 2026:  aplica a proyectos existentes (incluido éste)
+--
+-- Después del 30/10, cualquier `CREATE TABLE public.X` produce una tabla
+-- que NO es accesible vía la Data API (PostgREST / GraphQL / supabase-js)
+-- hasta que se agregue un GRANT explícito. Sin estas defaults, un
+-- `npm run db:apply` crearía la tabla silenciosamente y la app fallaría
+-- al leerla con `permission denied for table X`.
+--
+-- ALTER DEFAULT PRIVILEGES hace que las tablas futuras creadas por el
+-- role `postgres` en `public` reciban los mismos grants que antes eran
+-- implícitos. RLS sigue gobernando el acceso por fila — los grants son
+-- una capa separada (acceso a la tabla en sí).
+--
+-- Idempotente: correr varias veces no rompe nada.
+-- Ref: https://github.com/orgs/supabase/discussions/45329
+
+alter default privileges for role postgres in schema public
+  grant select, insert, update, delete on tables
+  to anon, authenticated, service_role;
+
+alter default privileges for role postgres in schema public
+  grant usage, select on sequences
+  to anon, authenticated, service_role;
+
+alter default privileges for role postgres in schema public
+  grant execute on functions
+  to anon, authenticated, service_role;
