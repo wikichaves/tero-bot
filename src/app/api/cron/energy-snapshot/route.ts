@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { snapshotAllDevices } from "@/lib/tuya/snapshots";
 import { logCronSnapshot } from "@/lib/util/cron-log";
+import { withCronAlerts } from "@/lib/util/cron-alert";
 
 /**
  * Hourly cron — captures one snapshot per energy-capable property_device.
@@ -13,7 +14,7 @@ import { logCronSnapshot } from "@/lib/util/cron-log";
  * línea por hora; si hubo errores, el `errors` array lista exactamente
  * qué device falló.
  */
-export async function GET(request: Request) {
+export const GET = withCronAlerts("energy-snapshot", async (request: Request) => {
   const authHeader = request.headers.get("authorization");
   const expected = `Bearer ${process.env.CRON_SECRET ?? ""}`;
   if (!process.env.CRON_SECRET || authHeader !== expected) {
@@ -42,4 +43,4 @@ export async function GET(request: Request) {
     );
     return NextResponse.json({ error: msg }, { status: 500 });
   }
-}
+});

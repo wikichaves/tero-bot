@@ -35,6 +35,7 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4 + shadcn/ui · 
 **Server actions** — preferred for mutations. Pattern: `"use server"` at top, zod schema for input, `createAdminClient` from `@/lib/supabase/admin`, `requireRole` from `@/lib/auth` for permission checks. See `src/app/bills/actions.ts` for a canonical example.
 
 **Crons** — add to `vercel.json` (`{"path": "/api/cron/<name>", "schedule": "..."}`) AND create `src/app/api/cron/<name>/route.ts`. Every cron MUST:
+- Wrap the export with `withCronAlerts("<name>", handler)` from `@/lib/util/cron-alert` — sends a Telegram alert to the admin chat on any throw or 5xx response (401s are ignored to avoid noise from unauth probes)
 - Check `Bearer ${process.env.CRON_SECRET}` and return 401 if missing/mismatched
 - Use `createAdminClient` from `@/lib/supabase/admin`
 - Emit a single structured log via `cron-log.ts` helpers (`logCronSnapshot` etc.) — filterable in Vercel Logs by event name

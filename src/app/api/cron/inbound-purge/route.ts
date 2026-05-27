@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { withCronAlerts } from "@/lib/util/cron-alert";
 
 /**
  * Daily purge of inbound email raw rows older than 30 days. Inbound emails
@@ -12,7 +13,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const RETENTION_DAYS = 30;
 
-export async function GET(request: Request) {
+export const GET = withCronAlerts("inbound-purge", async (request: Request) => {
   const authHeader = request.headers.get("authorization");
   const expected = `Bearer ${process.env.CRON_SECRET ?? ""}`;
   if (!process.env.CRON_SECRET || authHeader !== expected) {
@@ -37,4 +38,4 @@ export async function GET(request: Request) {
     cutoff,
     retention_days: RETENTION_DAYS,
   });
-}
+});

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { snapshotAllSensors } from "@/lib/sensors/snapshots";
 import { logCronSnapshot } from "@/lib/util/cron-log";
+import { withCronAlerts } from "@/lib/util/cron-alert";
 
 /**
  * Hourly cron — captures one snapshot per Tuya T/H sensor (devices marked
@@ -17,7 +18,7 @@ import { logCronSnapshot } from "@/lib/util/cron-log";
  * que se dispararon o resolvieron. Filtrable en Vercel por
  * `event=cron.snapshot.sensor`.
  */
-export async function GET(request: Request) {
+export const GET = withCronAlerts("sensor-snapshot", async (request: Request) => {
   const authHeader = request.headers.get("authorization");
   const expected = `Bearer ${process.env.CRON_SECRET ?? ""}`;
   if (!process.env.CRON_SECRET || authHeader !== expected) {
@@ -50,4 +51,4 @@ export async function GET(request: Request) {
     );
     return NextResponse.json({ error: msg }, { status: 500 });
   }
-}
+});
