@@ -27,6 +27,7 @@
     "@base-ui/react": "^1.4.1",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.0",
+    "@vercel/analytics": "^2.0.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
