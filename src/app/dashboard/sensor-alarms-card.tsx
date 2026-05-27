@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import { avg } from "@/lib/stats";
+import { serverNow } from "@/lib/util/server-now";
 
 /**
  * Widget de ambientes para /dashboard (WIK-82 Fase 4).
@@ -38,7 +39,7 @@ export async function SensorAlarmsCard() {
   const allowedIds = await getAllowedPropertyIds(profile);
 
   const supabase = await createClient();
-  const since = new Date(Date.now() - TWENTY_FOUR_H_MS).toISOString();
+  const since = new Date(serverNow() - TWENTY_FOUR_H_MS).toISOString();
 
   let eventsQ = supabase
     .from("alarm_events")

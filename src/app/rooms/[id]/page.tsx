@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { avg, percentile } from "@/lib/stats";
 import { formatShortDateTime } from "@/lib/i18n/date";
+import { serverNow } from "@/lib/util/server-now";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -63,8 +64,9 @@ export default async function RoomDetailPage({
   const rangeLabel = t(`ranges.${range}` as const);
 
   const supabase = await createClient();
+  const nowMs = serverNow();
   const since = new Date(
-    Date.now() - RANGES[range].hours * 60 * 60 * 1000,
+    nowMs - RANGES[range].hours * 60 * 60 * 1000,
   ).toISOString();
 
   const { data: room } = await supabase
@@ -266,7 +268,7 @@ export default async function RoomDetailPage({
               <RoomHistoryChart
                 series={chartSeries}
                 windowStartMs={sinceTs}
-                windowEndMs={Date.now()}
+                windowEndMs={nowMs}
               />
             </CardContent>
           </Card>

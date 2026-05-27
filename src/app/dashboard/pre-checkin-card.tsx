@@ -2,6 +2,7 @@ import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { Thermometer, CheckCircle2, AlertCircle, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { serverNow } from "@/lib/util/server-now";
 import {
   Card,
   CardContent,
@@ -63,8 +64,9 @@ const STAGE_LABEL: Record<string, { text: string; tone: "default" | "secondary" 
 
 export async function PreCheckinCard() {
   const supabase = await createClient();
-  const todayIso = new Date().toISOString().slice(0, 10);
-  const tomorrowIso = new Date(Date.now() + 24 * 60 * 60 * 1000)
+  const nowMs = serverNow();
+  const todayIso = new Date(nowMs).toISOString().slice(0, 10);
+  const tomorrowIso = new Date(nowMs + 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
 

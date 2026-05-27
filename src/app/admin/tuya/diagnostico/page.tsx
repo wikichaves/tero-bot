@@ -4,6 +4,7 @@ import { es } from "date-fns/locale";
 import { ArrowLeft, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
+import { serverNow } from "@/lib/util/server-now";
 import {
   Card,
   CardContent,
@@ -349,7 +350,7 @@ function HealthSummary({
   sensors: DeviceStat[];
   energy: DeviceStat[];
 }) {
-  const now = Date.now();
+  const now = serverNow();
   const hourStart = new Date(now);
   hourStart.setMinutes(0, 0, 0);
   const hourStartMs = hourStart.getTime();
