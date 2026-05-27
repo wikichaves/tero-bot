@@ -19,7 +19,7 @@ npm install
 Desde **el root del repo** (para que el dev server arranque con el `package.json` de tero-bot):
 
 ```bash
-cd ~/Documents/GitHub/tero-bot
+cd ~/code/tero-bot
 node scripts/timelapse/generate.mjs
 ```
 
