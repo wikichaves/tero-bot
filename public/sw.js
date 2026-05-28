@@ -10,7 +10,7 @@
  * decorativo del launcher (círculo blanco/themed).
  */
 
-self.addEventListener("install", (event) => {
+self.addEventListener("install", () => {
   // Activar el SW inmediatamente en la primera install — sin esperar
   // a que se cierren todas las tabs viejas.
   self.skipWaiting();
@@ -21,7 +21,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-self.addEventListener("fetch", (event) => {
+self.addEventListener("fetch", () => {
   // Network-only passthrough. Sin caching: cualquier offline strategy
   // tendría que ser muy cuidadosa con los server actions / auth /
   // Tuya/Kapso calls, y no nos interesa offline support en este admin.

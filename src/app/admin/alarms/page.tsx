@@ -9,7 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import type { Property, Room } from "@/lib/types";
 import { NewAlarmRuleDialog } from "./new-alarm-rule-dialog";
 import { AlarmRuleRow } from "./alarm-rule-row";
