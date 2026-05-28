@@ -97,6 +97,7 @@ export default async function AlarmasPage() {
     // Foreign filter: events cuyo device pertenece a una property scoped.
     eventsQuery = eventsQuery.in("property_device.property_id", allowedIds);
   }
+  const typedEventsQuery = eventsQuery.returns<AlarmEventWithRel[]>();
 
   let propsQuery = supabase
     .from("properties")
@@ -114,10 +115,10 @@ export default async function AlarmasPage() {
   if (allowedIds !== null) devicesQuery = devicesQuery.in("property_id", allowedIds);
 
   const [rulesRes, eventsRes, propsRes, roomsRes, devicesRes] =
-    await Promise.all([rulesQuery, eventsQuery, propsQuery, roomsQuery, devicesQuery]);
+    await Promise.all([rulesQuery, typedEventsQuery, propsQuery, roomsQuery, devicesQuery]);
 
   const rules = (rulesRes.data ?? []) as AlarmRuleRow[];
-  const events = (eventsRes.data ?? []) as unknown as AlarmEventWithRel[];
+  const events = eventsRes.data ?? [];
   const properties = (propsRes.data ?? []) as Pick<
     Property,
     "id" | "name"

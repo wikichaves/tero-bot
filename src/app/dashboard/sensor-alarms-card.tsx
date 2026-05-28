@@ -41,6 +41,28 @@ export async function SensorAlarmsCard() {
   const supabase = await createClient();
   const since = new Date(serverNow() - TWENTY_FOUR_H_MS).toISOString();
 
+  type ActiveEvent = {
+    id: string;
+    fired_at: string;
+    trigger_value: number;
+    rule: {
+      metric: "temperature_c" | "humidity_pct";
+      operator: "gt" | "lt";
+      threshold: number;
+    } | null;
+    property_device: {
+      tuya_device_name: string | null;
+      property: { name: string } | null;
+      room: { name: string } | null;
+    } | null;
+  };
+  type SensorRow = {
+    id: string;
+    room_id: string | null;
+    property_id: string;
+    property: { id: string; name: string } | null;
+  };
+
   let eventsQ = supabase
     .from("alarm_events")
     .select(
@@ -68,34 +90,13 @@ export async function SensorAlarmsCard() {
     .limit(100_000);
 
   const [activeEventsRes, sensorsRes, recentSnapsRes] = await Promise.all([
-    eventsQ,
-    sensorsQ,
+    eventsQ.returns<ActiveEvent[]>(),
+    sensorsQ.returns<SensorRow[]>(),
     snapsQ,
   ]);
 
-  const events =
-    (activeEventsRes.data ?? []) as unknown as Array<{
-      id: string;
-      fired_at: string;
-      trigger_value: number;
-      rule: {
-        metric: "temperature_c" | "humidity_pct";
-        operator: "gt" | "lt";
-        threshold: number;
-      } | null;
-      property_device: {
-        tuya_device_name: string | null;
-        property: { name: string } | null;
-        room: { name: string } | null;
-      } | null;
-    }>;
-
-  const sensors = (sensorsRes.data ?? []) as unknown as Array<{
-    id: string;
-    room_id: string | null;
-    property_id: string;
-    property: { id: string; name: string } | null;
-  }>;
+  const events = activeEventsRes.data ?? [];
+  const sensors = sensorsRes.data ?? [];
   const recentSnaps = (recentSnapsRes.data ?? []) as Array<{
     property_device_id: string;
     temperature_c: number | null;
