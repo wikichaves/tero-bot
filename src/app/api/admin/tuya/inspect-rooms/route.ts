@@ -58,7 +58,7 @@ export async function GET() {
         `/v1.0/homes/${home.home_id}/rooms`,
       );
       tuyaRooms = Array.isArray(r) ? r : (r?.rooms ?? []);
-    } catch (e) {
+    } catch {
       result.push({
         home: { id: homeIdStr, name: home.name },
         tuya_rooms: [],
