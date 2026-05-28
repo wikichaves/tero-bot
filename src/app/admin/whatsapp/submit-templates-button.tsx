@@ -79,7 +79,6 @@ export function SubmitTemplatesButton() {
   // Auto-load status al montar.
   useEffect(() => {
     refreshStatus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function onSubmit() {
