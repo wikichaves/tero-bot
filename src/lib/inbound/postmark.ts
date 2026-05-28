@@ -61,15 +61,21 @@ export function verifyPostmarkBasicAuth(header: string | null): boolean {
 }
 
 /**
- * Pull the recipient email (local-part) from a Postmark payload. We try
- * `ToFull[0].Email` first (parsed, robust), then `To` (raw header which
- * may include display-name like `"Foo" <foo@bar>`), then
- * `OriginalRecipient` (set by Postmark when MX-routed).
+ * Pull the recipient email (local-part) from a Postmark payload. Priority:
+ *
+ *   1. `OriginalRecipient` — Postmark sets this to the *actual delivery
+ *      address* (what they received on their MX). It survives Gmail
+ *      auto-forwarding (where `ToFull/To` keep the original mailbox like
+ *      `user@gmail.com` and the bills@ alias only appears in `Bcc`/
+ *      `X-Forwarded-To`).
+ *   2. `ToFull[0].Email` — parsed, only used when OriginalRecipient is
+ *      missing (e.g. forwarded to the random Postmark address before MX).
+ *   3. `To` — raw header fallback, may include display-name.
  */
 export function extractRecipient(body: PostmarkInbound): string | null {
   const candidates: Array<string | undefined | null> = [
-    body.ToFull?.[0]?.Email,
     body.OriginalRecipient,
+    body.ToFull?.[0]?.Email,
     body.To,
   ];
   for (const raw of candidates) {
