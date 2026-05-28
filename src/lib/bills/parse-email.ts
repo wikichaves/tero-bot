@@ -93,6 +93,31 @@ const PROVIDER_RULES: ProviderRule[] = [
   },
 ];
 
+/**
+ * Sender-only provider detection — used by the inbound router to decide
+ * whether to route an email through the bills pipeline when the recipient
+ * alias didn't hit a known bill alias (`bills@/luz@/agua@/…`). Mirrors
+ * `detectProvider` but ignores subject/body so we can decide *before*
+ * parsing the attachment.
+ */
+export function inferUtilityFromSender(
+  fromEmail: string | null,
+  fromName: string | null,
+): UtilityType | null {
+  const haystack = `${fromEmail ?? ""} ${fromName ?? ""}`.toLowerCase();
+  for (const rule of PROVIDER_RULES) {
+    if (rule.domains.some((d) => haystack.includes(d))) return rule.utility_type;
+  }
+  for (const rule of PROVIDER_RULES) {
+    if (
+      rule.fromNameKeywords?.some((kw) => haystack.includes(kw.toLowerCase()))
+    ) {
+      return rule.utility_type;
+    }
+  }
+  return null;
+}
+
 function detectProvider(
   fromEmail: string | null,
   fromName: string | null,
