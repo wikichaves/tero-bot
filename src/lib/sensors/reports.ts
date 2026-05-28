@@ -29,6 +29,15 @@ export async function buildSensorSummary(
     namespace: "whatsapp.sensorSummary",
   });
 
+  type Row = {
+    temperature_c: number | null;
+    humidity_pct: number | null;
+    property_device: {
+      property_id: string;
+      property: { name: string } | null;
+    } | null;
+  };
+
   // Pull snapshots + device + property in one query for fast aggregation.
   let q = admin
     .from("sensor_snapshots")
@@ -39,18 +48,10 @@ export async function buildSensorSummary(
   if (allowedPropertyIds != null) {
     q = q.in("property_device.property_id", allowedPropertyIds);
   }
-  const { data, error } = await q;
+  const { data, error } = await q.returns<Row[]>();
   if (error || !data) return [];
 
-  type Row = {
-    temperature_c: number | null;
-    humidity_pct: number | null;
-    property_device: {
-      property_id: string;
-      property: { name: string } | null;
-    } | null;
-  };
-  const rows = data as unknown as Row[];
+  const rows = data;
 
   const byProperty = new Map<
     string,
