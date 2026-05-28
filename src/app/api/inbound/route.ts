@@ -5,6 +5,7 @@ import {
   BILL_ROUTE_ALIASES,
   handleBillInbound,
 } from "@/lib/bills/handle-inbound";
+import { inferUtilityFromSender } from "@/lib/bills/parse-email";
 import {
   extractRecipient,
   localPart,
@@ -36,9 +37,6 @@ function inferRouteFromSender(
       from.includes("@automated.airbnb.com") || from.includes(".airbnb.com>")) {
     return "airbnb";
   }
-  // Bills are added by alias only — no fallback by sender, because utility
-  // companies use many different sender domains and we want explicit opt-in
-  // via the `bills@` / `luz@` / `agua@` aliases.
   return null;
 }
 
@@ -95,13 +93,28 @@ export async function POST(req: NextRequest) {
     }
     // No alias hit — try sender fallback. Lets users forward to the
     // default Postmark inbound address (no custom DNS) and still get
-    // their Airbnb emails routed correctly.
+    // their emails routed correctly.
     const inferred = inferRouteFromSender(body);
     if (inferred === "airbnb") {
       console.log(
         `[inbound] inferred=airbnb from sender "${body.FromFull?.Email ?? body.From}" (alias="${alias}" didn't match)`,
       );
       return await handleAirbnbInbound(body, admin);
+    }
+    // Bills fallback: utility companies (UTE, OSE, Antel, …) have stable
+    // sender domains, so we can route them even when the recipient alias
+    // doesn't match (e.g. when Gmail forwarding sends to the random
+    // Postmark address). The inferred utility_type is passed as the alias
+    // so handleBillInbound can override the body-based detection.
+    const inferredUtility = inferUtilityFromSender(
+      body.FromFull?.Email ?? body.From ?? null,
+      body.FromFull?.Name ?? null,
+    );
+    if (inferredUtility) {
+      console.log(
+        `[inbound] inferred=${inferredUtility} from sender "${body.FromFull?.Email ?? body.From}" (alias="${alias}" didn't match)`,
+      );
+      return await handleBillInbound(body, admin, inferredUtility);
     }
   } catch (err) {
     console.error(
