@@ -82,6 +82,15 @@ export default async function FacturasPage() {
   // la comparativa vive en /energy junto a los devices Tuya.
   const bills: BillRowDerived[] = enrichWithEffectivePeriod(rawBills);
 
+  // WIK-227: ordenar más nuevo primero. La query ya pide due_date DESC, pero
+  // las facturas sin due_date (carga manual, o parseos que sacaron period_to
+  // sin vencimiento) caían al fondo aunque fueran recientes. Reordenamos por
+  // la fecha más representativa de cada factura — fin de período efectivo, con
+  // fallback a vencimiento y luego a created_at — de forma descendente.
+  const billDateKey = (b: BillRowDerived): string =>
+    b.effective_period_to ?? b.due_date ?? b.created_at.slice(0, 10);
+  bills.sort((a, b) => billDateKey(b).localeCompare(billDateKey(a)));
+
   // Group bills by property. We iterate `properties` (sort_order asc) so
   // the sections render in the order the admin set in /admin/properties.
   const billsByProperty = new Map<string, BillRowDerived[]>();
