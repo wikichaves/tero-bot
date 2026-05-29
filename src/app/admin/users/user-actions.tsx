@@ -66,8 +66,35 @@ export function UserActions({
       return;
     startTransition(async () => {
       const r = await sendStaffWelcome(profile.id);
-      if (r?.error) toast.error(r.error);
-      else toast.success("Bienvenida enviada por WhatsApp.");
+      if ("error" in r) {
+        // Error real de envío — Meta/Kapso rechazó la request. Duración
+        // larga + el detalle exacto para poder diagnosticar sin adivinar.
+        toast.error("No se pudo enviar la bienvenida", {
+          description: r.error,
+          duration: 12000,
+        });
+        return;
+      }
+      // OJO: messageId = Meta ACEPTÓ la request, NO que se entregó al
+      // teléfono. La entrega es asíncrona y depende de Meta (categoría
+      // del template, opt-in del número, etc.). Por eso el toast lo
+      // aclara — así sabés si "no llegó" es problema de envío (no hay id)
+      // o de entrega (hay id pero no aparece en el chat).
+      const tmpl =
+        r.templateUsed === "staff_welcome_v2"
+          ? "personalizado"
+          : "genérico (v2 pendiente de Meta)";
+      if (r.messageId) {
+        toast.success("Meta aceptó la bienvenida ✓", {
+          description: `Template ${tmpl} · id ${r.messageId.slice(0, 22)}…\nSi no aparece en el chat en 1-2 min, es un tema de entrega de Meta (no de envío).`,
+          duration: 12000,
+        });
+      } else {
+        toast.warning("Enviada pero Meta no devolvió ID", {
+          description: `Template ${tmpl}. Sin messageId no se puede confirmar que Meta la aceptó — revisá en Kapso.`,
+          duration: 12000,
+        });
+      }
     });
   }
 
