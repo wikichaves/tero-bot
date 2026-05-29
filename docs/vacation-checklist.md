@@ -61,6 +61,29 @@ Setup one-time:
 
 Sin la env var seteada, el cron `/api/cron/deadman-ping` corre pero hace noop. No falla. Es opt-in.
 
+## 4.ter. PAT para que el worker dispare CI (crítico)
+
+El worker autónomo (`.github/workflows/claude-worker.yml`) pushea con `GITHUB_TOKEN` default por seguridad. **Pero GitHub bloquea workflows triggered by GITHUB_TOKEN** para prevenir loops infinitos → `ci.yml` no se dispara → `build` no pasa → branch protection bloquea el merge.
+
+**Setup one-time** (sin esto el worker abre PRs pero no se pueden mergear):
+
+1. GitHub → tu avatar → Settings → Developer settings → Personal access tokens → **Fine-grained tokens** → Generate new token
+2. Name: `tero-bot-worker`
+3. Expiration: 90 días (anotá en calendar para renovar)
+4. Repository access: Only select repositories → `wikichaves/tero-bot`
+5. Permissions:
+   - Repository permissions → **Contents**: Read and write
+   - Repository permissions → **Pull requests**: Read and write
+   - Repository permissions → **Workflows**: Read and write
+6. Generate token → copiar el `github_pat_...`
+7. En `wikichaves/tero-bot` → Settings → Secrets and variables → Actions → New repository secret
+8. Name: `WORKFLOW_TOKEN`, Value: el PAT
+9. Save
+
+A partir del próximo `/work`, el push se atribuye al PAT → ci.yml arranca → `build` corre → merge automático funciona.
+
+Sin la secret seteada, el worker sigue corriendo pero los PRs requieren push manual tuyo (un `git commit --allow-empty && git push` desde local) para disparar CI.
+
 ## 5. Mental note del worker autónomo
 
 `claude-worker.yml` corre todos los días a las 14:00 UTC (11:00 AR). Levanta el siguiente ticket con label `claude:autonomous`, escribe código y abre un PR — **no auto-mergea**. Si querés pausarlo del todo durante las vacaciones, comentá el bloque `schedule` en `.github/workflows/claude-worker.yml` (o sacá la label `claude:autonomous` de todos los tickets en Todo).
@@ -85,5 +108,6 @@ Pre-vacaciones, en orden:
 - [ ] `npm run op:backup-env -- --include-vercel`
 - [ ] `TELEGRAM_ADMIN_CHAT_ID` seteado en Vercel prod
 - [ ] `HEALTHCHECKS_DEADMAN_URL` seteado en Vercel prod (deadman switch)
+- [ ] `WORKFLOW_TOKEN` seteado en GitHub Actions secrets (worker → CI trigger)
 - [ ] Branch protection en `main` ON
 - [ ] (Opcional) Pausar `claude-worker` schedule

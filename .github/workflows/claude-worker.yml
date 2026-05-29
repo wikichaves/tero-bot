@@ -76,6 +76,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # full history para que Claude pueda leer log
+          # WIK-228 follow-up: usar PAT (si está seteado) para que el push
+          # del worker dispare ci.yml. GitHub bloquea workflows triggered
+          # by GITHUB_TOKEN por seguridad (loop prevention). Con un PAT
+          # con scopes `repo` + `workflow`, el push se atribuye al user
+          # del PAT y workflows arrancan normal. Fallback a GITHUB_TOKEN
+          # si WORKFLOW_TOKEN no está configurado — el worker sigue
+          # corriendo pero los PRs no van a tener CI automático.
+          token: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -96,7 +104,7 @@ jobs:
       - name: Rate limit check
         id: ratelimit
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           OPEN=$(gh pr list \
             --label "claude:autonomous" \
@@ -228,7 +236,7 @@ jobs:
         if: steps.pick.outputs.has_ticket == 'true' && steps.commit.outputs.has_changes == 'true'
         id: pr
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
           TICKET_ID: ${{ steps.pick.outputs.ticket_id }}
           TICKET_TITLE: ${{ steps.pick.outputs.ticket_title }}
         run: |
@@ -340,7 +348,7 @@ jobs:
       - name: Auto-merge if safe
         if: steps.classify.outputs.safe == 'true' && steps.pr.outputs.number != ''
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           # WIK-137: `--auto` espera a que pasen los required status
           # checks (definidos en branch protection de main) antes de
@@ -358,7 +366,7 @@ jobs:
       - name: Mark PR as needs-review (manual case)
         if: steps.classify.outputs.safe == 'false' && steps.pr.outputs.number != ''
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           # Crear el label si no existe (idempotente).
           gh label create "needs-review" \
