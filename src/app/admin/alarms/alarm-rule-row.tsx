@@ -127,22 +127,26 @@ export function AlarmRuleRow({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem
-            onSelect={() => {
+            onClick={() => {
+              // WIK-234: Base UI `Menu.Item` usa `onClick`, NO `onSelect`
+              // (esto NO es Radix). Con `onSelect` el handler se ignoraba
+              // silenciosamente → "Editar"/"Eliminar" no hacían nada.
+              //
               // Dejar que Base UI cierre el menu normal (sin preventDefault)
               // y schedule el open del dialog DESPUÉS del paint para no
-              // pisar el cleanup del menu portal. WIK-91 fix: con setTimeout
-              // (0) el dialog no abría — requestAnimationFrame se ejecuta
+              // pisar el cleanup del menu portal. WIK-91: con setTimeout(0)
+              // el dialog no abría — requestAnimationFrame se ejecuta
               // después del unmount del dropdown content portal.
               requestAnimationFrame(() => setEditOpen(true));
             }}
           >
             Editar
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={onToggle}>
+          <DropdownMenuItem onClick={onToggle}>
             {rule.enabled ? "Deshabilitar" : "Habilitar"}
           </DropdownMenuItem>
           <DropdownMenuItem
-            onSelect={onDelete}
+            onClick={onDelete}
             className="text-destructive focus:text-destructive"
           >
             Eliminar
