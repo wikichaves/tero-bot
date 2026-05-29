@@ -439,8 +439,11 @@ export const staffWelcomeV3: WhatsAppTemplate = {
     "Notificación de activación de acceso de operador. Variables: 1=primer nombre, 2=propiedad(es) asignadas (ej. 'Casa Merced y 14 de Julio').",
   components: [
     {
+      // Meta rechaza variables al inicio o final del body (error 2388299).
+      // Por eso `{{2}}` va seguido de "ya está activo." en vez de quedar
+      // al final con solo el punto.
       type: "BODY",
-      text: `Hola {{1}}, se activó tu acceso de operador en {{2}}.`,
+      text: `Hola {{1}}, tu acceso de operador en {{2}} ya está activo.`,
       example: {
         body_text: [["Juana", "Casa Merced y 14 de Julio"]],
       },
