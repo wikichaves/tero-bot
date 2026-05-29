@@ -31,26 +31,33 @@ export async function SiteFooter() {
           contenido no quede bajo el home-indicator en la PWA iOS. En
           browser el inset es 0px (fallback) → queda el py-6 normal. */}
       <div className="flex flex-col items-center justify-between gap-3 px-5 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] sm:flex-row sm:gap-4 sm:px-8">
+        {/* WIK-246: en mobile las dos frases van en líneas separadas y
+            centradas (spans block). En sm+ vuelven a una sola línea con
+            el separador "·" inline. */}
         <p className="text-center sm:text-left">
-          {t("createdBy")}{" "}
-          <a
-            href="https://wikichaves.com/"
-            target="_blank"
-            rel="noopener"
-            className="underline-offset-4 hover:text-foreground hover:underline"
-          >
-            Wiki Chaves
-          </a>
-          {" · "}
-          <a
-            href="https://github.com/wikichaves/tero-bot"
-            target="_blank"
-            rel="noopener"
-            className="underline-offset-4 hover:text-foreground hover:underline"
-          >
-            {t("openSource")}
-          </a>{" "}
-          {t("licenseMit")}
+          <span className="block sm:inline">
+            {t("createdBy")}{" "}
+            <a
+              href="https://wikichaves.com/"
+              target="_blank"
+              rel="noopener"
+              className="underline-offset-4 hover:text-foreground hover:underline"
+            >
+              Wiki Chaves
+            </a>
+          </span>
+          <span className="hidden sm:inline">{" · "}</span>
+          <span className="block sm:inline">
+            <a
+              href="https://github.com/wikichaves/tero-bot"
+              target="_blank"
+              rel="noopener"
+              className="underline-offset-4 hover:text-foreground hover:underline"
+            >
+              {t("openSource")}
+            </a>{" "}
+            {t("licenseMit")}
+          </span>
         </p>
         <div className="flex items-center gap-1">
           <ModeToggle />
