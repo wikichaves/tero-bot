@@ -17,14 +17,17 @@ export async function SiteFooter() {
   const t = await getTranslations("footer");
   // WIK-201 → WIK-215 follow-up: la border-top vive en el `<footer>`
   // OUTER para que la línea cruce todo el viewport — match perfecto
-  // con el header (que ya tenía la border-bottom en el outer). Antes
-  // estaba en el inner div capeado a max-w-6xl, lo que hacía que el
-  // footer line se viera inset 36px vs el header line que iba edge-
-  // to-edge. El contenido (credits + toggles) sigue capeado al inner
-  // max-w-6xl alineado con el resto.
+  // con el header (que ya tenía la border-bottom en el outer).
+  //
+  // WIK-231: el contenido (credits + toggles) va edge-to-edge con el
+  // mismo padding horizontal que el header (px-5/sm:px-8). Antes estaba
+  // capeado a `mx-auto max-w-6xl`, lo que en viewports anchos centraba
+  // el contenido con gutters grandes y dejaba el footer con mucho más
+  // padding lateral que el header (y que el contenido de las pages, que
+  // también va edge-to-edge).
   return (
     <footer className="border-t border-border/60 text-xs text-muted-foreground">
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 py-6 sm:flex-row sm:gap-4 sm:px-8">
+      <div className="flex flex-col items-center justify-between gap-3 px-5 py-6 sm:flex-row sm:gap-4 sm:px-8">
         <p className="text-center sm:text-left">
           {t("createdBy")}{" "}
           <a
