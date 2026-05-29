@@ -121,18 +121,21 @@ export async function createTask(input: {
     return { error: "No tenés acceso a esa propiedad." };
   }
   const admin = createAdminClient();
+  // WIK-251: una tarea creada por Staff (mantenimiento) queda SIEMPRE
+  // asignada a él mismo. Staff solo ve/maneja sus tareas asignadas — si
+  // quedara "Sin asignar" desaparecería de su propia lista. Mismo criterio
+  // que el alta por WhatsApp (create-task.ts). Admin/Manager pueden dejar
+  // la tarea sin asignar (pool) o asignarla a otro.
+  const assignedTo =
+    profile.role === "mantenimiento" ? profile.id : parsed.data.assigned_to;
   // WIK-250: un no-admin solo puede asignar la tarea a sí mismo o a alguien
   // que comparte una de sus propiedades (su Staff). Como el admin client
   // bypassa RLS, validamos acá. Admin (allowedIds null) asigna sin límite.
-  if (
-    allowedIds !== null &&
-    parsed.data.assigned_to &&
-    parsed.data.assigned_to !== profile.id
-  ) {
+  if (allowedIds !== null && assignedTo && assignedTo !== profile.id) {
     const { data: link } = await admin
       .from("profile_properties")
       .select("profile_id")
-      .eq("profile_id", parsed.data.assigned_to)
+      .eq("profile_id", assignedTo)
       .in("property_id", allowedIds)
       .limit(1)
       .maybeSingle();
@@ -147,7 +150,7 @@ export async function createTask(input: {
       kind: parsed.data.kind,
       title: parsed.data.title,
       description: parsed.data.description,
-      assigned_to: parsed.data.assigned_to,
+      assigned_to: assignedTo,
       due_date: parsed.data.due_date,
       due_time: parsed.data.due_time,
       alarm_hours_before: parsed.data.alarm_hours_before,
@@ -163,11 +166,7 @@ export async function createTask(input: {
   // (no a uno mismo). WIK-249 auto-asigna al creador por default — no tiene
   // sentido mandarte un WhatsApp a vos mismo. Corre vía after() para que la
   // UI responda ya; notifyTaskAssigned nunca tira.
-  if (
-    parsed.data.assigned_to &&
-    parsed.data.assigned_to !== profile.id &&
-    inserted?.id
-  ) {
+  if (assignedTo && assignedTo !== profile.id && inserted?.id) {
     after(() => notifyTaskAssigned(inserted.id));
   }
 
