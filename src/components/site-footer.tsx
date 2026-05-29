@@ -27,7 +27,10 @@ export async function SiteFooter() {
   // también va edge-to-edge).
   return (
     <footer className="border-t border-border/60 text-xs text-muted-foreground">
-      <div className="flex flex-col items-center justify-between gap-3 px-5 py-6 sm:flex-row sm:gap-4 sm:px-8">
+      {/* WIK-240: pb incluye env(safe-area-inset-bottom) para que el
+          contenido no quede bajo el home-indicator en la PWA iOS. En
+          browser el inset es 0px (fallback) → queda el py-6 normal. */}
+      <div className="flex flex-col items-center justify-between gap-3 px-5 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] sm:flex-row sm:gap-4 sm:px-8">
         <p className="text-center sm:text-left">
           {t("createdBy")}{" "}
           <a

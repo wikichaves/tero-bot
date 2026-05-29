@@ -15,6 +15,11 @@ import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    // `id` estable (WIK-240): identifica la PWA de forma única e
+    // independiente del start_url. Sin esto el browser deriva el id del
+    // start_url y un cambio futuro de start_url crearía una "app nueva"
+    // (duplicado en el launcher). Pinearlo evita ese riesgo.
+    id: "/dashboard",
     name: APP_NAME,
     short_name: APP_NAME,
     description: `${APP_NAME} — ${APP_TAGLINE}.`,
@@ -23,16 +28,13 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#1C4239",
     theme_color: "#000000",
     orientation: "portrait",
+    // WIK-240: re-enfocar la ventana ya abierta en vez de abrir una nueva
+    // (desktop/Mac). Se siente más nativo — clickear el icono trae al
+    // frente la instancia existente.
+    launch_handler: { client_mode: "navigate-existing" },
     icons: [
-      // Chrome exige al menos un icon de 192×192 (criterio de PWA
-      // installability). Sin esto, Chrome ofrece "Add to Home Screen"
-      // (shortcut → icon decorado con container del launcher) en
-      // vez de "Install app" (PWA real → icon as-is, BG negro).
-      //
-      // Ambas entries con `purpose: "any"` — `maskable` triggerea el
-      // themed-icon path de Android Material You (bg blanco con bird
-      // mint en launchers con light theme). Volviendo a `any` el PNG
-      // se sirve "as-is".
+      // ── `any`: el PNG "natural" (squircle con esquinas redondeadas).
+      //    Lo usa el browser para la tab y contextos no-enmascarados.
       {
         src: "/icon-192.png",
         sizes: "192x192",
@@ -45,11 +47,42 @@ export default function manifest(): MetadataRoute.Manifest {
         type: "image/png",
         purpose: "any",
       },
+      // ── `maskable` (WIK-240): full-bleed (#1C4239 edge-to-edge, bird en
+      //    la safe-zone interior). Android/ChromeOS/Mac rellenan toda la
+      //    forma del adaptive-icon con verde → SIN el anillo blanco que
+      //    producía el squircle transparente con `purpose:any`. Separados
+      //    de los `any` a propósito: el maskable tiene más padding y se
+      //    vería "alejado" en contextos no-enmascarados.
       {
-        src: "/apple-icon.png",
+        src: "/icon-maskable-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "maskable",
+      },
+      {
+        src: "/icon-maskable-512.png",
         sizes: "512x512",
         type: "image/png",
-        purpose: "any",
+        purpose: "maskable",
+      },
+    ],
+    // Quick actions al hacer long-press del icono (Android) / right-click
+    // (desktop). Atajos a las secciones más usadas — muy native-feeling.
+    shortcuts: [
+      {
+        name: "Tareas",
+        url: "/tasks",
+        icons: [{ src: "/icon-maskable-192.png", sizes: "192x192" }],
+      },
+      {
+        name: "Energía",
+        url: "/energy",
+        icons: [{ src: "/icon-maskable-192.png", sizes: "192x192" }],
+      },
+      {
+        name: "Ambientes",
+        url: "/rooms",
+        icons: [{ src: "/icon-maskable-192.png", sizes: "192x192" }],
       },
     ],
   };
