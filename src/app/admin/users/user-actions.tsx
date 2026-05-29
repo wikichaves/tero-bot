@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -17,7 +18,6 @@ import type { Profile, Property, UserRole } from "@/lib/types";
 import { ALL_ROLES, ROLE_LABEL } from "@/lib/roles";
 import { deleteUser, sendStaffWelcome, updateRole } from "./actions";
 import { EditUserDialog } from "./edit-user-dialog";
-import { ScopeDialog } from "./scope-dialog";
 import { ResetPasswordDialog } from "./reset-password-dialog";
 
 export function UserActions({
@@ -35,32 +35,33 @@ export function UserActions({
    *  scope — tiene acceso global). */
   scopedPropertyIds: string[];
 }) {
+  const t = useTranslations("usersPage");
   const [pending, startTransition] = useTransition();
   const [editOpen, setEditOpen] = useState(false);
-  const [scopeOpen, setScopeOpen] = useState(false);
   const [resetPwdOpen, setResetPwdOpen] = useState(false);
 
   function changeRole(role: UserRole) {
     startTransition(async () => {
       const r = await updateRole({ id: profile.id, role });
       if (r?.error) toast.error(r.error);
-      else toast.success("Rol actualizado.");
+      else toast.success(t("toast.roleUpdated"));
     });
   }
 
   function remove() {
-    if (!confirm(`¿Eliminar a ${profile.email}? No se puede deshacer.`)) return;
+    const who = profile.full_name ?? profile.email;
+    if (!confirm(t("confirmDelete", { who }))) return;
     startTransition(async () => {
       const r = await deleteUser(profile.id);
       if (r?.error) toast.error(r.error);
-      else toast.success("Usuario eliminado.");
+      else toast.success(t("toast.deleted"));
     });
   }
 
   function sendWelcome() {
     if (
       !confirm(
-        `Mandar mensaje de bienvenida por WhatsApp a ${profile.full_name ?? profile.email}?`,
+        t("confirmWelcome", { who: profile.full_name ?? profile.email }),
       )
     )
       return;
@@ -108,18 +109,13 @@ export function UserActions({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => setEditOpen(true)}>
-            Editar
+            {t("menu.edit")}
           </DropdownMenuItem>
-          {/* Scope solo aplica a gestor/mantenimiento. Admin tiene acceso
-              global. (WIK-94) */}
-          {profile.role !== "admin" && (
-            <DropdownMenuItem onClick={() => setScopeOpen(true)}>
-              Asignar propiedades
-            </DropdownMenuItem>
-          )}
+          {/* WIK-242: "Asignar propiedades" se movió DENTRO del modal de
+              edición (no más dialog aparte). El scope se edita ahí. */}
           {/* WIK-106: reset password de cualquier user. */}
           <DropdownMenuItem onClick={() => setResetPwdOpen(true)}>
-            Resetear password
+            {t("menu.resetPassword")}
           </DropdownMenuItem>
           {/* WIK-177: mandar template `staff_welcome` para abrir la ventana
               de 24h y que el gestor/mantenimiento pueda escribir libre
@@ -127,12 +123,12 @@ export function UserActions({
               configuró el sistema) — lo escondemos. */}
           {profile.whatsapp && profile.role !== "admin" && (
             <DropdownMenuItem onClick={sendWelcome}>
-              Enviar bienvenida WhatsApp
+              {t("menu.sendWelcome")}
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            <DropdownMenuLabel>Cambiar rol</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("menu.changeRole")}</DropdownMenuLabel>
             {ALL_ROLES.filter((r) => r !== profile.role).map((r) => (
               <DropdownMenuItem key={r} onClick={() => changeRole(r)}>
                 {ROLE_LABEL[r]}
@@ -146,7 +142,7 @@ export function UserActions({
                 onClick={remove}
                 className="text-destructive focus:text-destructive"
               >
-                Eliminar
+                {t("menu.delete")}
               </DropdownMenuItem>
             </>
           )}
@@ -154,20 +150,11 @@ export function UserActions({
       </DropdownMenu>
       <EditUserDialog
         profile={profile}
+        allProperties={allProperties}
+        scopedPropertyIds={scopedPropertyIds}
         open={editOpen}
         onOpenChange={setEditOpen}
       />
-      {/* Conditional mount — solo cuando scope dialog está abierto, igual
-          patrón que WIK-91 (alarm-rule-row). */}
-      {scopeOpen && (
-        <ScopeDialog
-          profile={profile}
-          allProperties={allProperties}
-          initialPropertyIds={scopedPropertyIds}
-          open={scopeOpen}
-          onOpenChange={setScopeOpen}
-        />
-      )}
       {resetPwdOpen && (
         <ResetPasswordDialog
           userId={profile.id}

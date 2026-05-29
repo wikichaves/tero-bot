@@ -1,5 +1,6 @@
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
+import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import {
@@ -22,6 +23,7 @@ import { ROLE_LABEL } from "@/lib/roles";
 
 export default async function UsersPage() {
   const me = await requireRole(["admin"]);
+  const t = await getTranslations("usersPage");
   const supabase = await createClient();
   const [profilesRes, propsRes, scopesRes] = await Promise.all([
     supabase
@@ -49,13 +51,12 @@ export default async function UsersPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-4xl">Usuarios</h1>
+          <h1 className="text-4xl">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">
-            {profiles.length} usuario{profiles.length === 1 ? "" : "s"} en el
-            sistema.
+            {t("subtitle", { n: profiles.length })}
           </p>
         </div>
-        <NewUserDialog />
+        <NewUserDialog allProperties={allProperties} />
       </div>
 
       {error && (
@@ -71,12 +72,12 @@ export default async function UsersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Email</TableHead>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Rol</TableHead>
-                <TableHead>Properties</TableHead>
-                <TableHead>WhatsApp</TableHead>
-                <TableHead>Creado</TableHead>
+                <TableHead>{t("table.email")}</TableHead>
+                <TableHead>{t("table.name")}</TableHead>
+                <TableHead>{t("table.role")}</TableHead>
+                <TableHead>{t("table.properties")}</TableHead>
+                <TableHead>{t("table.whatsapp")}</TableHead>
+                <TableHead>{t("table.created")}</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -87,7 +88,7 @@ export default async function UsersPage() {
                     colSpan={7}
                     className="text-center text-muted-foreground"
                   >
-                    Sin usuarios.
+                    {t("empty")}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -106,11 +107,11 @@ export default async function UsersPage() {
                     <TableCell className="text-xs">
                       {p.role === "admin" ? (
                         <span className="text-muted-foreground italic">
-                          todas
+                          {t("scope.all")}
                         </span>
                       ) : scopedNames.length === 0 ? (
                         <span className="text-amber-700 dark:text-amber-300">
-                          sin asignar
+                          {t("scope.unassigned")}
                         </span>
                       ) : (
                         scopedNames.join(", ")

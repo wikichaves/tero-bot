@@ -418,6 +418,63 @@
       "actions": "Actions"
     }
   },
+  "usersPage": {
+    "title": "Users",
+    "subtitle": "{n, plural, one {# user} other {# users}} in the system.",
+    "newUser": "New user",
+    "empty": "No users.",
+    "table": {
+      "email": "Email",
+      "name": "Name",
+      "role": "Role",
+      "properties": "Properties",
+      "whatsapp": "WhatsApp",
+      "created": "Created"
+    },
+    "scope": {
+      "all": "all",
+      "unassigned": "unassigned"
+    },
+    "menu": {
+      "edit": "Edit",
+      "resetPassword": "Reset password",
+      "sendWelcome": "Send WhatsApp welcome",
+      "changeRole": "Change role",
+      "delete": "Delete"
+    },
+    "confirmDelete": "Delete {who}? This can't be undone.",
+    "confirmWelcome": "Send a WhatsApp welcome message to {who}?",
+    "create": {
+      "title": "Create user",
+      "description": "The user will be able to sign in immediately with the email and password you set here.",
+      "submit": "Create",
+      "submitting": "Creating…"
+    },
+    "edit": {
+      "title": "Edit user",
+      "submit": "Save",
+      "submitting": "Saving…"
+    },
+    "fields": {
+      "name": "Name",
+      "phone": "Phone (WhatsApp)",
+      "phoneHintCreate": "Required. Used for login and bot messages.",
+      "phoneOptional": "WhatsApp (optional)",
+      "email": "Email (optional)",
+      "emailHint": "If left empty, the user can only sign in with their phone.",
+      "password": "Initial password",
+      "role": "Role",
+      "properties": "Assigned properties",
+      "propertiesHint": "The properties this user can see and manage.",
+      "propertiesAdmin": "Admin has global access to ALL properties."
+    },
+    "toast": {
+      "created": "User created.",
+      "updated": "User updated.",
+      "roleUpdated": "Role updated.",
+      "deleted": "User deleted."
+    }
+  },
   "whatsapp": {
     "help": {
       "headerFull": "*{appName} Commands*\n\n📊 *Consumption* (admin/manager)\n• _consumo_ — total summary (today + 7 days)\n• _consumo <name>_ — filter by property\n   Ex: _consumo merced_ or _consumo 14 julio_\n\n🌡️ *Rooms* (admin/manager)\n• _ambientes_ — avg T/H over the last 24 h per room\n\n📋 *Tasks*\n• _tareas_ — your pending tasks\n• _tarea <description>_ — create a new task\n   Ex: _tarea the bathroom tap broke_\n• 📸 send a *photo* (with or without caption) → auto-creates a task\n\n❓ *Help*\n• _ayuda_ — this list",

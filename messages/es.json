@@ -418,6 +418,63 @@
       "actions": "Acciones"
     }
   },
+  "usersPage": {
+    "title": "Usuarios",
+    "subtitle": "{n, plural, one {# usuario} other {# usuarios}} en el sistema.",
+    "newUser": "Nuevo usuario",
+    "empty": "Sin usuarios.",
+    "table": {
+      "email": "Email",
+      "name": "Nombre",
+      "role": "Rol",
+      "properties": "Propiedades",
+      "whatsapp": "WhatsApp",
+      "created": "Creado"
+    },
+    "scope": {
+      "all": "todas",
+      "unassigned": "sin asignar"
+    },
+    "menu": {
+      "edit": "Editar",
+      "resetPassword": "Resetear contraseña",
+      "sendWelcome": "Enviar bienvenida WhatsApp",
+      "changeRole": "Cambiar rol",
+      "delete": "Eliminar"
+    },
+    "confirmDelete": "¿Eliminar a {who}? No se puede deshacer.",
+    "confirmWelcome": "¿Mandar mensaje de bienvenida por WhatsApp a {who}?",
+    "create": {
+      "title": "Crear usuario",
+      "description": "El usuario va a poder ingresar inmediatamente con el email y la contraseña que pongas acá.",
+      "submit": "Crear",
+      "submitting": "Creando…"
+    },
+    "edit": {
+      "title": "Editar usuario",
+      "submit": "Guardar",
+      "submitting": "Guardando…"
+    },
+    "fields": {
+      "name": "Nombre",
+      "phone": "Teléfono (WhatsApp)",
+      "phoneHintCreate": "Obligatorio. Usado para login y para mensajes del bot.",
+      "phoneOptional": "WhatsApp (opcional)",
+      "email": "Email (opcional)",
+      "emailHint": "Si no lo cargás, el usuario solo va a poder loguearse con teléfono.",
+      "password": "Contraseña inicial",
+      "role": "Rol",
+      "properties": "Propiedades asignadas",
+      "propertiesHint": "Las propiedades que este usuario puede ver y manejar.",
+      "propertiesAdmin": "Admin tiene acceso global a TODAS las propiedades."
+    },
+    "toast": {
+      "created": "Usuario creado.",
+      "updated": "Usuario actualizado.",
+      "roleUpdated": "Rol actualizado.",
+      "deleted": "Usuario eliminado."
+    }
+  },
   "whatsapp": {
     "help": {
       "headerFull": "*{appName} Comandos*\n\n📊 *Consumo* (admin/gestor)\n• _consumo_ — resumen total (hoy + 7 días)\n• _consumo <nombre>_ — filtrar por propiedad\n   Ej: _consumo merced_ o _consumo 14 julio_\n\n🌡️ *Ambientes* (admin/gestor)\n• _ambientes_ — T/H promedio últimas 24 h por ambiente\n\n📋 *Tareas*\n• _tareas_ — tus tareas pendientes\n• _tarea <descripción>_ — crear una tarea nueva\n   Ej: _tarea se rompió la canilla del baño_\n• 📸 mandá una *foto* (con o sin caption) → crea tarea automática\n\n❓ *Ayuda*\n• _ayuda_ — esta lista",
