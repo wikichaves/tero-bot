@@ -112,6 +112,30 @@ export async function createUser(formData: FormData) {
     return { error: `No se pudo asignar el rol: ${profileError.message}` };
   }
 
+  // WIK-242: scope de propiedades (movido al modal de creación). Solo
+  // no-admin (admin = acceso global). Best-effort: si falla, el user igual
+  // queda creado (aparece "sin asignar") y el admin lo arregla editando.
+  if (role !== "admin") {
+    const propertyIds = formData
+      .getAll("property_ids")
+      .map(String)
+      .filter((v) => /^[0-9a-f-]{36}$/i.test(v));
+    if (propertyIds.length > 0) {
+      const rows = propertyIds.map((pid) => ({
+        profile_id: created.user.id,
+        property_id: pid,
+      }));
+      const { error: scopeErr } = await admin
+        .from("profile_properties")
+        .insert(rows);
+      if (scopeErr) {
+        console.warn(
+          `[createUser] scope insert falló para ${created.user.id}: ${scopeErr.message}`,
+        );
+      }
+    }
+  }
+
   revalidatePath("/admin/users");
   return { ok: true };
 }
@@ -139,6 +163,10 @@ export async function updateProfile(input: {
   full_name: string;
   whatsapp: string;
   language?: string;
+  /** WIK-242: scope de propiedades editado dentro del modal. `undefined`
+   *  = no tocar el scope (caso admin). Array (incl. vacío) = reemplazar
+   *  el set completo. */
+  propertyIds?: string[];
 }) {
   await requireRole(["admin"]);
   const parsed = updateProfileSchema.safeParse(input);
@@ -155,6 +183,24 @@ export async function updateProfile(input: {
     })
     .eq("id", parsed.data.id);
   if (error) return { error: error.message };
+
+  // WIK-242: reemplazar el scope completo (delete + insert) si vino el
+  // array. `undefined` (admin) no toca nada.
+  if (input.propertyIds !== undefined) {
+    const ids = input.propertyIds.filter((v) => /^[0-9a-f-]{36}$/i.test(v));
+    const { error: delErr } = await admin
+      .from("profile_properties")
+      .delete()
+      .eq("profile_id", parsed.data.id);
+    if (delErr) return { error: `scope delete falló: ${delErr.message}` };
+    if (ids.length > 0) {
+      const { error: insErr } = await admin
+        .from("profile_properties")
+        .insert(ids.map((pid) => ({ profile_id: parsed.data.id, property_id: pid })));
+      if (insErr) return { error: `scope insert falló: ${insErr.message}` };
+    }
+  }
+
   revalidatePath("/admin/users");
   return { ok: true };
 }
