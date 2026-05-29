@@ -451,9 +451,6 @@
       "myTasksUnlinked": "🔒 Your number (`{phone}`) is not linked to any user.\n\nAsk an admin/manager to add that exact number to your profile ({host} → Users → edit) and try again.",
       "notAuthorized": "🔒 Your number (`{phone}`) is not authorized to use commands.\n\nIf you're an admin/manager of {appName}, add that exact number to your profile ({host} → Users → edit) and try again."
     },
-    "guestReplyNamed": "Hi {name}, thanks for messaging {appName}. We'll get back to you shortly.",
-    "guestReplyAnon": "Hi! Thanks for messaging {appName}. We'll get back to you shortly.",
-    "unknownReply": "Hi, thanks for messaging {appName}. We'll get back to you shortly.",
     "staffUnknownCommand": "Hi, I'm *{appName}* 🐦. I didn't understand that message. Send `ayuda` to see the available commands.",
     "createTask": {
       "needsDescription": "📝 I need a description or a photo to create the task.\n\nTry:\n• `tarea <property> the tap broke`\n• or send a photo of the issue (caption optional)",

@@ -451,9 +451,6 @@
       "myTasksUnlinked": "🔒 Tu número (`{phone}`) no está vinculado a ningún usuario.\n\nPedile a un admin/gestor que te cargue ese número exacto en tu perfil ({host} → Usuarios → editar) y reintentá.",
       "notAuthorized": "🔒 Tu número (`{phone}`) no está autorizado para usar comandos.\n\nSi sos admin/gestor de {appName}, cargá ese número exacto en tu profile ({host} → Usuarios → editar) y reintentá."
     },
-    "guestReplyNamed": "Hola {name}, gracias por escribir a {appName}. Te respondemos a la brevedad.",
-    "guestReplyAnon": "¡Hola! Gracias por escribir a {appName}. Te respondemos a la brevedad.",
-    "unknownReply": "Hola, gracias por escribir a {appName}. Te respondemos a la brevedad.",
     "staffUnknownCommand": "Hola, soy *{appName}* 🐦. No entendí ese mensaje. Mandá `ayuda` para ver los comandos disponibles.",
     "createTask": {
       "needsDescription": "📝 Necesito una descripción o una foto para crear la tarea.\n\nProbá:\n• `tarea <propiedad> se rompió la canilla`\n• o mandá una foto del problema (con caption opcional)",

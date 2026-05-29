@@ -38,26 +38,6 @@ import type { Profile } from "@/lib/types";
  */
 
 /**
- * WIK-151: respuestas "default" (no-comando) traducidas según el locale
- * resuelto del recipient. Antes eran constantes en español; ahora son
- * funciones async que pulen la string del dictionary.
- */
-async function replyGuest(
-  name: string | null,
-  locale: Locale,
-): Promise<string> {
-  const t = await getTranslations({ locale, namespace: "whatsapp" });
-  return name
-    ? t("guestReplyNamed", { name, appName: APP_NAME })
-    : t("guestReplyAnon", { appName: APP_NAME });
-}
-
-async function replyUnknown(locale: Locale): Promise<string> {
-  const t = await getTranslations({ locale, namespace: "whatsapp" });
-  return t("unknownReply", { appName: APP_NAME });
-}
-
-/**
  * Reply para staff (admin/gestor/mantenimiento) cuando manda algo que no
  * matchea ningún comando. Antes hacíamos silencio total — pero confunde
  * al usuario porque no sabe si el bot lo escuchó. Ahora le respondemos
@@ -491,15 +471,15 @@ async function autoReply(opts: {
   // no-comando — generaba confusión porque parecía que el bot no
   // escuchaba. Ahora le respondemos con un hint para que sepa que
   // recibimos pero no entendimos.
-  // WIK-151: locale del recipient — para guest/unknown no hay profile,
-  // así que cae al default.
+  //
+  // WIK-235: quitamos la autorespuesta "gracias por escribir…
+  // te respondemos a la brevedad" para guest/unknown. Ahora caen en
+  // silencio (el operador responde manualmente desde el inbox). Solo el
+  // staff sigue recibiendo el hint de comandos.
+  if (opts.audience !== "staff") return;
+
   const locale = await getLocale();
-  const text =
-    opts.audience === "staff"
-      ? await replyStaffUnknownCommand(locale)
-      : opts.audience === "guest"
-        ? await replyGuest(opts.displayName, locale)
-        : await replyUnknown(locale);
+  const text = await replyStaffUnknownCommand(locale);
 
   try {
     await sendAndPersist({
