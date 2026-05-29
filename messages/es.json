@@ -453,7 +453,6 @@
     },
     "guestReplyNamed": "Hola {name}, gracias por escribir a {appName}. Te respondemos a la brevedad.",
     "guestReplyAnon": "¡Hola! Gracias por escribir a {appName}. Te respondemos a la brevedad.",
-    "unknownReply": "Hola, gracias por escribir a {appName}. Te respondemos a la brevedad.",
     "staffUnknownCommand": "Hola, soy *{appName}* 🐦. No entendí ese mensaje. Mandá `ayuda` para ver los comandos disponibles.",
     "createTask": {
       "needsDescription": "📝 Necesito una descripción o una foto para crear la tarea.\n\nProbá:\n• `tarea <propiedad> se rompió la canilla`\n• o mandá una foto del problema (con caption opcional)",

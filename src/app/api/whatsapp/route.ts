@@ -52,11 +52,6 @@ async function replyGuest(
     : t("guestReplyAnon", { appName: APP_NAME });
 }
 
-async function replyUnknown(locale: Locale): Promise<string> {
-  const t = await getTranslations({ locale, namespace: "whatsapp" });
-  return t("unknownReply", { appName: APP_NAME });
-}
-
 /**
  * Reply para staff (admin/gestor/mantenimiento) cuando manda algo que no
  * matchea ningún comando. Antes hacíamos silencio total — pero confunde
@@ -493,13 +488,18 @@ async function autoReply(opts: {
   // recibimos pero no entendimos.
   // WIK-151: locale del recipient — para guest/unknown no hay profile,
   // así que cae al default.
+  // WIK-235: los remitentes desconocidos ya no reciben autorespuesta
+  // ("Hola, gracias por escribir a … Te respondemos a la brevedad.").
+  // Solo respondemos a staff (hint de comandos) y guests (saludo).
   const locale = await getLocale();
   const text =
     opts.audience === "staff"
       ? await replyStaffUnknownCommand(locale)
       : opts.audience === "guest"
         ? await replyGuest(opts.displayName, locale)
-        : await replyUnknown(locale);
+        : null;
+
+  if (!text) return;
 
   try {
     await sendAndPersist({
