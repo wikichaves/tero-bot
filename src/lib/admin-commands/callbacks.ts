@@ -54,19 +54,30 @@ export async function runCallback(data: CallbackData): Promise<CallbackResult> {
     case "merge": {
       try {
         const r = await mergePR(data.prNumber);
-        return {
-          ack: `Mergeado #${r.prNumber}`,
-          text:
-            `🚢 <b>PR #${r.prNumber} mergeado</b>\n\n` +
-            `${escapeHtml(r.prTitle)}\n` +
-            `<code>${r.mergeSha.slice(0, 7)}</code> en main\n\n` +
-            `<i>¿Seguir con el próximo ticket de la queue?</i>`,
-          nextKeyboard: [
-            [
-              { text: "🚀 Próximo", callback_data: "next" },
-              { text: "🛑 Pausa", callback_data: "noop" },
+        if (r.mergeSha) {
+          return {
+            ack: `Mergeado #${r.prNumber}`,
+            text:
+              `🚢 <b>PR #${r.prNumber} mergeado</b>\n\n` +
+              `${escapeHtml(r.prTitle)}\n` +
+              `<code>${r.mergeSha.slice(0, 7)}</code> en main\n\n` +
+              `<i>¿Seguir con el próximo ticket de la queue?</i>`,
+            nextKeyboard: [
+              [
+                { text: "🚀 Próximo", callback_data: "next" },
+                { text: "🛑 Pausa", callback_data: "noop" },
+              ],
             ],
-          ],
+          };
+        }
+        // Auto-merge habilitado — esperando CI.
+        return {
+          ack: `Auto-merge #${r.prNumber}`,
+          text:
+            `🔄 <b>Auto-merge habilitado en PR #${r.prNumber}</b>\n\n` +
+            `${escapeHtml(r.prTitle)}\n` +
+            `<i>${escapeHtml(r.autoMergeReason ?? "esperando CI")}.\n` +
+            `GitHub te avisa cuando termine.</i>`,
         };
       } catch (e) {
         return {
