@@ -1169,5 +1169,10 @@
     "emptyState": "No conversations. When someone messages the WhatsApp number, it will show up here.",
     "outboundPrefix": "You: ",
     "noMessages": "(no messages)"
+  },
+  "pullToRefresh": {
+    "pull": "Pull to refresh",
+    "release": "Release to refresh",
+    "refreshing": "Refreshing…"
   }
 }

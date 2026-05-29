@@ -1169,5 +1169,10 @@
     "emptyState": "Sin conversaciones. Cuando alguien escriba al número de WhatsApp, va a aparecer acá.",
     "outboundPrefix": "Tú: ",
     "noMessages": "(sin mensajes)"
+  },
+  "pullToRefresh": {
+    "pull": "Deslizá para actualizar",
+    "release": "Soltá para actualizar",
+    "refreshing": "Actualizando…"
   }
 }
