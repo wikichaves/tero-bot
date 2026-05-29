@@ -223,6 +223,7 @@ export default async function TasksPage({
           assignees={assignees}
           defaultPropertyId={propertyFilter ?? undefined}
           currentUserId={profile.id}
+          lockAssigneeToSelf={profile.role === "mantenimiento"}
         />
       </div>
 

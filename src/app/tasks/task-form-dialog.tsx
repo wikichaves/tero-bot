@@ -44,6 +44,7 @@ export function NewTaskDialog({
   assignees,
   defaultPropertyId,
   currentUserId,
+  lockAssigneeToSelf = false,
 }: {
   properties: Pick<Property, "id" | "name">[];
   assignees: AssigneeProfile[];
@@ -51,6 +52,9 @@ export function NewTaskDialog({
   /** WIK-249: id del usuario logueado — la nueva tarea se auto-asigna a
    *  él por default (si está dentro de la lista de assignees). */
   currentUserId?: string;
+  /** WIK-251: para Staff la tarea queda siempre asignada a sí mismo — el
+   *  select se muestra fijo (deshabilitado, sin "Sin asignar"). */
+  lockAssigneeToSelf?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const tForm = useTranslations("tasks.form");
@@ -63,6 +67,7 @@ export function NewTaskDialog({
           assignees={assignees}
           defaultPropertyId={defaultPropertyId}
           currentUserId={currentUserId}
+          lockAssigneeToSelf={lockAssigneeToSelf}
           onDone={() => setOpen(false)}
         />
       </DialogContent>
@@ -107,6 +112,7 @@ function TaskForm({
   assignees,
   defaultPropertyId,
   currentUserId,
+  lockAssigneeToSelf = false,
   onDone,
 }: {
   task?: Task;
@@ -114,6 +120,7 @@ function TaskForm({
   assignees: AssigneeProfile[];
   defaultPropertyId?: string;
   currentUserId?: string;
+  lockAssigneeToSelf?: boolean;
   onDone: () => void;
 }) {
   const [pending, startTransition] = useTransition();
@@ -262,9 +269,12 @@ function TaskForm({
               id="assigned_to"
               value={assignedTo}
               onChange={(e) => setAssignedTo(e.target.value)}
-              className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+              disabled={lockAssigneeToSelf}
+              className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <option value="">Sin asignar</option>
+              {/* WIK-251: Staff no puede dejar la tarea sin asignar — siempre
+                  queda asignada a sí mismo (el select va fijo/deshabilitado). */}
+              {!lockAssigneeToSelf && <option value="">Sin asignar</option>}
               {assignees.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.full_name ?? a.email} ({ROLE_LABEL[a.role]})
