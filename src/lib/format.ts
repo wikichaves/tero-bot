@@ -33,16 +33,22 @@ const LOCALE = "es-UY";
  * `1.391,5` ARS cuando el monto venía con un decimal del parser, lo cual
  * es confuso en una columna de plata.
  *
+ * `alwaysDecimals` (WIK-229) fuerza SIEMPRE dos decimales, incluso en
+ * enteros (`UYU 4.441,00`). Lo usa la tabla de Bills para que todos los
+ * importes queden alineados al comparar filas; el resto de la UI (energy)
+ * mantiene la regla WIK-70.
+ *
  * Uses a per-(currency, decimals) cache so we don't re-instantiate the
  * formatter on every render.
  */
 export function formatMoney(
   amount: number | null,
   currency: string = "UYU",
+  options?: { alwaysDecimals?: boolean },
 ): string {
   if (amount == null) return "—";
   const hasDecimals = Math.abs(amount - Math.round(amount)) >= 0.005;
-  const digits = hasDecimals ? 2 : 0;
+  const digits = options?.alwaysDecimals || hasDecimals ? 2 : 0;
   const cacheKey = `${currency}|${digits}`;
   let fmt = formatterCache.get(cacheKey);
   if (!fmt) {

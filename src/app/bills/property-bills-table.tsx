@@ -139,9 +139,11 @@ export function PropertyBillsTable({
                     >
                       {b.period_inferred ? `≈ ${periodLabel}` : periodLabel}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="text-right font-mono tabular-nums">
                       {b.amount != null
-                        ? formatMoney(b.amount, b.currency ?? "UYU")
+                        ? formatMoney(b.amount, b.currency ?? "UYU", {
+                            alwaysDecimals: true,
+                          })
                         : "—"}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
