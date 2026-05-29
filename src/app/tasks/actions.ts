@@ -5,7 +5,8 @@ import { after } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireRole } from "@/lib/auth";
+import { requireProfile, requireRole } from "@/lib/auth";
+import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import {
   notifyTaskAssigned,
   notifyTaskStatusChanged,
@@ -64,7 +65,13 @@ export async function createTask(input: {
   due_time?: string;
   alarm_hours_before?: number | null;
 }) {
-  const profile = await requireRole(["admin", "gestor"]);
+  // WIK-250: crear tareas desde /tasks ahora funciona para los 3 roles.
+  // Antes era `requireRole(["admin","gestor"])` (→ redirect para Staff) y
+  // el insert iba por el RLS client (→ properties_read bloquea a Staff, que
+  // ni siquiera podía elegir propiedad). Ahora autorizamos en la action y
+  // escribimos con el admin client, mismo patrón que `reportTask` en
+  // my-tasks. La seguridad la da el chequeo de scope de abajo.
+  const profile = await requireProfile();
   const parsed = createSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
@@ -74,8 +81,14 @@ export async function createTask(input: {
       error: "Para activar la alarma necesitás una fecha de vencimiento.",
     };
   }
-  const supabase = await createClient();
-  const { data: inserted, error } = await supabase
+  // Scope (WIK-94): un no-admin solo puede crear tareas en las propiedades
+  // que tiene asignadas. Admin → allowedIds null → sin límite.
+  const allowedIds = await getAllowedPropertyIds(profile);
+  if (allowedIds !== null && !allowedIds.includes(parsed.data.property_id)) {
+    return { error: "No tenés acceso a esa propiedad." };
+  }
+  const admin = createAdminClient();
+  const { data: inserted, error } = await admin
     .from("tasks")
     .insert({
       property_id: parsed.data.property_id,
@@ -92,12 +105,17 @@ export async function createTask(input: {
     .single();
   if (error) return { error: error.message };
   revalidatePath("/tasks");
+  revalidatePath("/my-tasks");
 
-  // Best-effort WhatsApp notification if the task was created already
-  // assigned to someone with whatsapp configured. Runs via after() so the
-  // UI gets the success response immediately — the WA send happens in the
-  // background. notifyTaskAssigned never throws.
-  if (parsed.data.assigned_to && inserted?.id) {
+  // Best-effort WhatsApp notification si la tarea quedó asignada a OTRO
+  // (no a uno mismo). WIK-249 auto-asigna al creador por default — no tiene
+  // sentido mandarte un WhatsApp a vos mismo. Corre vía after() para que la
+  // UI responda ya; notifyTaskAssigned nunca tira.
+  if (
+    parsed.data.assigned_to &&
+    parsed.data.assigned_to !== profile.id &&
+    inserted?.id
+  ) {
     after(() => notifyTaskAssigned(inserted.id));
   }
 
