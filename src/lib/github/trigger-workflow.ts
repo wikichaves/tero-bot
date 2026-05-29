@@ -67,6 +67,38 @@ async function gh<T = unknown>(
 }
 
 /**
+ * GraphQL helper. GitHub's `enablePullRequestAutoMerge` mutation no está
+ * expuesta en la REST API — para eso necesitamos GraphQL.
+ */
+async function ghGraphQL<T = unknown>(
+  query: string,
+  variables: Record<string, unknown>,
+): Promise<T> {
+  const token = getToken();
+  const res = await fetch(`${GITHUB_API}/graphql`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+  if (!res.ok) {
+    throw new Error(`GitHub GraphQL ${res.status}: ${await res.text()}`);
+  }
+  const json = (await res.json()) as {
+    data?: T;
+    errors?: Array<{ message: string }>;
+  };
+  if (json.errors?.length) {
+    throw new Error(
+      `GitHub GraphQL: ${json.errors.map((e) => e.message).join("; ")}`,
+    );
+  }
+  return json.data as T;
+}
+
+/**
  * Dispara el workflow claude-worker.yml. Si `forcedTicketId` viene, lo
  * pasa como input al workflow para que procese ese ticket específico
  * (en vez del top de la queue por label).
@@ -124,8 +156,53 @@ export type MergeResult = {
   prNumber: number;
   prTitle: string;
   prUrl: string;
-  mergeSha: string;
+  /** Merge concretado AHORA: SHA del merge commit en main. */
+  mergeSha?: string;
+  /** Auto-merge habilitado: GitHub mergea cuando los required checks pasen. */
+  autoMergeEnabled?: boolean;
+  /** Razón por la que se eligió auto-merge en vez de merge directo. */
+  autoMergeReason?: string;
 };
+
+/**
+ * Habilita auto-merge en un PR vía GraphQL mutation (única forma; no hay
+ * REST equivalente). GitHub mergea cuando los required checks pasen.
+ *
+ * Requiere que el repo tenga "Allow auto-merge" tildado en Settings →
+ * General → Pull Requests, y `repo` scope en el token.
+ */
+async function enableAutoMerge(
+  prNodeId: string,
+  method: "merge" | "squash" | "rebase",
+): Promise<void> {
+  const enumMethod =
+    method === "merge" ? "MERGE" : method === "squash" ? "SQUASH" : "REBASE";
+  await ghGraphQL(
+    `mutation EnableAutoMerge($prId: ID!, $method: PullRequestMergeMethod!) {
+      enablePullRequestAutoMerge(input: { pullRequestId: $prId, mergeMethod: $method }) {
+        clientMutationId
+      }
+    }`,
+    { prId: prNodeId, method: enumMethod },
+  );
+}
+
+/**
+ * Updatea la branch del PR con los últimos commits de base (= mergea
+ * main → feature branch). Necesario cuando la ruleset tiene
+ * `strict_required_status_checks_policy=true` y la branch está BEHIND.
+ *
+ * Tira si hay conflictos — el caller los maneja como "needs manual".
+ */
+async function updatePullRequestBranch(prNumber: number): Promise<void> {
+  await gh(
+    `/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${prNumber}/update-branch`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+    },
+  );
+}
 
 /**
  * Mergea el PR indicado vía GitHub REST API (WIK-139).
@@ -134,12 +211,21 @@ export type MergeResult = {
  * - Si no, busca el PR open más reciente cuyo head branch empieza
  *   con `claude/` (= creado por el worker autónomo) y lo mergea.
  *
+ * Maneja los casos típicos de branch protection (WIK-228 follow-up):
+ *
+ *   - `clean` / `unstable` / `has_hooks` → merge directo, retorna `mergeSha`
+ *   - `behind` → `update-branch` + enable auto-merge → retorna `autoMergeEnabled`
+ *   - `blocked` (checks pending / review required) → enable auto-merge
+ *   - `dirty` → error claro (conflictos, resolver manual)
+ *   - `unknown` → reintenta una vez con 2s de espera (GitHub está calculando)
+ *
  * Default method: `squash` — historia limpia en main, un commit por
  * PR. Override via segundo arg si querés otro.
  */
 export async function mergePR(
   prNumber?: number,
   method: "merge" | "squash" | "rebase" = "squash",
+  options: { _retried?: boolean } = {},
 ): Promise<MergeResult> {
   // 1. Resolver PR num si no vino.
   let resolved = prNumber;
@@ -159,11 +245,12 @@ export async function mergePR(
     resolved = claudePr.number;
   }
 
-  // 2. Fetch PR meta para incluir title/url en la respuesta.
+  // 2. Fetch PR meta incluyendo node_id (para GraphQL) y mergeable_state.
   const { data: pr } = await gh<{
     number: number;
     title: string;
     html_url: string;
+    node_id: string;
     mergeable: boolean | null;
     mergeable_state: string;
     state: string;
@@ -174,14 +261,67 @@ export async function mergePR(
       `PR #${resolved} no está open (state: ${pr.state}). Ya mergeado o cerrado.`,
     );
   }
-  if (pr.mergeable === false) {
-    throw new Error(
-      `PR #${resolved} no es mergeable (mergeable_state: ${pr.mergeable_state}). ` +
-        `Posiblemente tiene conflictos con main — resolvelo manual desde GitHub.`,
-    );
+
+  const baseMeta = {
+    prNumber: resolved,
+    prTitle: pr.title,
+    prUrl: pr.html_url,
+  };
+
+  // 3. Switch por mergeable_state. GitHub valores documentados:
+  //    https://docs.github.com/en/graphql/reference/enums#mergestatestatus
+  switch (pr.mergeable_state) {
+    case "dirty":
+      throw new Error(
+        `PR #${resolved} tiene conflictos con main — resolvelos manual desde GitHub.`,
+      );
+
+    case "behind": {
+      // Branch behind base — update + enable auto-merge.
+      // Después del update, CI se va a re-correr; auto-merge espera.
+      await updatePullRequestBranch(resolved);
+      await enableAutoMerge(pr.node_id, method);
+      return {
+        ...baseMeta,
+        autoMergeEnabled: true,
+        autoMergeReason: "branch behind main → update + auto-merge habilitado",
+      };
+    }
+
+    case "blocked": {
+      // Required checks pending o review required. Auto-merge la mergea
+      // sola cuando pase. Si la mutation falla (ej. ya está habilitado),
+      // surface el error claro.
+      await enableAutoMerge(pr.node_id, method);
+      return {
+        ...baseMeta,
+        autoMergeEnabled: true,
+        autoMergeReason: "esperando required checks / review → auto-merge habilitado",
+      };
+    }
+
+    case "unknown": {
+      // GitHub todavía no calculó. Esperá 2s y reintentá una vez.
+      if (options._retried) {
+        throw new Error(
+          `PR #${resolved} sigue en mergeable_state=unknown. ` +
+            `GitHub está calculando, retry en ~30s.`,
+        );
+      }
+      await new Promise((r) => setTimeout(r, 2000));
+      return mergePR(resolved, method, { _retried: true });
+    }
+
+    case "clean":
+    case "unstable":
+    case "has_hooks":
+    default:
+      // OK para mergear directo. `unstable` = required checks verde,
+      // non-required failing (no nos importa). `has_hooks` = legacy.
+      break;
   }
 
-  // 3. Merge.
+  // 4. Merge directo.
   const { data: merged } = await gh<{ sha: string; merged: boolean }>(
     `/repos/${REPO_OWNER}/${REPO_NAME}/pulls/${resolved}/merge`,
     {
@@ -194,16 +334,15 @@ export async function mergePR(
     throw new Error(`Merge de PR #${resolved} reportó merged=false`);
   }
 
-  return {
-    prNumber: resolved,
-    prTitle: pr.title,
-    prUrl: pr.html_url,
-    mergeSha: merged.sha,
-  };
+  return { ...baseMeta, mergeSha: merged.sha };
 }
 
 export type MergeAllResult = {
+  /** PRs mergeados YA en main. */
   merged: Array<{ prNumber: number; prTitle: string; mergeSha: string }>;
+  /** PRs con auto-merge habilitado: GitHub los va a mergear cuando CI pase. */
+  autoMergeQueued: Array<{ prNumber: number; prTitle: string; reason: string }>;
+  /** PRs que fallaron (conflictos, errors, etc.). */
   failed: Array<{ prNumber: number; prTitle: string; reason: string }>;
 };
 
@@ -237,7 +376,11 @@ export async function mergeAllClaudePRs(
     pr.head.ref.startsWith("claude/"),
   );
 
-  const result: MergeAllResult = { merged: [], failed: [] };
+  const result: MergeAllResult = {
+    merged: [],
+    autoMergeQueued: [],
+    failed: [],
+  };
 
   // 2. Loop secuencial. Cada iteración hace su propio
   //    mergeability check vía `mergePR` (que ya valida estado +
@@ -245,11 +388,19 @@ export async function mergeAllClaudePRs(
   for (const pr of claudePrs) {
     try {
       const r = await mergePR(pr.number, method);
-      result.merged.push({
-        prNumber: r.prNumber,
-        prTitle: r.prTitle,
-        mergeSha: r.mergeSha,
-      });
+      if (r.mergeSha) {
+        result.merged.push({
+          prNumber: r.prNumber,
+          prTitle: r.prTitle,
+          mergeSha: r.mergeSha,
+        });
+      } else if (r.autoMergeEnabled) {
+        result.autoMergeQueued.push({
+          prNumber: r.prNumber,
+          prTitle: r.prTitle,
+          reason: r.autoMergeReason ?? "auto-merge habilitado",
+        });
+      }
     } catch (e) {
       result.failed.push({
         prNumber: pr.number,

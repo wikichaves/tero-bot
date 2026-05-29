@@ -284,12 +284,22 @@ export async function runAdminCommand(cmd: AdminCommand): Promise<string> {
     case "merge_pr":
       try {
         const result = await mergePR(cmd.prNumber);
+        if (result.mergeSha) {
+          return (
+            `✅ <b>PR #${result.prNumber} mergeado</b>\n\n` +
+            `${escapeHtml(result.prTitle)}\n\n` +
+            `<a href="${result.prUrl}">${result.prUrl}</a>\n\n` +
+            `<i>Vercel deploya en 2-3 min. Commit en main: ` +
+            `<code>${result.mergeSha.slice(0, 7)}</code></i>`
+          );
+        }
+        // Auto-merge habilitado — GitHub lo mergea solo cuando CI pase.
         return (
-          `✅ <b>PR #${result.prNumber} mergeado</b>\n\n` +
+          `🔄 <b>Auto-merge habilitado en PR #${result.prNumber}</b>\n\n` +
           `${escapeHtml(result.prTitle)}\n\n` +
           `<a href="${result.prUrl}">${result.prUrl}</a>\n\n` +
-          `<i>Vercel deploya en 2-3 min. Commit en main: ` +
-          `<code>${result.mergeSha.slice(0, 7)}</code></i>`
+          `<i>${escapeHtml(result.autoMergeReason ?? "esperando CI")}. ` +
+          `GitHub te avisa cuando termine.</i>`
         );
       } catch (e) {
         return `❌ No pude mergear: <code>${escapeHtml(
@@ -371,7 +381,11 @@ export async function runAdminCommand(cmd: AdminCommand): Promise<string> {
       // con conflictos mezclados con PRs limpios.
       try {
         const result = await mergeAllClaudePRs();
-        if (result.merged.length === 0 && result.failed.length === 0) {
+        if (
+          result.merged.length === 0 &&
+          result.autoMergeQueued.length === 0 &&
+          result.failed.length === 0
+        ) {
           return (
             `📭 <b>No hay PRs autonomous open</b>\n\n` +
             `Nada que mergear.`
@@ -389,6 +403,16 @@ export async function runAdminCommand(cmd: AdminCommand): Promise<string> {
                 )
                 .join("\n")
             : "";
+        const queuedLine =
+          result.autoMergeQueued.length > 0
+            ? `\n\n🔄 <b>${result.autoMergeQueued.length} en auto-merge</b> <i>(esperando CI)</i>\n` +
+              result.autoMergeQueued
+                .map(
+                  (q) =>
+                    `• #${q.prNumber} — ${escapeHtml(q.prTitle.slice(0, 60))}`,
+                )
+                .join("\n")
+            : "";
         const failedLine =
           result.failed.length > 0
             ? `\n\n⚠ <b>${result.failed.length} con problema</b>\n` +
@@ -403,7 +427,7 @@ export async function runAdminCommand(cmd: AdminCommand): Promise<string> {
           result.merged.length > 0
             ? `\n\n<i>Vercel deploya en 2-3 min.</i>`
             : "";
-        return `${mergedLine}${failedLine}${deployLine}`;
+        return `${mergedLine}${queuedLine}${failedLine}${deployLine}`;
       } catch (e) {
         return `❌ No pude correr /merge all: <code>${escapeHtml(
           (e as Error).message,
