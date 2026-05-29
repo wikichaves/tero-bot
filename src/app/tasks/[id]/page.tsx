@@ -5,6 +5,7 @@ import { es } from "date-fns/locale";
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
+import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import {
   Card,
   CardContent,
@@ -67,6 +68,16 @@ export default async function TaskDetailPage({
 
   if (!taskRes.data) notFound();
   const task = taskRes.data as TaskDetail;
+
+  // WIK-245: scope por propiedad. La RLS deja a gestor/Manager leer
+  // cualquier task, así que el corte por "sus propiedades" es app-level
+  // (igual que la lista en /tasks). Un Manager solo puede abrir el
+  // detalle de tareas de las properties que tiene asignadas; fuera de
+  // scope = 404 (admin = allowed null = sin corte).
+  const allowedIds = await getAllowedPropertyIds(profile);
+  if (allowedIds !== null && !allowedIds.includes(task.property_id)) {
+    notFound();
+  }
   const properties = (propertiesRes.data ?? []) as Pick<
     Property,
     "id" | "name"
