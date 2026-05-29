@@ -408,7 +408,15 @@
     "emptyPre": "Reenviá el primer email de UTE / OSE / Antel / Edenor / AySA / Personal Flow / Prosegur a ",
     "emptyPost": " y vas a verla acá. Mientras, podés usar «Nueva factura».",
     "noProperty": "Sin propiedad asignada",
-    "billsCount": "{n, plural, one {# factura} other {# facturas}}"
+    "billsCount": "{n, plural, one {# factura} other {# facturas}}",
+    "table": {
+      "type": "Tipo",
+      "provider": "Proveedor",
+      "period": "Período",
+      "amount": "Importe",
+      "due": "Vencimiento",
+      "actions": "Acciones"
+    }
   },
   "whatsapp": {
     "help": {

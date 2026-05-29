@@ -408,7 +408,15 @@
     "emptyPre": "Forward the first email from UTE / OSE / Antel / Edenor / AySA / Personal Flow / Prosegur to ",
     "emptyPost": " and you'll see it here. Meanwhile, you can use «New bill».",
     "noProperty": "No property assigned",
-    "billsCount": "{n, plural, one {# bill} other {# bills}}"
+    "billsCount": "{n, plural, one {# bill} other {# bills}}",
+    "table": {
+      "type": "Type",
+      "provider": "Provider",
+      "period": "Period",
+      "amount": "Amount",
+      "due": "Due",
+      "actions": "Actions"
+    }
   },
   "whatsapp": {
     "help": {

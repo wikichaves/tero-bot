@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
+import { useTranslations } from "next-intl";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -97,6 +98,7 @@ export function PropertyBillsTable({
   bills: BillRowDerived[];
   allProperties: Pick<Property, "id" | "name" | "currency">[];
 }) {
+  const t = useTranslations("billsPage.table");
   const [expanded, setExpanded] = useState(false);
   // Índice donde arranca el (VISIBLE_MONTHS + 1)-ésimo mes distinto: todo lo
   // anterior pertenece a los primeros dos meses y se muestra por defecto.
@@ -110,12 +112,12 @@ export function PropertyBillsTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Proveedor</TableHead>
-              <TableHead>Período</TableHead>
-              <TableHead className="text-right">Importe</TableHead>
-              <TableHead>Vencimiento</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
+              <TableHead>{t("type")}</TableHead>
+              <TableHead>{t("provider")}</TableHead>
+              <TableHead>{t("period")}</TableHead>
+              <TableHead className="text-right">{t("amount")}</TableHead>
+              <TableHead>{t("due")}</TableHead>
+              <TableHead className="text-right">{t("actions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
