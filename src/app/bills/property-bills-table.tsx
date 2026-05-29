@@ -18,17 +18,23 @@ import type { BillRowDerived } from "@/lib/bills/enrich-period";
 import { BillRowActions } from "./bill-row-actions";
 
 /**
- * Bills table inside each property card. Renders the first PAGE_SIZE
- * rows by default and a "Mostrar X más" button to expand. The card
- * itself stays a server component — only this inner table needs state
- * to toggle expand.
+ * Bills table inside each property card. Renders the bills of the first
+ * VISIBLE_MONTHS months (mes en curso + mes anterior) by default and a
+ * "Mostrar X más" button to expand the rest. The card itself stays a
+ * server component — only this inner table needs state to toggle expand.
  *
  * (WIK-75) Antes mostrábamos una columna "Consumo" con el delta Tuya
  * en cada fila. Pero como solo aplicaba a facturas de luz con período,
  * la mayoría de las filas la dejaba vacía. La movimos a /energy, donde
  * cae naturalmente junto al device Tuya que mide el consumo.
+ *
+ * (WIK-230) Antes paginábamos por cantidad de filas (PAGE_SIZE = 5).
+ * Ahora paginamos por mes: mostramos las facturas de los primeros dos
+ * meses presentes (las facturas vienen ordenadas de más nueva a más
+ * vieja, así que son el mes en curso y el anterior) y escondemos el
+ * resto detrás del botón.
  */
-const PAGE_SIZE = 5;
+const VISIBLE_MONTHS = 2;
 
 const UTILITY_LABEL: Record<UtilityType, string> = {
   luz: "Luz",
@@ -69,6 +75,21 @@ function monthLabel(iso: string): string {
   return format(parseISO(iso), "MMMM yyyy", { locale: es });
 }
 
+// Cantidad de facturas que caen en los primeros `n` meses distintos. Las
+// facturas vienen ordenadas de más nueva a más vieja, así que recorremos
+// hasta que aparece el (n+1)-ésimo mes y devolvemos ese índice de corte.
+function firstMonthsCount(bills: BillRowDerived[], n: number): number {
+  const months = new Set<string>();
+  for (let i = 0; i < bills.length; i++) {
+    const m = monthKey(billMonthDate(bills[i]));
+    if (!months.has(m)) {
+      if (months.size === n) return i;
+      months.add(m);
+    }
+  }
+  return bills.length;
+}
+
 export function PropertyBillsTable({
   bills,
   allProperties,
@@ -77,8 +98,11 @@ export function PropertyBillsTable({
   allProperties: Pick<Property, "id" | "name" | "currency">[];
 }) {
   const [expanded, setExpanded] = useState(false);
-  const visible = expanded ? bills : bills.slice(0, PAGE_SIZE);
-  const hidden = bills.length - PAGE_SIZE;
+  // Índice donde arranca el (VISIBLE_MONTHS + 1)-ésimo mes distinto: todo lo
+  // anterior pertenece a los primeros dos meses y se muestra por defecto.
+  const defaultCount = firstMonthsCount(bills, VISIBLE_MONTHS);
+  const visible = expanded ? bills : bills.slice(0, defaultCount);
+  const hidden = bills.length - defaultCount;
 
   return (
     <>
