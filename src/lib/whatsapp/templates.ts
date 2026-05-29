@@ -418,6 +418,35 @@ export const staffWelcome: WhatsAppTemplate = {
   ],
 };
 
+/**
+ * `staff_welcome_v2` — variante personalizada que incluye los nombres de
+ * las propiedades asignadas al staff. Reemplaza la frase genérica
+ * "propiedades de alquiler temporario" con la lista real (ej. "Casa
+ * Merced y 14 de Julio"). Variables: 1=primer nombre, 2=lista de
+ * propiedades pre-formateada por el caller (`formatPropertyList`).
+ *
+ * Sigue activo el `staff_welcome` v1 como fallback hasta que Meta apruebe
+ * v2 — el action `sendStaffWelcome` intenta v2 primero y cae a v1 si la
+ * API tira "template not found".
+ */
+export const staffWelcomeV2: WhatsAppTemplate = {
+  name: "staff_welcome_v2",
+  language: "es",
+  category: "UTILITY",
+  description:
+    "Bienvenida personalizada con propiedades asignadas. Variables: 1=primer nombre, 2=lista de propiedades (ej. 'Casa Merced y 14 de Julio').",
+  components: [
+    {
+      type: "BODY",
+      text: `¡Hola {{1}}! Soy ${APP_NAME}, tu asistente de operaciones para {{2}}.\n\nDesde acá podés consultar tareas pendientes, ver temperaturas/humedad de los ambientes, reportar problemas y más.\n\nMandame *ayuda* a este chat y te muestro qué podés hacer.`,
+      example: {
+        body_text: [["Juana", "Casa Merced y 14 de Julio"]],
+      },
+    },
+    { type: "FOOTER", text: brandedFooter("Bienvenida") },
+  ],
+};
+
 // ────────────────────────────────────────────────────────────────────────
 // EN variants (WIK-151 P5). Meta trata `(name, language)` como pares
 // distintos — el mismo `name` con `language: "en"` es un template separado
@@ -618,6 +647,28 @@ export const staffWelcomeEn: WhatsAppTemplate = {
   ],
 };
 
+/**
+ * EN variant of staff_welcome_v2 — personalized with assigned properties.
+ * Variables: 1=first name, 2=property list pre-formatted by caller.
+ */
+export const staffWelcomeV2En: WhatsAppTemplate = {
+  name: "staff_welcome_v2",
+  language: "en",
+  category: "UTILITY",
+  description:
+    "EN variant: personalized welcome with assigned properties. Variables: 1=first name, 2=property list (e.g. 'Casa Merced and 14 de Julio').",
+  components: [
+    {
+      type: "BODY",
+      text: `Hi {{1}}! I'm ${APP_NAME}, your operations assistant for {{2}}.\n\nFrom this chat you can check pending tasks, see room temperature/humidity, report issues, and more.\n\nSend me *help* to see what you can do.`,
+      example: {
+        body_text: [["Jane", "Casa Merced and 14 de Julio"]],
+      },
+    },
+    { type: "FOOTER", text: brandedFooter("Welcome") },
+  ],
+};
+
 // ────────────────────────────────────────────────────────────────────────
 
 /**
@@ -655,6 +706,7 @@ export const allTemplates: WhatsAppTemplate[] = [
   preCheckinClimateUpdate,
   // WIK-177 — onboarding inicial de gestor/mantenimiento.
   staffWelcome,
+  staffWelcomeV2,
   // WIK-151 P5 — EN variants. Meta los trata como templates separados
   // (mismo `name`, language: "en"). Hay que submitearlos por separado;
   // mientras Meta los aprueba, el helper `sendKapsoTemplateWithFallback`
@@ -668,4 +720,33 @@ export const allTemplates: WhatsAppTemplate[] = [
   preCheckinClimateAlertEn,
   preCheckinClimateUpdateEn,
   staffWelcomeEn,
+  staffWelcomeV2En,
 ];
+
+/**
+ * Formatea una lista de nombres en lenguaje natural ("Casa Merced",
+ * "Casa Merced y 14 de Julio", "Casa Merced, 14 de Julio y Quinta del
+ * Sol"). Usado por el caller de `staff_welcome_v2` para armar la variable
+ * `{{2}}` desde las propiedades asignadas al staff.
+ *
+ * Para 0 propiedades devuelve un fallback genérico — Meta rechaza vars
+ * vacías y `staff_welcome_v2` con `{{2}}=""` falla con error de validation.
+ */
+export function formatPropertyList(
+  names: string[],
+  lang: "es" | "en",
+): string {
+  if (names.length === 0) {
+    return lang === "es" ? "tus propiedades" : "your properties";
+  }
+  if (names.length === 1) return names[0];
+  if (names.length === 2) {
+    const conn = lang === "es" ? " y " : " and ";
+    return names.join(conn);
+  }
+  // 3+: "A, B y C" (es) / "A, B, and C" (en, oxford comma)
+  const head = names.slice(0, -1).join(", ");
+  const last = names[names.length - 1];
+  const conn = lang === "es" ? " y " : ", and ";
+  return `${head}${conn}${last}`;
+}

@@ -8,6 +8,8 @@ import {
   normalizePhone,
   sendKapsoTemplateWithFallback,
 } from "@/lib/whatsapp";
+import { formatPropertyList } from "@/lib/whatsapp/templates";
+import { getAllowedPropertyIds } from "@/lib/auth/scope";
 
 // WIK-74: "limpieza" deprecado, unificado en "mantenimiento".
 const ROLES = ["admin", "gestor", "mantenimiento"] as const;
@@ -265,17 +267,25 @@ export async function resetUserPassword(input: {
 }
 
 /**
- * WIK-177: manda el template `staff_welcome` por WhatsApp al profile
+ * WIK-177: manda el template de bienvenida por WhatsApp al profile
  * indicado. Pensado para el primer contacto con un gestor/mantenimiento
  * nuevo — abre la ventana de 24h sin requerir que ellos escriban primero.
  *
- * Variables del template: `{{1}}` = primer nombre del staff. Lo extraemos
- * de `profiles.full_name` (primera palabra) o caemos al email/teléfono si
- * no hay nombre.
+ * Estrategia v2 (fallback): intenta `staff_welcome_v2` con `{{2}}` =
+ * lista de propiedades asignadas (ej. "Casa Merced y 14 de Julio"). Si
+ * Meta todavía no aprobó v2 (template_not_exists), cae al v1 genérico.
+ * Esto permite mergear este código antes de la aprobación de Meta y que
+ * el flow se "actualice solo" cuando v2 quede APPROVED.
+ *
+ * Variables v2:
+ *   {{1}} = primer nombre del staff (extraído de profiles.full_name)
+ *   {{2}} = lista natural de propiedades asignadas
+ *
+ * Para admin (sin scope explícito) usa **todas** las properties — el
+ * UI igual esconde el botón para admin, pero por defensiva.
  *
  * Requiere: admin role, profile con `whatsapp` configurado, env vars
- * `WHATSAPP_PHONE_NUMBER_ID` + `KAPSO_API_KEY`, y que Meta haya aprobado
- * el template (status APPROVED en `whatsapp_template_states`).
+ * `WHATSAPP_PHONE_NUMBER_ID` + `KAPSO_API_KEY`.
  */
 export async function sendStaffWelcome(
   profileId: string,
@@ -291,7 +301,7 @@ export async function sendStaffWelcome(
   const admin = createAdminClient();
   const { data: profile } = await admin
     .from("profiles")
-    .select("id, full_name, email, whatsapp, language")
+    .select("id, full_name, email, whatsapp, language, role")
     .eq("id", profileId)
     .maybeSingle();
   if (!profile) return { error: "Usuario no encontrado." };
@@ -311,16 +321,71 @@ export async function sendStaffWelcome(
   const preferredLanguage: "es" | "en" =
     profile.language === "en" ? "en" : "es";
 
+  // Fetch property names from scope. Admin = null = todas las properties.
+  const allowedIds = await getAllowedPropertyIds({
+    id: profile.id,
+    role: profile.role as "admin" | "gestor" | "mantenimiento",
+  });
+  let propertyNames: string[] = [];
+  if (allowedIds === null) {
+    // admin → todas
+    const { data } = await admin
+      .from("properties")
+      .select("name")
+      .order("name", { ascending: true });
+    propertyNames = (data ?? []).map((r) => r.name as string);
+  } else if (allowedIds.length > 0) {
+    const { data } = await admin
+      .from("properties")
+      .select("name")
+      .in("id", allowedIds)
+      .order("name", { ascending: true });
+    propertyNames = (data ?? []).map((r) => r.name as string);
+  }
+  // Si está vacío después del fetch, `formatPropertyList` cae al fallback
+  // genérico ("tus propiedades" / "your properties").
+  const propertyList = formatPropertyList(propertyNames, preferredLanguage);
+
+  // Primero intentar v2 (con propiedades). Si Meta aún no lo aprobó,
+  // cae a v1 (genérico) para no bloquear el envío.
   try {
     await sendKapsoTemplateWithFallback({
       phoneNumberId,
       to: profile.whatsapp,
-      templateName: "staff_welcome",
+      templateName: "staff_welcome_v2",
       preferredLanguage,
-      bodyVariables: [firstName],
+      bodyVariables: [firstName, propertyList],
     });
     return { ok: true };
   } catch (e) {
-    return { error: (e as Error).message };
+    const msg = (e as Error).message;
+    // Meta error 132001 / template not found / template not approved.
+    // Detección permisiva: cualquier mención de "template" + ("not found"
+    // | "does not exist" | "no encontrada"). Si no matchea, propagamos.
+    const isTemplateMissing =
+      /template.{0,40}(not found|does not exist|no encontrad|132001|132012)/i.test(
+        msg,
+      );
+    if (!isTemplateMissing) {
+      return { error: msg };
+    }
+    console.warn(
+      `[sendStaffWelcome] staff_welcome_v2 no disponible (${msg.slice(
+        0,
+        120,
+      )}). Falling back a v1.`,
+    );
+    try {
+      await sendKapsoTemplateWithFallback({
+        phoneNumberId,
+        to: profile.whatsapp,
+        templateName: "staff_welcome",
+        preferredLanguage,
+        bodyVariables: [firstName],
+      });
+      return { ok: true };
+    } catch (e2) {
+      return { error: (e2 as Error).message };
+    }
   }
 }
