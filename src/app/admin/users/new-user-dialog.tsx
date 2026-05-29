@@ -83,9 +83,11 @@ export function NewUserDialog() {
                 defaultValue="gestor"
                 className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
               >
+                {/* WIK-241: el rol `mantenimiento` se muestra como "Staff"
+                    (el value del enum queda igual). */}
                 <option value="admin">Admin</option>
                 <option value="gestor">Gestor</option>
-                <option value="mantenimiento">Mantenimiento</option>
+                <option value="mantenimiento">Staff</option>
               </select>
             </div>
             <div className="grid gap-2">

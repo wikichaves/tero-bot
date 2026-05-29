@@ -5,11 +5,17 @@ import type { UserRole } from "@/lib/types";
  * DB siguen siendo lowercase (enum de Postgres); este map convierte
  * `"admin"` → `"Admin"`, etc. Centralizado acá para que dropdowns,
  * tablas y selects no se desincronicen.
+ *
+ * WIK-241: el rol `mantenimiento` se MUESTRA como "Staff". El valor
+ * interno del enum (`mantenimiento`) queda igual — renombrar el enum de
+ * Postgres tocaría RLS policies + 70+ usos + filas existentes (migración
+ * riesgosa, cero beneficio user-facing más allá del label). Solo cambia
+ * lo que ve el operador.
  */
 export const ROLE_LABEL: Record<UserRole, string> = {
   admin: "Admin",
   gestor: "Gestor",
-  mantenimiento: "Mantenimiento",
+  mantenimiento: "Staff",
 };
 
 /** Orden canónico de roles en dropdowns y validators. */
