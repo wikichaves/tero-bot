@@ -11,9 +11,42 @@ import {
   notifyTaskAssigned,
   notifyTaskStatusChanged,
 } from "@/lib/whatsapp/notify";
+import type { Profile } from "@/lib/types";
 
 const KINDS = ["limpieza", "mantenimiento", "insumos", "otro"] as const;
 const STATUSES = ["pending", "in_progress", "done"] as const;
+
+/**
+ * WIK-251: matriz de permisos de tareas.
+ *   - Admin: ve/edita/borra TODAS las tareas de TODAS las propiedades.
+ *   - Manager (gestor): crea/ve/edita/borra todas las de SUS propiedades.
+ *   - Staff (mantenimiento): crea/ve las asignadas a él, solo de sus props
+ *     (edición = solo cambiar estado de las suyas, vía markOwnTaskStatus en
+ *     my-tasks/actions).
+ *
+ * Helper de defensa: valida que un no-admin solo toque tareas de sus
+ * propiedades asignadas. Devuelve un mensaje de error si la tarea está
+ * fuera de scope (o no existe), o null si está OK. Admin (allowedIds null)
+ * siempre pasa. La UI ya scopea la lista, pero esto cubre requests forjadas.
+ */
+async function ensureTaskInScope(
+  profile: Pick<Profile, "id" | "role">,
+  taskId: string,
+): Promise<string | null> {
+  const allowedIds = await getAllowedPropertyIds(profile);
+  if (allowedIds === null) return null; // admin → sin límite
+  const admin = createAdminClient();
+  const { data: task } = await admin
+    .from("tasks")
+    .select("property_id")
+    .eq("id", taskId)
+    .maybeSingle();
+  if (!task) return "Tarea no encontrada.";
+  if (!allowedIds.includes(task.property_id)) {
+    return "No tenés acceso a esa tarea.";
+  }
+  return null;
+}
 
 const createSchema = z.object({
   property_id: z.string().uuid(),
@@ -194,6 +227,9 @@ export async function updateTask(input: {
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
   }
+  // WIK-251: un Manager solo puede editar tareas de SUS propiedades.
+  const scopeError = await ensureTaskInScope(profile, parsed.data.id);
+  if (scopeError) return { error: scopeError };
   const supabase = await createClient();
   // Build patch with only the fields that came through (so we don't blank
   // out fields the caller didn't intend to touch).
@@ -281,10 +317,15 @@ export async function setTaskStatus(input: {
 }
 
 export async function deleteTask(id: string) {
-  await requireRole(["admin"]);
+  // WIK-251: el Manager también puede borrar tareas de SUS propiedades
+  // (antes era admin-only). El scope se valida abajo.
+  const profile = await requireRole(["admin", "gestor"]);
+  const scopeError = await ensureTaskInScope(profile, id);
+  if (scopeError) return { error: scopeError };
   const admin = createAdminClient();
   const { error } = await admin.from("tasks").delete().eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/tasks");
+  revalidatePath("/my-tasks");
   return { ok: true };
 }

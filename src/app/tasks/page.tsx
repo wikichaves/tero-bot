@@ -470,7 +470,8 @@ export default async function TasksPage({
                           task={task}
                           properties={properties}
                           assignees={assignees}
-                          isAdmin={profile.role === "admin"}
+                          role={profile.role}
+                          currentUserId={profile.id}
                         />
                       </TableCell>
                     </TableRow>
