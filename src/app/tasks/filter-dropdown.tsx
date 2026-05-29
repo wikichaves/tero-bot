@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useTranslations } from "next-intl";
 import { ChevronDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,36 +12,41 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 /**
- * Dropdown para filtrar tareas por propiedad (WIK-116). Reemplaza
- * los pills horizontales que no escalaban con muchas properties.
+ * Dropdown genérico de filtro (WIK-116 / WIK-244). Originalmente solo
+ * para propiedad; ahora también se usa para el filtro "Asignado".
  *
- * Recibe el listado de options pre-computadas en el server porque
- * Next no permite pasar funciones de server → client component
- * (las funciones no son serializables). Cada option incluye su
- * `href` ya armado con los filtros que el padre conservó.
+ * Las options se pre-computan en el server (URLs con los demás filtros
+ * preservados) porque Next no serializa funciones server → client. La
+ * primera option es siempre el "Todas/Todos".
+ *
+ * `label` es el prefijo visible (ej. "Propiedad:" / "Asignado:") — viene
+ * traducido del parent (server component con getTranslations).
  */
 
-export type PropertyFilterOption = {
-  /** null = "Todas" (sin filtro). UUID si es una property específica. */
+export type FilterOption = {
+  /** id de la option. null o un sentinel ("unassigned") según el caso. */
   id: string | null;
   label: string;
   href: string;
 };
 
-export function PropertyFilterDropdown({
+export function FilterDropdown({
+  label,
   options,
   currentId,
 }: {
-  options: PropertyFilterOption[];
+  label: string;
+  options: FilterOption[];
   currentId: string | null;
 }) {
-  const t = useTranslations("tasksPropertyFilter");
   const currentLabel =
-    options.find((o) => o.id === currentId)?.label ?? t("all");
+    options.find((o) => o.id === currentId)?.label ??
+    options[0]?.label ??
+    "";
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-muted-foreground">{t("label")}</span>
+      <span className="text-muted-foreground">{label}</span>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
