@@ -178,8 +178,8 @@ export default async function AmbientesPage({
     );
   }
 
-  // Sólo admin/gestor pueden reordenar (mismo nivel que /admin/properties).
-  const canReorder = profile.role === "admin" || profile.role === "gestor";
+  // WIK-236: solo admin puede reordenar ambientes (antes también gestor).
+  const canReorder = profile.role === "admin";
 
   return (
     <div className="flex flex-col gap-6">

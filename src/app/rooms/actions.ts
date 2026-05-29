@@ -23,7 +23,10 @@ import { requireRole } from "@/lib/auth";
  * orden visual de Smart Life).
  */
 export async function moveRoom(id: string, direction: "up" | "down") {
-  await requireRole(["admin", "gestor"]);
+  // WIK-236: solo admin puede reordenar ambientes. Antes gestor también
+  // podía — se restringió a admin-only. Enforcement server-side acá +
+  // el UI esconde el control en rooms/page.tsx (defensa en profundidad).
+  await requireRole(["admin"]);
   if (!/^[0-9a-f-]{36}$/i.test(id)) {
     return { error: "ID inválido." };
   }
