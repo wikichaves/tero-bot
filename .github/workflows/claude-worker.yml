@@ -130,6 +130,7 @@ jobs:
           cat /tmp/ticket.json
           {
             echo "ticket_id=$(jq -r .identifier /tmp/ticket.json)"
+            echo "ticket_uuid=$(jq -r '.id // ""' /tmp/ticket.json)"
             echo "ticket_title=$(jq -r .title /tmp/ticket.json)"
             echo "has_ticket=$(jq -r 'if .identifier then "true" else "false" end' /tmp/ticket.json)"
           } >> "$GITHUB_OUTPUT"
@@ -285,6 +286,22 @@ jobs:
           fi
           echo "url=$PR_URL" >> "$GITHUB_OUTPUT"
           echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+      # WIK-237: mover el ticket de Linear a "In Review" (state type
+      # "started") una vez abierto el PR. Lo saca de la queue del picker
+      # (`pick-claude-ticket.mjs` filtra type=unstarted), evitando que la
+      # próxima corrida re-procese el MISMO ticket → PR duplicado +
+      # conflictos con main (caso WIK-235, donde #54 chocó contra #53 ya
+      # mergeado). Best-effort: el script sale 0 aunque falle, así un
+      # problema con Linear no marca el run como Failure (el PR ya existe).
+      - name: Move ticket to In Review
+        if: steps.pr.outputs.number != '' && steps.pick.outputs.ticket_uuid != ''
+        env:
+          LINEAR_API_TOKEN: ${{ secrets.LINEAR_API_TOKEN }}
+        run: |
+          node .github/scripts/move-ticket-state.mjs \
+            "${{ steps.pick.outputs.ticket_uuid }}" \
+            "In Review"
 
       # Risk classifier (WIK-139): clasifica el cambio como safe o risky.
       # Safe = solo toca archivos en la allowlist (visual/copy/assets/docs),
