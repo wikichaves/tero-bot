@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { UserDropdown } from "@/components/user-dropdown";
+import { PullToRefresh } from "@/components/pull-to-refresh";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 
@@ -172,14 +173,20 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
       : null;
 
   return (
-    // WIK-152: matchear el header del landing — sticky top + backdrop
-    // blur + mismo padding (py-4 px-5/sm:px-8) para que la transición
-    // landing → dashboard se sienta sin saltos visuales.
-    // WIK-240: pt incluye env(safe-area-inset-top) para que en la PWA iOS
-    // (statusBarStyle black-translucent + viewport-fit cover) el contenido
-    // del header no quede bajo el notch/status bar. En browser el inset es
-    // 0px (fallback), así que el padding queda en el py-4 de siempre.
-    <header className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-border/60 bg-background/80 px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] backdrop-blur-md supports-[backdrop-filter]:bg-background/60 sm:px-8">
+    <>
+      {/* WIK-247: pull-to-refresh para la PWA instalada (en standalone el
+          gesto nativo está deshabilitado por WIK-240). Se monta una vez acá
+          porque SiteHeader es el único componente compartido por todas las
+          páginas logged-in. No hace nada fuera de standalone. */}
+      <PullToRefresh />
+      {/* WIK-152: matchear el header del landing — sticky top + backdrop
+          blur + mismo padding (py-4 px-5/sm:px-8) para que la transición
+          landing → dashboard se sienta sin saltos visuales.
+          WIK-240: pt incluye env(safe-area-inset-top) para que en la PWA iOS
+          (statusBarStyle black-translucent + viewport-fit cover) el contenido
+          del header no quede bajo el notch/status bar. En browser el inset es
+          0px (fallback), así que el padding queda en el py-4 de siempre. */}
+      <header className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-border/60 bg-background/80 px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] backdrop-blur-md supports-[backdrop-filter]:bg-background/60 sm:px-8">
       <div className="flex min-w-0 items-center gap-3 sm:gap-6">
         {/* Mobile hamburger — versión aplanada de los mismos items. Visible
             hasta md; en md+ se usa el nav inline. */}
@@ -272,6 +279,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
         <UserDropdown profile={profile} />
       </div>
     </header>
+    </>
   );
 }
 
