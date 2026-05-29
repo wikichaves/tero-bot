@@ -14,18 +14,23 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import type { Profile, Property } from "@/lib/types";
+import type { Profile, Property, UserRole } from "@/lib/types";
+import { ALL_ROLES, ROLE_LABEL } from "@/lib/roles";
 import { updateProfile } from "./actions";
 import { LOCALES, LOCALE_LABELS, isLocale } from "@/i18n/locales";
 
 export function EditUserDialog({
   profile,
+  isSelf,
   allProperties,
   scopedPropertyIds,
   open,
   onOpenChange,
 }: {
   profile: Profile;
+  /** WIK-248: un admin no puede cambiarse su propio rol — el select se
+   *  deshabilita en ese caso (el server igual lo rechaza por las dudas). */
+  isSelf: boolean;
   allProperties: Pick<Property, "id" | "name">[];
   scopedPropertyIds: string[];
   open: boolean;
@@ -39,7 +44,10 @@ export function EditUserDialog({
   const [selectedProps, setSelectedProps] = useState<Set<string>>(
     new Set(scopedPropertyIds),
   );
-  const isAdmin = profile.role === "admin";
+  // WIK-248: el rol se edita dentro del modal. El estado controla la
+  // visibilidad del bloque de propiedades (solo aplica a no-admin).
+  const [role, setRole] = useState<UserRole>(profile.role);
+  const isAdmin = role === "admin";
 
   function toggleProp(id: string) {
     setSelectedProps((prev) => {
@@ -59,6 +67,9 @@ export function EditUserDialog({
         full_name: String(formData.get("full_name") ?? ""),
         whatsapp: String(formData.get("whatsapp") ?? ""),
         language: String(formData.get("language") ?? ""),
+        // WIK-248: si es self no mandamos role (no se puede auto-cambiar);
+        // sino mandamos el rol elegido en el select.
+        role: isSelf ? undefined : role,
         // admin = global, no scope; no-admin = el set elegido.
         propertyIds: isAdmin ? undefined : Array.from(selectedProps),
       });
@@ -98,6 +109,31 @@ export function EditUserDialog({
                 defaultValue={profile.whatsapp ?? ""}
                 placeholder="+598 99 123 456"
               />
+            </div>
+            {/* WIK-248: cambio de rol dentro del modal (antes era un
+                dropdown aparte en el row). El select controla qué se muestra
+                abajo (propiedades solo para no-admin). Para self se
+                deshabilita: un admin no puede quitarse su propio rol. */}
+            <div className="grid gap-2">
+              <Label htmlFor="role">{t("fields.role")}</Label>
+              <select
+                id="role"
+                value={role}
+                onChange={(e) => setRole(e.target.value as UserRole)}
+                disabled={isSelf}
+                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {ALL_ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {ROLE_LABEL[r]}
+                  </option>
+                ))}
+              </select>
+              {isSelf && (
+                <p className="text-xs text-muted-foreground">
+                  {t("fields.roleSelfHint")}
+                </p>
+              )}
             </div>
             {/* WIK-242: asignación de propiedades dentro del modal (solo
                 no-admin — admin tiene acceso global). */}

@@ -440,7 +440,6 @@
       "edit": "Edit",
       "resetPassword": "Reset password",
       "sendWelcome": "Send WhatsApp welcome",
-      "changeRole": "Change role",
       "delete": "Delete"
     },
     "confirmDelete": "Delete {who}? This can't be undone.",
@@ -467,12 +466,12 @@
       "role": "Role",
       "properties": "Assigned properties",
       "propertiesHint": "The properties this user can see and manage.",
-      "propertiesAdmin": "Admin has global access to ALL properties."
+      "propertiesAdmin": "Admin has global access to ALL properties.",
+      "roleSelfHint": "You can't change your own role."
     },
     "toast": {
       "created": "User created.",
       "updated": "User updated.",
-      "roleUpdated": "Role updated.",
       "deleted": "User deleted."
     }
   },
