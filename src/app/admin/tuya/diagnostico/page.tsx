@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { format, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { ArrowLeft, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
@@ -37,12 +38,17 @@ export const dynamic = "force-dynamic";
 
 const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-function diagnoseDevice(timestamps: string[]): {
+type Translator = Awaited<ReturnType<typeof getTranslations>>;
+
+function diagnoseDevice(
+  timestamps: string[],
+  t: Translator,
+): {
   status: "ok" | "irregular" | "down" | "no_data";
   reason: string;
 } {
   if (timestamps.length === 0) {
-    return { status: "no_data", reason: "Sin snapshots" };
+    return { status: "no_data", reason: t("reasons.noSnapshots") };
   }
   const sorted = timestamps.slice().sort();
   const last = new Date(sorted[sorted.length - 1]).getTime();
@@ -50,7 +56,9 @@ function diagnoseDevice(timestamps: string[]): {
   if (sinceLastMin > 240) {
     return {
       status: "down",
-      reason: `Último snapshot hace ${Math.round(sinceLastMin / 60)}h`,
+      reason: t("reasons.lastSnapshotAgo", {
+        hours: Math.round(sinceLastMin / 60),
+      }),
     };
   }
 
@@ -68,12 +76,12 @@ function diagnoseDevice(timestamps: string[]): {
       // en 24h para evaluar — el cron quizás arrancó hace poco.
       return {
         status: "irregular",
-        reason: `Solo ${recent.length} snapshot${recent.length === 1 ? "" : "s"} en últimas 24h — esperá unas horas`,
+        reason: t("reasons.fewSnapshotsWait", { count: recent.length }),
       };
     }
     return {
       status: "down",
-      reason: `Solo ${recent.length} snapshot${recent.length === 1 ? "" : "s"} en últimas 24h`,
+      reason: t("reasons.fewSnapshots", { count: recent.length }),
     };
   }
 
@@ -90,49 +98,50 @@ function diagnoseDevice(timestamps: string[]): {
   if (avgGap > 120) {
     return {
       status: "down",
-      reason: `Gap promedio (24h) ${Math.round(avgGap)}min — esperado ~60min`,
+      reason: t("reasons.avgGapHigh", { min: Math.round(avgGap) }),
     };
   }
   if (maxGap > 180) {
     return {
       status: "irregular",
-      reason: `Gap reciente máximo ${Math.round(maxGap / 60)}h — algún fallo aislado`,
+      reason: t("reasons.maxGapIsolated", { hours: Math.round(maxGap / 60) }),
     };
   }
   if (avgGap >= 45 && avgGap <= 75) {
-    return { status: "ok", reason: "Cron horario funcionando" };
+    return { status: "ok", reason: t("reasons.cronWorking") };
   }
   return {
     status: "irregular",
-    reason: `Gap promedio (24h) ${Math.round(avgGap)}min`,
+    reason: t("reasons.avgGap", { min: Math.round(avgGap) }),
   };
 }
 
-function StatusBadge({ status }: { status: "ok" | "irregular" | "down" | "no_data" }) {
+async function StatusBadge({ status }: { status: "ok" | "irregular" | "down" | "no_data" }) {
+  const t = await getTranslations("adminTuyaDiag");
   if (status === "ok") {
     return (
       <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
-        <CheckCircle2 className="mr-1 h-3 w-3" /> OK
+        <CheckCircle2 className="mr-1 h-3 w-3" /> {t("status.ok")}
       </Badge>
     );
   }
   if (status === "irregular") {
     return (
       <Badge className="bg-amber-500/20 text-amber-700 dark:text-amber-300">
-        <AlertTriangle className="mr-1 h-3 w-3" /> Irregular
+        <AlertTriangle className="mr-1 h-3 w-3" /> {t("status.irregular")}
       </Badge>
     );
   }
   if (status === "down") {
     return (
       <Badge className="bg-red-500/20 text-red-700 dark:text-red-300">
-        <XCircle className="mr-1 h-3 w-3" /> Caído
+        <XCircle className="mr-1 h-3 w-3" /> {t("status.down")}
       </Badge>
     );
   }
   return (
     <Badge variant="secondary">
-      Sin datos
+      {t("status.noData")}
     </Badge>
   );
 }
@@ -161,6 +170,7 @@ function summarize(
     taken_at: string;
     property_device: { tuya_device_name: string | null } | null;
   }>,
+  t: Translator,
 ): DeviceStat[] {
   const byDevice = new Map<
     string,
@@ -210,7 +220,7 @@ function summarize(
         : null;
     const maxGapRecent =
       gapsRecent.length > 0 ? Math.max(...gapsRecent) : null;
-    const diag = diagnoseDevice(info.timestamps);
+    const diag = diagnoseDevice(info.timestamps, t);
     const recent = sorted
       .slice(-15)
       .reverse()
@@ -241,6 +251,7 @@ function summarize(
 
 export default async function DiagnosticoPage() {
   await requireRole(["admin"]);
+  const t = await getTranslations("adminTuyaDiag");
   const admin = createAdminClient();
 
   const [sensorRes, energyRes] = await Promise.all([
@@ -262,9 +273,11 @@ export default async function DiagnosticoPage() {
 
   const sensors = summarize(
     (sensorRes.data ?? []) as never,
+    t,
   );
   const energy = summarize(
     (energyRes.data ?? []) as never,
+    t,
   );
 
   // Ordenar por status: caídos primero, después irregulares, después OK.
@@ -280,12 +293,11 @@ export default async function DiagnosticoPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Volver
+          {t("back")}
         </Link>
-        <h1 className="mt-2 text-4xl">Diagnóstico de captura</h1>
+        <h1 className="mt-2 text-4xl">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">
-          Salud del cron horario por device. Se computa con los últimos 200
-          snapshots por tabla.
+          {t("subtitle")}
         </p>
       </div>
 
@@ -295,40 +307,40 @@ export default async function DiagnosticoPage() {
           última hora no se ejecutó (cron caído o falló silenciosamente). */}
       <HealthSummary sensors={sensors} energy={energy} />
 
-      <Section title="Sensores T/H" devices={sensors} expectedGapMin={60} />
-      <Section title="Llaves de energía" devices={energy} expectedGapMin={60} />
+      <Section title={t("sections.sensors")} devices={sensors} expectedGapMin={60} />
+      <Section title={t("sections.energy")} devices={energy} expectedGapMin={60} />
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Cómo interpretar</CardTitle>
+          <CardTitle className="text-base">{t("howToRead.title")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <p>
-            El status se calcula con los snapshots de las{" "}
-            <strong>últimas 24h</strong>, no con todo el historial. Esto
-            evita que historia vieja (ej. cuando el cron era diario en
-            Hobby) sesgue el diagnóstico hacia &ldquo;caído&rdquo;
-            aunque el cron horario ya funcione.
+            {t.rich("howToRead.window", {
+              strong: (chunks) => <strong>{chunks}</strong>,
+            })}
           </p>
           <p>
-            <strong>OK</strong>: gap promedio reciente entre 45 y 75 min
-            — el cron Pro horario (<code>0 * * * *</code>) está corriendo
-            bien.
+            {t.rich("howToRead.ok", {
+              strong: (chunks) => <strong>{chunks}</strong>,
+              code: (chunks) => <code>{chunks}</code>,
+            })}
           </p>
           <p>
-            <strong>Irregular</strong>: gap razonable pero algún hueco
-            &gt;3h — puede ser un fallo aislado del cron.
+            {t.rich("howToRead.irregular", {
+              strong: (chunks) => <strong>{chunks}</strong>,
+            })}
           </p>
           <p>
-            <strong>Caído</strong>: último snapshot hace &gt;4h o gap
-            reciente &gt;2h. Si todos los devices están caídos, revisá
-            Vercel → Settings → Cron Jobs → <code>sensor-snapshot</code>{" "}
-            / <code>energy-snapshot</code> para ver si está activo.
+            {t.rich("howToRead.down", {
+              strong: (chunks) => <strong>{chunks}</strong>,
+              code: (chunks) => <code>{chunks}</code>,
+            })}
           </p>
           <p className="text-xs text-muted-foreground">
-            Los stats <em>globales</em> (línea pequeña) incluyen toda la
-            historia — son útiles para ver cuánto tiempo lleva acumulando
-            data.
+            {t.rich("howToRead.global", {
+              em: (chunks) => <em>{chunks}</em>,
+            })}
           </p>
         </CardContent>
       </Card>
@@ -343,13 +355,14 @@ export default async function DiagnosticoPage() {
  * tienen captura esta hora, el cron está sano. Si no, alguno (o todo)
  * falló — ir al detalle de abajo para ver cuál.
  */
-function HealthSummary({
+async function HealthSummary({
   sensors,
   energy,
 }: {
   sensors: DeviceStat[];
   energy: DeviceStat[];
 }) {
+  const t = await getTranslations("adminTuyaDiag");
   const now = serverNow();
   const hourStart = new Date(now);
   hourStart.setMinutes(0, 0, 0);
@@ -375,16 +388,16 @@ function HealthSummary({
     if (total === 0) return { label: "—", className: "text-muted-foreground" };
     if (captured === total)
       return {
-        label: "OK",
+        label: t("status.ok"),
         className: "text-emerald-600 dark:text-emerald-400",
       };
     if (captured === 0)
       return {
-        label: "Caído",
+        label: t("summary.down"),
         className: "text-red-600 dark:text-red-400",
       };
     return {
-      label: "Parcial",
+      label: t("summary.partial"),
       className: "text-amber-600 dark:text-amber-400",
     };
   }
@@ -394,17 +407,17 @@ function HealthSummary({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Resumen hora actual</CardTitle>
+        <CardTitle className="text-base">{t("summary.title")}</CardTitle>
         <CardDescription>
-          Devices capturados desde las{" "}
-          {format(hourStart, "HH:mm", { locale: es })} (UTC local). Si el
-          cron horario funciona, debería ser total/total para ambas categorías.
+          {t("summary.description", {
+            time: format(hourStart, "HH:mm", { locale: es }),
+          })}
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-md border p-3">
           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-            Sensores T/H
+            {t("sections.sensors")}
           </p>
           <div className="mt-1 flex items-baseline gap-2">
             <p className="text-2xl tabular-nums">
@@ -419,13 +432,13 @@ function HealthSummary({
           </div>
           {s.missing > 0 && s.total > 0 && (
             <p className="mt-1 text-xs text-muted-foreground">
-              {s.missing} sin captura — ver detalle abajo
+              {t("summary.missing", { count: s.missing })}
             </p>
           )}
         </div>
         <div className="rounded-md border p-3">
           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-            Llaves de energía
+            {t("sections.energy")}
           </p>
           <div className="mt-1 flex items-baseline gap-2">
             <p className="text-2xl tabular-nums">
@@ -440,7 +453,7 @@ function HealthSummary({
           </div>
           {e.missing > 0 && e.total > 0 && (
             <p className="mt-1 text-xs text-muted-foreground">
-              {e.missing} sin captura — ver detalle abajo
+              {t("summary.missing", { count: e.missing })}
             </p>
           )}
         </div>
@@ -449,7 +462,7 @@ function HealthSummary({
   );
 }
 
-function Section({
+async function Section({
   title,
   devices,
   expectedGapMin,
@@ -458,6 +471,7 @@ function Section({
   devices: DeviceStat[];
   expectedGapMin: number;
 }) {
+  const t = await getTranslations("adminTuyaDiag");
   if (devices.length === 0) {
     return (
       <Card>
@@ -465,7 +479,7 @@ function Section({
           <CardTitle className="text-base">{title}</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          Sin snapshots registrados.
+          {t("section.empty")}
         </CardContent>
       </Card>
     );
@@ -475,8 +489,10 @@ function Section({
       <CardHeader>
         <CardTitle className="text-base">{title}</CardTitle>
         <CardDescription>
-          {devices.length} device{devices.length === 1 ? "" : "s"} ·
-          esperado gap ~{expectedGapMin} min entre snapshots
+          {t("section.deviceCount", {
+            count: devices.length,
+            expectedGapMin,
+          })}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -487,21 +503,21 @@ function Section({
           >
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <p className="font-medium">{d.name ?? "(sin nombre)"}</p>
+                <p className="font-medium">{d.name ?? t("device.unnamed")}</p>
                 <p className="text-xs text-muted-foreground">{d.reason}</p>
               </div>
               <StatusBadge status={d.status} />
             </div>
             <div className="grid gap-3 text-xs text-muted-foreground sm:grid-cols-4">
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.16em]">Snapshots</p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em]">{t("device.snapshots")}</p>
                 <p className="text-foreground tabular-nums">
                   {d.countRecent} <span className="opacity-50">/ {d.count}</span>
                 </p>
-                <p className="text-[10px] opacity-60">últ. 24h / total</p>
+                <p className="text-[10px] opacity-60">{t("device.snapshotsSub")}</p>
               </div>
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.16em]">Último</p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em]">{t("device.last")}</p>
                 <p className="text-foreground">
                   {d.last
                     ? formatDistanceToNow(new Date(d.last), {
@@ -512,37 +528,37 @@ function Section({
                 </p>
               </div>
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.16em]">Gap prom (24h)</p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em]">{t("device.avgGap")}</p>
                 <p className="text-foreground tabular-nums">
                   {d.avgGapRecent != null
-                    ? `${Math.round(d.avgGapRecent)} min`
+                    ? t("device.minutes", { min: Math.round(d.avgGapRecent) })
                     : "—"}
                 </p>
                 <p className="text-[10px] opacity-60">
-                  global:{" "}
+                  {t("device.globalPrefix")}{" "}
                   {d.avgGapGlobal != null
-                    ? `${Math.round(d.avgGapGlobal)} min`
+                    ? t("device.minutes", { min: Math.round(d.avgGapGlobal) })
                     : "—"}
                 </p>
               </div>
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.16em]">Gap máx (24h)</p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em]">{t("device.maxGap")}</p>
                 <p className="text-foreground tabular-nums">
                   {d.maxGapRecent != null
-                    ? `${Math.round(d.maxGapRecent)} min`
+                    ? t("device.minutes", { min: Math.round(d.maxGapRecent) })
                     : "—"}
                 </p>
                 <p className="text-[10px] opacity-60">
-                  global:{" "}
+                  {t("device.globalPrefix")}{" "}
                   {d.maxGapGlobal != null
-                    ? `${Math.round(d.maxGapGlobal)} min`
+                    ? t("device.minutes", { min: Math.round(d.maxGapGlobal) })
                     : "—"}
                 </p>
               </div>
             </div>
             <details className="mt-3 text-xs">
               <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                Ver últimos 15 snapshots
+                {t("device.viewRecent")}
               </summary>
               <ul className="mt-2 space-y-1 font-mono">
                 {d.recent.map((r) => (
@@ -554,7 +570,9 @@ function Section({
                     </span>
                     <span className="text-muted-foreground">
                       {r.gap_to_previous_min != null
-                        ? `+${Math.round(r.gap_to_previous_min)} min`
+                        ? t("device.gapMinutes", {
+                            min: Math.round(r.gap_to_previous_min),
+                          })
                         : "—"}
                     </span>
                   </li>

@@ -546,5 +546,631 @@
       },
       "viewAt": "_View it at: {url}_"
     }
+  },
+  "adminPropertiesPage": {
+    "title": "Properties",
+    "countInSystem": "{count, plural, one {# property in the system.} other {# properties in the system.}}",
+    "emptyState": "No properties yet. Create the first one with the <em>New property</em> button.",
+    "table": {
+      "order": "Order",
+      "name": "Name",
+      "airbnbIcal": "Airbnb iCal",
+      "created": "Created"
+    },
+    "badge": {
+      "configured": "configured"
+    }
+  },
+  "adminPropertyForm": {
+    "newProperty": "New property",
+    "editProperty": "Edit property",
+    "dialogDescription": "The iCal URL is stored in your private DB and used to sync reservations. It is not exposed to users without the admin/manager role.",
+    "save": "Save",
+    "saving": "Saving…",
+    "fields": {
+      "coverPhoto": "Cover photo",
+      "coverPhotoHint": "JPG, PNG or WebP. Up to 10 MB. Uploaded straight to Storage on save.",
+      "name": "Name",
+      "airbnbIcalUrl": "Airbnb iCal URL",
+      "airbnbListingId": "Airbnb listing ID",
+      "airbnbListingIdHintBefore": "Number shown in the listing's public URL",
+      "airbnbListingIdHintAfter": "Lets email confirmations be matched to this property automatically.",
+      "country": "Country",
+      "tariffPerKwh": "Tariff per kWh (optional)",
+      "tariffPerKwhHint": "If left empty, /energy uses the global fallback."
+    },
+    "placeholders": {
+      "airbnbListingId": "e.g. 1526467",
+      "tariffPerKwh": "e.g. 8 (UTE UY), 204 (Edenor AR with taxes)",
+      "sceneId": "e.g. scene-id-tuya"
+    },
+    "climate": {
+      "title": "Pre check-in conditioning (WIK-125)",
+      "description": "The cron will alert the manager 2h before check-in if the temperature is out of range. Empty = this property is not auto-conditioned. Scene IDs come from",
+      "tempMin": "Ideal min temp (°C)",
+      "tempMax": "Ideal max temp (°C)",
+      "heatScene": "Tuya scene for heating",
+      "coolScene": "Tuya scene for cooling"
+    },
+    "providers": {
+      "title": "Account numbers by provider",
+      "description": "Needed when more than one property shares the same currency. The inbound bill is assigned to this property when the PDF lists this account. Leave empty what does not apply."
+    },
+    "toast": {
+      "tariffPositive": "The tariff must be a positive number.",
+      "bothBoundsOrNone": "Set both ends of the target range, or neither.",
+      "minLessThanMax": "The minimum temperature must be lower than the maximum.",
+      "saveFailed": "Could not save.",
+      "photoTooLarge": "Property saved, but the photo exceeds 10 MB.",
+      "photoBadFormat": "Property saved, but the photo format is not JPG/PNG/WebP.",
+      "invalidUrl": "Invalid URL",
+      "photoFailed": "Property saved, but the photo failed: {reason}",
+      "photoUploadFailed": "Property saved, but the photo upload failed (HTTP {status}). {detail}",
+      "propertyCreated": "Property created.",
+      "propertyUpdated": "Property updated."
+    }
+  },
+  "adminPropertyActions": {
+    "menu": {
+      "edit": "Edit",
+      "syncAirbnb": "Sync Airbnb",
+      "delete": "Delete"
+    },
+    "confirm": {
+      "delete": "Delete the property \"{name}\"? This cannot be undone."
+    },
+    "toast": {
+      "noAirbnbUrl": "No Airbnb URL configured.",
+      "reservations": "{count, plural, one {# reservation} other {# reservations}}",
+      "blocks": "{count, plural, one {# block} other {# blocks}}",
+      "codesGenerated": "{count, plural, one {# code generated} other {# codes generated}}",
+      "cleaningTasks": "{count, plural, one {# cleaning scheduled} other {# cleanings scheduled}}",
+      "synced": "Synced: {summary}.",
+      "syncedWithErrors": "{summary} ({errors, plural, one {# error} other {# errors}})",
+      "deleted": "Property deleted."
+    }
+  },
+  "adminAlarmsPage": {
+    "title": "Alarms",
+    "subtitle": "Configurable rules for temperature and humidity. They notify the admin/manager via WhatsApp when triggered.",
+    "active": {
+      "title": "{count, plural, one {# active alarm} other {# active alarms}}",
+      "description": "Unresolved events. The metric is still out of range, or the alarm stayed open and nobody resolved it manually."
+    },
+    "rules": {
+      "title": "Rules",
+      "count": "{count, plural, one {# rule configured} other {# rules configured}}.",
+      "disabledCount": "{count, plural, one {# disabled} other {# disabled}}.",
+      "empty": "No rules configured yet. Tap “New rule” to get started."
+    },
+    "resolved": {
+      "title": "Recently resolved",
+      "description": "Last {count} alarms that returned to range."
+    }
+  },
+  "adminAlarmDialog": {
+    "newRule": "New rule",
+    "title": {
+      "new": "New alarm rule",
+      "edit": "Edit rule"
+    },
+    "description": "When a sensor reports a reading that crosses the threshold, it triggers an alarm and notifies via WhatsApp.",
+    "fields": {
+      "metric": "Metric",
+      "operator": "Condition",
+      "threshold": "Threshold",
+      "debounce": "Debounce (min)",
+      "scopeType": "Applies to"
+    },
+    "metricOptions": {
+      "humidity": "Humidity (%)",
+      "temperature": "Temperature (°C)"
+    },
+    "operatorOptions": {
+      "gt": "Greater than (>)",
+      "lt": "Less than (<)"
+    },
+    "scopeOptions": {
+      "global": "All sensors (global)",
+      "property": "A property",
+      "room": "A room",
+      "device": "A specific sensor"
+    },
+    "scopeLabels": {
+      "property": "Property",
+      "room": "Room",
+      "device": "Sensor"
+    },
+    "selectPlaceholder": "— Select —",
+    "submit": {
+      "saving": "Saving…",
+      "update": "Update",
+      "create": "Create"
+    },
+    "toast": {
+      "created": "Rule created.",
+      "updated": "Rule updated."
+    }
+  },
+  "adminTuyaPage": {
+    "subtitle": "Smart Life / Tuya Open API integration.",
+    "tapToRun": "Tap-to-Run",
+    "diagnostics": "Diagnostics",
+    "noHomes": "No homes found. If your Smart Life has devices, make sure they are in a home (not in “No Home”). Then link the account again in the Cloud Project if needed.",
+    "deletedProperty": "(deleted property)",
+    "noRoomSuffix": "· no room",
+    "primarySuffix": " · primary",
+    "connectionError": {
+      "title": "Connection error",
+      "description": "Could not reach the Tuya cloud.",
+      "envHintBefore": "Make sure",
+      "envHintAnd": "and",
+      "envHintAfter": "are set in",
+      "envHintVercel": "(and in Vercel).",
+      "apisHint": "Confirm the Cloud Project has the required APIs authorized:",
+      "linkHintBefore": "Make sure you linked your Smart Life account in"
+    },
+    "linkedAccount": {
+      "title": "Linked account",
+      "description": "Smart Life app account authorized to the Cloud Project.",
+      "username": "Username",
+      "uid": "UID",
+      "linkedAt": "Linked",
+      "homes": "Homes",
+      "homesSummary": "{homes, plural, one {# home} other {# homes}} with {devices, plural, one {# device} other {# devices}} total",
+      "notFound": "No linked account was found via Tuya's automatic endpoints.",
+      "workaroundLabel": "Workaround:",
+      "workaroundBefore": "add your UID to the env vars as"
+    },
+    "homeCard": {
+      "title": "Home: {name}",
+      "deviceCount": "{count, plural, one {# device} other {# devices}}.",
+      "assignedTo": "Assigned to:",
+      "unassignedCount": "{count} unassigned.",
+      "noDevices": "No devices."
+    },
+    "table": {
+      "name": "Name",
+      "category": "Category",
+      "status": "Status",
+      "room": "Room"
+    },
+    "status": {
+      "online": "online",
+      "offline": "offline"
+    },
+    "deviceKind": {
+      "lock": "Lock",
+      "thermostat": "Thermostat / AC",
+      "light": "Light",
+      "switch": "Switch / Outlet",
+      "camera": "Camera",
+      "sensor": "T/H Sensor",
+      "breaker": "Breaker",
+      "other": "Other"
+    }
+  },
+  "adminTuyaDiag": {
+    "back": "Back",
+    "title": "Capture diagnostics",
+    "subtitle": "Hourly cron health per device. Computed from the last 200 snapshots per table.",
+    "status": {
+      "ok": "OK",
+      "irregular": "Irregular",
+      "down": "Down",
+      "noData": "No data"
+    },
+    "reasons": {
+      "noSnapshots": "No snapshots",
+      "lastSnapshotAgo": "Last snapshot {hours}h ago",
+      "fewSnapshotsWait": "Only {count, plural, one {# snapshot} other {# snapshots}} in the last 24h — wait a few hours",
+      "fewSnapshots": "Only {count, plural, one {# snapshot} other {# snapshots}} in the last 24h",
+      "avgGapHigh": "Average gap (24h) {min}min — expected ~60min",
+      "maxGapIsolated": "Max recent gap {hours}h — isolated failure",
+      "cronWorking": "Hourly cron working",
+      "avgGap": "Average gap (24h) {min}min"
+    },
+    "sections": {
+      "sensors": "T/H sensors",
+      "energy": "Energy meters"
+    },
+    "summary": {
+      "title": "Current hour summary",
+      "description": "Devices captured since {time} (local UTC). If the hourly cron is working, it should be total/total for both categories.",
+      "down": "Down",
+      "partial": "Partial",
+      "missing": "{count} not captured — see details below"
+    },
+    "section": {
+      "empty": "No snapshots recorded.",
+      "deviceCount": "{count, plural, one {# device} other {# devices}} · expected gap ~{expectedGapMin} min between snapshots"
+    },
+    "device": {
+      "unnamed": "(unnamed)",
+      "snapshots": "Snapshots",
+      "snapshotsSub": "last 24h / total",
+      "last": "Last",
+      "avgGap": "Avg gap (24h)",
+      "maxGap": "Max gap (24h)",
+      "minutes": "{min} min",
+      "gapMinutes": "+{min} min",
+      "globalPrefix": "global:",
+      "viewRecent": "View last 15 snapshots"
+    },
+    "howToRead": {
+      "title": "How to read this",
+      "window": "Status is computed from snapshots in the <strong>last 24h</strong>, not the full history. This prevents old history (e.g. when the cron ran daily on Hobby) from skewing the diagnosis toward “down” even though the hourly cron is already working.",
+      "ok": "<strong>OK</strong>: recent average gap between 45 and 75 min — the hourly Pro cron (<code>0 * * * *</code>) is running fine.",
+      "irregular": "<strong>Irregular</strong>: reasonable gap but some hole >3h — could be an isolated cron failure.",
+      "down": "<strong>Down</strong>: last snapshot >4h ago or recent gap >2h. If all devices are down, check Vercel → Settings → Cron Jobs → <code>sensor-snapshot</code> / <code>energy-snapshot</code> to see if it is active.",
+      "global": "The <em>global</em> stats (small line) include the entire history — useful to see how long data has been accumulating."
+    }
+  },
+  "adminTuyaHomeMappings": {
+    "title": "Tuya home mapping",
+    "description": "If a home in Smart Life doesn't correspond 1:1 with a property (e.g. a home that groups devices from several physical houses), assign it manually here. The sync respects this mapping and the home's devices/rooms go to the chosen property.",
+    "empty": "No homes detected in Tuya.",
+    "status": {
+      "ignored": "ignore",
+      "autoByName": "{name} (auto by name)",
+      "unassigned": "— unassigned"
+    },
+    "row": {
+      "homeIdLabel": "Tuya home_id:",
+      "statusLabel": "Status:"
+    },
+    "select": {
+      "auto": "— Auto (by name) —",
+      "ignore": "Ignore this home"
+    },
+    "button": {
+      "saving": "Saving…",
+      "save": "Save ({count})",
+      "noChanges": "No changes"
+    },
+    "toast": {
+      "noChanges": "No changes to save.",
+      "saved": "{count, plural, one {# mapping saved.} other {# mappings saved.}}"
+    }
+  },
+  "adminTuyaAssign": {
+    "title": {
+      "edit": "Edit assignment",
+      "assign": "Assign to property"
+    },
+    "fields": {
+      "property": "Property",
+      "propertyPlaceholder": "— choose —",
+      "kind": "Type",
+      "primary": "Mark as primary device for this type",
+      "primaryHint": "(e.g. main lock of the property)"
+    },
+    "kind": {
+      "lock": "Lock",
+      "thermostat": "Thermostat / AC",
+      "light": "Light",
+      "switch": "Switch / Outlet",
+      "camera": "Camera",
+      "sensor": "T/H sensor",
+      "breaker": "Breaker",
+      "other": "Other"
+    },
+    "unassign": "Remove assignment",
+    "save": "Save",
+    "saving": "Saving…",
+    "confirmUnassign": "Remove the assignment of \"{name}\"?",
+    "toast": {
+      "pickProperty": "Choose a property.",
+      "assigned": "Device assigned.",
+      "unassigned": "Assignment removed."
+    }
+  },
+  "adminTuyaBulk": {
+    "trigger": "Assign all to a property",
+    "title": "Assign home to property",
+    "description": "{count, plural, one {# device} other {# devices}} from the <strong>{homeName}</strong> home. The type is inferred from each device's category; you can adjust it later case by case. Already-assigned devices will be overwritten.",
+    "primaryLockHint": "Remember to manually mark the lock as <em>primary</em> afterwards (from its row), so guest codes are generated on that device.",
+    "fields": {
+      "property": "Target property",
+      "propertyPlaceholder": "— pick one —"
+    },
+    "submit": {
+      "pending": "Assigning…",
+      "label": "Assign {count}"
+    },
+    "toast": {
+      "pickProperty": "Pick a property.",
+      "assigned": "{count, plural, one {# device assigned} other {# devices assigned}}."
+    }
+  },
+  "adminTuyaLockPage": {
+    "header": {
+      "title": "Locks",
+      "description": "Generate temporary test codes on each lock. Once you confirm that a code physically opens the door, we can hook it into the automatic booking flow (WIK-29)."
+    },
+    "error": {
+      "title": "Connection error",
+      "description": "Could not reach the Tuya cloud."
+    },
+    "empty": "No locks found (category <em>Residential Lock</em>) among the {count} devices in the Cloud Project. Check in <link>/admin/tuya</link> that the lock is linked and appears with its correct category."
+  },
+  "adminTuyaLockCard": {
+    "badge": {
+      "online": "online",
+      "offline": "offline",
+      "primary": "primary"
+    },
+    "property": {
+      "label": "Property:",
+      "unassigned": "No property assigned — assign it from"
+    },
+    "form": {
+      "name": "Name",
+      "from": "From",
+      "to": "To",
+      "hourHint": "Tuya only accepts times rounded to the full hour (minute = 0). If you pick 12:30, it rounds to 12:00."
+    },
+    "actions": {
+      "generate": "Generate code",
+      "generating": "Generating…",
+      "clearAll": "Clear all lock codes",
+      "revoke": "Revoke"
+    },
+    "codes": {
+      "title": "Active codes",
+      "empty": "No active codes. Generate one with the form above."
+    },
+    "confirm": {
+      "revoke": "Revoke this code?",
+      "clearAll": "Delete ALL temporary codes for \"{deviceName}\"? This includes codes created from the Smart Life app or from earlier sessions. This cannot be undone."
+    },
+    "toast": {
+      "generated": "Code generated: {password}",
+      "revoked": "Code revoked.",
+      "clearedAll": "All codes were deleted."
+    }
+  },
+  "adminTuyaScenes": {
+    "back": "Back",
+    "tuyaError": "Couldn't reach Tuya: {error}",
+    "summary": "{count, plural, one {# Tap-to-Run configured} other {# Tap-to-Run configured}} across {homes, plural, one {# home} other {# homes}}.",
+    "noHomes": {
+      "before": "No homes linked to the Cloud Project yet. Set up the Smart Life account at",
+      "after": "."
+    },
+    "listError": "Error listing scenes: {error}",
+    "emptyHome": "This home has no Tap-to-Run scenes configured. Create them in the Smart Life app — they show up here once synced.",
+    "disabled": "disabled",
+    "about": {
+      "title": "About Tap-to-Run",
+      "p1": "Tap-to-Run scenes are set up in the Smart Life app (Tuya): you define a series of grouped actions — e.g. \"turn on outdoor lights + unlock door\" — and run them with a tap.",
+      "p2": "Here you can trigger the same scene from the admin. Useful for testing without opening the app, or to wire them into future flows (e.g. automatic trigger on check-in).",
+      "p3": "Runs the scene immediately · the cloud returns OK without waiting for the physical result of the devices."
+    }
+  },
+  "adminWhatsappPage": {
+    "title": "WhatsApp Templates",
+    "subtitle": "{count} registered templates. Submit to Kapso/Meta for approval — takes 1-2 days per template.",
+    "bodyProvidedByMeta": "Body provided by Meta (AUTHENTICATION)",
+    "withSecurityRecommendation": " · with security recommendation",
+    "footerWithText": "Footer: {text}",
+    "footerCodeExpires": "Footer: code expires in {minutes} min",
+    "buttons": "Buttons:",
+    "notesTitle": "Notes",
+    "notesReference": "Templates are referenced by <name/> when sending them with <fn/>. The <vars/> variables in the body are filled in on send.",
+    "notesDuplicate": "Meta rejects duplicate submits with the same <name/>. If it was already submitted, the button below shows you the error and you can ignore it — the template stays in review / approved."
+  },
+  "adminWhatsappSubmit": {
+    "buttons": {
+      "refreshing": "Loading…",
+      "refreshStatus": "Refresh status",
+      "submitting": "Sending…",
+      "submitToMeta": "Submit to Meta"
+    },
+    "headings": {
+      "metaStatus": "Status on Meta",
+      "lastSubmit": "Last submit"
+    },
+    "badges": {
+      "submitted": "submitted",
+      "failed": "FAILED"
+    },
+    "toast": {
+      "submitSummary": "{submitted} submitted, {failed} failed (of {total})."
+    }
+  },
+  "adminResetPassword": {
+    "title": "Reset password",
+    "description": "New password for <strong>{email}</strong>. After saving, copy it to the user — there's no way to recover it later.",
+    "generate": "Generate",
+    "copyTip": "Tip: click the field and copy manually; some browsers don't allow copying password fields for security reasons.",
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "save": "Save password",
+    "fields": {
+      "newPassword": "New password",
+      "placeholder": "Minimum 8 characters"
+    },
+    "toggle": {
+      "show": "Show",
+      "hide": "Hide"
+    },
+    "toast": {
+      "minLength": "Minimum 8 characters.",
+      "success": "Password updated. Send it to the user."
+    }
+  },
+  "billsForm": {
+    "title": {
+      "create": "New bill",
+      "edit": "Edit bill"
+    },
+    "description": {
+      "create": "Add a bill manually — for example if it arrived on paper.",
+      "edit": "Adjust whatever the parser left incomplete."
+    },
+    "fields": {
+      "property": "Property",
+      "utilityType": "Type",
+      "provider": "Provider",
+      "amount": "Amount",
+      "currency": "Currency",
+      "periodFrom": "Period from",
+      "periodTo": "Period to",
+      "issueDate": "Issue date",
+      "dueDate": "Due date",
+      "status": "Status",
+      "paidAt": "Paid on",
+      "kwhBilled": "kWh billed",
+      "m3Billed": "m³ billed",
+      "accountNumber": "Account no.",
+      "invoiceNumber": "Invoice no.",
+      "notes": "Notes"
+    },
+    "utility": {
+      "luz": "Electricity",
+      "agua": "Water",
+      "internet": "Internet",
+      "alarma": "Alarm",
+      "otro": "Other"
+    },
+    "status": {
+      "pending": "Pending",
+      "paid": "Paid",
+      "overdue": "Overdue",
+      "cancelled": "Cancelled"
+    },
+    "placeholders": {
+      "provider": "e.g. UTE, Edenor, Antel",
+      "notes": "Internal details about the bill"
+    },
+    "buttons": {
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "toast": {
+      "created": "Bill created.",
+      "updated": "Bill updated."
+    }
+  },
+  "reservationDetail": {
+    "backToDashboard": "Dashboard",
+    "unnamedReservation": "Unnamed reservation",
+    "unknownProperty": "Unknown property",
+    "nights": "{count, plural, one {# night} other {# nights}}",
+    "cancelledBadge": "Cancelled",
+    "cancelledNote": "This reservation was cancelled via Airbnb email.",
+    "guestPhotoAlt": "Guest photo",
+    "guestPhotoAltNamed": "Photo of {name}",
+    "source": {
+      "airbnb": "Airbnb",
+      "booking": "Booking",
+      "manual": "Manual"
+    },
+    "taskKind": {
+      "limpieza": "Cleaning",
+      "mantenimiento": "Maintenance",
+      "insumos": "Supplies",
+      "otro": "Other"
+    },
+    "taskStatus": {
+      "pending": "Pending",
+      "in_progress": "In progress",
+      "done": "Done"
+    },
+    "airbnbDetails": {
+      "title": "Airbnb details",
+      "description": "Extra data extracted from the confirmation email.",
+      "code": "Code",
+      "guests": "Guests",
+      "payout": "Payout",
+      "guestMessage": "Guest message"
+    },
+    "reservationData": {
+      "title": "Reservation data",
+      "source": "Source",
+      "property": "Property",
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "externalId": "External code"
+    },
+    "guest": {
+      "title": "Guest",
+      "descriptionWithData": "Data entered manually.",
+      "descriptionEmpty": "No data. Edit the reservation to add name and WhatsApp.",
+      "name": "Name",
+      "whatsapp": "WhatsApp",
+      "notes": "Notes"
+    },
+    "cleaningTask": {
+      "title": "Cleaning task (post-checkout)",
+      "taskFor": "Task for {date}",
+      "none": "There is no cleaning task for this date yet.",
+      "taskTitle": "Title",
+      "kind": "Type",
+      "status": "Status",
+      "assignee": "Assigned",
+      "unassigned": "Unassigned",
+      "description": "Description",
+      "photos": "Photos",
+      "photoCount": "{count, plural, one {# photo} other {# photos}}",
+      "viewInTask": "view in the task",
+      "autoCreatedPrefix": "It is created automatically when the reservation syncs. You can also create one manually from",
+      "tasksLink": "Tasks",
+      "autoCreatedSuffix": ".",
+      "viewAllTasks": "View all tasks"
+    },
+    "whatsapp": {
+      "title": "WhatsApp conversation",
+      "noPhone": "Add the guest's WhatsApp to see associated messages.",
+      "noMessages": "No messages with this number yet.",
+      "messageCount": "{count, plural, one {# message} other {# messages}} with {name}.",
+      "showingLast": "Showing last 20 of {total}.",
+      "viewFullConversation": "View full conversation",
+      "viewInInbox": "View in inbox"
+    }
+  },
+  "energyBillComparisons": {
+    "title": "Billed vs Tuya",
+    "inferredPeriodTooltip": "Period inferred from the previous bill's due date.",
+    "billedLabel": "Billed:",
+    "tuyaLabel": "Tuya:",
+    "columnPeriod": "Period",
+    "columnBilled": "Billed",
+    "columnTuya": "Tuya"
+  },
+  "tasksPropertyFilter": {
+    "label": "Property:",
+    "all": "All"
+  },
+  "whatsappThread": {
+    "back": "Back",
+    "empty": "No messages in this conversation yet.",
+    "viewMedia": "View {type}",
+    "audience": {
+      "guest": "Guest",
+      "staff": "Staff",
+      "unknown": "—"
+    },
+    "window": {
+      "title": "Outside the 24-hour window.",
+      "body": "WhatsApp only allows messages with an approved template outside the 24 hours after the user's last message. To reply with free text you need the user to message you first."
+    }
+  },
+  "whatsappReply": {
+    "placeholder": "Type a message…",
+    "sending": "Sending…",
+    "send": "Send"
+  },
+  "whatsappInbox": {
+    "audience": {
+      "guest": "Guest",
+      "staff": "Staff",
+      "unknown": "—"
+    },
+    "conversationCount": "{count, plural, one {# conversation} other {# conversations}}.",
+    "emptyState": "No conversations. When someone messages the WhatsApp number, it will show up here.",
+    "outboundPrefix": "You: ",
+    "noMessages": "(no messages)"
   }
 }

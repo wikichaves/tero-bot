@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
+import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,14 +10,14 @@ import type { WhatsAppConversation } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-const AUDIENCE_LABEL: Record<WhatsAppConversation["audience"], string> = {
-  guest: "Huésped",
-  staff: "Staff",
-  unknown: "—",
-};
-
 export default async function WhatsAppInboxPage() {
   await requireRole(["admin"]);
+  const t = await getTranslations("whatsappInbox");
+  const AUDIENCE_LABEL: Record<WhatsAppConversation["audience"], string> = {
+    guest: t("audience.guest"),
+    staff: t("audience.staff"),
+    unknown: t("audience.unknown"),
+  };
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("whatsapp_conversations")
@@ -30,8 +31,7 @@ export default async function WhatsAppInboxPage() {
       <div>
         <h1 className="text-4xl">WhatsApp</h1>
         <p className="text-sm text-muted-foreground">
-          {conversations.length} conversación
-          {conversations.length === 1 ? "" : "es"}.
+          {t("conversationCount", { count: conversations.length })}
         </p>
       </div>
 
@@ -47,8 +47,7 @@ export default async function WhatsAppInboxPage() {
         <CardContent className="p-0">
           {conversations.length === 0 ? (
             <p className="p-6 text-sm text-muted-foreground">
-              Sin conversaciones. Cuando alguien escriba al número de WhatsApp,
-              va a aparecer acá.
+              {t("emptyState")}
             </p>
           ) : (
             <ul className="divide-y">
@@ -73,8 +72,9 @@ export default async function WhatsAppInboxPage() {
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground truncate">
-                        {c.last_message_direction === "outbound" && "Tú: "}
-                        {c.last_message_text ?? "(sin mensajes)"}
+                        {c.last_message_direction === "outbound" &&
+                          t("outboundPrefix")}
+                        {c.last_message_text ?? t("noMessages")}
                       </p>
                     </div>
                     <span className="text-xs text-muted-foreground shrink-0">

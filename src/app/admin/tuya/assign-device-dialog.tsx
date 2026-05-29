@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,15 +16,15 @@ import { toast } from "sonner";
 import type { DeviceKind, Property, PropertyDevice } from "@/lib/types";
 import { assignDevice, unassignDevice } from "./actions";
 
-const KIND_OPTIONS: { value: DeviceKind; label: string }[] = [
-  { value: "lock", label: "Cerradura" },
-  { value: "thermostat", label: "Termostato / AC" },
-  { value: "light", label: "Luz" },
-  { value: "switch", label: "Switch / Toma" },
-  { value: "camera", label: "Cámara" },
-  { value: "sensor", label: "Sensor T/H" },
-  { value: "breaker", label: "Llave de luz" },
-  { value: "other", label: "Otro" },
+const KIND_OPTIONS: { value: DeviceKind; labelKey: string }[] = [
+  { value: "lock", labelKey: "kind.lock" },
+  { value: "thermostat", labelKey: "kind.thermostat" },
+  { value: "light", labelKey: "kind.light" },
+  { value: "switch", labelKey: "kind.switch" },
+  { value: "camera", labelKey: "kind.camera" },
+  { value: "sensor", labelKey: "kind.sensor" },
+  { value: "breaker", labelKey: "kind.breaker" },
+  { value: "other", labelKey: "kind.other" },
 ];
 
 export function AssignDeviceDialog({
@@ -43,6 +44,7 @@ export function AssignDeviceDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useTranslations("adminTuyaAssign");
   const [pending, startTransition] = useTransition();
   const [propertyId, setPropertyId] = useState(
     current?.property_id ?? properties[0]?.id ?? "",
@@ -55,7 +57,7 @@ export function AssignDeviceDialog({
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!propertyId) {
-      toast.error("Elegí una propiedad.");
+      toast.error(t("toast.pickProperty"));
       return;
     }
     startTransition(async () => {
@@ -70,20 +72,20 @@ export function AssignDeviceDialog({
         toast.error(result.error);
         return;
       }
-      toast.success("Dispositivo asignado.");
+      toast.success(t("toast.assigned"));
       onOpenChange(false);
     });
   }
 
   function onUnassign() {
-    if (!confirm(`¿Quitar la asignación de "${tuyaDeviceName}"?`)) return;
+    if (!confirm(t("confirmUnassign", { name: tuyaDeviceName }))) return;
     startTransition(async () => {
       const result = await unassignDevice(tuyaDeviceId);
       if (result?.error) {
         toast.error(result.error);
         return;
       }
-      toast.success("Asignación eliminada.");
+      toast.success(t("toast.unassigned"));
       onOpenChange(false);
     });
   }
@@ -94,7 +96,7 @@ export function AssignDeviceDialog({
         <form onSubmit={onSubmit}>
           <DialogHeader>
             <DialogTitle>
-              {current ? "Editar asignación" : "Asignar a propiedad"}
+              {current ? t("title.edit") : t("title.assign")}
             </DialogTitle>
             <DialogDescription>
               {tuyaDeviceName} ·{" "}
@@ -103,7 +105,7 @@ export function AssignDeviceDialog({
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="property_id">Propiedad</Label>
+              <Label htmlFor="property_id">{t("fields.property")}</Label>
               <select
                 id="property_id"
                 value={propertyId}
@@ -111,7 +113,7 @@ export function AssignDeviceDialog({
                 required
                 className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
               >
-                <option value="">— elegí —</option>
+                <option value="">{t("fields.propertyPlaceholder")}</option>
                 {properties.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -120,7 +122,7 @@ export function AssignDeviceDialog({
               </select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="device_kind">Tipo</Label>
+              <Label htmlFor="device_kind">{t("fields.kind")}</Label>
               <select
                 id="device_kind"
                 value={kind}
@@ -130,7 +132,7 @@ export function AssignDeviceDialog({
               >
                 {KIND_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </option>
                 ))}
               </select>
@@ -142,9 +144,9 @@ export function AssignDeviceDialog({
                 onChange={(e) => setIsPrimary(e.target.checked)}
                 className="h-4 w-4"
               />
-              Marcar como dispositivo primario para este tipo
+              {t("fields.primary")}
               <span className="text-muted-foreground">
-                (ej. cerradura principal de la propiedad)
+                {t("fields.primaryHint")}
               </span>
             </label>
           </div>
@@ -157,13 +159,13 @@ export function AssignDeviceDialog({
                 disabled={pending}
                 className="text-destructive hover:text-destructive"
               >
-                Quitar asignación
+                {t("unassign")}
               </Button>
             ) : (
               <span />
             )}
             <Button type="submit" disabled={pending}>
-              {pending ? "Guardando…" : "Guardar"}
+              {pending ? t("saving") : t("save")}
             </Button>
           </DialogFooter>
         </form>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ChevronDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,12 +36,13 @@ export function PropertyFilterDropdown({
   options: PropertyFilterOption[];
   currentId: string | null;
 }) {
+  const t = useTranslations("tasksPropertyFilter");
   const currentLabel =
-    options.find((o) => o.id === currentId)?.label ?? "Todas";
+    options.find((o) => o.id === currentId)?.label ?? t("all");
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-muted-foreground">Propiedad:</span>
+      <span className="text-muted-foreground">{t("label")}</span>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={

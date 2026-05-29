@@ -2,6 +2,7 @@
 
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
+import { useTranslations } from "next-intl";
 import { DeltaBadge } from "@/components/bills/delta-badge";
 import type { BillRowDerived } from "@/lib/bills/enrich-period";
 import type { DeltaLevel } from "@/lib/bills/tuya-comparison";
@@ -37,10 +38,11 @@ export function BillComparisonsTable({
 }: {
   comparisons: BillComparison[];
 }) {
+  const t = useTranslations("energyBillComparisons");
   return (
     <div className="mt-6 border-t pt-4">
       <p className="label-mono mb-2">
-        Facturado vs Tuya
+        {t("title")}
       </p>
 
       <ul className="flex flex-col gap-3 sm:hidden">
@@ -58,7 +60,7 @@ export function BillComparisonsTable({
                 }`}
                 title={
                   c.bill.period_inferred
-                    ? "Período inferido a partir del vencimiento de la factura anterior."
+                    ? t("inferredPeriodTooltip")
                     : undefined
                 }
               >
@@ -77,13 +79,13 @@ export function BillComparisonsTable({
             </div>
             <div className="mt-1 flex justify-between gap-4 text-xs">
               <span>
-                <span className="text-muted-foreground">Facturado: </span>
+                <span className="text-muted-foreground">{t("billedLabel")} </span>
                 <span className="tabular-nums">
                   {c.bill.kwh_billed!.toLocaleString("es-UY")} kWh
                 </span>
               </span>
               <span>
-                <span className="text-muted-foreground">Tuya: </span>
+                <span className="text-muted-foreground">{t("tuyaLabel")} </span>
                 <span className="tabular-nums">
                   {c.tuyaKwh.toLocaleString("es-UY", {
                     maximumFractionDigits: 1,
@@ -100,9 +102,9 @@ export function BillComparisonsTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs text-muted-foreground">
-              <th className="pb-1 font-medium">Período</th>
-              <th className="pb-1 text-right font-medium">Facturado</th>
-              <th className="pb-1 text-right font-medium">Tuya</th>
+              <th className="pb-1 font-medium">{t("columnPeriod")}</th>
+              <th className="pb-1 text-right font-medium">{t("columnBilled")}</th>
+              <th className="pb-1 text-right font-medium">{t("columnTuya")}</th>
               <th className="pb-1 text-right font-medium">Δ</th>
             </tr>
           </thead>
@@ -117,7 +119,7 @@ export function BillComparisonsTable({
                   }`}
                   title={
                     c.bill.period_inferred
-                      ? "Período inferido a partir del vencimiento de la factura anterior."
+                      ? t("inferredPeriodTooltip")
                       : undefined
                   }
                 >

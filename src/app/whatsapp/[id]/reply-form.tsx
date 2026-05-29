@@ -1,11 +1,13 @@
 "use client";
 
 import { useRef, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { replyToConversation } from "./actions";
 
 export function ReplyForm({ conversationId }: { conversationId: string }) {
+  const t = useTranslations("whatsappReply");
   const [pending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -38,7 +40,7 @@ export function ReplyForm({ conversationId }: { conversationId: string }) {
         name="text"
         rows={2}
         required
-        placeholder="Escribir mensaje…"
+        placeholder={t("placeholder")}
         className="flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
@@ -48,7 +50,7 @@ export function ReplyForm({ conversationId }: { conversationId: string }) {
         }}
       />
       <Button type="submit" disabled={pending}>
-        {pending ? "Enviando…" : "Enviar"}
+        {pending ? t("sending") : t("send")}
       </Button>
     </form>
   );

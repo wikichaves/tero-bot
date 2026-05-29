@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Activity, Play } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -34,18 +35,19 @@ import type { DeviceKind, Property, Room } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-const DEVICE_KIND_LABEL: Record<DeviceKind, string> = {
-  lock: "Cerradura",
-  thermostat: "Termostato / AC",
-  light: "Luz",
-  switch: "Switch / Toma",
-  camera: "Cámara",
-  sensor: "Sensor T/H",
-  breaker: "Llave de luz",
-  other: "Otro",
+const DEVICE_KIND_LABEL_KEY: Record<DeviceKind, string> = {
+  lock: "deviceKind.lock",
+  thermostat: "deviceKind.thermostat",
+  light: "deviceKind.light",
+  switch: "deviceKind.switch",
+  camera: "deviceKind.camera",
+  sensor: "deviceKind.sensor",
+  breaker: "deviceKind.breaker",
+  other: "deviceKind.other",
 };
 
 export default async function TuyaPage() {
+  const t = await getTranslations("adminTuyaPage");
   const result = await listDevicesGroupedByHome().catch((err: Error) => ({
     error: err.message,
   }));
@@ -56,14 +58,14 @@ export default async function TuyaPage() {
         <div>
           <h1 className="text-4xl">Tuya</h1>
           <p className="text-sm text-muted-foreground">
-            Integración con Smart Life / Tuya Open API.
+            {t("subtitle")}
           </p>
         </div>
         <Card>
           <CardHeader>
-            <CardTitle>Error de conexión</CardTitle>
+            <CardTitle>{t("connectionError.title")}</CardTitle>
             <CardDescription>
-              No se pudo hablar con el cloud de Tuya.
+              {t("connectionError.description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm">
@@ -72,19 +74,24 @@ export default async function TuyaPage() {
             </pre>
             <ul className="mt-4 list-disc pl-5 text-muted-foreground">
               <li>
-                Verificá que <code>TUYA_ACCESS_ID</code>,{" "}
-                <code>TUYA_ACCESS_SECRET</code> y <code>TUYA_REGION</code>{" "}
-                estén en <code>.env.local</code> (y en Vercel).
+                {t("connectionError.envHintBefore")}{" "}
+                <code>TUYA_ACCESS_ID</code>,{" "}
+                <code>TUYA_ACCESS_SECRET</code>{" "}
+                {t("connectionError.envHintAnd")}{" "}
+                <code>TUYA_REGION</code>{" "}
+                {t("connectionError.envHintAfter")}{" "}
+                <code>.env.local</code>{" "}
+                {t("connectionError.envHintVercel")}
               </li>
               <li>
-                Confirmá que el Cloud Project tenga las APIs requeridas
-                autorizadas: <em>IoT Core</em>,{" "}
+                {t("connectionError.apisHint")}{" "}
+                <em>IoT Core</em>,{" "}
                 <em>Authorization Token Management</em>,{" "}
                 <em>Smart Home Basic Service</em>,{" "}
                 <em>Smart Lock Open Service</em>.
               </li>
               <li>
-                Asegurate de haber linkeado tu cuenta de Smart Life en{" "}
+                {t("connectionError.linkHintBefore")}{" "}
                 <em>Devices → Link App Account</em>.
               </li>
             </ul>
@@ -138,20 +145,20 @@ export default async function TuyaPage() {
         <div>
           <h1 className="text-4xl">Tuya</h1>
           <p className="text-sm text-muted-foreground">
-            Integración con Smart Life / Tuya Open API.
+            {t("subtitle")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link href="/admin/tuya/scenes">
             <Button variant="outline" size="sm">
               <Play className="mr-2 h-3.5 w-3.5" />
-              Tap-to-Run
+              {t("tapToRun")}
             </Button>
           </Link>
           <Link href="/admin/tuya/diagnostico">
             <Button variant="outline" size="sm">
               <Activity className="mr-2 h-3.5 w-3.5" />
-              Diagnóstico
+              {t("diagnostics")}
             </Button>
           </Link>
           <SyncRoomsButton />
@@ -161,21 +168,21 @@ export default async function TuyaPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Cuenta linkeada</CardTitle>
+          <CardTitle>{t("linkedAccount.title")}</CardTitle>
           <CardDescription>
-            Cuenta de la app Smart Life autorizada al Cloud Project.
+            {t("linkedAccount.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm">
           {user ? (
             <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
-              <dt className="text-muted-foreground">Username</dt>
+              <dt className="text-muted-foreground">{t("linkedAccount.username")}</dt>
               <dd>{user.username ?? user.email ?? "—"}</dd>
-              <dt className="text-muted-foreground">UID</dt>
+              <dt className="text-muted-foreground">{t("linkedAccount.uid")}</dt>
               <dd className="font-mono text-xs">{user.uid}</dd>
               {user.create_time && (
                 <>
-                  <dt className="text-muted-foreground">Linkeado</dt>
+                  <dt className="text-muted-foreground">{t("linkedAccount.linkedAt")}</dt>
                   <dd>
                     {format(new Date(user.create_time * 1000), "d MMM yyyy", {
                       locale: es,
@@ -183,20 +190,22 @@ export default async function TuyaPage() {
                   </dd>
                 </>
               )}
-              <dt className="text-muted-foreground">Homes</dt>
+              <dt className="text-muted-foreground">{t("linkedAccount.homes")}</dt>
               <dd>
-                {homes.length} home{homes.length === 1 ? "" : "s"} con{" "}
-                {totalDevices} device{totalDevices === 1 ? "" : "s"} en total
+                {t("linkedAccount.homesSummary", {
+                  homes: homes.length,
+                  devices: totalDevices,
+                })}
               </dd>
             </dl>
           ) : (
             <div className="text-muted-foreground space-y-2">
               <p>
-                No se encontró ninguna cuenta linkeada vía los endpoints
-                automáticos de Tuya.
+                {t("linkedAccount.notFound")}
               </p>
               <p>
-                <strong>Workaround:</strong> agregá tu UID a las env vars como{" "}
+                <strong>{t("linkedAccount.workaroundLabel")}</strong>{" "}
+                {t("linkedAccount.workaroundBefore")}{" "}
                 <code>TUYA_USER_UID</code>.
               </p>
             </div>
@@ -245,9 +254,7 @@ export default async function TuyaPage() {
       {homes.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-sm text-muted-foreground">
-            No se encontraron homes. Si tu Smart Life tiene devices, asegurate
-            que estén en una home (no en &ldquo;Sin Hogar&rdquo;). Después linkeá la
-            cuenta de nuevo en el Cloud Project si hace falta.
+            {t("noHomes")}
           </CardContent>
         </Card>
       )}
@@ -267,7 +274,7 @@ export default async function TuyaPage() {
   );
 }
 
-function HomeCard({
+async function HomeCard({
   homeName,
   devices,
   properties,
@@ -282,6 +289,7 @@ function HomeCard({
   propertyById: Map<string, Pick<Property, "id" | "name">>;
   roomById: Map<string, Pick<Room, "id" | "name" | "property_id">>;
 }) {
+  const t = await getTranslations("adminTuyaPage");
   // Property summary: which properties already own devices in this home?
   const assignedPropertyIds = new Set<string>();
   let unassignedCount = 0;
@@ -299,18 +307,18 @@ function HomeCard({
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <CardTitle>Home: {homeName}</CardTitle>
+            <CardTitle>{t("homeCard.title", { name: homeName })}</CardTitle>
             <CardDescription>
-              {devices.length} device{devices.length === 1 ? "" : "s"}.{" "}
+              {t("homeCard.deviceCount", { count: devices.length })}{" "}
               {assignedNames.length > 0 && (
                 <>
-                  Asignados a:{" "}
+                  {t("homeCard.assignedTo")}{" "}
                   <strong>{assignedNames.join(", ")}</strong>.
                 </>
               )}{" "}
               {unassignedCount > 0 && (
                 <span className="text-amber-700 dark:text-amber-300">
-                  {unassignedCount} sin asignar.
+                  {t("homeCard.unassignedCount", { count: unassignedCount })}
                 </span>
               )}
             </CardDescription>
@@ -331,15 +339,15 @@ function HomeCard({
       </CardHeader>
       <CardContent>
         {devices.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Sin devices.</p>
+          <p className="text-sm text-muted-foreground">{t("homeCard.noDevices")}</p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Categoría</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Ambiente</TableHead>
+                <TableHead>{t("table.name")}</TableHead>
+                <TableHead>{t("table.category")}</TableHead>
+                <TableHead>{t("table.status")}</TableHead>
+                <TableHead>{t("table.room")}</TableHead>
                 <TableHead className="w-24" />
               </TableRow>
             </TableHeader>
@@ -361,7 +369,7 @@ function HomeCard({
                     </TableCell>
                     <TableCell>
                       <Badge variant={d.online ? "default" : "secondary"}>
-                        {d.online ? "online" : "offline"}
+                        {d.online ? t("status.online") : t("status.offline")}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -373,17 +381,17 @@ function HomeCard({
                           <span>
                             {room?.name ?? (
                               <span className="text-muted-foreground">
-                                {property?.name ?? "(propiedad eliminada)"}
+                                {property?.name ?? t("deletedProperty")}
                                 <span className="ml-1 text-xs italic">
-                                  · sin ambiente
+                                  {t("noRoomSuffix")}
                                 </span>
                               </span>
                             )}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            {DEVICE_KIND_LABEL[assignment.device_kind] ??
+                            {t(DEVICE_KIND_LABEL_KEY[assignment.device_kind]) ??
                               assignment.device_kind}
-                            {assignment.is_primary && " · primaria"}
+                            {assignment.is_primary && t("primarySuffix")}
                           </span>
                         </div>
                       ) : (

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/server";
@@ -23,12 +24,6 @@ import type {
 import { extractPhotos } from "@/lib/whatsapp/create-task";
 import { ReservationDetailActions } from "./detail-actions";
 
-const TASK_STATUS_LABEL: Record<Task["status"], string> = {
-  pending: "Pendiente",
-  in_progress: "En curso",
-  done: "Hecha",
-};
-
 const TASK_STATUS_BADGE: Record<
   Task["status"],
   "default" | "secondary" | "outline"
@@ -38,24 +33,11 @@ const TASK_STATUS_BADGE: Record<
   done: "outline",
 };
 
-const TASK_KIND_LABEL: Record<Task["kind"], string> = {
-  limpieza: "Limpieza",
-  mantenimiento: "Mantenimiento",
-  insumos: "Insumos",
-  otro: "Otro",
-};
-
 type CleaningTask = Task & {
   assignee: { full_name: string | null; email: string } | null;
 };
 
 export const dynamic = "force-dynamic";
-
-const SOURCE_LABEL: Record<Reservation["source"], string> = {
-  airbnb: "Airbnb",
-  booking: "Booking",
-  manual: "Manual",
-};
 
 type ReservationWithProperty = Reservation & {
   property: Pick<Property, "id" | "name"> | null;
@@ -74,6 +56,7 @@ export default async function ReservationDetailPage({
   params: Promise<{ id: string }>;
 }) {
   await requireRole(["admin", "gestor"]);
+  const t = await getTranslations("reservationDetail");
   const { id } = await params;
   const supabase = await createClient();
 
@@ -164,28 +147,28 @@ export default async function ReservationDetailPage({
           href="/dashboard"
           className="text-sm text-muted-foreground hover:text-foreground"
         >
-          ← Dashboard
+          ← {t("backToDashboard")}
         </Link>
       </div>
 
       <div>
         <h1 className="text-4xl">
-          {reservation.guest_name ?? "Reserva sin nombre"}
+          {reservation.guest_name ?? t("unnamedReservation")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          {reservation.property?.name ?? "Propiedad desconocida"} ·{" "}
+          {reservation.property?.name ?? t("unknownProperty")} ·{" "}
           {format(checkIn, "EEE d MMM", { locale: es })} →{" "}
-          {format(checkOut, "EEE d MMM yyyy", { locale: es })} · {nights} noche
-          {nights === 1 ? "" : "s"}
+          {format(checkOut, "EEE d MMM yyyy", { locale: es })} ·{" "}
+          {t("nights", { count: nights })}
         </p>
       </div>
 
       {reservation.status === "cancelled" && (
         <Card className="border-destructive">
           <CardContent className="pt-6 text-sm">
-            <Badge variant="destructive">Cancelada</Badge>{" "}
+            <Badge variant="destructive">{t("cancelledBadge")}</Badge>{" "}
             <span className="ml-2 text-muted-foreground">
-              Esta reserva fue cancelada vía email de Airbnb.
+              {t("cancelledNote")}
             </span>
           </CardContent>
         </Card>
@@ -204,10 +187,8 @@ export default async function ReservationDetailPage({
         reservation.guest_photo_url) && (
         <Card>
           <CardHeader>
-            <CardTitle>Detalles de Airbnb</CardTitle>
-            <CardDescription>
-              Datos extra extraídos del email de confirmación.
-            </CardDescription>
+            <CardTitle>{t("airbnbDetails.title")}</CardTitle>
+            <CardDescription>{t("airbnbDetails.description")}</CardDescription>
           </CardHeader>
           <CardContent className="text-sm">
             {/* En mobile la foto se stackea arriba para que la <dl> pueda
@@ -222,8 +203,8 @@ export default async function ReservationDetailPage({
                   src={reservation.guest_photo_url}
                   alt={
                     reservation.guest_name
-                      ? `Foto de ${reservation.guest_name}`
-                      : "Foto del huésped"
+                      ? t("guestPhotoAltNamed", { name: reservation.guest_name })
+                      : t("guestPhotoAlt")
                   }
                   className="h-20 w-20 shrink-0 rounded-full border object-cover"
                   loading="lazy"
@@ -233,7 +214,9 @@ export default async function ReservationDetailPage({
                 <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
                   {reservation.reservation_code && (
                     <>
-                      <dt className="text-muted-foreground">Código</dt>
+                      <dt className="text-muted-foreground">
+                        {t("airbnbDetails.code")}
+                      </dt>
                       <dd className="font-mono">
                         {reservation.reservation_code}
                       </dd>
@@ -241,13 +224,17 @@ export default async function ReservationDetailPage({
                   )}
                   {reservation.guest_count != null && (
                     <>
-                      <dt className="text-muted-foreground">Huéspedes</dt>
+                      <dt className="text-muted-foreground">
+                        {t("airbnbDetails.guests")}
+                      </dt>
                       <dd>{reservation.guest_count}</dd>
                     </>
                   )}
                   {reservation.payout_amount != null && (
                     <>
-                      <dt className="text-muted-foreground">Payout</dt>
+                      <dt className="text-muted-foreground">
+                        {t("airbnbDetails.payout")}
+                      </dt>
                       <dd>
                         {reservation.payout_currency
                           ? `${reservation.payout_currency} `
@@ -270,7 +257,7 @@ export default async function ReservationDetailPage({
                 {reservation.guest_message && (
                   <div className="flex flex-col gap-1 min-w-0">
                     <span className="text-muted-foreground">
-                      Mensaje del huésped
+                      {t("airbnbDetails.guestMessage")}
                     </span>
                     <p
                       className="whitespace-pre-wrap min-w-0"
@@ -289,29 +276,39 @@ export default async function ReservationDetailPage({
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Datos de la reserva</CardTitle>
+            <CardTitle>{t("reservationData.title")}</CardTitle>
           </CardHeader>
           <CardContent className="text-sm">
             <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
-              <dt className="text-muted-foreground">Origen</dt>
+              <dt className="text-muted-foreground">
+                {t("reservationData.source")}
+              </dt>
               <dd>
                 <Badge variant="secondary">
-                  {SOURCE_LABEL[reservation.source]}
+                  {t(`source.${reservation.source}`)}
                 </Badge>
               </dd>
-              <dt className="text-muted-foreground">Propiedad</dt>
+              <dt className="text-muted-foreground">
+                {t("reservationData.property")}
+              </dt>
               <dd>{reservation.property?.name ?? "—"}</dd>
-              <dt className="text-muted-foreground">Check-in</dt>
+              <dt className="text-muted-foreground">
+                {t("reservationData.checkIn")}
+              </dt>
               <dd>
                 {format(checkIn, "EEEE d 'de' MMMM yyyy", { locale: es })}
               </dd>
-              <dt className="text-muted-foreground">Check-out</dt>
+              <dt className="text-muted-foreground">
+                {t("reservationData.checkOut")}
+              </dt>
               <dd>
                 {format(checkOut, "EEEE d 'de' MMMM yyyy", { locale: es })}
               </dd>
               {reservation.external_id && (
                 <>
-                  <dt className="text-muted-foreground">Código externo</dt>
+                  <dt className="text-muted-foreground">
+                    {t("reservationData.externalId")}
+                  </dt>
                   <dd className="font-mono text-xs break-all">
                     {reservation.external_id}
                   </dd>
@@ -323,18 +320,18 @@ export default async function ReservationDetailPage({
 
         <Card>
           <CardHeader>
-            <CardTitle>Huésped</CardTitle>
+            <CardTitle>{t("guest.title")}</CardTitle>
             <CardDescription>
               {reservation.guest_phone
-                ? "Datos cargados manualmente."
-                : "Sin datos. Editá la reserva para agregar nombre y WhatsApp."}
+                ? t("guest.descriptionWithData")
+                : t("guest.descriptionEmpty")}
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm">
             <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
-              <dt className="text-muted-foreground">Nombre</dt>
+              <dt className="text-muted-foreground">{t("guest.name")}</dt>
               <dd>{reservation.guest_name ?? "—"}</dd>
-              <dt className="text-muted-foreground">WhatsApp</dt>
+              <dt className="text-muted-foreground">{t("guest.whatsapp")}</dt>
               <dd>
                 {reservation.guest_phone ? (
                   <span className="font-mono">{reservation.guest_phone}</span>
@@ -344,7 +341,7 @@ export default async function ReservationDetailPage({
               </dd>
               {reservation.notes && (
                 <>
-                  <dt className="text-muted-foreground">Notas</dt>
+                  <dt className="text-muted-foreground">{t("guest.notes")}</dt>
                   <dd className="whitespace-pre-wrap">{reservation.notes}</dd>
                 </>
               )}
@@ -355,39 +352,51 @@ export default async function ReservationDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Tarea de limpieza (post-checkout)</CardTitle>
+          <CardTitle>{t("cleaningTask.title")}</CardTitle>
           <CardDescription>
             {cleaningTask
-              ? `Tarea para ${format(checkOut, "EEEE d 'de' MMMM", {
-                  locale: es,
-                })}`
-              : "Aún no hay una tarea de limpieza para esta fecha."}
+              ? t("cleaningTask.taskFor", {
+                  date: format(checkOut, "EEEE d 'de' MMMM", {
+                    locale: es,
+                  }),
+                })
+              : t("cleaningTask.none")}
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm">
           {cleaningTask ? (
             <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2">
-              <dt className="text-muted-foreground">Título</dt>
+              <dt className="text-muted-foreground">
+                {t("cleaningTask.taskTitle")}
+              </dt>
               <dd className="font-medium">{cleaningTask.title}</dd>
-              <dt className="text-muted-foreground">Tipo</dt>
+              <dt className="text-muted-foreground">
+                {t("cleaningTask.kind")}
+              </dt>
               <dd>
                 <Badge variant="outline">
-                  {TASK_KIND_LABEL[cleaningTask.kind]}
+                  {t(`taskKind.${cleaningTask.kind}`)}
                 </Badge>
               </dd>
-              <dt className="text-muted-foreground">Estado</dt>
+              <dt className="text-muted-foreground">
+                {t("cleaningTask.status")}
+              </dt>
               <dd>
                 <Badge variant={TASK_STATUS_BADGE[cleaningTask.status]}>
-                  {TASK_STATUS_LABEL[cleaningTask.status]}
+                  {t(`taskStatus.${cleaningTask.status}`)}
                 </Badge>
               </dd>
-              <dt className="text-muted-foreground">Asignado</dt>
+              <dt className="text-muted-foreground">
+                {t("cleaningTask.assignee")}
+              </dt>
               <dd>
                 {cleaningTask.assignee ? (
                   cleaningTask.assignee.full_name ??
                   cleaningTask.assignee.email
                 ) : (
-                  <span className="text-muted-foreground">Sin asignar</span>
+                  <span className="text-muted-foreground">
+                    {t("cleaningTask.unassigned")}
+                  </span>
                 )}
               </dd>
               {(() => {
@@ -399,22 +408,26 @@ export default async function ReservationDetailPage({
                     {cleaned && (
                       <>
                         <dt className="text-muted-foreground self-start">
-                          Descripción
+                          {t("cleaningTask.description")}
                         </dt>
                         <dd className="whitespace-pre-wrap">{cleaned}</dd>
                       </>
                     )}
                     {urls.length > 0 && (
                       <>
-                        <dt className="text-muted-foreground">Fotos</dt>
+                        <dt className="text-muted-foreground">
+                          {t("cleaningTask.photos")}
+                        </dt>
                         <dd>
-                          {urls.length} foto
-                          {urls.length === 1 ? "" : "s"} —{" "}
+                          {t("cleaningTask.photoCount", {
+                            count: urls.length,
+                          })}{" "}
+                          —{" "}
                           <Link
                             href={`/tasks/${cleaningTask.id}`}
                             className="underline hover:text-foreground"
                           >
-                            ver en la tarea
+                            {t("cleaningTask.viewInTask")}
                           </Link>
                         </dd>
                       </>
@@ -425,15 +438,14 @@ export default async function ReservationDetailPage({
             </dl>
           ) : (
             <p className="text-muted-foreground">
-              Se crea automáticamente al sincronizar la reserva. También podés
-              crear una manualmente desde{" "}
+              {t("cleaningTask.autoCreatedPrefix")}{" "}
               <Link
                 href={`/tasks?property=${reservation.property?.id ?? ""}`}
                 className="underline hover:text-foreground"
               >
-                Tareas
+                {t("cleaningTask.tasksLink")}
               </Link>
-              .
+              {t("cleaningTask.autoCreatedSuffix")}
             </p>
           )}
           <p className="mt-3 text-xs">
@@ -441,7 +453,7 @@ export default async function ReservationDetailPage({
               href="/tasks?status=pending"
               className="text-muted-foreground underline hover:text-foreground"
             >
-              Ver todas las tareas →
+              {t("cleaningTask.viewAllTasks")} →
             </Link>
           </p>
         </CardContent>
@@ -449,13 +461,17 @@ export default async function ReservationDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Conversación WhatsApp</CardTitle>
+          <CardTitle>{t("whatsapp.title")}</CardTitle>
           <CardDescription>
             {!phone
-              ? "Cargá el WhatsApp del huésped para ver mensajes asociados."
+              ? t("whatsapp.noPhone")
               : !conversation
-                ? "Sin mensajes con este número todavía."
-                : `${messages.length} mensaje${messages.length === 1 ? "" : "s"} con ${conversation.display_name ?? conversation.phone_number}.`}
+                ? t("whatsapp.noMessages")
+                : t("whatsapp.messageCount", {
+                    count: messages.length,
+                    name:
+                      conversation.display_name ?? conversation.phone_number,
+                  })}
           </CardDescription>
         </CardHeader>
         {conversation && messages.length > 0 && (
@@ -490,12 +506,12 @@ export default async function ReservationDetailPage({
             </ul>
             {messages.length > 20 && (
               <p className="mt-3 text-xs text-muted-foreground">
-                Mostrando últimos 20 de {messages.length}.{" "}
+                {t("whatsapp.showingLast", { total: messages.length })}{" "}
                 <Link
                   href={`/whatsapp/${conversation.id}`}
                   className="underline hover:text-foreground"
                 >
-                  Ver conversación completa
+                  {t("whatsapp.viewFullConversation")}
                 </Link>
               </p>
             )}
@@ -505,7 +521,7 @@ export default async function ReservationDetailPage({
                   href={`/whatsapp/${conversation.id}`}
                   className="text-muted-foreground underline hover:text-foreground"
                 >
-                  Ver en inbox
+                  {t("whatsapp.viewInInbox")}
                 </Link>
               </p>
             )}

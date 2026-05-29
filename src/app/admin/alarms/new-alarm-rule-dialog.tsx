@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ export function NewAlarmRuleDialog({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
+  const t = useTranslations("adminAlarmDialog");
   const [internalOpen, setInternalOpen] = useState(false);
   const open = openProp ?? internalOpen;
   const setOpen = onOpenChangeProp ?? setInternalOpen;
@@ -118,7 +120,7 @@ export function NewAlarmRuleDialog({
         toast.error(result.error);
         return;
       }
-      toast.success(initialRule ? "Regla actualizada." : "Regla creada.");
+      toast.success(initialRule ? t("toast.updated") : t("toast.created"));
       setOpen(false);
     });
   }
@@ -161,7 +163,7 @@ export function NewAlarmRuleDialog({
           {trigger ?? (
             <>
               <Plus className="mr-1 h-4 w-4" />
-              Nueva regla
+              {t("newRule")}
             </>
           )}
         </DialogTrigger>
@@ -170,29 +172,26 @@ export function NewAlarmRuleDialog({
         <form onSubmit={onSubmit}>
           <DialogHeader>
             <DialogTitle>
-              {initialRule ? "Editar regla" : "Nueva regla de alarma"}
+              {initialRule ? t("title.edit") : t("title.new")}
             </DialogTitle>
-            <DialogDescription>
-              Cuando un sensor reporta una lectura que cruza el umbral,
-              dispara una alarma y notifica por WhatsApp.
-            </DialogDescription>
+            <DialogDescription>{t("description")}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-2">
               <div className="grid gap-2">
-                <Label htmlFor="metric">Métrica</Label>
+                <Label htmlFor="metric">{t("fields.metric")}</Label>
                 <select
                   id="metric"
                   value={metric}
                   onChange={(e) => changeMetric(e.target.value as Metric)}
                   className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
                 >
-                  <option value="humidity_pct">Humedad (%)</option>
-                  <option value="temperature_c">Temperatura (°C)</option>
+                  <option value="humidity_pct">{t("metricOptions.humidity")}</option>
+                  <option value="temperature_c">{t("metricOptions.temperature")}</option>
                 </select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="operator">Condición</Label>
+                <Label htmlFor="operator">{t("fields.operator")}</Label>
                 <select
                   id="operator"
                   value={operator}
@@ -201,14 +200,14 @@ export function NewAlarmRuleDialog({
                   }
                   className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
                 >
-                  <option value="gt">Mayor que (&gt;)</option>
-                  <option value="lt">Menor que (&lt;)</option>
+                  <option value="gt">{t("operatorOptions.gt")}</option>
+                  <option value="lt">{t("operatorOptions.lt")}</option>
                 </select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="grid gap-2">
-                <Label htmlFor="threshold">Umbral</Label>
+                <Label htmlFor="threshold">{t("fields.threshold")}</Label>
                 <Input
                   id="threshold"
                   type="number"
@@ -219,7 +218,7 @@ export function NewAlarmRuleDialog({
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="debounce">Debounce (min)</Label>
+                <Label htmlFor="debounce">{t("fields.debounce")}</Label>
                 <Input
                   id="debounce"
                   type="number"
@@ -233,7 +232,7 @@ export function NewAlarmRuleDialog({
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="scope_type">Aplica a</Label>
+              <Label htmlFor="scope_type">{t("fields.scopeType")}</Label>
               <select
                 id="scope_type"
                 value={scopeType}
@@ -243,20 +242,20 @@ export function NewAlarmRuleDialog({
                 }}
                 className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
               >
-                <option value="global">Todos los sensores (global)</option>
-                <option value="property">Una propiedad</option>
-                <option value="room">Un ambiente</option>
-                <option value="device">Un sensor específico</option>
+                <option value="global">{t("scopeOptions.global")}</option>
+                <option value="property">{t("scopeOptions.property")}</option>
+                <option value="room">{t("scopeOptions.room")}</option>
+                <option value="device">{t("scopeOptions.device")}</option>
               </select>
             </div>
             {scopeType !== "global" && (
               <div className="grid gap-2">
                 <Label htmlFor="scope_id">
                   {scopeType === "property"
-                    ? "Propiedad"
+                    ? t("scopeLabels.property")
                     : scopeType === "room"
-                      ? "Ambiente"
-                      : "Sensor"}
+                      ? t("scopeLabels.room")
+                      : t("scopeLabels.device")}
                 </Label>
                 <select
                   id="scope_id"
@@ -265,7 +264,7 @@ export function NewAlarmRuleDialog({
                   required
                   className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
                 >
-                  <option value="">— Seleccionar —</option>
+                  <option value="">{t("selectPlaceholder")}</option>
                   {scopeOptions.map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
@@ -277,7 +276,11 @@ export function NewAlarmRuleDialog({
           </div>
           <DialogFooter>
             <Button type="submit" disabled={pending}>
-              {pending ? "Guardando…" : initialRule ? "Actualizar" : "Crear"}
+              {pending
+                ? t("submit.saving")
+                : initialRule
+                  ? t("submit.update")
+                  : t("submit.create")}
             </Button>
           </DialogFooter>
         </form>

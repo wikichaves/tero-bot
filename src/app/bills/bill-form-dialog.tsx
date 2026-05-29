@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +33,7 @@ export function BillFormDialog({
   properties: Pick<Property, "id" | "name" | "currency">[];
   trigger: React.ReactNode;
 }) {
+  const t = useTranslations("billsForm");
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [utility, setUtility] = useState<UtilityType>(
@@ -72,7 +74,7 @@ export function BillFormDialog({
         toast.error(result.error);
         return;
       }
-      toast.success(bill ? "Factura actualizada." : "Factura creada.");
+      toast.success(bill ? t("toast.updated") : t("toast.created"));
       setOpen(false);
     });
   }
@@ -88,19 +90,17 @@ export function BillFormDialog({
         <form onSubmit={onSubmit}>
           <DialogHeader>
             <DialogTitle>
-              {bill ? "Editar factura" : "Nueva factura"}
+              {bill ? t("title.edit") : t("title.create")}
             </DialogTitle>
             <DialogDescription>
-              {bill
-                ? "Modificá lo que el parser dejó incompleto."
-                : "Cargá una factura manualmente — por ejemplo si te llegó en papel."}
+              {bill ? t("description.edit") : t("description.create")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
-                <Label htmlFor="property_id">Propiedad</Label>
+                <Label htmlFor="property_id">{t("fields.property")}</Label>
                 <select
                   id="property_id"
                   name="property_id"
@@ -116,7 +116,7 @@ export function BillFormDialog({
                 </select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="utility_type">Tipo</Label>
+                <Label htmlFor="utility_type">{t("fields.utilityType")}</Label>
                 <select
                   id="utility_type"
                   name="utility_type"
@@ -126,28 +126,28 @@ export function BillFormDialog({
                   }
                   className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <option value="luz">Luz</option>
-                  <option value="agua">Agua</option>
-                  <option value="internet">Internet</option>
-                  <option value="alarma">Alarma</option>
-                  <option value="otro">Otro</option>
+                  <option value="luz">{t("utility.luz")}</option>
+                  <option value="agua">{t("utility.agua")}</option>
+                  <option value="internet">{t("utility.internet")}</option>
+                  <option value="alarma">{t("utility.alarma")}</option>
+                  <option value="otro">{t("utility.otro")}</option>
                 </select>
               </div>
             </div>
 
             <div className="grid grid-cols-[1fr_140px_100px] gap-3">
               <div className="grid gap-2">
-                <Label htmlFor="provider">Proveedor</Label>
+                <Label htmlFor="provider">{t("fields.provider")}</Label>
                 <Input
                   id="provider"
                   name="provider"
                   defaultValue={bill?.provider ?? ""}
-                  placeholder="ej. UTE, Edenor, Antel"
+                  placeholder={t("placeholders.provider")}
                   required
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="amount">Importe</Label>
+                <Label htmlFor="amount">{t("fields.amount")}</Label>
                 <Input
                   id="amount"
                   name="amount"
@@ -161,7 +161,7 @@ export function BillFormDialog({
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="currency">Moneda</Label>
+                <Label htmlFor="currency">{t("fields.currency")}</Label>
                 <Input
                   id="currency"
                   name="currency"
@@ -176,7 +176,7 @@ export function BillFormDialog({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
-                <Label htmlFor="period_from">Período desde</Label>
+                <Label htmlFor="period_from">{t("fields.periodFrom")}</Label>
                 <Input
                   id="period_from"
                   name="period_from"
@@ -185,7 +185,7 @@ export function BillFormDialog({
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="period_to">Período hasta</Label>
+                <Label htmlFor="period_to">{t("fields.periodTo")}</Label>
                 <Input
                   id="period_to"
                   name="period_to"
@@ -197,7 +197,7 @@ export function BillFormDialog({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
-                <Label htmlFor="issue_date">Fecha emisión</Label>
+                <Label htmlFor="issue_date">{t("fields.issueDate")}</Label>
                 <Input
                   id="issue_date"
                   name="issue_date"
@@ -206,7 +206,7 @@ export function BillFormDialog({
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="due_date">Vencimiento</Label>
+                <Label htmlFor="due_date">{t("fields.dueDate")}</Label>
                 <Input
                   id="due_date"
                   name="due_date"
@@ -218,21 +218,21 @@ export function BillFormDialog({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
-                <Label htmlFor="status">Estado</Label>
+                <Label htmlFor="status">{t("fields.status")}</Label>
                 <select
                   id="status"
                   name="status"
                   defaultValue={bill?.status ?? "pending"}
                   className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <option value="pending">Pendiente</option>
-                  <option value="paid">Pagada</option>
-                  <option value="overdue">Vencida</option>
-                  <option value="cancelled">Cancelada</option>
+                  <option value="pending">{t("status.pending")}</option>
+                  <option value="paid">{t("status.paid")}</option>
+                  <option value="overdue">{t("status.overdue")}</option>
+                  <option value="cancelled">{t("status.cancelled")}</option>
                 </select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="paid_at">Pagada el</Label>
+                <Label htmlFor="paid_at">{t("fields.paidAt")}</Label>
                 <Input
                   id="paid_at"
                   name="paid_at"
@@ -244,7 +244,7 @@ export function BillFormDialog({
 
             {utility === "luz" && (
               <div className="grid gap-2">
-                <Label htmlFor="kwh_billed">kWh facturados</Label>
+                <Label htmlFor="kwh_billed">{t("fields.kwhBilled")}</Label>
                 <Input
                   id="kwh_billed"
                   name="kwh_billed"
@@ -259,7 +259,7 @@ export function BillFormDialog({
             )}
             {utility === "agua" && (
               <div className="grid gap-2">
-                <Label htmlFor="m3_billed">m³ facturados</Label>
+                <Label htmlFor="m3_billed">{t("fields.m3Billed")}</Label>
                 <Input
                   id="m3_billed"
                   name="m3_billed"
@@ -275,7 +275,7 @@ export function BillFormDialog({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
-                <Label htmlFor="account_number">Nº de cuenta</Label>
+                <Label htmlFor="account_number">{t("fields.accountNumber")}</Label>
                 <Input
                   id="account_number"
                   name="account_number"
@@ -283,7 +283,7 @@ export function BillFormDialog({
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="invoice_number">Nº de factura</Label>
+                <Label htmlFor="invoice_number">{t("fields.invoiceNumber")}</Label>
                 <Input
                   id="invoice_number"
                   name="invoice_number"
@@ -293,13 +293,13 @@ export function BillFormDialog({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="notes">Notas</Label>
+              <Label htmlFor="notes">{t("fields.notes")}</Label>
               <textarea
                 id="notes"
                 name="notes"
                 rows={2}
                 defaultValue={bill?.notes ?? ""}
-                placeholder="Detalles internos sobre la factura"
+                placeholder={t("placeholders.notes")}
                 className="resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
@@ -307,7 +307,7 @@ export function BillFormDialog({
 
           <DialogFooter>
             <Button type="submit" disabled={pending}>
-              {pending ? "Guardando…" : "Guardar"}
+              {pending ? t("buttons.saving") : t("buttons.save")}
             </Button>
           </DialogFooter>
         </form>
