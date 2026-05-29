@@ -142,13 +142,53 @@ export default async function TasksPage({
     propsQuery = propsQuery.in("id", allowedIds);
   }
 
-  const [tasksRes, propertiesRes, assigneesRes] = await Promise.all([
+  // WIK-250: lista de "asignables" según rol — define a quién se le puede
+  // asignar una tarea desde el diálogo (y por quién se puede filtrar).
+  //   - admin: todos los perfiles.
+  //   - gestor (Manager): el Staff/Managers de SUS propiedades + uno mismo,
+  //     para poder crear y asignar tareas a su Staff.
+  //   - mantenimiento (Staff): solo uno mismo (auto-asignación).
+  // Va por admin client porque `profiles_self_read` (RLS) solo deja a un
+  // no-admin leer su propia fila.
+  async function loadAssignees() {
+    if (profile.role === "admin") {
+      const { data } = await adminDb
+        .from("profiles")
+        .select("id, full_name, email, role")
+        .order("full_name", { ascending: true });
+      return data ?? [];
+    }
+    if (profile.role === "gestor") {
+      const ids = new Set<string>([profile.id]);
+      if (allowedIds && allowedIds.length > 0) {
+        const { data: links } = await adminDb
+          .from("profile_properties")
+          .select("profile_id")
+          .in("property_id", allowedIds);
+        for (const l of links ?? []) ids.add(l.profile_id as string);
+      }
+      const { data } = await adminDb
+        .from("profiles")
+        .select("id, full_name, email, role")
+        .in("id", Array.from(ids))
+        .order("full_name", { ascending: true });
+      return data ?? [];
+    }
+    // Staff: solo uno mismo.
+    return [
+      {
+        id: profile.id,
+        full_name: profile.full_name,
+        email: profile.email,
+        role: profile.role,
+      },
+    ];
+  }
+
+  const [tasksRes, propertiesRes, assignees] = await Promise.all([
     query,
     propsQuery,
-    supabase
-      .from("profiles")
-      .select("id, full_name, email, role")
-      .order("full_name", { ascending: true }),
+    loadAssignees(),
   ]);
 
   const tasks = (tasksRes.data ?? []) as TaskWithJoins[];
@@ -156,7 +196,6 @@ export default async function TasksPage({
     Property,
     "id" | "name"
   >[];
-  const assignees = assigneesRes.data ?? [];
   const todayIso = new Date().toISOString().slice(0, 10);
 
   // Localized status label for the header pill (en/es).

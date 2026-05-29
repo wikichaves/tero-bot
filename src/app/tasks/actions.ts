@@ -88,6 +88,25 @@ export async function createTask(input: {
     return { error: "No tenés acceso a esa propiedad." };
   }
   const admin = createAdminClient();
+  // WIK-250: un no-admin solo puede asignar la tarea a sí mismo o a alguien
+  // que comparte una de sus propiedades (su Staff). Como el admin client
+  // bypassa RLS, validamos acá. Admin (allowedIds null) asigna sin límite.
+  if (
+    allowedIds !== null &&
+    parsed.data.assigned_to &&
+    parsed.data.assigned_to !== profile.id
+  ) {
+    const { data: link } = await admin
+      .from("profile_properties")
+      .select("profile_id")
+      .eq("profile_id", parsed.data.assigned_to)
+      .in("property_id", allowedIds)
+      .limit(1)
+      .maybeSingle();
+    if (!link) {
+      return { error: "No podés asignar la tarea a esa persona." };
+    }
+  }
   const { data: inserted, error } = await admin
     .from("tasks")
     .insert({
