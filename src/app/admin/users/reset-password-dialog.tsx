@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ export function ResetPasswordDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useTranslations("adminResetPassword");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -57,7 +59,7 @@ export function ResetPasswordDialog({
 
   function submit() {
     if (password.length < 8) {
-      toast.error("Mínimo 8 caracteres.");
+      toast.error(t("toast.minLength"));
       return;
     }
     startTransition(async () => {
@@ -66,7 +68,7 @@ export function ResetPasswordDialog({
         toast.error(r.error);
         return;
       }
-      toast.success("Password actualizado. Mandáselo al usuario.");
+      toast.success(t("toast.success"));
       setPassword("");
       setShowPassword(false);
       onOpenChange(false);
@@ -77,17 +79,18 @@ export function ResetPasswordDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Resetear password</DialogTitle>
+          <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>
-            Nuevo password para <strong>{userEmail}</strong>. Después de
-            guardar, copiáselo al user — no hay forma de recuperarlo
-            después.
+            {t.rich("description", {
+              email: userEmail,
+              strong: (chunks) => <strong>{chunks}</strong>,
+            })}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div>
             <Label htmlFor="new-password" className="text-sm">
-              Nuevo password
+              {t("fields.newPassword")}
             </Label>
             <div className="mt-1 flex items-center gap-2">
               <div className="relative flex-1">
@@ -96,7 +99,7 @@ export function ResetPasswordDialog({
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Mínimo 8 caracteres"
+                  placeholder={t("fields.placeholder")}
                   className="font-mono"
                   autoComplete="new-password"
                 />
@@ -104,7 +107,7 @@ export function ResetPasswordDialog({
                   type="button"
                   onClick={() => setShowPassword((s) => !s)}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  aria-label={showPassword ? "Ocultar" : "Mostrar"}
+                  aria-label={showPassword ? t("toggle.hide") : t("toggle.show")}
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -120,14 +123,13 @@ export function ResetPasswordDialog({
                 onClick={generateRandom}
                 disabled={pending}
               >
-                Generar
+                {t("generate")}
               </Button>
             </div>
           </div>
           {showPassword && password && (
             <p className="text-xs text-muted-foreground">
-              Tip: hacé click en el campo y copiá manualmente; algunos
-              browsers no permiten copiar password fields por seguridad.
+              {t("copyTip")}
             </p>
           )}
         </div>
@@ -137,13 +139,13 @@ export function ResetPasswordDialog({
             onClick={() => onOpenChange(false)}
             disabled={pending}
           >
-            Cancelar
+            {t("cancel")}
           </Button>
           <Button
             onClick={submit}
             disabled={pending || password.length < 8}
           >
-            {pending ? "Guardando…" : "Guardar password"}
+            {pending ? t("saving") : t("save")}
           </Button>
         </DialogFooter>
       </DialogContent>

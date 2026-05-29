@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,11 +24,12 @@ import {
 } from "./actions";
 
 export function NewPropertyDialog() {
+  const t = useTranslations("adminPropertyForm");
   const [open, setOpen] = useState(false);
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger render={<Button />}>Nueva propiedad</DialogTrigger>
+        <DialogTrigger render={<Button />}>{t("newProperty")}</DialogTrigger>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <PropertyForm onDone={() => setOpen(false)} />
         </DialogContent>
@@ -119,6 +121,7 @@ function PropertyForm({
   property?: Property;
   onDone: () => void;
 }) {
+  const t = useTranslations("adminPropertyForm");
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState(property?.name ?? "");
   const [airbnbUrl, setAirbnbUrl] = useState(property?.airbnb_ical_url ?? "");
@@ -176,7 +179,7 @@ function PropertyForm({
     e.preventDefault();
     const tariffNum = tariff.trim() ? Number(tariff) : null;
     if (tariff.trim() && (!Number.isFinite(tariffNum) || tariffNum! <= 0)) {
-      toast.error("La tarifa debe ser un número positivo.");
+      toast.error(t("toast.tariffPositive"));
       return;
     }
     startTransition(async () => {
@@ -193,11 +196,11 @@ function PropertyForm({
       const tMin = targetTempMin.trim() ? Number(targetTempMin) : null;
       const tMax = targetTempMax.trim() ? Number(targetTempMax) : null;
       if ((tMin == null) !== (tMax == null)) {
-        toast.error("Configurá ambos extremos del rango target, o ninguno.");
+        toast.error(t("toast.bothBoundsOrNone"));
         return;
       }
       if (tMin != null && tMax != null && tMin >= tMax) {
-        toast.error("La temperatura mínima debe ser menor que la máxima.");
+        toast.error(t("toast.minLessThanMax"));
         return;
       }
       const result = await upsertProperty({
@@ -215,7 +218,7 @@ function PropertyForm({
         heat_scene_id: heatSceneId.trim() || null,
       });
       if (result?.error || !result.ok) {
-        toast.error(result?.error ?? "No se pudo guardar.");
+        toast.error(result?.error ?? t("toast.saveFailed"));
         return;
       }
       // Upload thumbnail (best-effort) if one was picked. We do a DIRECT
@@ -226,25 +229,23 @@ function PropertyForm({
         // Client-side size guard so we fail fast with a clear toast, even
         // before involving Storage (which would also reject).
         if (thumbFile.size > 10 * 1024 * 1024) {
-          toast.warning(
-            "Propiedad guardada, pero la foto supera 10 MB.",
-          );
+          toast.warning(t("toast.photoTooLarge"));
           onDone();
           return;
         }
         if (!/^image\/(jpeg|png|webp)$/i.test(thumbFile.type)) {
-          toast.warning(
-            "Propiedad guardada, pero el formato de la foto no es JPG/PNG/WebP.",
-          );
+          toast.warning(t("toast.photoBadFormat"));
           onDone();
           return;
         }
         const ticket = await getThumbnailUploadTicket(result.id);
         if ("error" in ticket || !ticket.signedUrl) {
           toast.warning(
-            `Propiedad guardada, pero la foto falló: ${
-              "error" in ticket ? ticket.error : "URL inválida"
-            }`,
+            t("toast.photoFailed", {
+              reason:
+                ("error" in ticket ? ticket.error : undefined) ??
+                t("toast.invalidUrl"),
+            }),
           );
           onDone();
           return;
@@ -257,7 +258,10 @@ function PropertyForm({
         if (!putRes.ok) {
           const text = await putRes.text().catch(() => "");
           toast.warning(
-            `Propiedad guardada, pero la subida de la foto falló (HTTP ${putRes.status}). ${text.slice(0, 100)}`,
+            t("toast.photoUploadFailed", {
+              status: putRes.status,
+              detail: text.slice(0, 100),
+            }),
           );
           onDone();
           return;
@@ -265,7 +269,9 @@ function PropertyForm({
         await notifyPropertyThumbnailUploaded();
         setThumbVersion((v) => v + 1);
       }
-      toast.success(property ? "Propiedad actualizada." : "Propiedad creada.");
+      toast.success(
+        property ? t("toast.propertyUpdated") : t("toast.propertyCreated"),
+      );
       onDone();
     });
   }
@@ -274,12 +280,9 @@ function PropertyForm({
     <form onSubmit={onSubmit}>
       <DialogHeader>
         <DialogTitle>
-          {property ? "Editar propiedad" : "Nueva propiedad"}
+          {property ? t("editProperty") : t("newProperty")}
         </DialogTitle>
-        <DialogDescription>
-          La URL del iCal queda guardada en tu DB privada y se usa para
-          sincronizar reservas. No se expone a usuarios sin rol admin/gestor.
-        </DialogDescription>
+        <DialogDescription>{t("dialogDescription")}</DialogDescription>
       </DialogHeader>
       <div className="grid gap-4 py-4">
         <div className="flex items-center gap-3">
@@ -294,7 +297,7 @@ function PropertyForm({
             <div className="h-14 w-14 shrink-0 rounded-md bg-muted" />
           )}
           <div className="flex-1">
-            <Label htmlFor="thumb">Foto de portada</Label>
+            <Label htmlFor="thumb">{t("fields.coverPhoto")}</Label>
             <Input
               id="thumb"
               type="file"
@@ -305,13 +308,12 @@ function PropertyForm({
               className="mt-1 cursor-pointer"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              JPG, PNG o WebP. Hasta 10 MB. Se sube directo a Storage al
-              guardar.
+              {t("fields.coverPhotoHint")}
             </p>
           </div>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="name">Nombre</Label>
+          <Label htmlFor="name">{t("fields.name")}</Label>
           <Input
             id="name"
             value={name}
@@ -321,7 +323,7 @@ function PropertyForm({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="airbnb_ical_url">URL iCal Airbnb</Label>
+          <Label htmlFor="airbnb_ical_url">{t("fields.airbnbIcalUrl")}</Label>
           <Input
             id="airbnb_ical_url"
             type="url"
@@ -331,20 +333,21 @@ function PropertyForm({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="airbnb_listing_id">ID de listing en Airbnb</Label>
+          <Label htmlFor="airbnb_listing_id">
+            {t("fields.airbnbListingId")}
+          </Label>
           <Input
             id="airbnb_listing_id"
             value={airbnbListingId}
             onChange={(e) => setAirbnbListingId(e.target.value)}
-            placeholder="ej. 1526467"
+            placeholder={t("placeholders.airbnbListingId")}
             inputMode="numeric"
             pattern="\d*"
           />
           <p className="text-xs text-muted-foreground">
-            Número que aparece en la URL pública del listing
-            (<code>airbnb.com/rooms/<strong>1526467</strong></code>). Permite
-            matchear automáticamente las confirmaciones por email a esta
-            propiedad.
+            {t("fields.airbnbListingIdHintBefore")}{" "}
+            (<code>airbnb.com/rooms/<strong>1526467</strong></code>).{" "}
+            {t("fields.airbnbListingIdHintAfter")}
           </p>
         </div>
         {/* Booking iCal: oculto del UI por ahora (WIK-64) pero el campo
@@ -353,7 +356,7 @@ function PropertyForm({
             volvamos a usar Booking. */}
         <div className="grid grid-cols-2 gap-3">
           <div className="grid gap-2">
-            <Label htmlFor="country">País</Label>
+            <Label htmlFor="country">{t("fields.country")}</Label>
             <select
               id="country"
               value={country}
@@ -369,7 +372,7 @@ function PropertyForm({
             </select>
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="tariff_per_kwh">Tarifa por kWh (opcional)</Label>
+            <Label htmlFor="tariff_per_kwh">{t("fields.tariffPerKwh")}</Label>
             <Input
               id="tariff_per_kwh"
               type="number"
@@ -377,10 +380,10 @@ function PropertyForm({
               min="0"
               value={tariff}
               onChange={(e) => setTariff(e.target.value)}
-              placeholder="ej. 8 (UTE UY), 204 (Edenor AR con impuestos)"
+              placeholder={t("placeholders.tariffPerKwh")}
             />
             <p className="text-xs text-muted-foreground">
-              Si lo dejás vacío, /energy usa el fallback global.
+              {t("fields.tariffPerKwhHint")}
             </p>
           </div>
         </div>
@@ -388,12 +391,10 @@ function PropertyForm({
         <div className="grid gap-3 rounded-md border border-input bg-muted/30 p-3">
           <div>
             <Label className="text-sm font-medium">
-              Acondicionamiento pre check-in (WIK-125)
+              {t("climate.title")}
             </Label>
             <p className="mt-1 text-xs text-muted-foreground">
-              El cron va a alertar al gestor 2h antes del check-in si la
-              temperatura está fuera del rango. Vacíos = no auto-acondiciona
-              esta propiedad. Los IDs de scene se sacan de{" "}
+              {t("climate.description")}{" "}
               <a
                 href="/admin/tuya/scenes"
                 className="underline"
@@ -411,7 +412,7 @@ function PropertyForm({
                 htmlFor="target_temp_min_c"
                 className="text-xs font-normal text-muted-foreground"
               >
-                Temp ideal mínima (°C)
+                {t("climate.tempMin")}
               </Label>
               <Input
                 id="target_temp_min_c"
@@ -429,7 +430,7 @@ function PropertyForm({
                 htmlFor="target_temp_max_c"
                 className="text-xs font-normal text-muted-foreground"
               >
-                Temp ideal máxima (°C)
+                {t("climate.tempMax")}
               </Label>
               <Input
                 id="target_temp_max_c"
@@ -449,13 +450,13 @@ function PropertyForm({
                 htmlFor="heat_scene_id"
                 className="text-xs font-normal text-muted-foreground"
               >
-                Scene Tuya para calefacción
+                {t("climate.heatScene")}
               </Label>
               <Input
                 id="heat_scene_id"
                 value={heatSceneId}
                 onChange={(e) => setHeatSceneId(e.target.value)}
-                placeholder="ej. scene-id-tuya"
+                placeholder={t("placeholders.sceneId")}
                 className="font-mono text-xs"
               />
             </div>
@@ -464,24 +465,22 @@ function PropertyForm({
                 htmlFor="cool_scene_id"
                 className="text-xs font-normal text-muted-foreground"
               >
-                Scene Tuya para aire
+                {t("climate.coolScene")}
               </Label>
               <Input
                 id="cool_scene_id"
                 value={coolSceneId}
                 onChange={(e) => setCoolSceneId(e.target.value)}
-                placeholder="ej. scene-id-tuya"
+                placeholder={t("placeholders.sceneId")}
                 className="font-mono text-xs"
               />
             </div>
           </div>
         </div>
         <div className="grid gap-2">
-          <Label>Números de cuenta por proveedor</Label>
+          <Label>{t("providers.title")}</Label>
           <p className="text-xs text-muted-foreground">
-            Necesario cuando hay más de una propiedad con la misma moneda. La
-            factura inbound se asigna a esta propiedad cuando el PDF dice esta
-            cuenta. Dejá vacío lo que no aplique.
+            {t("providers.description")}
           </p>
           <div className="grid grid-cols-2 gap-3">
             {visibleProviders.map((p) => (
@@ -511,7 +510,7 @@ function PropertyForm({
       </div>
       <DialogFooter>
         <Button type="submit" disabled={pending}>
-          {pending ? "Guardando…" : "Guardar"}
+          {pending ? t("saving") : t("save")}
         </Button>
       </DialogFooter>
     </form>

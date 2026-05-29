@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, Play } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import {
   Card,
   CardContent,
@@ -29,6 +30,8 @@ type SceneWithHomeName = TapToRunScene & { home_name: string };
 export default async function ScenesPage() {
   await requireRole(["admin"]);
 
+  const t = await getTranslations("adminTuyaScenes");
+
   const grouped = await listDevicesGroupedByHome().catch((err: Error) => ({
     error: err.message,
   }));
@@ -39,7 +42,7 @@ export default async function ScenesPage() {
         <Header />
         <Card>
           <CardContent className="pt-6 text-sm text-destructive">
-            No se pudo hablar con Tuya: {grouped.error}
+            {t("tuyaError", { error: grouped.error })}
           </CardContent>
         </Card>
       </div>
@@ -81,22 +84,21 @@ export default async function ScenesPage() {
       <Header />
       <div>
         <p className="text-sm text-muted-foreground">
-          {totalScenes} Tap-to-Run{" "}
-          {totalScenes === 1 ? "configurado" : "configurados"} en{" "}
-          {grouped.homes.length}{" "}
-          {grouped.homes.length === 1 ? "home" : "homes"}.
+          {t("summary", {
+            count: totalScenes,
+            homes: grouped.homes.length,
+          })}
         </p>
       </div>
 
       {scenesByHome.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-sm text-muted-foreground">
-            No hay homes linkeados al Cloud Project todavía. Configurá
-            la cuenta de Smart Life en{" "}
+            {t("noHomes.before")}{" "}
             <Link href="/admin/tuya" className="underline">
               /admin/tuya
             </Link>
-            .
+            {t("noHomes.after")}
           </CardContent>
         </Card>
       )}
@@ -107,14 +109,13 @@ export default async function ScenesPage() {
           {home.error ? (
             <Card className="border-destructive/30">
               <CardContent className="pt-6 text-sm text-destructive">
-                Error al listar scenes: {home.error}
+                {t("listError", { error: home.error })}
               </CardContent>
             </Card>
           ) : home.scenes.length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-sm text-muted-foreground">
-                Este home no tiene Tap-to-Run configurados. Creálos en
-                la app Smart Life — acá aparecen una vez sincronizados.
+                {t("emptyHome")}
               </CardContent>
             </Card>
           ) : (
@@ -131,7 +132,7 @@ export default async function ScenesPage() {
                           variant="secondary"
                           className="text-[10px] font-normal"
                         >
-                          deshabilitado
+                          {t("disabled")}
                         </Badge>
                       )}
                     </CardTitle>
@@ -154,24 +155,13 @@ export default async function ScenesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Sobre los Tap-to-Run</CardTitle>
+          <CardTitle className="text-base">{t("about.title")}</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>
-            Los Tap-to-Run scenes se configuran en la app Smart Life
-            (Tuya): definís una serie de acciones agrupadas — ej.
-            &quot;encender luces de afuera + abrir cerradura&quot; — y
-            las ejecutás con un tap.
-          </p>
-          <p>
-            Acá podés disparar el mismo scene desde el admin. Útil
-            para probar sin tener que abrir la app, o para integrarlos
-            a flows futuros (ej. trigger automático al check-in).
-          </p>
+          <p>{t("about.p1")}</p>
+          <p>{t("about.p2")}</p>
           <p className="flex items-center gap-1.5">
-            <Play className="h-3.5 w-3.5" /> Ejecuta el scene
-            inmediatamente · el cloud devuelve OK sin esperar el
-            resultado físico de los devices.
+            <Play className="h-3.5 w-3.5" /> {t("about.p3")}
           </p>
         </CardContent>
       </Card>
@@ -179,7 +169,8 @@ export default async function ScenesPage() {
   );
 }
 
-function Header() {
+async function Header() {
+  const t = await getTranslations("adminTuyaScenes");
   return (
     <div>
       <Link
@@ -187,7 +178,7 @@ function Header() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        Volver
+        {t("back")}
       </Link>
       <h1 className="mt-2 text-4xl">Tap-to-Run</h1>
     </div>

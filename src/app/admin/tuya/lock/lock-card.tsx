@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -68,6 +69,7 @@ export function LockCard({
   isPrimary: boolean;
   initialPasswords: LockPassword[];
 }) {
+  const t = useTranslations("adminTuyaLockCard");
   const [pending, startTransition] = useTransition();
   const [codes, setCodes] = useState<CodeRow[]>(
     initialPasswords.map(fromDbRow),
@@ -101,7 +103,7 @@ export function LockCard({
       }
       if ("created" in result && result.created) {
         const c = result.created;
-        toast.success(`Código generado: ${c.password}`);
+        toast.success(t("toast.generated", { password: c.password }));
         setCodes((curr) => [
           {
             id: c.id,
@@ -117,7 +119,7 @@ export function LockCard({
   }
 
   function onRevoke(passwordId: string) {
-    if (!confirm("¿Revocar este código?")) return;
+    if (!confirm(t("confirm.revoke"))) return;
     startTransition(async () => {
       const result = await revokeLockPassword({
         device_id: deviceId,
@@ -127,17 +129,13 @@ export function LockCard({
         toast.error(result.error);
         return;
       }
-      toast.success("Código revocado.");
+      toast.success(t("toast.revoked"));
       setCodes((curr) => curr.filter((c) => c.id !== passwordId));
     });
   }
 
   function onClearAll() {
-    if (
-      !confirm(
-        `¿Borrar TODOS los códigos temporales de "${deviceName}"? Esto incluye códigos creados desde la app Smart Life o desde sesiones anteriores. No se puede deshacer.`,
-      )
-    ) {
+    if (!confirm(t("confirm.clearAll", { deviceName }))) {
       return;
     }
     startTransition(async () => {
@@ -146,7 +144,7 @@ export function LockCard({
         toast.error(result.error);
         return;
       }
-      toast.success("Todos los códigos fueron borrados.");
+      toast.success(t("toast.clearedAll"));
       setCodes([]);
     });
   }
@@ -159,15 +157,15 @@ export function LockCard({
             <CardTitle className="flex items-center gap-2">
               {deviceName}
               <Badge variant={online ? "default" : "secondary"}>
-                {online ? "online" : "offline"}
+                {online ? t("badge.online") : t("badge.offline")}
               </Badge>
-              {isPrimary && <Badge>primaria</Badge>}
+              {isPrimary && <Badge>{t("badge.primary")}</Badge>}
             </CardTitle>
             <CardDescription>
               {propertyName ? (
-                <>Propiedad: <strong>{propertyName}</strong></>
+                <>{t("property.label")} <strong>{propertyName}</strong></>
               ) : (
-                <>Sin propiedad asignada — asignala desde <em>/admin/tuya</em></>
+                <>{t("property.unassigned")} <em>/admin/tuya</em></>
               )}{" "}
               ·{" "}
               <span className="font-mono text-xs">{deviceId}</span>
@@ -180,7 +178,7 @@ export function LockCard({
         <form onSubmit={onGenerate} className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="grid gap-1.5">
-              <Label htmlFor={`name-${deviceId}`}>Nombre</Label>
+              <Label htmlFor={`name-${deviceId}`}>{t("form.name")}</Label>
               <Input
                 id={`name-${deviceId}`}
                 name="name"
@@ -190,7 +188,7 @@ export function LockCard({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor={`from-${deviceId}`}>Desde</Label>
+              <Label htmlFor={`from-${deviceId}`}>{t("form.from")}</Label>
               <Input
                 id={`from-${deviceId}`}
                 name="effective_at"
@@ -201,7 +199,7 @@ export function LockCard({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor={`to-${deviceId}`}>Hasta</Label>
+              <Label htmlFor={`to-${deviceId}`}>{t("form.to")}</Label>
               <Input
                 id={`to-${deviceId}`}
                 name="invalid_at"
@@ -213,12 +211,11 @@ export function LockCard({
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            Tuya solo acepta horarios redondeados a la hora completa
-            (minuto = 0). Si elegís 12:30, se redondea a 12:00.
+            {t("form.hourHint")}
           </p>
           <div className="flex flex-wrap gap-2">
             <Button type="submit" disabled={pending}>
-              {pending ? "Generando…" : "Generar código"}
+              {pending ? t("actions.generating") : t("actions.generate")}
             </Button>
             <Button
               type="button"
@@ -227,17 +224,17 @@ export function LockCard({
               disabled={pending}
               className="text-destructive hover:text-destructive"
             >
-              Borrar todos los códigos del lock
+              {t("actions.clearAll")}
             </Button>
           </div>
         </form>
 
         {/* Codes generated this session */}
         <div>
-          <h4 className="mb-2 text-sm font-medium">Códigos activos</h4>
+          <h4 className="mb-2 text-sm font-medium">{t("codes.title")}</h4>
           {codes.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Sin códigos activos. Generá uno con el form de arriba.
+              {t("codes.empty")}
             </p>
           ) : (
             <ul className="divide-y rounded-md border">
@@ -272,7 +269,7 @@ export function LockCard({
                     disabled={pending}
                     className="text-destructive hover:text-destructive"
                   >
-                    Revocar
+                    {t("actions.revoke")}
                   </Button>
                 </li>
               ))}

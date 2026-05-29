@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { CheckCircle2, RefreshCw, Send, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ const STATUS_VARIANT: Record<StatusEntry["status"], "default" | "secondary" | "d
 };
 
 export function SubmitTemplatesButton() {
+  const t = useTranslations("adminWhatsappSubmit");
   const [pending, startTransition] = useTransition();
   const [statusPending, startStatus] = useTransition();
   const [submitResults, setSubmitResults] = useState<SubmitResult[] | null>(
@@ -94,7 +96,11 @@ export function SubmitTemplatesButton() {
         }
         setSubmitResults(json.results ?? []);
         toast.success(
-          `${json.submitted} submitted, ${json.failed} failed (de ${json.total}).`,
+          t("toast.submitSummary", {
+            submitted: json.submitted,
+            failed: json.failed,
+            total: json.total,
+          }),
         );
         // Re-pull status para que se actualice.
         refreshStatus();
@@ -116,17 +122,17 @@ export function SubmitTemplatesButton() {
           <RefreshCw
             className={`mr-1 h-4 w-4 ${statusPending ? "animate-spin" : ""}`}
           />
-          {statusPending ? "Cargando…" : "Refresh status"}
+          {statusPending ? t("buttons.refreshing") : t("buttons.refreshStatus")}
         </Button>
         <Button onClick={onSubmit} disabled={pending} size="sm">
           <Send className="mr-1 h-4 w-4" />
-          {pending ? "Enviando…" : "Submit a Meta"}
+          {pending ? t("buttons.submitting") : t("buttons.submitToMeta")}
         </Button>
       </div>
 
       {status && status.length > 0 && (
         <div className="w-full rounded-md border bg-card p-3 text-xs">
-          <p className="mb-2 font-medium">Status en Meta</p>
+          <p className="mb-2 font-medium">{t("headings.metaStatus")}</p>
           <ul className="flex flex-col gap-1.5">
             {status.map((r) => (
               <li key={r.name} className="flex flex-col gap-0.5">
@@ -159,7 +165,7 @@ export function SubmitTemplatesButton() {
 
       {submitResults && submitResults.length > 0 && (
         <div className="w-full rounded-md border bg-card p-3 text-xs">
-          <p className="mb-2 font-medium">Último submit</p>
+          <p className="mb-2 font-medium">{t("headings.lastSubmit")}</p>
           <ul className="flex flex-col gap-1.5">
             {submitResults.map((r) => (
               <li key={r.name} className="flex flex-col gap-0.5">
@@ -167,14 +173,14 @@ export function SubmitTemplatesButton() {
                   <span className="font-mono">{r.name}</span>
                   {r.ok ? (
                     <Badge variant="default" className="text-[10px]">
-                      {r.status ?? "submitted"}
+                      {r.status ?? t("badges.submitted")}
                       {r.template_id
                         ? ` · ${r.template_id.slice(0, 8)}`
                         : ""}
                     </Badge>
                   ) : (
                     <Badge variant="destructive" className="text-[10px]">
-                      FAILED
+                      {t("badges.failed")}
                     </Badge>
                   )}
                 </div>

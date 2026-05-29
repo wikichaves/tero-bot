@@ -1,4 +1,5 @@
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { requireRole } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import { createClient } from "@/lib/supabase/server";
@@ -68,6 +69,7 @@ type AlarmEventWithRel = {
 };
 
 export default async function AlarmasPage() {
+  const t = await getTranslations("adminAlarmsPage");
   const profile = await requireRole(["admin", "gestor"]);
   // WIK-94: gestor solo ve reglas y eventos de SUS properties.
   // Para alarm_rules, se filtra por property_id (las reglas con scope
@@ -143,10 +145,9 @@ export default async function AlarmasPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-4xl">Alarmas</h1>
+          <h1 className="text-4xl">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">
-            Reglas configurables para temperatura y humedad. Notifican
-            por WhatsApp al admin/gestor cuando se disparan.
+            {t("subtitle")}
           </p>
         </div>
         <NewAlarmRuleDialog
@@ -161,12 +162,10 @@ export default async function AlarmasPage() {
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base text-destructive">
               <AlertTriangle className="h-4 w-4" />
-              {activeEvents.length} alarma{activeEvents.length === 1 ? "" : "s"} activa
-              {activeEvents.length === 1 ? "" : "s"}
+              {t("active.title", { count: activeEvents.length })}
             </CardTitle>
             <CardDescription>
-              Eventos sin resolver. La métrica todavía está fuera de rango,
-              o la alarma quedó abierta y nadie la resolvió manualmente.
+              {t("active.description")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -184,20 +183,19 @@ export default async function AlarmasPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Reglas</CardTitle>
+          <CardTitle className="text-base">{t("rules.title")}</CardTitle>
           <CardDescription>
-            {rules.length} regla{rules.length === 1 ? "" : "s"} configurada
-            {rules.length === 1 ? "" : "s"}.{" "}
+            {t("rules.count", { count: rules.length })}{" "}
             {rules.filter((r) => !r.enabled).length > 0 &&
-              `${rules.filter((r) => !r.enabled).length} deshabilitada${
-                rules.filter((r) => !r.enabled).length === 1 ? "" : "s"
-              }.`}
+              t("rules.disabledCount", {
+                count: rules.filter((r) => !r.enabled).length,
+              })}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {rules.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              No hay reglas configuradas. Apretá &ldquo;Nueva regla&rdquo; para empezar.
+              {t("rules.empty")}
             </p>
           ) : (
             <div className="space-y-2">
@@ -222,10 +220,10 @@ export default async function AlarmasPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-              Resueltas recientemente
+              {t("resolved.title")}
             </CardTitle>
             <CardDescription>
-              Últimas {recentResolved.length} alarmas que volvieron a rango.
+              {t("resolved.description", { count: recentResolved.length })}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">

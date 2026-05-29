@@ -1,4 +1,5 @@
 import { requireRole } from "@/lib/auth";
+import { getTranslations } from "next-intl/server";
 import {
   Card,
   CardContent,
@@ -36,15 +37,15 @@ const CATEGORY_VARIANT: Record<
 
 export default async function WhatsAppAdminPage() {
   await requireRole(["admin"]);
+  const tr = await getTranslations("adminWhatsappPage");
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-4xl">WhatsApp Templates</h1>
+          <h1 className="text-4xl">{tr("title")}</h1>
           <p className="text-sm text-muted-foreground">
-            {allTemplates.length} templates registradas. Submit a Kapso/Meta
-            para aprobación — toma 1-2 días por template.
+            {tr("subtitle", { count: allTemplates.length })}
           </p>
         </div>
         <SubmitTemplatesButton />
@@ -86,9 +87,9 @@ export default async function WhatsAppAdminPage() {
                       key={idx}
                       className="rounded border bg-muted/40 p-2 text-xs italic text-muted-foreground"
                     >
-                      Body provisto por Meta (AUTHENTICATION)
+                      {tr("bodyProvidedByMeta")}
                       {c.add_security_recommendation
-                        ? " · con security recommendation"
+                        ? tr("withSecurityRecommendation")
                         : ""}
                     </p>
                   );
@@ -100,7 +101,7 @@ export default async function WhatsAppAdminPage() {
                         key={idx}
                         className="mt-2 text-xs italic text-muted-foreground"
                       >
-                        Footer: {c.text}
+                        {tr("footerWithText", { text: c.text })}
                       </p>
                     );
                   }
@@ -109,7 +110,9 @@ export default async function WhatsAppAdminPage() {
                       key={idx}
                       className="mt-2 text-xs italic text-muted-foreground"
                     >
-                      Footer: código expira en {c.code_expiration_minutes} min
+                      {tr("footerCodeExpires", {
+                        minutes: c.code_expiration_minutes,
+                      })}
                     </p>
                   );
                 }
@@ -119,7 +122,7 @@ export default async function WhatsAppAdminPage() {
                       key={idx}
                       className="mt-2 text-xs italic text-muted-foreground"
                     >
-                      Botones:{" "}
+                      {tr("buttons")}{" "}
                       {c.buttons
                         .map((b) =>
                           "text" in b ? b.text : "?",
@@ -137,18 +140,20 @@ export default async function WhatsAppAdminPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Notas</CardTitle>
+          <CardTitle className="text-base">{tr("notesTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>
-            Las templates se referencian por <code>name</code> al enviarlas
-            con <code>sendKapsoTemplate(name, language, variables)</code>. Las
-            variables <code>{"{{N}}"}</code> en el body se llenan al enviar.
+            {tr.rich("notesReference", {
+              name: () => <code>name</code>,
+              fn: () => <code>sendKapsoTemplate(name, language, variables)</code>,
+              vars: () => <code>{"{{N}}"}</code>,
+            })}
           </p>
           <p>
-            Meta rechaza submits duplicados con el mismo <code>name</code>.
-            Si ya fue submitted, el botón de abajo te muestra el error y
-            podés ignorar — la template sigue en revisión / aprobada.
+            {tr.rich("notesDuplicate", {
+              name: () => <code>name</code>,
+            })}
           </p>
         </CardContent>
       </Card>

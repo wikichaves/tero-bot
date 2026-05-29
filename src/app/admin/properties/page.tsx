@@ -1,5 +1,6 @@
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
+import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,6 +21,7 @@ import type { Property } from "@/lib/types";
 
 export default async function PropertiesPage() {
   await requireRole(["admin"]);
+  const t = await getTranslations("adminPropertiesPage");
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("properties")
@@ -32,10 +34,9 @@ export default async function PropertiesPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-4xl">Propiedades</h1>
+          <h1 className="text-4xl">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">
-            {properties.length} propiedad
-            {properties.length === 1 ? "" : "es"} en el sistema.
+            {t("countInSystem", { count: properties.length })}
           </p>
         </div>
         <NewPropertyDialog />
@@ -54,10 +55,10 @@ export default async function PropertiesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-20">Orden</TableHead>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Airbnb iCal</TableHead>
-                <TableHead>Creada</TableHead>
+                <TableHead className="w-20">{t("table.order")}</TableHead>
+                <TableHead>{t("table.name")}</TableHead>
+                <TableHead>{t("table.airbnbIcal")}</TableHead>
+                <TableHead>{t("table.created")}</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -68,8 +69,9 @@ export default async function PropertiesPage() {
                     colSpan={5}
                     className="text-center text-muted-foreground"
                   >
-                    Sin propiedades. Creá la primera con el botón{" "}
-                    <em>Nueva propiedad</em>.
+                    {t.rich("emptyState", {
+                      em: (chunks) => <em>{chunks}</em>,
+                    })}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -95,7 +97,7 @@ export default async function PropertiesPage() {
                     </TableCell>
                     <TableCell>
                       {p.airbnb_ical_url ? (
-                        <Badge variant="default">configurada</Badge>
+                        <Badge variant="default">{t("badge.configured")}</Badge>
                       ) : (
                         <Badge variant="secondary">—</Badge>
                       )}

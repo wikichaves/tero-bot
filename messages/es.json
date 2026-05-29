@@ -546,5 +546,631 @@
       },
       "viewAt": "_Verla en: {url}_"
     }
+  },
+  "adminPropertiesPage": {
+    "title": "Propiedades",
+    "countInSystem": "{count, plural, one {# propiedad en el sistema.} other {# propiedades en el sistema.}}",
+    "emptyState": "Sin propiedades. Creá la primera con el botón <em>Nueva propiedad</em>.",
+    "table": {
+      "order": "Orden",
+      "name": "Nombre",
+      "airbnbIcal": "Airbnb iCal",
+      "created": "Creada"
+    },
+    "badge": {
+      "configured": "configurada"
+    }
+  },
+  "adminPropertyForm": {
+    "newProperty": "Nueva propiedad",
+    "editProperty": "Editar propiedad",
+    "dialogDescription": "La URL del iCal queda guardada en tu DB privada y se usa para sincronizar reservas. No se expone a usuarios sin rol admin/gestor.",
+    "save": "Guardar",
+    "saving": "Guardando…",
+    "fields": {
+      "coverPhoto": "Foto de portada",
+      "coverPhotoHint": "JPG, PNG o WebP. Hasta 10 MB. Se sube directo a Storage al guardar.",
+      "name": "Nombre",
+      "airbnbIcalUrl": "URL iCal Airbnb",
+      "airbnbListingId": "ID de listing en Airbnb",
+      "airbnbListingIdHintBefore": "Número que aparece en la URL pública del listing",
+      "airbnbListingIdHintAfter": "Permite matchear automáticamente las confirmaciones por email a esta propiedad.",
+      "country": "País",
+      "tariffPerKwh": "Tarifa por kWh (opcional)",
+      "tariffPerKwhHint": "Si lo dejás vacío, /energy usa el fallback global."
+    },
+    "placeholders": {
+      "airbnbListingId": "ej. 1526467",
+      "tariffPerKwh": "ej. 8 (UTE UY), 204 (Edenor AR con impuestos)",
+      "sceneId": "ej. scene-id-tuya"
+    },
+    "climate": {
+      "title": "Acondicionamiento pre check-in (WIK-125)",
+      "description": "El cron va a alertar al gestor 2h antes del check-in si la temperatura está fuera del rango. Vacíos = no auto-acondiciona esta propiedad. Los IDs de scene se sacan de",
+      "tempMin": "Temp ideal mínima (°C)",
+      "tempMax": "Temp ideal máxima (°C)",
+      "heatScene": "Scene Tuya para calefacción",
+      "coolScene": "Scene Tuya para aire"
+    },
+    "providers": {
+      "title": "Números de cuenta por proveedor",
+      "description": "Necesario cuando hay más de una propiedad con la misma moneda. La factura inbound se asigna a esta propiedad cuando el PDF dice esta cuenta. Dejá vacío lo que no aplique."
+    },
+    "toast": {
+      "tariffPositive": "La tarifa debe ser un número positivo.",
+      "bothBoundsOrNone": "Configurá ambos extremos del rango target, o ninguno.",
+      "minLessThanMax": "La temperatura mínima debe ser menor que la máxima.",
+      "saveFailed": "No se pudo guardar.",
+      "photoTooLarge": "Propiedad guardada, pero la foto supera 10 MB.",
+      "photoBadFormat": "Propiedad guardada, pero el formato de la foto no es JPG/PNG/WebP.",
+      "invalidUrl": "URL inválida",
+      "photoFailed": "Propiedad guardada, pero la foto falló: {reason}",
+      "photoUploadFailed": "Propiedad guardada, pero la subida de la foto falló (HTTP {status}). {detail}",
+      "propertyCreated": "Propiedad creada.",
+      "propertyUpdated": "Propiedad actualizada."
+    }
+  },
+  "adminPropertyActions": {
+    "menu": {
+      "edit": "Editar",
+      "syncAirbnb": "Sincronizar Airbnb",
+      "delete": "Eliminar"
+    },
+    "confirm": {
+      "delete": "¿Eliminar la propiedad \"{name}\"? No se puede deshacer."
+    },
+    "toast": {
+      "noAirbnbUrl": "No hay URL de Airbnb configurada.",
+      "reservations": "{count, plural, one {# reserva} other {# reservas}}",
+      "blocks": "{count, plural, one {# bloqueo} other {# bloqueos}}",
+      "codesGenerated": "{count, plural, one {# código generado} other {# códigos generados}}",
+      "cleaningTasks": "{count, plural, one {# limpieza agendada} other {# limpiezas agendadas}}",
+      "synced": "Sincronizado: {summary}.",
+      "syncedWithErrors": "{summary} ({errors, plural, one {# error} other {# errores}})",
+      "deleted": "Propiedad eliminada."
+    }
+  },
+  "adminAlarmsPage": {
+    "title": "Alarmas",
+    "subtitle": "Reglas configurables para temperatura y humedad. Notifican por WhatsApp al admin/gestor cuando se disparan.",
+    "active": {
+      "title": "{count, plural, one {# alarma activa} other {# alarmas activas}}",
+      "description": "Eventos sin resolver. La métrica todavía está fuera de rango, o la alarma quedó abierta y nadie la resolvió manualmente."
+    },
+    "rules": {
+      "title": "Reglas",
+      "count": "{count, plural, one {# regla configurada} other {# reglas configuradas}}.",
+      "disabledCount": "{count, plural, one {# deshabilitada} other {# deshabilitadas}}.",
+      "empty": "No hay reglas configuradas. Apretá “Nueva regla” para empezar."
+    },
+    "resolved": {
+      "title": "Resueltas recientemente",
+      "description": "Últimas {count} alarmas que volvieron a rango."
+    }
+  },
+  "adminAlarmDialog": {
+    "newRule": "Nueva regla",
+    "title": {
+      "new": "Nueva regla de alarma",
+      "edit": "Editar regla"
+    },
+    "description": "Cuando un sensor reporta una lectura que cruza el umbral, dispara una alarma y notifica por WhatsApp.",
+    "fields": {
+      "metric": "Métrica",
+      "operator": "Condición",
+      "threshold": "Umbral",
+      "debounce": "Debounce (min)",
+      "scopeType": "Aplica a"
+    },
+    "metricOptions": {
+      "humidity": "Humedad (%)",
+      "temperature": "Temperatura (°C)"
+    },
+    "operatorOptions": {
+      "gt": "Mayor que (>)",
+      "lt": "Menor que (<)"
+    },
+    "scopeOptions": {
+      "global": "Todos los sensores (global)",
+      "property": "Una propiedad",
+      "room": "Un ambiente",
+      "device": "Un sensor específico"
+    },
+    "scopeLabels": {
+      "property": "Propiedad",
+      "room": "Ambiente",
+      "device": "Sensor"
+    },
+    "selectPlaceholder": "— Seleccionar —",
+    "submit": {
+      "saving": "Guardando…",
+      "update": "Actualizar",
+      "create": "Crear"
+    },
+    "toast": {
+      "created": "Regla creada.",
+      "updated": "Regla actualizada."
+    }
+  },
+  "adminTuyaPage": {
+    "subtitle": "Integración con Smart Life / Tuya Open API.",
+    "tapToRun": "Tap-to-Run",
+    "diagnostics": "Diagnóstico",
+    "noHomes": "No se encontraron homes. Si tu Smart Life tiene devices, asegurate que estén en una home (no en “Sin Hogar”). Después linkeá la cuenta de nuevo en el Cloud Project si hace falta.",
+    "deletedProperty": "(propiedad eliminada)",
+    "noRoomSuffix": "· sin ambiente",
+    "primarySuffix": " · primaria",
+    "connectionError": {
+      "title": "Error de conexión",
+      "description": "No se pudo hablar con el cloud de Tuya.",
+      "envHintBefore": "Verificá que",
+      "envHintAnd": "y",
+      "envHintAfter": "estén en",
+      "envHintVercel": "(y en Vercel).",
+      "apisHint": "Confirmá que el Cloud Project tenga las APIs requeridas autorizadas:",
+      "linkHintBefore": "Asegurate de haber linkeado tu cuenta de Smart Life en"
+    },
+    "linkedAccount": {
+      "title": "Cuenta linkeada",
+      "description": "Cuenta de la app Smart Life autorizada al Cloud Project.",
+      "username": "Username",
+      "uid": "UID",
+      "linkedAt": "Linkeado",
+      "homes": "Homes",
+      "homesSummary": "{homes, plural, one {# home} other {# homes}} con {devices, plural, one {# device} other {# devices}} en total",
+      "notFound": "No se encontró ninguna cuenta linkeada vía los endpoints automáticos de Tuya.",
+      "workaroundLabel": "Workaround:",
+      "workaroundBefore": "agregá tu UID a las env vars como"
+    },
+    "homeCard": {
+      "title": "Home: {name}",
+      "deviceCount": "{count, plural, one {# device} other {# devices}}.",
+      "assignedTo": "Asignados a:",
+      "unassignedCount": "{count} sin asignar.",
+      "noDevices": "Sin devices."
+    },
+    "table": {
+      "name": "Nombre",
+      "category": "Categoría",
+      "status": "Estado",
+      "room": "Ambiente"
+    },
+    "status": {
+      "online": "online",
+      "offline": "offline"
+    },
+    "deviceKind": {
+      "lock": "Cerradura",
+      "thermostat": "Termostato / AC",
+      "light": "Luz",
+      "switch": "Switch / Toma",
+      "camera": "Cámara",
+      "sensor": "Sensor T/H",
+      "breaker": "Llave de luz",
+      "other": "Otro"
+    }
+  },
+  "adminTuyaDiag": {
+    "back": "Volver",
+    "title": "Diagnóstico de captura",
+    "subtitle": "Salud del cron horario por device. Se computa con los últimos 200 snapshots por tabla.",
+    "status": {
+      "ok": "OK",
+      "irregular": "Irregular",
+      "down": "Caído",
+      "noData": "Sin datos"
+    },
+    "reasons": {
+      "noSnapshots": "Sin snapshots",
+      "lastSnapshotAgo": "Último snapshot hace {hours}h",
+      "fewSnapshotsWait": "Solo {count, plural, one {# snapshot} other {# snapshots}} en últimas 24h — esperá unas horas",
+      "fewSnapshots": "Solo {count, plural, one {# snapshot} other {# snapshots}} en últimas 24h",
+      "avgGapHigh": "Gap promedio (24h) {min}min — esperado ~60min",
+      "maxGapIsolated": "Gap reciente máximo {hours}h — algún fallo aislado",
+      "cronWorking": "Cron horario funcionando",
+      "avgGap": "Gap promedio (24h) {min}min"
+    },
+    "sections": {
+      "sensors": "Sensores T/H",
+      "energy": "Llaves de energía"
+    },
+    "summary": {
+      "title": "Resumen hora actual",
+      "description": "Devices capturados desde las {time} (UTC local). Si el cron horario funciona, debería ser total/total para ambas categorías.",
+      "down": "Caído",
+      "partial": "Parcial",
+      "missing": "{count} sin captura — ver detalle abajo"
+    },
+    "section": {
+      "empty": "Sin snapshots registrados.",
+      "deviceCount": "{count, plural, one {# device} other {# devices}} · esperado gap ~{expectedGapMin} min entre snapshots"
+    },
+    "device": {
+      "unnamed": "(sin nombre)",
+      "snapshots": "Snapshots",
+      "snapshotsSub": "últ. 24h / total",
+      "last": "Último",
+      "avgGap": "Gap prom (24h)",
+      "maxGap": "Gap máx (24h)",
+      "minutes": "{min} min",
+      "gapMinutes": "+{min} min",
+      "globalPrefix": "global:",
+      "viewRecent": "Ver últimos 15 snapshots"
+    },
+    "howToRead": {
+      "title": "Cómo interpretar",
+      "window": "El status se calcula con los snapshots de las <strong>últimas 24h</strong>, no con todo el historial. Esto evita que historia vieja (ej. cuando el cron era diario en Hobby) sesgue el diagnóstico hacia “caído” aunque el cron horario ya funcione.",
+      "ok": "<strong>OK</strong>: gap promedio reciente entre 45 y 75 min — el cron Pro horario (<code>0 * * * *</code>) está corriendo bien.",
+      "irregular": "<strong>Irregular</strong>: gap razonable pero algún hueco >3h — puede ser un fallo aislado del cron.",
+      "down": "<strong>Caído</strong>: último snapshot hace >4h o gap reciente >2h. Si todos los devices están caídos, revisá Vercel → Settings → Cron Jobs → <code>sensor-snapshot</code> / <code>energy-snapshot</code> para ver si está activo.",
+      "global": "Los stats <em>globales</em> (línea pequeña) incluyen toda la historia — son útiles para ver cuánto tiempo lleva acumulando data."
+    }
+  },
+  "adminTuyaHomeMappings": {
+    "title": "Mapping de homes Tuya",
+    "description": "Si un home en Smart Life no corresponde 1:1 con una property (ej. un home que agrupa devices de varias casas físicas), asignalo manualmente acá. El sync respeta este mapping y los devices/rooms del home van a la property elegida.",
+    "empty": "No hay homes detectados en Tuya.",
+    "status": {
+      "ignored": "ignorar",
+      "autoByName": "{name} (auto por nombre)",
+      "unassigned": "— sin asignar"
+    },
+    "row": {
+      "homeIdLabel": "Tuya home_id:",
+      "statusLabel": "Estado:"
+    },
+    "select": {
+      "auto": "— Auto (por nombre) —",
+      "ignore": "Ignorar este home"
+    },
+    "button": {
+      "saving": "Guardando…",
+      "save": "Guardar ({count})",
+      "noChanges": "Sin cambios"
+    },
+    "toast": {
+      "noChanges": "Sin cambios para guardar.",
+      "saved": "{count, plural, one {# mapping guardado.} other {# mappings guardados.}}"
+    }
+  },
+  "adminTuyaAssign": {
+    "title": {
+      "edit": "Editar asignación",
+      "assign": "Asignar a propiedad"
+    },
+    "fields": {
+      "property": "Propiedad",
+      "propertyPlaceholder": "— elegí —",
+      "kind": "Tipo",
+      "primary": "Marcar como dispositivo primario para este tipo",
+      "primaryHint": "(ej. cerradura principal de la propiedad)"
+    },
+    "kind": {
+      "lock": "Cerradura",
+      "thermostat": "Termostato / AC",
+      "light": "Luz",
+      "switch": "Switch / Toma",
+      "camera": "Cámara",
+      "sensor": "Sensor T/H",
+      "breaker": "Llave de luz",
+      "other": "Otro"
+    },
+    "unassign": "Quitar asignación",
+    "save": "Guardar",
+    "saving": "Guardando…",
+    "confirmUnassign": "¿Quitar la asignación de \"{name}\"?",
+    "toast": {
+      "pickProperty": "Elegí una propiedad.",
+      "assigned": "Dispositivo asignado.",
+      "unassigned": "Asignación eliminada."
+    }
+  },
+  "adminTuyaBulk": {
+    "trigger": "Asignar todos a una propiedad",
+    "title": "Asignar home a propiedad",
+    "description": "{count, plural, one {# device} other {# devices}} de la home <strong>{homeName}</strong>. El tipo se infiere de la categoría de cada device; podés ajustar después caso por caso. Los devices ya asignados se sobreescriben.",
+    "primaryLockHint": "Recordá marcar manualmente la cerradura como <em>primaria</em> después (desde la fila correspondiente), para que los códigos de huésped se generen sobre ese device.",
+    "fields": {
+      "property": "Propiedad destino",
+      "propertyPlaceholder": "— elegí —"
+    },
+    "submit": {
+      "pending": "Asignando…",
+      "label": "Asignar {count}"
+    },
+    "toast": {
+      "pickProperty": "Elegí una propiedad.",
+      "assigned": "{count, plural, one {# device asignado} other {# devices asignados}}."
+    }
+  },
+  "adminTuyaLockPage": {
+    "header": {
+      "title": "Cerraduras",
+      "description": "Generá códigos temporales de prueba en cada cerradura. Una vez que confirmes que un código abre la puerta físicamente, podemos engancharlo con el flow automático de reservas (WIK-29)."
+    },
+    "error": {
+      "title": "Error de conexión",
+      "description": "No se pudo hablar con el cloud de Tuya."
+    },
+    "empty": "No se encontraron cerraduras (categoría <em>Residential Lock</em>) entre los {count} devices del Cloud Project. Verificá en <link>/admin/tuya</link> que la cerradura esté linkeada y aparezca con su categoría correcta."
+  },
+  "adminTuyaLockCard": {
+    "badge": {
+      "online": "online",
+      "offline": "offline",
+      "primary": "primaria"
+    },
+    "property": {
+      "label": "Propiedad:",
+      "unassigned": "Sin propiedad asignada — asignala desde"
+    },
+    "form": {
+      "name": "Nombre",
+      "from": "Desde",
+      "to": "Hasta",
+      "hourHint": "Tuya solo acepta horarios redondeados a la hora completa (minuto = 0). Si elegís 12:30, se redondea a 12:00."
+    },
+    "actions": {
+      "generate": "Generar código",
+      "generating": "Generando…",
+      "clearAll": "Borrar todos los códigos del lock",
+      "revoke": "Revocar"
+    },
+    "codes": {
+      "title": "Códigos activos",
+      "empty": "Sin códigos activos. Generá uno con el form de arriba."
+    },
+    "confirm": {
+      "revoke": "¿Revocar este código?",
+      "clearAll": "¿Borrar TODOS los códigos temporales de \"{deviceName}\"? Esto incluye códigos creados desde la app Smart Life o desde sesiones anteriores. No se puede deshacer."
+    },
+    "toast": {
+      "generated": "Código generado: {password}",
+      "revoked": "Código revocado.",
+      "clearedAll": "Todos los códigos fueron borrados."
+    }
+  },
+  "adminTuyaScenes": {
+    "back": "Volver",
+    "tuyaError": "No se pudo hablar con Tuya: {error}",
+    "summary": "{count, plural, one {# Tap-to-Run configurado} other {# Tap-to-Run configurados}} en {homes, plural, one {# home} other {# homes}}.",
+    "noHomes": {
+      "before": "No hay homes linkeados al Cloud Project todavía. Configurá la cuenta de Smart Life en",
+      "after": "."
+    },
+    "listError": "Error al listar scenes: {error}",
+    "emptyHome": "Este home no tiene Tap-to-Run configurados. Creálos en la app Smart Life — acá aparecen una vez sincronizados.",
+    "disabled": "deshabilitado",
+    "about": {
+      "title": "Sobre los Tap-to-Run",
+      "p1": "Los Tap-to-Run scenes se configuran en la app Smart Life (Tuya): definís una serie de acciones agrupadas — ej. \"encender luces de afuera + abrir cerradura\" — y las ejecutás con un tap.",
+      "p2": "Acá podés disparar el mismo scene desde el admin. Útil para probar sin tener que abrir la app, o para integrarlos a flows futuros (ej. trigger automático al check-in).",
+      "p3": "Ejecuta el scene inmediatamente · el cloud devuelve OK sin esperar el resultado físico de los devices."
+    }
+  },
+  "adminWhatsappPage": {
+    "title": "WhatsApp Templates",
+    "subtitle": "{count} templates registradas. Submit a Kapso/Meta para aprobación — toma 1-2 días por template.",
+    "bodyProvidedByMeta": "Body provisto por Meta (AUTHENTICATION)",
+    "withSecurityRecommendation": " · con security recommendation",
+    "footerWithText": "Footer: {text}",
+    "footerCodeExpires": "Footer: código expira en {minutes} min",
+    "buttons": "Botones:",
+    "notesTitle": "Notas",
+    "notesReference": "Las templates se referencian por <name/> al enviarlas con <fn/>. Las variables <vars/> en el body se llenan al enviar.",
+    "notesDuplicate": "Meta rechaza submits duplicados con el mismo <name/>. Si ya fue submitted, el botón de abajo te muestra el error y podés ignorar — la template sigue en revisión / aprobada."
+  },
+  "adminWhatsappSubmit": {
+    "toast": {
+      "submitSummary": "{submitted} enviados, {failed} fallidos (de {total})."
+    },
+    "buttons": {
+      "refreshing": "Cargando…",
+      "refreshStatus": "Refrescar estado",
+      "submitting": "Enviando…",
+      "submitToMeta": "Enviar a Meta"
+    },
+    "headings": {
+      "metaStatus": "Estado en Meta",
+      "lastSubmit": "Último envío"
+    },
+    "badges": {
+      "submitted": "enviado",
+      "failed": "FALLÓ"
+    }
+  },
+  "adminResetPassword": {
+    "title": "Resetear password",
+    "description": "Nuevo password para <strong>{email}</strong>. Después de guardar, copiáselo al user — no hay forma de recuperarlo después.",
+    "generate": "Generar",
+    "copyTip": "Tip: hacé click en el campo y copiá manualmente; algunos browsers no permiten copiar password fields por seguridad.",
+    "cancel": "Cancelar",
+    "saving": "Guardando…",
+    "save": "Guardar password",
+    "fields": {
+      "newPassword": "Nuevo password",
+      "placeholder": "Mínimo 8 caracteres"
+    },
+    "toggle": {
+      "show": "Mostrar",
+      "hide": "Ocultar"
+    },
+    "toast": {
+      "minLength": "Mínimo 8 caracteres.",
+      "success": "Password actualizado. Mandáselo al usuario."
+    }
+  },
+  "billsForm": {
+    "title": {
+      "create": "Nueva factura",
+      "edit": "Editar factura"
+    },
+    "description": {
+      "create": "Cargá una factura manualmente — por ejemplo si te llegó en papel.",
+      "edit": "Modificá lo que el parser dejó incompleto."
+    },
+    "fields": {
+      "property": "Propiedad",
+      "utilityType": "Tipo",
+      "provider": "Proveedor",
+      "amount": "Importe",
+      "currency": "Moneda",
+      "periodFrom": "Período desde",
+      "periodTo": "Período hasta",
+      "issueDate": "Fecha emisión",
+      "dueDate": "Vencimiento",
+      "status": "Estado",
+      "paidAt": "Pagada el",
+      "kwhBilled": "kWh facturados",
+      "m3Billed": "m³ facturados",
+      "accountNumber": "Nº de cuenta",
+      "invoiceNumber": "Nº de factura",
+      "notes": "Notas"
+    },
+    "utility": {
+      "luz": "Luz",
+      "agua": "Agua",
+      "internet": "Internet",
+      "alarma": "Alarma",
+      "otro": "Otro"
+    },
+    "status": {
+      "pending": "Pendiente",
+      "paid": "Pagada",
+      "overdue": "Vencida",
+      "cancelled": "Cancelada"
+    },
+    "placeholders": {
+      "provider": "ej. UTE, Edenor, Antel",
+      "notes": "Detalles internos sobre la factura"
+    },
+    "buttons": {
+      "save": "Guardar",
+      "saving": "Guardando…"
+    },
+    "toast": {
+      "created": "Factura creada.",
+      "updated": "Factura actualizada."
+    }
+  },
+  "reservationDetail": {
+    "backToDashboard": "Dashboard",
+    "unnamedReservation": "Reserva sin nombre",
+    "unknownProperty": "Propiedad desconocida",
+    "nights": "{count, plural, one {# noche} other {# noches}}",
+    "cancelledBadge": "Cancelada",
+    "cancelledNote": "Esta reserva fue cancelada vía email de Airbnb.",
+    "guestPhotoAlt": "Foto del huésped",
+    "guestPhotoAltNamed": "Foto de {name}",
+    "source": {
+      "airbnb": "Airbnb",
+      "booking": "Booking",
+      "manual": "Manual"
+    },
+    "taskKind": {
+      "limpieza": "Limpieza",
+      "mantenimiento": "Mantenimiento",
+      "insumos": "Insumos",
+      "otro": "Otro"
+    },
+    "taskStatus": {
+      "pending": "Pendiente",
+      "in_progress": "En curso",
+      "done": "Hecha"
+    },
+    "airbnbDetails": {
+      "title": "Detalles de Airbnb",
+      "description": "Datos extra extraídos del email de confirmación.",
+      "code": "Código",
+      "guests": "Huéspedes",
+      "payout": "Payout",
+      "guestMessage": "Mensaje del huésped"
+    },
+    "reservationData": {
+      "title": "Datos de la reserva",
+      "source": "Origen",
+      "property": "Propiedad",
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "externalId": "Código externo"
+    },
+    "guest": {
+      "title": "Huésped",
+      "descriptionWithData": "Datos cargados manualmente.",
+      "descriptionEmpty": "Sin datos. Editá la reserva para agregar nombre y WhatsApp.",
+      "name": "Nombre",
+      "whatsapp": "WhatsApp",
+      "notes": "Notas"
+    },
+    "cleaningTask": {
+      "title": "Tarea de limpieza (post-checkout)",
+      "taskFor": "Tarea para {date}",
+      "none": "Aún no hay una tarea de limpieza para esta fecha.",
+      "taskTitle": "Título",
+      "kind": "Tipo",
+      "status": "Estado",
+      "assignee": "Asignado",
+      "unassigned": "Sin asignar",
+      "description": "Descripción",
+      "photos": "Fotos",
+      "photoCount": "{count, plural, one {# foto} other {# fotos}}",
+      "viewInTask": "ver en la tarea",
+      "autoCreatedPrefix": "Se crea automáticamente al sincronizar la reserva. También podés crear una manualmente desde",
+      "tasksLink": "Tareas",
+      "autoCreatedSuffix": ".",
+      "viewAllTasks": "Ver todas las tareas"
+    },
+    "whatsapp": {
+      "title": "Conversación WhatsApp",
+      "noPhone": "Cargá el WhatsApp del huésped para ver mensajes asociados.",
+      "noMessages": "Sin mensajes con este número todavía.",
+      "messageCount": "{count, plural, one {# mensaje} other {# mensajes}} con {name}.",
+      "showingLast": "Mostrando últimos 20 de {total}.",
+      "viewFullConversation": "Ver conversación completa",
+      "viewInInbox": "Ver en inbox"
+    }
+  },
+  "energyBillComparisons": {
+    "title": "Facturado vs Tuya",
+    "inferredPeriodTooltip": "Período inferido a partir del vencimiento de la factura anterior.",
+    "billedLabel": "Facturado:",
+    "tuyaLabel": "Tuya:",
+    "columnPeriod": "Período",
+    "columnBilled": "Facturado",
+    "columnTuya": "Tuya"
+  },
+  "tasksPropertyFilter": {
+    "label": "Propiedad:",
+    "all": "Todas"
+  },
+  "whatsappThread": {
+    "back": "Volver",
+    "empty": "Sin mensajes en esta conversación todavía.",
+    "viewMedia": "Ver {type}",
+    "audience": {
+      "guest": "Huésped",
+      "staff": "Staff",
+      "unknown": "—"
+    },
+    "window": {
+      "title": "Fuera de la ventana de 24 horas.",
+      "body": "WhatsApp solo permite mensajes con template aprobado fuera de las 24 hs después del último mensaje del usuario. Para responder con texto libre necesitás que el usuario te escriba primero."
+    }
+  },
+  "whatsappReply": {
+    "placeholder": "Escribir mensaje…",
+    "sending": "Enviando…",
+    "send": "Enviar"
+  },
+  "whatsappInbox": {
+    "audience": {
+      "guest": "Huésped",
+      "staff": "Staff",
+      "unknown": "—"
+    },
+    "conversationCount": "{count, plural, one {# conversación} other {# conversaciones}}.",
+    "emptyState": "Sin conversaciones. Cuando alguien escriba al número de WhatsApp, va a aparecer acá.",
+    "outboundPrefix": "Tú: ",
+    "noMessages": "(sin mensajes)"
   }
 }

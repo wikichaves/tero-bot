@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,6 +32,7 @@ export function BulkAssignButton({
   devices: BulkDevice[];
   properties: Pick<Property, "id" | "name">[];
 }) {
+  const t = useTranslations("adminTuyaBulk");
   const [open, setOpen] = useState(false);
   const [propertyId, setPropertyId] = useState(properties[0]?.id ?? "");
   const [pending, startTransition] = useTransition();
@@ -38,7 +40,7 @@ export function BulkAssignButton({
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!propertyId) {
-      toast.error("Elegí una propiedad.");
+      toast.error(t("toast.pickProperty"));
       return;
     }
     startTransition(async () => {
@@ -56,7 +58,7 @@ export function BulkAssignButton({
         return;
       }
       if ("assigned" in result) {
-        toast.success(`${result.assigned} devices asignados.`);
+        toast.success(t("toast.assigned", { count: result.assigned ?? 0 }));
         setOpen(false);
       }
     });
@@ -69,22 +71,23 @@ export function BulkAssignButton({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Button size="sm" onClick={() => setOpen(true)}>
-        Asignar todos a una propiedad
+        {t("trigger")}
       </Button>
       <DialogContent>
         <form onSubmit={onSubmit}>
           <DialogHeader>
-            <DialogTitle>Asignar home a propiedad</DialogTitle>
+            <DialogTitle>{t("title")}</DialogTitle>
             <DialogDescription>
-              {devices.length} device{devices.length === 1 ? "" : "s"} de la
-              home <strong>{homeName}</strong>. El tipo se infiere de la
-              categoría de cada device; podés ajustar después caso por caso.
-              Los devices ya asignados se sobreescriben.
+              {t.rich("description", {
+                count: devices.length,
+                homeName,
+                strong: (chunks) => <strong>{chunks}</strong>,
+              })}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="bulk-property">Propiedad destino</Label>
+              <Label htmlFor="bulk-property">{t("fields.property")}</Label>
               <select
                 id="bulk-property"
                 value={propertyId}
@@ -92,7 +95,7 @@ export function BulkAssignButton({
                 required
                 className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
               >
-                <option value="">— elegí —</option>
+                <option value="">{t("fields.propertyPlaceholder")}</option>
                 {properties.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -101,14 +104,16 @@ export function BulkAssignButton({
               </select>
             </div>
             <p className="text-xs text-muted-foreground">
-              Recordá marcar manualmente la cerradura como{" "}
-              <em>primaria</em> después (desde la fila correspondiente),
-              para que los códigos de huésped se generen sobre ese device.
+              {t.rich("primaryLockHint", {
+                em: (chunks) => <em>{chunks}</em>,
+              })}
             </p>
           </div>
           <DialogFooter>
             <Button type="submit" disabled={pending}>
-              {pending ? "Asignando…" : `Asignar ${devices.length}`}
+              {pending
+                ? t("submit.pending")
+                : t("submit.label", { count: devices.length })}
             </Button>
           </DialogFooter>
         </form>

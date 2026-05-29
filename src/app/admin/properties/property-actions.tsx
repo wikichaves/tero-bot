@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,12 +17,13 @@ import { deleteProperty, syncProperty } from "./actions";
 import { EditPropertyDialog } from "./property-form-dialog";
 
 export function PropertyActions({ property }: { property: Property }) {
+  const t = useTranslations("adminPropertyActions");
   const [pending, startTransition] = useTransition();
   const [editOpen, setEditOpen] = useState(false);
 
   function sync() {
     if (!property.airbnb_ical_url) {
-      toast.error("No hay URL de Airbnb configurada.");
+      toast.error(t("toast.noAirbnbUrl"));
       return;
     }
     startTransition(async () => {
@@ -38,32 +40,30 @@ export function PropertyActions({ property }: { property: Property }) {
         errors,
       } = r.result;
       const parts = [
-        `${reservations} reserva${reservations === 1 ? "" : "s"}`,
-        `${blocks} bloqueo${blocks === 1 ? "" : "s"}`,
+        t("toast.reservations", { count: reservations }),
+        t("toast.blocks", { count: blocks }),
       ];
       if (codes_generated > 0) {
-        parts.push(
-          `${codes_generated} código${codes_generated === 1 ? "" : "s"} generado${codes_generated === 1 ? "" : "s"}`,
-        );
+        parts.push(t("toast.codesGenerated", { count: codes_generated }));
       }
       if (cleaning_tasks_created > 0) {
         parts.push(
-          `${cleaning_tasks_created} limpieza${cleaning_tasks_created === 1 ? "" : "s"} agendada${cleaning_tasks_created === 1 ? "" : "s"}`,
+          t("toast.cleaningTasks", { count: cleaning_tasks_created }),
         );
       }
       const summary = parts.join(", ");
       if (errors.length > 0) {
-        toast.warning(`${summary} (${errors.length} errores)`);
+        toast.warning(
+          t("toast.syncedWithErrors", { summary, errors: errors.length }),
+        );
       } else {
-        toast.success(`Sincronizado: ${summary}.`);
+        toast.success(t("toast.synced", { summary }));
       }
     });
   }
 
   function remove() {
-    if (
-      !confirm(`¿Eliminar la propiedad "${property.name}"? No se puede deshacer.`)
-    ) {
+    if (!confirm(t("confirm.delete", { name: property.name }))) {
       return;
     }
     startTransition(async () => {
@@ -72,7 +72,7 @@ export function PropertyActions({ property }: { property: Property }) {
         toast.error(r.error);
         return;
       }
-      toast.success("Propiedad eliminada.");
+      toast.success(t("toast.deleted"));
     });
   }
 
@@ -86,20 +86,20 @@ export function PropertyActions({ property }: { property: Property }) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => setEditOpen(true)}>
-            Editar
+            {t("menu.edit")}
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={sync}
             disabled={!property.airbnb_ical_url || pending}
           >
-            Sincronizar Airbnb
+            {t("menu.syncAirbnb")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={remove}
             className="text-destructive focus:text-destructive"
           >
-            Eliminar
+            {t("menu.delete")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

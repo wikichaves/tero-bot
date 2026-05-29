@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Save } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   Card,
   CardContent,
@@ -47,6 +48,7 @@ export function HomeMappingsCard({
   homes: HomeRow[];
   properties: Pick<Property, "id" | "name">[];
 }) {
+  const t = useTranslations("adminTuyaHomeMappings");
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   // Selección por home: undefined = sin cambios; valor = property_id, IGNORE o AUTO.
@@ -64,7 +66,7 @@ export function HomeMappingsCard({
 
   function onSave() {
     if (selections.size === 0) {
-      toast.info("Sin cambios para guardar.");
+      toast.info(t("toast.noChanges"));
       return;
     }
     startTransition(async () => {
@@ -88,7 +90,7 @@ export function HomeMappingsCard({
         }
       }
       if (errors === 0) {
-        toast.success(`${updates.length} mapping(s) guardado(s).`);
+        toast.success(t("toast.saved", { count: updates.length }));
         setSelections(new Map());
         router.refresh();
       }
@@ -98,23 +100,18 @@ export function HomeMappingsCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Mapping de homes Tuya</CardTitle>
-        <CardDescription>
-          Si un home en Smart Life no corresponde 1:1 con una property (ej.
-          un home que agrupa devices de varias casas físicas), asignalo
-          manualmente acá. El sync respeta este mapping
-          y los devices/rooms del home van a la property elegida.
-        </CardDescription>
+        <CardTitle className="text-base">{t("title")}</CardTitle>
+        <CardDescription>{t("description")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {homes.map((h) => {
           const currentDisplay = h.is_override
             ? h.current_property_id == null
-              ? "ignorar"
+              ? t("status.ignored")
               : (h.resolved_property_name ?? "?")
             : h.resolved_property_name
-              ? `${h.resolved_property_name} (auto por nombre)`
-              : "— sin asignar";
+              ? t("status.autoByName", { name: h.resolved_property_name })
+              : t("status.unassigned");
           const selectedValue =
             selections.get(h.tuya_home_id) ??
             (h.is_override
@@ -128,8 +125,8 @@ export function HomeMappingsCard({
               <div className="flex flex-col">
                 <span className="text-sm font-medium">{h.home_name}</span>
                 <span className="text-xs text-muted-foreground">
-                  Tuya home_id: <code>{h.tuya_home_id}</code> · Estado:{" "}
-                  {currentDisplay}
+                  {t("row.homeIdLabel")} <code>{h.tuya_home_id}</code> ·{" "}
+                  {t("row.statusLabel")} {currentDisplay}
                 </span>
               </div>
               <select
@@ -137,20 +134,20 @@ export function HomeMappingsCard({
                 onChange={(e) => setSelection(h.tuya_home_id, e.target.value)}
                 className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
               >
-                <option value={AUTO}>— Auto (por nombre) —</option>
+                <option value={AUTO}>{t("select.auto")}</option>
                 {properties.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
                 ))}
-                <option value={IGNORE}>Ignorar este home</option>
+                <option value={IGNORE}>{t("select.ignore")}</option>
               </select>
             </div>
           );
         })}
         {homes.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No hay homes detectados en Tuya.
+            {t("empty")}
           </p>
         )}
         <div className="flex justify-end pt-2">
@@ -161,10 +158,10 @@ export function HomeMappingsCard({
           >
             <Save className="mr-1 h-4 w-4" />
             {pending
-              ? "Guardando…"
+              ? t("button.saving")
               : selections.size > 0
-                ? `Guardar (${selections.size})`
-                : "Sin cambios"}
+                ? t("button.save", { count: selections.size })
+                : t("button.noChanges")}
           </Button>
         </div>
       </CardContent>

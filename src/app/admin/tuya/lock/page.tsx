@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { requireRole } from "@/lib/auth";
 import {
   Card,
@@ -23,6 +24,7 @@ function isLock(d: TuyaDevice): boolean {
 
 export default async function LockPage() {
   await requireRole(["admin", "gestor"]);
+  const t = await getTranslations("adminTuyaLockPage");
 
   const result = await listAllDevices().catch((err: Error) => ({
     error: err.message,
@@ -34,10 +36,8 @@ export default async function LockPage() {
         <Header />
         <Card>
           <CardHeader>
-            <CardTitle>Error de conexión</CardTitle>
-            <CardDescription>
-              No se pudo hablar con el cloud de Tuya.
-            </CardDescription>
+            <CardTitle>{t("error.title")}</CardTitle>
+            <CardDescription>{t("error.description")}</CardDescription>
           </CardHeader>
           <CardContent className="text-sm">
             <pre className="whitespace-pre-wrap rounded bg-muted p-3 text-destructive">
@@ -57,10 +57,15 @@ export default async function LockPage() {
         <Header />
         <Card>
           <CardContent className="pt-6 text-sm text-muted-foreground">
-            No se encontraron cerraduras (categoría <em>Residential Lock</em>)
-            entre los {result.devices.length} devices del Cloud Project. Verificá
-            en <Link href="/admin/tuya" className="underline">/admin/tuya</Link>{" "}
-            que la cerradura esté linkeada y aparezca con su categoría correcta.
+            {t.rich("empty", {
+              count: result.devices.length,
+              em: (chunks) => <em>{chunks}</em>,
+              link: (chunks) => (
+                <Link href="/admin/tuya" className="underline">
+                  {chunks}
+                </Link>
+              ),
+            })}
           </CardContent>
         </Card>
       </div>
@@ -112,15 +117,12 @@ export default async function LockPage() {
   );
 }
 
-function Header() {
+async function Header() {
+  const t = await getTranslations("adminTuyaLockPage");
   return (
     <div>
-      <h1 className="text-4xl">Cerraduras</h1>
-      <p className="text-sm text-muted-foreground">
-        Generá códigos temporales de prueba en cada cerradura. Una vez que
-        confirmes que un código abre la puerta físicamente, podemos engancharlo
-        con el flow automático de reservas (WIK-29).
-      </p>
+      <h1 className="text-4xl">{t("header.title")}</h1>
+      <p className="text-sm text-muted-foreground">{t("header.description")}</p>
     </div>
   );
 }

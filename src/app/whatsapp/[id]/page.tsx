@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/server";
@@ -15,10 +16,10 @@ import type {
 
 export const dynamic = "force-dynamic";
 
-const AUDIENCE_LABEL: Record<WhatsAppConversation["audience"], string> = {
-  guest: "Huésped",
-  staff: "Staff",
-  unknown: "—",
+const AUDIENCE_KEY: Record<WhatsAppConversation["audience"], string> = {
+  guest: "audience.guest",
+  staff: "audience.staff",
+  unknown: "audience.unknown",
 };
 
 export default async function ConversationPage({
@@ -27,6 +28,7 @@ export default async function ConversationPage({
   params: Promise<{ id: string }>;
 }) {
   await requireRole(["admin"]);
+  const t = await getTranslations("whatsappThread");
   const { id } = await params;
   const supabase = await createClient();
 
@@ -74,7 +76,7 @@ export default async function ConversationPage({
             href="/whatsapp"
             className="text-sm text-muted-foreground hover:text-foreground"
           >
-            ← Volver
+            ← {t("back")}
           </Link>
           <div className="flex-1">
             <div className="flex items-center gap-2">
@@ -82,7 +84,7 @@ export default async function ConversationPage({
                 {conversation.display_name ?? conversation.phone_number}
               </h1>
               <Badge variant="secondary">
-                {AUDIENCE_LABEL[conversation.audience]}
+                {t(AUDIENCE_KEY[conversation.audience])}
               </Badge>
             </div>
             {conversation.display_name && (
@@ -97,7 +99,7 @@ export default async function ConversationPage({
       <div className="flex-1 overflow-y-auto p-6 bg-muted/30">
         {list.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground py-8">
-            Sin mensajes en esta conversación todavía.
+            {t("empty")}
           </p>
         ) : (
           <ul className="flex flex-col gap-2 max-w-2xl mx-auto">
@@ -121,7 +123,7 @@ export default async function ConversationPage({
                       rel="noopener noreferrer"
                       className="text-xs underline opacity-80"
                     >
-                      Ver {m.type}
+                      {t("viewMedia", { type: m.type })}
                     </a>
                   )}
                   {m.template_name && (
@@ -145,10 +147,7 @@ export default async function ConversationPage({
       {!within24h && (
         <Card className="m-4 mx-auto max-w-2xl border-amber-500/50 bg-amber-500/10">
           <CardContent className="pt-4 text-sm text-amber-900 dark:text-amber-200">
-            <strong>Fuera de la ventana de 24 horas.</strong> WhatsApp solo
-            permite mensajes con template aprobado fuera de las 24 hs después
-            del último mensaje del usuario. Para responder con texto libre
-            necesitás que el usuario te escriba primero.
+            <strong>{t("window.title")}</strong> {t("window.body")}
           </CardContent>
         </Card>
       )}
