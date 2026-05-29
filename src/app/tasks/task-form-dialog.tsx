@@ -43,10 +43,14 @@ export function NewTaskDialog({
   properties,
   assignees,
   defaultPropertyId,
+  currentUserId,
 }: {
   properties: Pick<Property, "id" | "name">[];
   assignees: AssigneeProfile[];
   defaultPropertyId?: string;
+  /** WIK-249: id del usuario logueado — la nueva tarea se auto-asigna a
+   *  él por default (si está dentro de la lista de assignees). */
+  currentUserId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const tForm = useTranslations("tasks.form");
@@ -58,6 +62,7 @@ export function NewTaskDialog({
           properties={properties}
           assignees={assignees}
           defaultPropertyId={defaultPropertyId}
+          currentUserId={currentUserId}
           onDone={() => setOpen(false)}
         />
       </DialogContent>
@@ -101,12 +106,14 @@ function TaskForm({
   properties,
   assignees,
   defaultPropertyId,
+  currentUserId,
   onDone,
 }: {
   task?: Task;
   properties: Pick<Property, "id" | "name">[];
   assignees: AssigneeProfile[];
   defaultPropertyId?: string;
+  currentUserId?: string;
   onDone: () => void;
 }) {
   const [pending, startTransition] = useTransition();
@@ -114,6 +121,9 @@ function TaskForm({
   // y placeholders los dejamos en español por ahora (lower visibility)
   // y los podemos i18n-iar en un follow-up si el user lo pide.
   const tForm = useTranslations("tasks.form");
+  // WIK-249: si hay una sola propiedad, queda pre-seleccionada y el select
+  // se deshabilita (no hay nada que elegir).
+  const onlyOneProperty = properties.length === 1;
   const [propertyId, setPropertyId] = useState(
     task?.property_id ?? defaultPropertyId ?? properties[0]?.id ?? "",
   );
@@ -123,7 +133,16 @@ function TaskForm({
   );
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
-  const [assignedTo, setAssignedTo] = useState(task?.assigned_to ?? "");
+  // WIK-249: tarea nueva → se auto-asigna al usuario logueado por default
+  // (solo si está en la lista de assignees). En edición se respeta el
+  // assigned_to existente.
+  const [assignedTo, setAssignedTo] = useState(
+    task
+      ? (task.assigned_to ?? "")
+      : currentUserId && assignees.some((a) => a.id === currentUserId)
+        ? currentUserId
+        : "",
+  );
   const [dueDate, setDueDate] = useState(task?.due_date ?? "");
   // WIK-124: vencimiento con hora opcional + alarma WhatsApp X horas antes.
   // due_time es HH:MM. Input HTML `time` devuelve eso directamente.
@@ -206,9 +225,12 @@ function TaskForm({
               value={propertyId}
               onChange={(e) => setPropertyId(e.target.value)}
               required
-              className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+              disabled={onlyOneProperty}
+              className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <option value="">— elegí —</option>
+              {/* WIK-249: con una sola propiedad no hace falta el placeholder
+                  — ya queda elegida y el select disabled. */}
+              {!onlyOneProperty && <option value="">— elegí —</option>}
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
