@@ -127,6 +127,11 @@ export const viewport: Viewport = {
     { media: "(prefers-color-scheme: dark)", color: "#262626" },
   ],
   colorScheme: "dark light",
+  // WIK-240: edge-to-edge en iOS PWA. Necesario para que `env(safe-area-
+  // inset-*)` se popule (lo usa el header sticky para no quedar bajo el
+  // notch/status bar con statusBarStyle=black-translucent) y para que el
+  // bg llegue hasta los bordes físicos de la pantalla.
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({

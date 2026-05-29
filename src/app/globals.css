@@ -237,9 +237,14 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     letter-spacing: -0.005em;
+    /* WIK-240: sacar el flash gris de tap en mobile (Android/iOS). */
+    -webkit-tap-highlight-color: transparent;
   }
   html {
     @apply font-sans;
+    /* WIK-240: evitar que iOS auto-agrande el texto al rotar a landscape. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
     /* WIK-128: bump the rem base from 18px → 19px so all rem utilities
        (text/spacing/gaps/radii) scale up ~5% uniformly. Mobile gets a
        further bump below — phones get hit hardest by the dense shadcn
@@ -271,6 +276,41 @@
     html {
       /* WIK-199: matchear el nuevo cream del :root theme. */
       background-color: rgb(248, 247, 245);
+    }
+  }
+
+  /* WIK-240: native-feel en controles interactivos. `touch-action:
+     manipulation` saca el delay de 300ms + el double-tap-zoom; el callout
+     desactiva el menú de long-press (iOS) sobre botones/links. */
+  button,
+  a,
+  label,
+  summary,
+  [role="button"] {
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+  }
+
+  /* WIK-240: SOLO en la PWA instalada (display-mode: standalone) la app
+     shell se comporta como nativa — sin rubber-band / pull-to-refresh y
+     sin selección de texto accidental en el chrome. En el browser normal
+     NO aplica nada de esto (se mantiene pull-to-refresh y selección). */
+  @media (display-mode: standalone) {
+    html,
+    body {
+      overscroll-behavior: none;
+    }
+    body {
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    /* Re-habilitar selección donde sí tiene sentido: inputs y contenido. */
+    input,
+    textarea,
+    [contenteditable="true"],
+    .selectable {
+      -webkit-user-select: text;
+      user-select: text;
     }
   }
 
