@@ -3,9 +3,10 @@ import { notFound } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { getTranslations } from "next-intl/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
+import { getScopedAssignees } from "../get-assignees";
 import {
   Card,
   CardContent,
@@ -43,7 +44,12 @@ export default async function TaskDetailPage({
 }) {
   const profile = await requireRole(["admin", "gestor"]);
   const { id } = await params;
-  const supabase = await createClient();
+  // WIK-251 follow-up: admin client. Los joins assignee/reporter están
+  // sujetos a la RLS de `profiles` (`profiles_self_read` solo deja a un
+  // no-admin leer su PROPIA fila) — con el RLS client un Manager veía
+  // "Sin asignar" / reporter "—" en tareas de otra persona. El scope se
+  // garantiza con el check de `allowedIds` de abajo + el requireRole.
+  const adminDb = createAdminClient();
   // WIK-163: labels via next-intl. Reusamos `tasks.status` + `tasks.kind`
   // (definidos para esto desde WIK-151) y `tasks.overdue` para el badge
   // de vencimiento.
@@ -51,30 +57,30 @@ export default async function TaskDetailPage({
   const tKind = await getTranslations("tasks.kind");
   const tCommon = await getTranslations("tasks");
 
-  const [taskRes, propertiesRes, assigneesRes] = await Promise.all([
-    supabase
+  const allowedIds = await getAllowedPropertyIds(profile);
+  let propsQuery = adminDb.from("properties").select("id, name").order("name");
+  if (allowedIds !== null) {
+    propsQuery = propsQuery.in("id", allowedIds);
+  }
+
+  const [taskRes, propertiesRes, assignees] = await Promise.all([
+    adminDb
       .from("tasks")
       .select(
         "*, property:properties(id, name), assignee:profiles!tasks_assigned_to_fkey(id, full_name, email), reporter:profiles!tasks_reported_by_fkey(id, full_name, email)",
       )
       .eq("id", id)
       .maybeSingle(),
-    supabase.from("properties").select("id, name").order("name"),
-    supabase
-      .from("profiles")
-      .select("id, full_name, email, role")
-      .order("full_name", { ascending: true }),
+    propsQuery,
+    getScopedAssignees(profile),
   ]);
 
   if (!taskRes.data) notFound();
   const task = taskRes.data as TaskDetail;
 
-  // WIK-245: scope por propiedad. La RLS deja a gestor/Manager leer
-  // cualquier task, así que el corte por "sus propiedades" es app-level
-  // (igual que la lista en /tasks). Un Manager solo puede abrir el
-  // detalle de tareas de las properties que tiene asignadas; fuera de
-  // scope = 404 (admin = allowed null = sin corte).
-  const allowedIds = await getAllowedPropertyIds(profile);
+  // WIK-245: scope por propiedad. Un Manager solo puede abrir el detalle de
+  // tareas de las properties que tiene asignadas; fuera de scope = 404
+  // (admin = allowedIds null = sin corte).
   if (allowedIds !== null && !allowedIds.includes(task.property_id)) {
     notFound();
   }
@@ -82,7 +88,6 @@ export default async function TaskDetailPage({
     Property,
     "id" | "name"
   >[];
-  const assignees = assigneesRes.data ?? [];
 
   const { urls: photoUrls, cleaned: cleanedDescription } = extractPhotos(
     task.description,

@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { parseISO } from "date-fns";
 import { getLocale, getTranslations } from "next-intl/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireProfile } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
+import { getScopedAssignees } from "./get-assignees";
 import { formatShortDate } from "@/lib/i18n/date";
 import {
   Card,
@@ -89,8 +89,14 @@ export default async function TasksPage({
   // assignee absent / "all" → no filter
   const assigneeFilter = params.assignee ?? null;
 
-  const supabase = await createClient();
-  let query = supabase
+  // WIK-251 follow-up: la query de tareas va por el admin client. El join
+  // `assignee:profiles!fkey` está sujeto a la RLS de `profiles`
+  // (`profiles_self_read` solo deja a un no-admin leer su PROPIA fila), así
+  // que con el RLS client un Manager veía "Sin asignar" en toda tarea
+  // asignada a otra persona (el join volvía null). El scope de acceso lo
+  // garantizan los filtros explícitos de abajo (role + property), no la RLS.
+  const adminDb = createAdminClient();
+  let query = adminDb
     .from("tasks")
     .select(
       "*, property:properties(id, name), assignee:profiles!tasks_assigned_to_fkey(id, full_name, email)",
@@ -136,59 +142,17 @@ export default async function TasksPage({
   // `properties_read` bloquea a Staff (mantenimiento) — sin esto, un Staff
   // veía la lista vacía y no podía elegir propiedad al crear una tarea. El
   // scope queda garantizado por el `.in("id", allowedIds)` de abajo.
-  const adminDb = createAdminClient();
   let propsQuery = adminDb.from("properties").select("id, name").order("name");
   if (allowedIds !== null) {
     propsQuery = propsQuery.in("id", allowedIds);
   }
 
-  // WIK-250: lista de "asignables" según rol — define a quién se le puede
-  // asignar una tarea desde el diálogo (y por quién se puede filtrar).
-  //   - admin: todos los perfiles.
-  //   - gestor (Manager): el Staff/Managers de SUS propiedades + uno mismo,
-  //     para poder crear y asignar tareas a su Staff.
-  //   - mantenimiento (Staff): solo uno mismo (auto-asignación).
-  // Va por admin client porque `profiles_self_read` (RLS) solo deja a un
-  // no-admin leer su propia fila.
-  async function loadAssignees() {
-    if (profile.role === "admin") {
-      const { data } = await adminDb
-        .from("profiles")
-        .select("id, full_name, email, role")
-        .order("full_name", { ascending: true });
-      return data ?? [];
-    }
-    if (profile.role === "gestor") {
-      const ids = new Set<string>([profile.id]);
-      if (allowedIds && allowedIds.length > 0) {
-        const { data: links } = await adminDb
-          .from("profile_properties")
-          .select("profile_id")
-          .in("property_id", allowedIds);
-        for (const l of links ?? []) ids.add(l.profile_id as string);
-      }
-      const { data } = await adminDb
-        .from("profiles")
-        .select("id, full_name, email, role")
-        .in("id", Array.from(ids))
-        .order("full_name", { ascending: true });
-      return data ?? [];
-    }
-    // Staff: solo uno mismo.
-    return [
-      {
-        id: profile.id,
-        full_name: profile.full_name,
-        email: profile.email,
-        role: profile.role,
-      },
-    ];
-  }
-
+  // WIK-250/251: a quién se le puede asignar/filtrar según rol — helper
+  // compartido con la página de detalle (ver get-assignees.ts).
   const [tasksRes, propertiesRes, assignees] = await Promise.all([
     query,
     propsQuery,
-    loadAssignees(),
+    getScopedAssignees(profile),
   ]);
 
   const tasks = (tasksRes.data ?? []) as TaskWithJoins[];
