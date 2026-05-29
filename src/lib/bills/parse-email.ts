@@ -373,6 +373,16 @@ function extractDueDate(body: string): string | null {
   // We use `[\s\S]{0,30}?` (non-greedy, includes newlines) between the
   // landmark and the date so glued / newline-separated values both work.
   const candidates = [
+    // High-priority Prosegur (and any DGI-format) pattern: the receipt
+    // header has "Fecha del comprobante DD/MM/YYYY Fecha de Vencimiento
+    // DD/MM/YYYY" on a single line. We anchor on "Fecha de Vencimiento"
+    // with the date *glued/whitespace-only* (no newlines, no other text)
+    // — this beats the looser "vencimiento … 30 chars … date" pattern
+    // which otherwise grabs a contract-validity date from elsewhere
+    // in the PDF when "Fecha de vencimiento" appears as a standalone
+    // column header above unrelated rows.
+    /Fecha\s+de\s+Vencimiento[ \t:]*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
+
     // "VTO PROXIMA FACTURA" or other VTO variants we explicitly DON'T want
     // to catch (they're for the next bill, not this one) — order matters:
     // we test specific positive patterns first.
@@ -395,6 +405,24 @@ function extractDueDate(body: string): string | null {
       const parsed = parseDate(m[1]);
       if (parsed) return parsed;
     }
+  }
+  return null;
+}
+
+/**
+ * Extract issue date — currently only the DGI-style "Fecha del comprobante
+ * DD/MM/YYYY" pattern used by Prosegur (and any other vendor that uses
+ * Uruguay's CFE format). Conservative on purpose; we don't want to fall
+ * back to generic "Fecha:" labels and pick up the wrong date.
+ */
+function extractIssueDate(body: string): string | null {
+  const m =
+    /Fecha\s+del\s+comprobante[ \t:]*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i.exec(
+      body,
+    );
+  if (m) {
+    const parsed = parseDate(m[1]);
+    if (parsed) return parsed;
   }
   return null;
 }
@@ -577,6 +605,7 @@ export function extractBillFields(
     rule.currency,
   );
   const due_date = extractDueDate(normalizedBody);
+  const issue_date = extractIssueDate(normalizedBody);
   const invoice_number = extractInvoiceNumber(normalizedBody);
   const account_number = extractAccountNumber(normalizedBody, normalizedSubject);
   const period_to = extractPeriodTo(normalizedBody);
@@ -593,7 +622,7 @@ export function extractBillFields(
     currency: currency ?? rule.currency,
     period_from,
     period_to,
-    issue_date: null,
+    issue_date,
     due_date,
     kwh_billed,
     m3_billed,
