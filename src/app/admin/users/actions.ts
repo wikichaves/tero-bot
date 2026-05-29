@@ -287,9 +287,18 @@ export async function resetUserPassword(input: {
  * Requiere: admin role, profile con `whatsapp` configurado, env vars
  * `WHATSAPP_PHONE_NUMBER_ID` + `KAPSO_API_KEY`.
  */
-export async function sendStaffWelcome(
-  profileId: string,
-): Promise<{ ok?: true; error?: string }> {
+export async function sendStaffWelcome(profileId: string): Promise<
+  | {
+      ok: true;
+      /** Template que Meta ACEPTÓ (no implica entrega). */
+      templateUsed: "staff_welcome_v2" | "staff_welcome";
+      /** wamid devuelto por Meta — confirma aceptación, no entrega. */
+      messageId: string | null;
+      /** true si cayó al idioma `es` por fallback de variante. */
+      fellBack: boolean;
+    }
+  | { error: string }
+> {
   await requireRole(["admin"]);
 
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
@@ -359,14 +368,19 @@ export async function sendStaffWelcome(
   // usamos v1. Self-healing: cuando Meta apruebe v2, el primer try gana
   // solo, sin más cambios.
   try {
-    await sendKapsoTemplateWithFallback({
+    const r = await sendKapsoTemplateWithFallback({
       phoneNumberId,
       to: profile.whatsapp,
       templateName: "staff_welcome_v2",
       preferredLanguage,
       bodyVariables: [firstName, propertyList],
     });
-    return { ok: true };
+    return {
+      ok: true,
+      templateUsed: "staff_welcome_v2",
+      messageId: r.messageId ?? null,
+      fellBack: r.fellBack,
+    };
   } catch (e) {
     const msg = (e as Error).message;
     console.warn(
@@ -376,14 +390,19 @@ export async function sendStaffWelcome(
       )}). Fallback a v1 (staff_welcome).`,
     );
     try {
-      await sendKapsoTemplateWithFallback({
+      const r = await sendKapsoTemplateWithFallback({
         phoneNumberId,
         to: profile.whatsapp,
         templateName: "staff_welcome",
         preferredLanguage,
         bodyVariables: [firstName],
       });
-      return { ok: true };
+      return {
+        ok: true,
+        templateUsed: "staff_welcome",
+        messageId: r.messageId ?? null,
+        fellBack: r.fellBack,
+      };
     } catch (e2) {
       return { error: (e2 as Error).message };
     }
