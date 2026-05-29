@@ -2,6 +2,7 @@ import Link from "next/link";
 import { parseISO } from "date-fns";
 import { getLocale, getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireProfile } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import { formatShortDate } from "@/lib/i18n/date";
@@ -129,9 +130,14 @@ export default async function TasksPage({
     query = query.in("property_id", allowedIds);
   }
 
-  // El select de properties también se scopea — el filter UI no debería
-  // mostrar properties a las que el gestor no tiene acceso.
-  let propsQuery = supabase.from("properties").select("id, name").order("name");
+  // El select de properties se scopea por allowedIds — el filter UI y el
+  // diálogo "Nueva tarea" no deberían mostrar properties fuera del scope.
+  // WIK-250: se usa el admin client (en vez del RLS client) porque
+  // `properties_read` bloquea a Staff (mantenimiento) — sin esto, un Staff
+  // veía la lista vacía y no podía elegir propiedad al crear una tarea. El
+  // scope queda garantizado por el `.in("id", allowedIds)` de abajo.
+  const adminDb = createAdminClient();
+  let propsQuery = adminDb.from("properties").select("id, name").order("name");
   if (allowedIds !== null) {
     propsQuery = propsQuery.in("id", allowedIds);
   }
