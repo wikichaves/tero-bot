@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,21 @@ function formatDate(iso: string | null): string {
   return format(parseISO(iso), "d MMM yyyy", { locale: es });
 }
 
+// Fecha más representativa de cada factura, igual que el orden de page.tsx
+// (WIK-227): fin de período efectivo → vencimiento → created_at. La usamos
+// para agrupar por mes y dibujar un separador sutil entre meses.
+function billMonthDate(b: BillRowDerived): string {
+  return b.effective_period_to ?? b.due_date ?? b.created_at.slice(0, 10);
+}
+
+function monthKey(iso: string): string {
+  return iso.slice(0, 7); // YYYY-MM
+}
+
+function monthLabel(iso: string): string {
+  return format(parseISO(iso), "MMMM yyyy", { locale: es });
+}
+
 export function PropertyBillsTable({
   bills,
   allProperties,
@@ -80,40 +95,63 @@ export function PropertyBillsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {visible.map((b) => {
+            {visible.map((b, i) => {
               const periodFrom = b.effective_period_from;
               const periodTo = b.effective_period_to;
               const periodLabel = formatPeriod(periodFrom, periodTo);
+              // Separador de mes sutil: lo insertamos cuando el mes de esta
+              // factura difiere del de la anterior visible (la primera fila
+              // nunca lleva separador, ya que el header de la card ya marca
+              // el inicio del bloque).
+              const thisMonth = monthKey(billMonthDate(b));
+              const prevMonth =
+                i > 0 ? monthKey(billMonthDate(visible[i - 1])) : thisMonth;
+              const showSeparator = i > 0 && thisMonth !== prevMonth;
               return (
-                <TableRow key={b.id}>
-                  <TableCell>{UTILITY_LABEL[b.utility_type]}</TableCell>
-                  <TableCell>{b.provider}</TableCell>
-                  <TableCell
-                    className={`whitespace-nowrap ${
-                      b.period_inferred
-                        ? "italic text-muted-foreground"
-                        : ""
-                    }`}
-                    title={
-                      b.period_inferred
-                        ? "Período inferido a partir del vencimiento de la factura anterior."
-                        : undefined
-                    }
-                  >
-                    {b.period_inferred ? `≈ ${periodLabel}` : periodLabel}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {b.amount != null
-                      ? formatMoney(b.amount, b.currency ?? "UYU")
-                      : "—"}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {formatDate(b.due_date)}
-                  </TableCell>
-                  <TableCell>
-                    <BillRowActions bill={b} properties={allProperties} />
-                  </TableCell>
-                </TableRow>
+                <Fragment key={b.id}>
+                  {showSeparator && (
+                    <tr
+                      data-slot="month-separator"
+                      className="border-t border-border/60"
+                    >
+                      <td
+                        colSpan={6}
+                        className="px-3 pt-4 pb-1 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70"
+                      >
+                        {monthLabel(billMonthDate(b))}
+                      </td>
+                    </tr>
+                  )}
+                  <TableRow>
+                    <TableCell>{UTILITY_LABEL[b.utility_type]}</TableCell>
+                    <TableCell>{b.provider}</TableCell>
+                    <TableCell
+                      className={`whitespace-nowrap ${
+                        b.period_inferred
+                          ? "italic text-muted-foreground"
+                          : ""
+                      }`}
+                      title={
+                        b.period_inferred
+                          ? "Período inferido a partir del vencimiento de la factura anterior."
+                          : undefined
+                      }
+                    >
+                      {b.period_inferred ? `≈ ${periodLabel}` : periodLabel}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {b.amount != null
+                        ? formatMoney(b.amount, b.currency ?? "UYU")
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {formatDate(b.due_date)}
+                    </TableCell>
+                    <TableCell>
+                      <BillRowActions bill={b} properties={allProperties} />
+                    </TableCell>
+                  </TableRow>
+                </Fragment>
               );
             })}
           </TableBody>
