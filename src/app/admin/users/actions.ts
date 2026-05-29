@@ -346,8 +346,18 @@ export async function sendStaffWelcome(
   // genérico ("tus propiedades" / "your properties").
   const propertyList = formatPropertyList(propertyNames, preferredLanguage);
 
-  // Primero intentar v2 (con propiedades). Si Meta aún no lo aprobó,
-  // cae a v1 (genérico) para no bloquear el envío.
+  // Intentar v2 (personalizado con propiedades). Si falla por CUALQUIER
+  // motivo, caer a v1 (`staff_welcome`, APPROVED) — el template
+  // conocido-bueno. Solo devolvemos error si v1 TAMBIÉN falla.
+  //
+  // WIK-239: antes el fallback solo disparaba si el error de v2 matcheaba
+  // un regex angosto de "template not found". Pero v2 está PENDING en Meta
+  // (esperando aprobación) y Meta devuelve un error distinto ("not
+  // approved" / 132016) que NO matcheaba → el action devolvía error y NO
+  // mandaba nada (la bienvenida no llegaba). Ahora el fallback es
+  // incondicional: probamos lo lindo (v2), y ante cualquier problema
+  // usamos v1. Self-healing: cuando Meta apruebe v2, el primer try gana
+  // solo, sin más cambios.
   try {
     await sendKapsoTemplateWithFallback({
       phoneNumberId,
@@ -359,21 +369,11 @@ export async function sendStaffWelcome(
     return { ok: true };
   } catch (e) {
     const msg = (e as Error).message;
-    // Meta error 132001 / template not found / template not approved.
-    // Detección permisiva: cualquier mención de "template" + ("not found"
-    // | "does not exist" | "no encontrada"). Si no matchea, propagamos.
-    const isTemplateMissing =
-      /template.{0,40}(not found|does not exist|no encontrad|132001|132012)/i.test(
-        msg,
-      );
-    if (!isTemplateMissing) {
-      return { error: msg };
-    }
     console.warn(
-      `[sendStaffWelcome] staff_welcome_v2 no disponible (${msg.slice(
+      `[sendStaffWelcome] staff_welcome_v2 falló (${msg.slice(
         0,
-        120,
-      )}). Falling back a v1.`,
+        150,
+      )}). Fallback a v1 (staff_welcome).`,
     );
     try {
       await sendKapsoTemplateWithFallback({
