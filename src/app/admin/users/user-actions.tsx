@@ -81,9 +81,9 @@ export function UserActions({
       // aclara — así sabés si "no llegó" es problema de envío (no hay id)
       // o de entrega (hay id pero no aparece en el chat).
       const tmpl =
-        r.templateUsed === "staff_welcome_v2"
-          ? "personalizado"
-          : "genérico (v2 pendiente de Meta)";
+        r.templateUsed === "staff_welcome_v3"
+          ? "v3 (acceso activado)"
+          : "v1 genérico (v3 pendiente de aprobación de Meta)";
       if (r.messageId) {
         toast.success("Meta aceptó la bienvenida ✓", {
           description: `Template ${tmpl} · id ${r.messageId.slice(0, 22)}…\nSi no aparece en el chat en 1-2 min, es un tema de entrega de Meta (no de envío).`,
