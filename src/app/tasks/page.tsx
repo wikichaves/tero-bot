@@ -65,8 +65,10 @@ export default async function TasksPage({
   // WIK-109: /tasks es ahora la ÚNICA vista de tareas — accesible a
   // los 3 roles. El filtro de qué se muestra depende del role:
   //   - admin: todas las tareas
-  //   - gestor: las asignadas a mí + las que yo reporté/asigné a otros
-  //   - mantenimiento: solo las asignadas a mí
+  //   - gestor (Manager): TODAS las tareas de sus propiedades asignadas
+  //     (incl. las de Staff) — WIK-245. Antes solo veía las asignadas a
+  //     él + las que él reportó; ahora ve todo lo que pasa en su scope.
+  //   - mantenimiento (Staff): solo las asignadas a él
   const profile = await requireProfile();
   const t = await getTranslations("tasksPage");
   const tFilters = await getTranslations("tasksPage.filters");
@@ -111,18 +113,18 @@ export default async function TasksPage({
     query = query.eq("assigned_to", assigneeFilter);
   }
 
-  // WIK-109: filtro automático por role.
-  //   - mantenimiento: solo tareas asignadas a él
-  //   - gestor: tareas asignadas a él OR reportadas por él
+  // WIK-109 / WIK-245: filtro automático por role.
+  //   - mantenimiento (Staff): solo tareas asignadas a él
+  //   - gestor (Manager): SIN filtro por assignee — ve todas las tareas
+  //     de sus propiedades (el scope por property de abajo lo acota).
+  //     WIK-245 removió el narrowing `assigned_to=me OR reported_by=me`
+  //     que antes lo limitaba a "sus" tareas; un Manager debe ver todo
+  //     lo que hace el Staff de sus propiedades.
   //   - admin: sin filtro (ve todo lo que el scope de property permita)
   if (profile.role === "mantenimiento") {
     query = query.eq("assigned_to", profile.id);
-  } else if (profile.role === "gestor") {
-    query = query.or(
-      `assigned_to.eq.${profile.id},reported_by.eq.${profile.id}`,
-    );
   }
-  // WIK-94 scope: gestor solo SUS properties.
+  // WIK-94 scope: gestor/Manager solo SUS properties (admin = null = todas).
   if (allowedIds !== null) {
     query = query.in("property_id", allowedIds);
   }

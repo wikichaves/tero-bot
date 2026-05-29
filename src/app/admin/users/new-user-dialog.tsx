@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { createUser } from "./actions";
+import { ALL_ROLES, ROLE_LABEL } from "@/lib/roles";
 import { LOCALES, LOCALE_LABELS } from "@/i18n/locales";
 import type { Property } from "@/lib/types";
 
@@ -120,10 +121,14 @@ export function NewUserDialog({
                 onChange={(e) => setRole(e.target.value)}
                 className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
               >
-                {/* WIK-241: `mantenimiento` se muestra como "Staff". */}
-                <option value="admin">Admin</option>
-                <option value="gestor">Gestor</option>
-                <option value="mantenimiento">Staff</option>
+                {/* WIK-241/245: los labels salen de ROLE_LABEL
+                    (`gestor`→"Manager", `mantenimiento`→"Staff"); el value
+                    es el enum interno sin tocar. */}
+                {ALL_ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {ROLE_LABEL[r]}
+                  </option>
+                ))}
               </select>
             </div>
             {/* WIK-242: asignación de propiedades dentro del modal (antes era
