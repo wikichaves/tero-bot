@@ -177,6 +177,7 @@ export default async function TasksPage({
           properties={properties}
           assignees={assignees}
           defaultPropertyId={propertyFilter ?? undefined}
+          currentUserId={profile.id}
         />
       </div>
 
