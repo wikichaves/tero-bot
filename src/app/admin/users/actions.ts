@@ -271,13 +271,14 @@ export async function resetUserPassword(input: {
  * indicado. Pensado para el primer contacto con un gestor/mantenimiento
  * nuevo — abre la ventana de 24h sin requerir que ellos escriban primero.
  *
- * Estrategia v2 (fallback): intenta `staff_welcome_v2` con `{{2}}` =
- * lista de propiedades asignadas (ej. "Casa Merced y 14 de Julio"). Si
- * Meta todavía no aprobó v2 (template_not_exists), cae al v1 genérico.
- * Esto permite mergear este código antes de la aprobación de Meta y que
- * el flow se "actualice solo" cuando v2 quede APPROVED.
+ * Estrategia (WIK-239): intenta `staff_welcome_v3` (UTILITY, "se activó
+ * tu acceso de operador en {{2}}") con la lista de propiedades. Ante
+ * CUALQUIER error (típico: v3 PENDING hasta que Meta lo apruebe) cae al
+ * v1 (`staff_welcome`, APPROVED). Self-healing: cuando Meta apruebe v3,
+ * el primer try gana solo. v2 quedó deprecado (Meta lo clasificó
+ * MARKETING → no entregaba confiable).
  *
- * Variables v2:
+ * Variables v3:
  *   {{1}} = primer nombre del staff (extraído de profiles.full_name)
  *   {{2}} = lista natural de propiedades asignadas
  *
@@ -291,7 +292,7 @@ export async function sendStaffWelcome(profileId: string): Promise<
   | {
       ok: true;
       /** Template que Meta ACEPTÓ (no implica entrega). */
-      templateUsed: "staff_welcome_v2" | "staff_welcome";
+      templateUsed: "staff_welcome_v3" | "staff_welcome";
       /** wamid devuelto por Meta — confirma aceptación, no entrega. */
       messageId: string | null;
       /** true si cayó al idioma `es` por fallback de variante. */
@@ -371,20 +372,20 @@ export async function sendStaffWelcome(profileId: string): Promise<
     const r = await sendKapsoTemplateWithFallback({
       phoneNumberId,
       to: profile.whatsapp,
-      templateName: "staff_welcome_v2",
+      templateName: "staff_welcome_v3",
       preferredLanguage,
       bodyVariables: [firstName, propertyList],
     });
     return {
       ok: true,
-      templateUsed: "staff_welcome_v2",
+      templateUsed: "staff_welcome_v3",
       messageId: r.messageId ?? null,
       fellBack: r.fellBack,
     };
   } catch (e) {
     const msg = (e as Error).message;
     console.warn(
-      `[sendStaffWelcome] staff_welcome_v2 falló (${msg.slice(
+      `[sendStaffWelcome] staff_welcome_v3 falló (${msg.slice(
         0,
         150,
       )}). Fallback a v1 (staff_welcome).`,
