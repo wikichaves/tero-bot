@@ -440,7 +440,6 @@
       "edit": "Editar",
       "resetPassword": "Resetear contraseña",
       "sendWelcome": "Enviar bienvenida WhatsApp",
-      "changeRole": "Cambiar rol",
       "delete": "Eliminar"
     },
     "confirmDelete": "¿Eliminar a {who}? No se puede deshacer.",
@@ -467,12 +466,12 @@
       "role": "Rol",
       "properties": "Propiedades asignadas",
       "propertiesHint": "Las propiedades que este usuario puede ver y manejar.",
-      "propertiesAdmin": "Admin tiene acceso global a TODAS las propiedades."
+      "propertiesAdmin": "Admin tiene acceso global a TODAS las propiedades.",
+      "roleSelfHint": "No podés cambiar tu propio rol."
     },
     "toast": {
       "created": "Usuario creado.",
       "updated": "Usuario actualizado.",
-      "roleUpdated": "Rol actualizado.",
       "deleted": "Usuario eliminado."
     }
   },

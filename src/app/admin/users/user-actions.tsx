@@ -7,16 +7,13 @@ import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import type { Profile, Property, UserRole } from "@/lib/types";
-import { ALL_ROLES, ROLE_LABEL } from "@/lib/roles";
-import { deleteUser, sendStaffWelcome, updateRole } from "./actions";
+import type { Profile, Property } from "@/lib/types";
+import { deleteUser, sendStaffWelcome } from "./actions";
 import { EditUserDialog } from "./edit-user-dialog";
 import { ResetPasswordDialog } from "./reset-password-dialog";
 
@@ -39,14 +36,6 @@ export function UserActions({
   const [pending, startTransition] = useTransition();
   const [editOpen, setEditOpen] = useState(false);
   const [resetPwdOpen, setResetPwdOpen] = useState(false);
-
-  function changeRole(role: UserRole) {
-    startTransition(async () => {
-      const r = await updateRole({ id: profile.id, role });
-      if (r?.error) toast.error(r.error);
-      else toast.success(t("toast.roleUpdated"));
-    });
-  }
 
   function remove() {
     const who = profile.full_name ?? profile.email;
@@ -126,15 +115,8 @@ export function UserActions({
               {t("menu.sendWelcome")}
             </DropdownMenuItem>
           )}
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>{t("menu.changeRole")}</DropdownMenuLabel>
-            {ALL_ROLES.filter((r) => r !== profile.role).map((r) => (
-              <DropdownMenuItem key={r} onClick={() => changeRole(r)}>
-                {ROLE_LABEL[r]}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuGroup>
+          {/* WIK-248: el cambio de rol se movió al modal de edición (campo
+              "Rol") — antes era este grupo de items en el dropdown. */}
           {!isSelf && (
             <>
               <DropdownMenuSeparator />
@@ -150,6 +132,7 @@ export function UserActions({
       </DropdownMenu>
       <EditUserDialog
         profile={profile}
+        isSelf={isSelf}
         allProperties={allProperties}
         scopedPropertyIds={scopedPropertyIds}
         open={editOpen}

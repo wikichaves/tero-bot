@@ -156,6 +156,9 @@ const updateProfileSchema = z.object({
     .transform((v) =>
       v === "en" || v === "es" ? (v as "en" | "es") : undefined,
     ),
+  // WIK-248: el rol se edita dentro del modal (antes era un dropdown
+  // aparte en el row). Opcional — si no viene, no se toca.
+  role: z.enum(ROLES).optional(),
 });
 
 export async function updateProfile(input: {
@@ -163,15 +166,26 @@ export async function updateProfile(input: {
   full_name: string;
   whatsapp: string;
   language?: string;
+  /** WIK-248: rol editado dentro del modal. `undefined` = no tocar. */
+  role?: string;
   /** WIK-242: scope de propiedades editado dentro del modal. `undefined`
    *  = no tocar el scope (caso admin). Array (incl. vacío) = reemplazar
    *  el set completo. */
   propertyIds?: string[];
 }) {
-  await requireRole(["admin"]);
+  const me = await requireRole(["admin"]);
   const parsed = updateProfileSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+  // WIK-248: mismo guard que tenía `updateRole` — un admin no puede
+  // quitarse a sí mismo el rol de admin (se quedaría sin acceso).
+  if (
+    parsed.data.role &&
+    parsed.data.id === me.id &&
+    parsed.data.role !== "admin"
+  ) {
+    return { error: "No podés quitarte el rol de admin a vos mismo." };
   }
   const admin = createAdminClient();
   const { error } = await admin
@@ -180,6 +194,7 @@ export async function updateProfile(input: {
       full_name: parsed.data.full_name,
       whatsapp: normalizePhone(parsed.data.whatsapp),
       ...(parsed.data.language ? { language: parsed.data.language } : {}),
+      ...(parsed.data.role ? { role: parsed.data.role } : {}),
     })
     .eq("id", parsed.data.id);
   if (error) return { error: error.message };
@@ -205,27 +220,8 @@ export async function updateProfile(input: {
   return { ok: true };
 }
 
-const updateRoleSchema = z.object({
-  id: z.string().uuid(),
-  role: z.enum(ROLES),
-});
-
-export async function updateRole(input: { id: string; role: string }) {
-  const me = await requireRole(["admin"]);
-  const parsed = updateRoleSchema.safeParse(input);
-  if (!parsed.success) return { error: "Rol inválido." };
-  if (parsed.data.id === me.id && parsed.data.role !== "admin") {
-    return { error: "No podés quitarte el rol de admin a vos mismo." };
-  }
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("profiles")
-    .update({ role: parsed.data.role })
-    .eq("id", parsed.data.id);
-  if (error) return { error: error.message };
-  revalidatePath("/admin/users");
-  return { ok: true };
-}
+// WIK-248: `updateRole` se eliminó — el cambio de rol ahora viaja dentro
+// de `updateProfile` (campo `role`), editable desde el modal de edición.
 
 /**
  * WIK-94: setear las property scopes de un profile. Admin-only.
