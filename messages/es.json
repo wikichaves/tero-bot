@@ -159,6 +159,7 @@
       "all": "Todas",
       "pending": "Pendientes",
       "done": "Hechas",
+      "propertyLabel": "Propiedad:",
       "assignedLabel": "Asignado:",
       "assignedAll": "Todos",
       "unassigned": "Sin asignar"
@@ -1138,10 +1139,6 @@
     "columnPeriod": "Período",
     "columnBilled": "Facturado",
     "columnTuya": "Tuya"
-  },
-  "tasksPropertyFilter": {
-    "label": "Propiedad:",
-    "all": "Todas"
   },
   "whatsappThread": {
     "back": "Volver",

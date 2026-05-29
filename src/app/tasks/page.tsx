@@ -23,7 +23,7 @@ import type { Property, Task } from "@/lib/types";
 import { extractPhotos } from "@/lib/whatsapp/create-task";
 import { NewTaskDialog } from "./task-form-dialog";
 import { TaskRowActions } from "./task-row-actions";
-import { PropertyFilterDropdown } from "./property-filter-dropdown";
+import { FilterDropdown } from "./filter-dropdown";
 
 export const dynamic = "force-dynamic";
 
@@ -208,84 +208,78 @@ export default async function TasksPage({
             active={statusFilter === "done"}
           />
 
-          {/* WIK-116: dropdown reemplaza los pills horizontales. Las
-              options se pre-computan en el server (URLs con los demás
-              filtros preservados) — no pasamos function al client
-              porque Next no las serializa. */}
-          {properties.length > 0 && (
-            <div className="sm:ml-auto">
-              <PropertyFilterDropdown
-                currentId={propertyFilter}
-                options={[
-                  {
-                    id: null,
-                    label: tFilters("all"),
-                    href: buildTasksUrl({
-                      status:
-                        statusFilter === "all" ? null : statusFilter,
-                      property: null,
-                      assignee: assigneeFilter,
-                    }),
-                  },
-                  ...properties.map((p) => ({
-                    id: p.id,
-                    label: p.name,
-                    href: buildTasksUrl({
-                      status:
-                        statusFilter === "all" ? null : statusFilter,
-                      property: p.id,
-                      assignee: assigneeFilter,
-                    }),
-                  })),
-                ]}
-              />
+          {/* WIK-116/244: dropdowns de filtro (Propiedad + Asignado) juntos
+              a la derecha. Las options se pre-computan en el server (URLs
+              con los demás filtros preservados) — Next no serializa
+              funciones server → client. */}
+          {(properties.length > 0 || assignees.length > 0) && (
+            <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
+              {properties.length > 0 && (
+                <FilterDropdown
+                  label={tFilters("propertyLabel")}
+                  currentId={propertyFilter}
+                  options={[
+                    {
+                      id: null,
+                      label: tFilters("all"),
+                      href: buildTasksUrl({
+                        status: statusFilter === "all" ? null : statusFilter,
+                        property: null,
+                        assignee: assigneeFilter,
+                      }),
+                    },
+                    ...properties.map((p) => ({
+                      id: p.id,
+                      label: p.name,
+                      href: buildTasksUrl({
+                        status: statusFilter === "all" ? null : statusFilter,
+                        property: p.id,
+                        assignee: assigneeFilter,
+                      }),
+                    })),
+                  ]}
+                />
+              )}
+              {/* WIK-244: "Asignado" pasó de pills a dropdown (default Todos),
+                  al lado del de Propiedad. */}
+              {assignees.length > 0 && (
+                <FilterDropdown
+                  label={tFilters("assignedLabel")}
+                  currentId={assigneeFilter}
+                  options={[
+                    {
+                      id: null,
+                      label: tFilters("assignedAll"),
+                      href: buildTasksUrl({
+                        status: statusFilter === "all" ? null : statusFilter,
+                        property: propertyFilter,
+                        assignee: null,
+                      }),
+                    },
+                    {
+                      id: "unassigned",
+                      label: tFilters("unassigned"),
+                      href: buildTasksUrl({
+                        status: statusFilter === "all" ? null : statusFilter,
+                        property: propertyFilter,
+                        assignee: "unassigned",
+                      }),
+                    },
+                    ...assignees.map((a) => ({
+                      id: a.id,
+                      label: a.full_name?.split(" ")[0] ?? a.email.split("@")[0],
+                      href: buildTasksUrl({
+                        status: statusFilter === "all" ? null : statusFilter,
+                        property: propertyFilter,
+                        assignee: a.id,
+                      }),
+                    })),
+                  ]}
+                />
+              )}
             </div>
           )}
         </div>
-
-        {assignees.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-muted-foreground">
-              {tFilters("assignedLabel")}
-            </span>
-            <Link
-              href={buildTasksUrl({
-                status:
-                  statusFilter === "all" ? null : statusFilter,
-                property: propertyFilter,
-                assignee: null,
-              })}
-              className={`rounded-full px-3 py-1 ${assigneeFilter ? "hover:bg-muted" : "bg-muted font-medium"}`}
-            >
-              {tFilters("assignedAll")}
-            </Link>
-            <Link
-              href={buildTasksUrl({
-                status:
-                  statusFilter === "all" ? null : statusFilter,
-                property: propertyFilter,
-                assignee: "unassigned",
-              })}
-              className={`rounded-full px-3 py-1 ${assigneeFilter === "unassigned" ? "bg-muted font-medium" : "hover:bg-muted"}`}
-            >
-              {tFilters("unassigned")}
-            </Link>
-            {assignees.map((a) => (
-              <Link
-                key={a.id}
-                href={buildTasksUrl({
-                  status:
-                    statusFilter === "all" ? null : statusFilter,
-                  property: propertyFilter,
-                  assignee: a.id,
-                })}
-                className={`rounded-full px-3 py-1 ${assigneeFilter === a.id ? "bg-muted font-medium" : "hover:bg-muted"}`}
-              >
-                {a.full_name?.split(" ")[0] ?? a.email.split("@")[0]}
-              </Link>
-            ))}
-          </div>
-        )}
       </div>
 
       <Card>
