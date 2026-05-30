@@ -268,7 +268,10 @@
       "invalidPhone": "Teléfono inválido. Usá formato +598... o 099...",
       "notFound": "No encontré un usuario con ese teléfono.",
       "credentials": "Credenciales inválidas."
-    }
+    },
+    "privateNote": "tero.bot es un motor operativo privado, no un SaaS público: no hay registro abierto.",
+    "selfHostNote": "El código es source-available — podés descargarlo, forkearlo y self-hostear tu propia instancia.",
+    "viewCode": "Ver el código en GitHub →"
   },
   "rooms": {
     "title": "Ambientes",

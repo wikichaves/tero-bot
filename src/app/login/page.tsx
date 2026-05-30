@@ -31,15 +31,30 @@ export default async function LoginPage() {
       </header>
 
       <main className="flex flex-1 items-center justify-center p-6">
-        <Card className="w-full max-w-sm gap-6 py-7">
-          <CardHeader>
-            <CardTitle className="text-2xl">{t("title")}</CardTitle>
-            <CardDescription>{t("subtitle")}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <LoginForm />
-          </CardContent>
-        </Card>
+        <div className="flex w-full max-w-sm flex-col items-center gap-5">
+          <Card className="w-full gap-6 py-7">
+            <CardHeader>
+              <CardTitle className="text-2xl">{t("title")}</CardTitle>
+              <CardDescription>{t("subtitle")}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LoginForm />
+            </CardContent>
+          </Card>
+          {/* WIK-269: aclarar que tero.bot es software privado (sin signup
+              público) y source-available / self-hosteable. */}
+          <p className="text-center text-xs text-balance text-muted-foreground">
+            {t("privateNote")} {t("selfHostNote")}{" "}
+            <a
+              href="https://github.com/wikichaves/tero-bot"
+              target="_blank"
+              rel="noopener"
+              className="underline-offset-4 hover:text-foreground hover:underline"
+            >
+              {t("viewCode")}
+            </a>
+          </p>
+        </div>
       </main>
     </div>
   );
