@@ -38,7 +38,10 @@ export const REPOS: RepoConfig[] = [
     owner: "wikichaves",
     repo: "tero-bot",
     label: "tero-bot",
-    aliases: ["tero", "tero-bot", "terobot", "bot"],
+    // Aliases inequívocos — evitamos palabras comunes ("bot", "web") que
+    // podrían arrancar un prompt normal y misrutear el ticket. Igual es el
+    // default, así que matchear acá no cambia nada.
+    aliases: ["tero", "tero-bot", "terobot"],
   },
   {
     key: "wikichaves.com",
@@ -46,7 +49,8 @@ export const REPOS: RepoConfig[] = [
     owner: "wikichaves",
     repo: "wikichaves.com",
     label: "wikichaves.com",
-    aliases: ["wiki", "wikichaves", "wikichaves.com", "web", "com", "portfolio"],
+    // Sin "web"/"com" — demasiado comunes como primera palabra de un prompt.
+    aliases: ["wiki", "wikichaves", "wikichaves.com", "portfolio"],
   },
   {
     key: "casabosquemontoya",
