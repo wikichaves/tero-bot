@@ -14,9 +14,9 @@
  *      está caída.
  *
  * Corre como `prebuild` y `predev` (ver package.json). El JSON
- * resultante (`src/lib/landing/stats.generated.json`) se commitea
- * al repo como snapshot — cada build lo regenera y el diff queda
- * trazable.
+ * resultante (`src/lib/landing/stats.generated.json`) está gitignored
+ * (WIK-186) — se regenera fresco en cada build (incl. Vercel prod), así
+ * que los números siempre están al día sin commitear el snapshot.
  *
  * Para forzar refresh local: `npm run stats:landing`.
  * Para pasar un token (rate limit más alto): `GITHUB_TOKEN=... npm run stats:landing`.
@@ -36,9 +36,15 @@ const execAsync = promisify(exec);
 const GH_OWNER = "wikichaves";
 const GH_REPO = "tero-bot";
 
-// git-hours heuristic (igual que cuando lo computábamos localmente).
-const MAX_COMMIT_DIFF_MS = 2 * 60 * 60 * 1000;
-const FIRST_COMMIT_ADD_MS = 30 * 60 * 1000;
+// WIK-270: el criterio de stats matchea el del case study en
+// wikichaves.com/design/projects/tero (single source of truth del copy):
+//   - Active days  = días UTC distintos (YYYY-MM-DD)
+//   - Active hours = buckets de hora UTC distintos (YYYY-MM-DDTHH) — cada
+//     hora calendario con ≥1 commit cuenta 1. (Antes usábamos una
+//     heurística git-hours que daba un número distinto.)
+// Ambos usan la `author.date` del commit (no committer.date): con
+// squash-merges el committer.date se agrupa en el día/hora del merge, lo
+// que desalineaba el conteo respecto a wikichaves.com.
 
 type Stats = {
   commits: number;
@@ -80,7 +86,8 @@ async function fetchCommitsFromGitHub(): Promise<number[] | null> {
     }>;
     if (batch.length === 0) break;
     for (const c of batch) {
-      const iso = c.commit?.committer?.date ?? c.commit?.author?.date;
+      // WIK-270: author.date (no committer.date) para matchear wikichaves.com.
+      const iso = c.commit?.author?.date ?? c.commit?.committer?.date;
       if (iso) {
         const ts = new Date(iso).getTime();
         if (Number.isFinite(ts)) all.push(ts);
@@ -100,7 +107,8 @@ async function fetchCommitsFromGitHub(): Promise<number[] | null> {
  */
 async function fetchCommitsFromLocalGit(): Promise<number[] | null> {
   try {
-    const { stdout } = await execAsync("git log --reverse --format=%ct", {
+    // %at = author date (no %ct committer date) — match con wikichaves.com.
+    const { stdout } = await execAsync("git log --reverse --format=%at", {
       maxBuffer: 16 * 1024 * 1024,
     });
     const ts = stdout
@@ -115,21 +123,19 @@ async function fetchCommitsFromLocalGit(): Promise<number[] | null> {
 }
 
 function computeStats(timestamps: number[]): Stats {
-  const sorted = timestamps.slice().sort((a, b) => a - b);
-  // Active hours via git-hours heuristic.
-  let totalMs = FIRST_COMMIT_ADD_MS;
-  for (let i = 1; i < sorted.length; i++) {
-    const gap = sorted[i] - sorted[i - 1];
-    totalMs += gap < MAX_COMMIT_DIFF_MS ? gap : FIRST_COMMIT_ADD_MS;
+  // WIK-270: mismo criterio que wikichaves.com — buckets UTC distintos.
+  //   Active days  = YYYY-MM-DD distintos
+  //   Active hours = YYYY-MM-DDTHH distintos (cada hora con ≥1 commit = 1)
+  const days = new Set<string>();
+  const hourBuckets = new Set<string>();
+  for (const ms of timestamps) {
+    const iso = new Date(ms).toISOString();
+    days.add(iso.slice(0, 10)); // YYYY-MM-DD
+    hourBuckets.add(iso.slice(0, 13)); // YYYY-MM-DDTHH
   }
-  const activeHours = Math.max(1, Math.round(totalMs / (60 * 60 * 1000)));
-  // Active days: distinct YYYY-MM-DD strings.
-  const days = new Set(
-    sorted.map((ms) => new Date(ms).toISOString().slice(0, 10)),
-  );
   return {
-    commits: sorted.length,
-    activeHours,
+    commits: timestamps.length,
+    activeHours: hourBuckets.size,
     activeDays: days.size,
   };
 }
