@@ -268,7 +268,10 @@
       "invalidPhone": "Invalid phone. Use format +598... or 099...",
       "notFound": "No user found with that phone.",
       "credentials": "Invalid credentials."
-    }
+    },
+    "privateNote": "tero.bot is a private operational engine, not a public SaaS — there is no open signup.",
+    "selfHostNote": "The codebase is source-available — you can download, fork, and self-host your own instance.",
+    "viewCode": "View the code on GitHub →"
   },
   "rooms": {
     "title": "Rooms",
