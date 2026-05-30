@@ -14,9 +14,9 @@
  *      está caída.
  *
  * Corre como `prebuild` y `predev` (ver package.json). El JSON
- * resultante (`src/lib/landing/stats.generated.json`) se commitea
- * al repo como snapshot — cada build lo regenera y el diff queda
- * trazable.
+ * resultante (`src/lib/landing/stats.generated.json`) está gitignored
+ * (WIK-186) — se regenera fresco en cada build (incl. Vercel prod), así
+ * que los números siempre están al día sin commitear el snapshot.
  *
  * Para forzar refresh local: `npm run stats:landing`.
  * Para pasar un token (rate limit más alto): `GITHUB_TOKEN=... npm run stats:landing`.
