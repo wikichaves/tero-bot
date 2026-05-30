@@ -7,6 +7,7 @@ import {
   mergeAllClaudePRs,
 } from "@/lib/github/trigger-workflow";
 import { APP_NAME } from "@/lib/brand";
+import { splitRepoAlias } from "@/lib/repos";
 
 /**
  * Comandos admin/developer (WIK-97).
@@ -30,8 +31,18 @@ export type AdminCommand =
       title: string;
       description: string;
       priority: 0 | 1 | 2 | 3 | 4;
+      /** WIK-266: Linear project donde crear el ticket (según alias de repo). */
+      projectName: string;
+      /** Label legible del repo, para la confirmación de Telegram. */
+      repoLabel: string;
     }
-  | { type: "claude_queue"; prompt: string }
+  | {
+      type: "claude_queue";
+      prompt: string;
+      /** WIK-266: project + repo destino (resuelto del prefijo de alias). */
+      projectName: string;
+      repoLabel: string;
+    }
   | {
       type: "work_trigger";
       /** Si viene, el worker procesa este ticket específico. Si no,
@@ -65,6 +76,12 @@ export const HELP_TEXT = `<b>${APP_NAME} — comandos admin</b>
 /merge — mergear el último PR autonomous (squash) → Vercel deploya
 /merge &lt;N&gt; — mergear un PR específico por número
 /merge all — mergear TODOS los PRs autonomous open (en orden)
+
+🗂️ <b>Multi-repo</b> (prefijo de alias, default tero-bot)
+/claude wiki &lt;prompt&gt; — ticket en wikichaves.com
+/claude casa &lt;prompt&gt; — ticket en casabosquemontoya
+/linear wiki &lt;título&gt; — idem para tickets manuales
+   <i>Aliases: tero · wiki/web · casa/cbm/montoya</i>
 
 ❓ <b>Help</b>
 /help — esta lista
@@ -102,8 +119,11 @@ export function parseAdminCommand(text: string | null | undefined): AdminCommand
       const rest = m[2];
       const [firstLine, ...descLines] = rest.split("\n");
       const description = descLines.join("\n").trim();
+      // WIK-266: prefijo de alias opcional al inicio (`/linear wiki ...`).
+      // Solo afecta la primera línea (el título); el resto es descripción.
+      const { repo, rest: afterAlias } = splitRepoAlias(firstLine.trim());
       let priority: 0 | 1 | 2 | 3 | 4 = 3;
-      let titleSource = firstLine.trim();
+      let titleSource = afterAlias.trim();
       const prio = titleSource.match(/^(urgente|alto|medio|bajo)\s+(.+)$/i);
       if (prio) {
         const word = prio[1].toLowerCase();
@@ -123,6 +143,8 @@ export function parseAdminCommand(text: string | null | undefined): AdminCommand
         title: titleSource,
         description,
         priority,
+        projectName: repo.project,
+        repoLabel: repo.label,
       };
     }
   }
@@ -131,9 +153,16 @@ export function parseAdminCommand(text: string | null | undefined): AdminCommand
   {
     const m = cleaned.match(/^\/?(claude)\s+([\s\S]+)$/i);
     if (m) {
-      const prompt = m[2].trim();
+      // WIK-266: prefijo de alias opcional (`/claude wiki <prompt>`).
+      const { repo, rest } = splitRepoAlias(m[2].trim());
+      const prompt = rest.trim();
       if (prompt.length === 0) return null;
-      return { type: "claude_queue", prompt };
+      return {
+        type: "claude_queue",
+        prompt,
+        projectName: repo.project,
+        repoLabel: repo.label,
+      };
     }
   }
 
@@ -202,6 +231,7 @@ export async function runAdminCommand(cmd: AdminCommand): Promise<string> {
           title: cmd.title,
           description: cmd.description || undefined,
           priority: cmd.priority,
+          projectName: cmd.projectName,
         });
         const prioLabel =
           cmd.priority === 1
@@ -212,7 +242,7 @@ export async function runAdminCommand(cmd: AdminCommand): Promise<string> {
                 ? " (bajo)"
                 : "";
         return (
-          `🎫 <b>Ticket creado${prioLabel}</b>\n\n` +
+          `🎫 <b>Ticket creado${prioLabel}</b> · <code>${escapeHtml(cmd.repoLabel)}</code>\n\n` +
           `<b>${issue.identifier}</b>: ${escapeHtml(issue.title)}\n\n` +
           `<a href="${issue.url}">${issue.url}</a>`
         );
@@ -244,15 +274,16 @@ export async function runAdminCommand(cmd: AdminCommand): Promise<string> {
           title,
           description,
           priority: 3,
+          projectName: cmd.projectName,
           labels: ["claude:autonomous"],
           // Todo directo → el worker lo levanta sin paso manual del user.
           state: "Todo",
         });
         return (
-          `🤖 <b>Trabajo encolado para Claude</b>\n\n` +
+          `🤖 <b>Trabajo encolado para Claude</b> · <code>${escapeHtml(cmd.repoLabel)}</code>\n\n` +
           `<b>${issue.identifier}</b>: ${escapeHtml(issue.title)}\n\n` +
           `<a href="${issue.url}">${issue.url}</a>\n\n` +
-          `<i>Está en <b>Todo</b>. Disparalo con /work o esperá al próximo /work all.</i>`
+          `<i>Está en <b>Todo</b> (project ${escapeHtml(cmd.projectName)}). Disparalo con /work o esperá al próximo /work all.</i>`
         );
       } catch (e) {
         return `❌ No pude encolar: <code>${escapeHtml(
