@@ -16,6 +16,11 @@
 
 const TOKEN = process.env.LINEAR_API_TOKEN;
 const FORCED = (process.env.FORCED_TICKET ?? "").trim();
+// WIK-266: el worker de tero-bot SOLO procesa tickets del project "Tero Bot".
+// Sin esto, el picker tomaba el top de cualquier project con label
+// claude:autonomous y los "arreglaba" en el repo equivocado (caso WIK-264).
+// Configurable por env para cuando exista el worker centralizado multi-repo.
+const PROJECT = (process.env.LINEAR_PROJECT_NAME ?? "Tero Bot").trim();
 if (!TOKEN) {
   console.error("LINEAR_API_TOKEN not set");
   process.exit(1);
@@ -46,6 +51,7 @@ async function fetchByIdentifier(identifier) {
       issue(id: $id) {
         id identifier title description
         state { name }
+        project { name }
       }
     }`,
     { id: identifier },
@@ -61,11 +67,12 @@ async function fetchTopAutonomous() {
   // nuevos en Backlog por default, así que el `/claude` desde Telegram
   // los deja ahí, y el usuario los mueve a Todo cuando confirma.
   const data = await gql(
-    `query Pick {
+    `query Pick($project: String!) {
       issues(
         filter: {
           labels: { name: { eq: "claude:autonomous" } }
           state: { type: { eq: "unstarted" } }
+          project: { name: { eq: $project } }
         }
         orderBy: createdAt
         first: 20
@@ -74,10 +81,11 @@ async function fetchTopAutonomous() {
           id identifier title description
           priority
           state { name type }
+          project { name }
         }
       }
     }`,
-    {},
+    { project: PROJECT },
   );
   const all = data.issues?.nodes ?? [];
   if (all.length === 0) return null;
@@ -96,6 +104,18 @@ async function main() {
     issue = await fetchByIdentifier(FORCED);
     if (!issue) {
       console.error(`Forced ticket ${FORCED} not found`);
+      process.stdout.write(JSON.stringify({ identifier: null }));
+      return;
+    }
+    // WIK-266: guard — un ticket forzado de OTRO project no se procesa en
+    // tero-bot (evita misrouting tipo WIK-264). Cuando exista el worker
+    // centralizado, esto lo maneja el dispatch por repo.
+    const proj = issue.project?.name ?? "(sin project)";
+    if (proj !== PROJECT) {
+      console.error(
+        `Forced ticket ${FORCED} pertenece al project "${proj}", no "${PROJECT}". ` +
+          `El worker de tero-bot no lo procesa (sería el repo equivocado).`,
+      );
       process.stdout.write(JSON.stringify({ identifier: null }));
       return;
     }
