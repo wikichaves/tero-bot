@@ -9,6 +9,7 @@ import {
   upsertConversation,
 } from "@/lib/whatsapp";
 import { parseCommand, runCommand } from "@/lib/whatsapp/commands";
+import { buildWelcomeContent } from "@/lib/whatsapp/welcome";
 import {
   createTaskFromWhatsApp,
   looksLikeCreateTaskCommand,
@@ -531,6 +532,42 @@ async function autoReply(opts: {
 
   // Try to handle as a regular command (consumo, tareas, ayuda).
   const command = parseCommand(opts.messageBody);
+
+  // WIK-278: activación de operador. El operador nuevo abre la ventana de 24h
+  // con el link click-to-chat ("activar mi acceso"); respondemos con la
+  // bienvenida como mensaje de sesión free-form. Dentro de la ventana la
+  // entrega es confiable — evita el throttling de Meta a los templates
+  // business-initiated hacia números que nunca interactuaron (ver WIK-277).
+  if (command?.type === "activate") {
+    const locale = await getLocale();
+    const tWelcome = await getTranslations({
+      locale,
+      namespace: "whatsapp.staffWelcome",
+    });
+    const profile = await getProfile();
+    if (!profile) {
+      const normalized = normalizePhone(opts.peer) ?? opts.peer;
+      await sendAndPersist({
+        phoneNumberId: opts.phoneNumberId,
+        peer: opts.peer,
+        conversationId: opts.conversationId,
+        text: tWelcome("notLinked", { phone: normalized }),
+      });
+      return;
+    }
+    const { firstName, propertyList } = await buildWelcomeContent(profile);
+    await sendAndPersist({
+      phoneNumberId: opts.phoneNumberId,
+      peer: opts.peer,
+      conversationId: opts.conversationId,
+      text: tWelcome("session", {
+        name: firstName,
+        properties: propertyList,
+      }),
+    });
+    return;
+  }
+
   if (command) {
     try {
       const reply = await runCommand(command, opts.peer, await getLocale());

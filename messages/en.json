@@ -443,6 +443,7 @@
       "edit": "Edit",
       "resetPassword": "Reset password",
       "sendWelcome": "Send WhatsApp welcome",
+      "copyActivationLink": "Copy activation link",
       "delete": "Delete"
     },
     "confirmDelete": "Delete {who}? This can't be undone.",
@@ -475,7 +476,8 @@
     "toast": {
       "created": "User created.",
       "updated": "User updated.",
-      "deleted": "User deleted."
+      "deleted": "User deleted.",
+      "activationLinkCopied": "Activation link copied"
     }
   },
   "whatsapp": {
@@ -518,6 +520,10 @@
     "auth": {
       "myTasksUnlinked": "🔒 Your number (`{phone}`) is not linked to any user.\n\nAsk an admin/manager to add that exact number to your profile ({host} → Users → edit) and try again.",
       "notAuthorized": "🔒 Your number (`{phone}`) is not authorized to use commands.\n\nIf you're an admin/manager of {appName}, add that exact number to your profile ({host} → Users → edit) and try again."
+    },
+    "staffWelcome": {
+      "session": "Hi {name}, your operator access to {properties} is now active. 🎉\n\nSend `ayuda` to see the available commands.",
+      "notLinked": "🔒 Your number (`{phone}`) is not linked to any user yet.\n\nAsk an admin to add that exact number to your profile and try again."
     },
     "staffUnknownCommand": "Hi, I'm *{appName}* 🐦. I didn't understand that message. Send `ayuda` to see the available commands.",
     "createTask": {

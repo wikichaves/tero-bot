@@ -10,8 +10,7 @@ import {
   sendKapsoTemplateWithFallback,
   upsertConversation,
 } from "@/lib/whatsapp";
-import { formatPropertyList } from "@/lib/whatsapp/templates";
-import { getAllowedPropertyIds } from "@/lib/auth/scope";
+import { buildWelcomeContent } from "@/lib/whatsapp/welcome";
 
 // WIK-74: "limpieza" deprecado, unificado en "mantenimiento".
 const ROLES = ["admin", "gestor", "mantenimiento"] as const;
@@ -404,40 +403,11 @@ export async function sendStaffWelcome(profileId: string): Promise<
     };
   }
 
-  // First name: primera palabra del full_name si existe; sino algo razonable
-  // (la parte local del email, o el propio teléfono como último recurso).
-  const firstName =
-    profile.full_name?.trim().split(/\s+/)[0] ??
-    profile.email?.split("@")[0] ??
-    profile.whatsapp;
-
-  const preferredLanguage: "es" | "en" =
-    profile.language === "en" ? "en" : "es";
-
-  // Fetch property names from scope. Admin = null = todas las properties.
-  const allowedIds = await getAllowedPropertyIds({
-    id: profile.id,
-    role: profile.role as "admin" | "gestor" | "mantenimiento",
-  });
-  let propertyNames: string[] = [];
-  if (allowedIds === null) {
-    // admin → todas
-    const { data } = await admin
-      .from("properties")
-      .select("name")
-      .order("name", { ascending: true });
-    propertyNames = (data ?? []).map((r) => r.name as string);
-  } else if (allowedIds.length > 0) {
-    const { data } = await admin
-      .from("properties")
-      .select("name")
-      .in("id", allowedIds)
-      .order("name", { ascending: true });
-    propertyNames = (data ?? []).map((r) => r.name as string);
-  }
-  // Si está vacío después del fetch, `formatPropertyList` cae al fallback
-  // genérico ("tus propiedades" / "your properties").
-  const propertyList = formatPropertyList(propertyNames, preferredLanguage);
+  const {
+    firstName,
+    propertyList,
+    language: preferredLanguage,
+  } = await buildWelcomeContent(profile);
 
   // Intentar v2 (personalizado con propiedades). Si falla por CUALQUIER
   // motivo, caer a v1 (`staff_welcome`, APPROVED) — el template

@@ -17,6 +17,7 @@ export type ParsedCommand =
   | { type: "my_tasks" }
   | { type: "rooms" }
   | { type: "help" }
+  | { type: "activate" }
   | null;
 
 // WIK-132: dropped the 🌲 emoji + " · " separator from the header so it
@@ -53,6 +54,14 @@ export function parseCommand(text: string | null | undefined): ParsedCommand {
 
   if (/^(ayuda|help|comandos|menu)\b/.test(lower)) {
     return { type: "help" };
+  }
+
+  // WIK-278: "activar" / "activá" / "activate" — el operador nuevo abre la
+  // ventana de 24h con el link click-to-chat; el webhook responde con la
+  // bienvenida como mensaje de sesión (entrega confiable, sin throttling de
+  // templates business-initiated).
+  if (/^(activ[aá]r?|activate)\b/.test(lower)) {
+    return { type: "activate" };
   }
 
   // "tareas" / "mis tareas" / "pendientes"
@@ -289,5 +298,10 @@ export async function runCommand(
         });
         return t("errorReport", { message: (e as Error).message });
       }
+    case "activate":
+      // WIK-278: la activación se maneja en el webhook route (necesita el
+      // contexto del envío de sesión). No debería llegar acá; devolvemos
+      // null para no romper el flujo si lo hiciera.
+      return null;
   }
 }

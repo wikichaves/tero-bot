@@ -24,6 +24,8 @@ import { ROLE_LABEL } from "@/lib/roles";
 export default async function UsersPage() {
   const me = await requireRole(["admin"]);
   const t = await getTranslations("usersPage");
+  // WIK-278: número del bot para construir el link click-to-chat de activación.
+  const botWhatsappNumber = process.env.WHATSAPP_DISPLAY_NUMBER ?? null;
   const supabase = await createClient();
   const [profilesRes, propsRes, scopesRes] = await Promise.all([
     supabase
@@ -129,6 +131,7 @@ export default async function UsersPage() {
                         isSelf={p.id === me.id}
                         allProperties={allProperties}
                         scopedPropertyIds={scopedIds}
+                        botWhatsappNumber={botWhatsappNumber}
                       />
                     </TableCell>
                   </TableRow>

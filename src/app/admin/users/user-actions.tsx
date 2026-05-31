@@ -22,6 +22,7 @@ export function UserActions({
   isSelf,
   allProperties,
   scopedPropertyIds,
+  botWhatsappNumber,
 }: {
   profile: Profile;
   isSelf: boolean;
@@ -31,6 +32,9 @@ export function UserActions({
    *  si gestor/mantenimiento sin scope, o si es admin (admin no usa
    *  scope — tiene acceso global). */
   scopedPropertyIds: string[];
+  /** Número del bot (E.164 sin "+") para el link de activación wa.me.
+   *  null si WHATSAPP_DISPLAY_NUMBER no está configurado. */
+  botWhatsappNumber: string | null;
 }) {
   const t = useTranslations("usersPage");
   const [pending, startTransition] = useTransition();
@@ -45,6 +49,24 @@ export function UserActions({
       if (r?.error) toast.error(r.error);
       else toast.success(t("toast.deleted"));
     });
+  }
+
+  // WIK-278: link click-to-chat para que el operador abra la ventana de 24h.
+  // Al tocarlo, manda "Activar mi acceso" al bot → el webhook responde con la
+  // bienvenida como mensaje de sesión (entrega confiable).
+  async function copyActivationLink() {
+    if (!botWhatsappNumber) return;
+    const link = `https://wa.me/${botWhatsappNumber}?text=${encodeURIComponent(
+      "Activar mi acceso",
+    )}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success(t("toast.activationLinkCopied"), { description: link });
+    } catch {
+      // Clipboard puede fallar (permisos / contexto no seguro) — mostramos el
+      // link en el toast para copiarlo a mano.
+      toast.info(link);
+    }
   }
 
   function sendWelcome() {
@@ -113,6 +135,13 @@ export function UserActions({
           {profile.whatsapp && profile.role !== "admin" && (
             <DropdownMenuItem onClick={sendWelcome}>
               {t("menu.sendWelcome")}
+            </DropdownMenuItem>
+          )}
+          {/* WIK-278: link de activación (abre ventana de 24h → bienvenida
+              como mensaje de sesión, entrega confiable). */}
+          {botWhatsappNumber && profile.whatsapp && profile.role !== "admin" && (
+            <DropdownMenuItem onClick={copyActivationLink}>
+              {t("menu.copyActivationLink")}
             </DropdownMenuItem>
           )}
           {/* WIK-248: el cambio de rol se movió al modal de edición (campo

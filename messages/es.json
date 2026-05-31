@@ -443,6 +443,7 @@
       "edit": "Editar",
       "resetPassword": "Resetear contraseña",
       "sendWelcome": "Enviar bienvenida WhatsApp",
+      "copyActivationLink": "Copiar link de activación",
       "delete": "Eliminar"
     },
     "confirmDelete": "¿Eliminar a {who}? No se puede deshacer.",
@@ -475,7 +476,8 @@
     "toast": {
       "created": "Usuario creado.",
       "updated": "Usuario actualizado.",
-      "deleted": "Usuario eliminado."
+      "deleted": "Usuario eliminado.",
+      "activationLinkCopied": "Link de activación copiado"
     }
   },
   "whatsapp": {
@@ -518,6 +520,10 @@
     "auth": {
       "myTasksUnlinked": "🔒 Tu número (`{phone}`) no está vinculado a ningún usuario.\n\nPedile a un admin/gestor que te cargue ese número exacto en tu perfil ({host} → Usuarios → editar) y reintentá.",
       "notAuthorized": "🔒 Tu número (`{phone}`) no está autorizado para usar comandos.\n\nSi sos admin/gestor de {appName}, cargá ese número exacto en tu profile ({host} → Usuarios → editar) y reintentá."
+    },
+    "staffWelcome": {
+      "session": "Hola {name}, tu acceso de operador en {properties} ya está activo. 🎉\n\nMandá `ayuda` para ver los comandos disponibles.",
+      "notLinked": "🔒 Tu número (`{phone}`) todavía no está vinculado a ningún usuario.\n\nPedile a un admin que cargue ese número exacto en tu perfil y reintentá."
     },
     "staffUnknownCommand": "Hola, soy *{appName}* 🐦. No entendí ese mensaje. Mandá `ayuda` para ver los comandos disponibles.",
     "createTask": {
