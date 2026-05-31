@@ -21,7 +21,7 @@ Most property-management software is bloatware: rigid SaaS dashboards built for 
 ## Core Modules
 
 1. **Automated Hospitality** — IoT integration for live temperature and humidity control. Pre-checkin conditioning fires HVAC scenes 2h before a guest arrives so the property is at target temp on arrival. Threshold alarms surface when ambient conditions drift.
-2. **Invisible Operations** — Backend data parsing that intercepts forwarded utility bills (emails) to track energy costs per property. Provider invoices land via inbound email, get parsed automatically, and attach to the right property. No spreadsheets, no manual entry.
+2. **Invisible Operations** — Backend data parsing that intercepts utility bills via email to track energy costs per property. Provider invoices land via inbound email, get parsed automatically, and attach to the right property. No spreadsheets, no manual entry.
 3. **Zero-Friction Team UI** — A WhatsApp bot integration for issue report, task assignment, status tracking, and sensor querying. Cleaning and maintenance staff never download an app — they message a bot. Photos auto-create tasks. Admins query consumption and ambient readings in plain text. Pre-checkin conditioning confirms via inline buttons.
 
 ## Tech Stack
@@ -32,7 +32,7 @@ Most property-management software is bloatware: rigid SaaS dashboards built for 
 - **WhatsApp API wrapper** — Kapso (BSP layer over Meta WhatsApp Cloud API)
 - **IoT Hardware / Sensors** — Tuya Cloud (smart locks with offline + online passcodes, energy meters, temperature & humidity sensors)
 - **Inbound Email Parsing** — Postmark Inbound (utility bill + Airbnb reservation emails)
-- **Ops / Bot Surfaces** — Telegram (operator-side `/claude` queue) + WhatsApp (staff and guest comms)
+- **Ops / Bot Surfaces** — Telegram (operator-side autonomous dev loop: `/claude` queues a Linear ticket → a GitHub Action runs Claude Code and opens a PR → `/merge` from mobile) + WhatsApp (staff and guest comms)
 - **Hosting / Deployment** — Vercel (Next.js runtime + Cron jobs)
 
 ## Source-Available (Build in Public)
