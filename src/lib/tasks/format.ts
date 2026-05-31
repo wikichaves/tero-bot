@@ -5,10 +5,14 @@
  */
 
 /**
- * Pull `📸 Foto: <url>` blocks out of a task description (the format the
+ * Pull `Foto: <url>` blocks out of a task description (the format the
  * WhatsApp create-task flow writes). Returns the URLs and the description
  * with those blocks stripped, so listings can show the meaningful text
  * and render the photos separately.
+ *
+ * WIK-279: el prefijo `📸` quedó OPCIONAL — las tareas nuevas se escriben
+ * sin emoji ("Foto: <url>"), pero seguimos matcheando las viejas que se
+ * guardaron como "📸 Foto: <url>".
  */
 export function extractPhotos(description: string | null | undefined): {
   urls: string[];
@@ -17,7 +21,7 @@ export function extractPhotos(description: string | null | undefined): {
   if (!description) return { urls: [], cleaned: "" };
   const urls: string[] = [];
   const cleaned = description
-    .replace(/^📸\s*Foto:\s*(\S+)\s*$/gm, (_, url) => {
+    .replace(/^(?:📸\s*)?Foto:\s*(\S+)\s*$/gm, (_, url) => {
       urls.push(url);
       return "";
     })

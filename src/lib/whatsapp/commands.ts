@@ -142,19 +142,6 @@ export async function isAuthorizedCommandSender(
   return profile.role === "admin" || profile.role === "gestor";
 }
 
-const KIND_EMOJI: Record<Task["kind"], string> = {
-  limpieza: "🧹",
-  mantenimiento: "🔧",
-  insumos: "📦",
-  otro: "📋",
-};
-
-const STATUS_EMOJI: Record<Task["status"], string> = {
-  pending: "⏳",
-  in_progress: "▶️",
-  done: "✅",
-};
-
 type TaskWithProperty = Task & { property: { name: string } | null };
 
 async function buildMyTasksReport(
@@ -181,14 +168,16 @@ async function buildMyTasksReport(
   }
 
   const todayIso = new Date().toISOString().slice(0, 10);
-  const lines = tasks.map((t, i) => {
-    const overdue = !!t.due_date && t.due_date < todayIso;
-    const dueLabel = t.due_date
-      ? `${overdue ? "⚠️ " : "📅 "}${formatTaskDueDate(parseISO(t.due_date), locale)}`
+  // `t` (translations) queda sombreado dentro del map por el param de la
+  // tarea, así que capturamos el label de "vencida" antes.
+  const overdueLabel = t("overdue");
+  const lines = tasks.map((task, i) => {
+    const overdue = !!task.due_date && task.due_date < todayIso;
+    const dueLabel = task.due_date
+      ? `${overdue ? `${overdueLabel} · ` : ""}${formatTaskDueDate(parseISO(task.due_date), locale)}`
       : "";
-    const statusBit = STATUS_EMOJI[t.status];
-    const propertyBit = t.property?.name ? ` · ${t.property.name}` : "";
-    return `${i + 1}. ${KIND_EMOJI[t.kind]} ${statusBit} *${t.title}*${propertyBit}${dueLabel ? `\n   ${dueLabel}` : ""}`;
+    const propertyBit = task.property?.name ? ` · ${task.property.name}` : "";
+    return `${i + 1}. *${task.title}*${propertyBit}${dueLabel ? `\n   ${dueLabel}` : ""}`;
   });
 
   return (
