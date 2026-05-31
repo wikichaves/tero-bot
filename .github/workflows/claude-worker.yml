@@ -123,7 +123,7 @@ jobs:
         if: steps.pick.outputs.has_ticket == 'true'
         id: ratelimit
         env:
-          GH_TOKEN: ${{ env.GH_PAT }}
+          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
           SLUG: ${{ steps.repo.outputs.slug }}
         run: |
           OPEN=$(gh pr list -R "$SLUG" --label "claude:autonomous" --state open --json number --jq 'length' 2>/dev/null || echo 0)
@@ -236,7 +236,7 @@ jobs:
         if: steps.pick.outputs.has_ticket == 'true' && steps.commit.outputs.has_changes == 'true'
         id: pr
         env:
-          GH_TOKEN: ${{ env.GH_PAT }}
+          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
           SLUG: ${{ steps.repo.outputs.slug }}
           TICKET_ID: ${{ steps.pick.outputs.ticket_id }}
           TICKET_TITLE: ${{ steps.pick.outputs.ticket_title }}
@@ -327,7 +327,7 @@ jobs:
       - name: Auto-merge if safe
         if: steps.classify.outputs.safe == 'true' && steps.pr.outputs.number != ''
         env:
-          GH_TOKEN: ${{ env.GH_PAT }}
+          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
           SLUG: ${{ steps.repo.outputs.slug }}
         run: |
           gh pr merge "${{ steps.pr.outputs.number }}" -R "$SLUG" \
@@ -337,7 +337,7 @@ jobs:
       - name: Mark PR as needs-review
         if: steps.pr.outputs.number != '' && (steps.repo.outputs.automerge != 'true' || steps.classify.outputs.safe == 'false')
         env:
-          GH_TOKEN: ${{ env.GH_PAT }}
+          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
           SLUG: ${{ steps.repo.outputs.slug }}
         run: |
           gh label create "needs-review" -R "$SLUG" \
