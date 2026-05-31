@@ -9,9 +9,10 @@ const ruleSchema = z.object({
   id: z.string().uuid().optional(),
   scope_type: z.enum(["global", "property", "room", "device"]),
   scope_id: z.string().uuid().nullable(),
-  metric: z.enum(["temperature_c", "humidity_pct"]),
-  operator: z.enum(["gt", "lt"]),
-  threshold: z.coerce.number(),
+  // WIK-280: 'power_outage' (corte de luz) no usa operator/threshold.
+  metric: z.enum(["temperature_c", "humidity_pct", "power_outage"]),
+  operator: z.enum(["gt", "lt"]).nullable().optional(),
+  threshold: z.coerce.number().nullable().optional(),
   debounce_minutes: z.coerce.number().int().min(0).max(1440).default(15),
   enabled: z.boolean().default(true),
   // WIK-275: usuarios asignados a la regla (checkbox group). Vacío =
@@ -26,14 +27,23 @@ export async function saveAlarmRule(input: unknown) {
     return { error: parsed.error.issues.map((i) => i.message).join(", ") };
   }
   const v = parsed.data;
+  // WIK-280: corte de luz — scope SIEMPRE propiedad; operator/threshold no
+  // aplican (se guardan null). Las reglas de threshold (T/H) sí los exigen.
+  const isOutage = v.metric === "power_outage";
+  if (!isOutage && (v.operator == null || v.threshold == null)) {
+    return { error: "Falta operador o umbral." };
+  }
+  if (isOutage && v.scope_type !== "property") {
+    return { error: "El corte de luz se configura por propiedad." };
+  }
   // scope_type → FK column. Solo uno de los 3 FKs queda seteado.
   const row = {
     property_id: v.scope_type === "property" ? v.scope_id : null,
     room_id: v.scope_type === "room" ? v.scope_id : null,
     property_device_id: v.scope_type === "device" ? v.scope_id : null,
     metric: v.metric,
-    operator: v.operator,
-    threshold: v.threshold,
+    operator: isOutage ? null : v.operator,
+    threshold: isOutage ? null : v.threshold,
     debounce_minutes: v.debounce_minutes,
     enabled: v.enabled,
   };

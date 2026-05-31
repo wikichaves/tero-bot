@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import type { Property, Room } from "@/lib/types";
 import { saveAlarmRule } from "./actions";
 
-type Metric = "temperature_c" | "humidity_pct";
+type Metric = "temperature_c" | "humidity_pct" | "power_outage";
 type ScopeType = "global" | "property" | "room" | "device";
 
 export function NewAlarmRuleDialog({
@@ -47,8 +47,9 @@ export function NewAlarmRuleDialog({
     room_id: string | null;
     property_device_id: string | null;
     metric: Metric;
-    operator: "gt" | "lt";
-    threshold: number;
+    // WIK-280: nullable — las reglas power_outage no tienen operator/threshold.
+    operator: "gt" | "lt" | null;
+    threshold: number | null;
     debounce_minutes: number;
     enabled: boolean;
   };
@@ -113,8 +114,17 @@ export function NewAlarmRuleDialog({
     });
   }
 
+  // WIK-280: corte de luz no usa operator/threshold y siempre es por propiedad.
+  const isOutage = metric === "power_outage";
+
   function changeMetric(m: Metric) {
     setMetric(m);
+    if (m === "power_outage") {
+      // El corte de luz se configura por propiedad — forzamos el scope.
+      setScopeType("property");
+      setScopeId(null);
+      return;
+    }
     // Sugerir threshold default si el usuario no editó.
     setThreshold((prev) =>
       prev === "80" || prev === "33"
@@ -133,8 +143,9 @@ export function NewAlarmRuleDialog({
         scope_type: scopeType,
         scope_id: scopeType === "global" ? null : scopeId,
         metric,
-        operator,
-        threshold: Number(threshold),
+        // WIK-280: corte de luz no manda operator/threshold.
+        operator: isOutage ? null : operator,
+        threshold: isOutage ? null : Number(threshold),
         debounce_minutes: Number(debounce),
         enabled: initialRule?.enabled ?? true,
         recipient_profile_ids: Array.from(recipientIds),
@@ -211,35 +222,47 @@ export function NewAlarmRuleDialog({
                 >
                   <option value="humidity_pct">{t("metricOptions.humidity")}</option>
                   <option value="temperature_c">{t("metricOptions.temperature")}</option>
+                  <option value="power_outage">{t("metricOptions.powerOutage")}</option>
                 </select>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="operator">{t("fields.operator")}</Label>
-                <select
-                  id="operator"
-                  value={operator}
-                  onChange={(e) =>
-                    setOperator(e.target.value as "gt" | "lt")
-                  }
-                  className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
-                >
-                  <option value="gt">{t("operatorOptions.gt")}</option>
-                  <option value="lt">{t("operatorOptions.lt")}</option>
-                </select>
-              </div>
+              {/* WIK-280: corte de luz no usa operador. */}
+              {!isOutage && (
+                <div className="grid gap-2">
+                  <Label htmlFor="operator">{t("fields.operator")}</Label>
+                  <select
+                    id="operator"
+                    value={operator}
+                    onChange={(e) =>
+                      setOperator(e.target.value as "gt" | "lt")
+                    }
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+                  >
+                    <option value="gt">{t("operatorOptions.gt")}</option>
+                    <option value="lt">{t("operatorOptions.lt")}</option>
+                  </select>
+                </div>
+              )}
             </div>
+            {isOutage && (
+              <p className="text-xs text-muted-foreground">
+                {t("powerOutageHint")}
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-2">
-              <div className="grid gap-2">
-                <Label htmlFor="threshold">{t("fields.threshold")}</Label>
-                <Input
-                  id="threshold"
-                  type="number"
-                  step="0.1"
-                  value={threshold}
-                  onChange={(e) => setThreshold(e.target.value)}
-                  required
-                />
-              </div>
+              {/* WIK-280: corte de luz no usa umbral. */}
+              {!isOutage && (
+                <div className="grid gap-2">
+                  <Label htmlFor="threshold">{t("fields.threshold")}</Label>
+                  <Input
+                    id="threshold"
+                    type="number"
+                    step="0.1"
+                    value={threshold}
+                    onChange={(e) => setThreshold(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
               <div className="grid gap-2">
                 <Label htmlFor="debounce">{t("fields.debounce")}</Label>
                 <Input
@@ -254,23 +277,27 @@ export function NewAlarmRuleDialog({
                 />
               </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="scope_type">{t("fields.scopeType")}</Label>
-              <select
-                id="scope_type"
-                value={scopeType}
-                onChange={(e) => {
-                  setScopeType(e.target.value as ScopeType);
-                  setScopeId(null);
-                }}
-                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
-              >
-                <option value="global">{t("scopeOptions.global")}</option>
-                <option value="property">{t("scopeOptions.property")}</option>
-                <option value="room">{t("scopeOptions.room")}</option>
-                <option value="device">{t("scopeOptions.device")}</option>
-              </select>
-            </div>
+            {/* WIK-280: el corte de luz es siempre por propiedad → ocultamos
+                el selector de scope (queda fijo en "property"). */}
+            {!isOutage && (
+              <div className="grid gap-2">
+                <Label htmlFor="scope_type">{t("fields.scopeType")}</Label>
+                <select
+                  id="scope_type"
+                  value={scopeType}
+                  onChange={(e) => {
+                    setScopeType(e.target.value as ScopeType);
+                    setScopeId(null);
+                  }}
+                  className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+                >
+                  <option value="global">{t("scopeOptions.global")}</option>
+                  <option value="property">{t("scopeOptions.property")}</option>
+                  <option value="room">{t("scopeOptions.room")}</option>
+                  <option value="device">{t("scopeOptions.device")}</option>
+                </select>
+              </div>
+            )}
             {scopeType !== "global" && (
               <div className="grid gap-2">
                 <Label htmlFor="scope_id">

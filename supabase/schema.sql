@@ -675,9 +675,11 @@ create table if not exists public.alarm_rules (
   property_id uuid references public.properties(id) on delete cascade,
   room_id uuid references public.rooms(id) on delete cascade,
   property_device_id uuid references public.property_devices(id) on delete cascade,
-  metric text not null check (metric in ('temperature_c', 'humidity_pct')),
-  operator text not null check (operator in ('gt', 'lt')),
-  threshold numeric(5,2) not null,
+  -- WIK-280: 'power_outage' detecta corte de luz por el estado online de
+  -- los breakers (dlq). Para ese tipo, operator/threshold no aplican (null).
+  metric text not null check (metric in ('temperature_c', 'humidity_pct', 'power_outage')),
+  operator text check (operator is null or operator in ('gt', 'lt')),
+  threshold numeric(5,2),
   debounce_minutes int not null default 15,
   enabled boolean not null default true,
   created_at timestamptz not null default now()
@@ -689,11 +691,31 @@ create table if not exists public.alarm_events (
   property_device_id uuid not null references public.property_devices(id) on delete cascade,
   fired_at timestamptz not null,
   resolved_at timestamptz,
-  trigger_value numeric(5,2) not null,
+  -- WIK-280: nullable — los eventos de corte de luz no tienen un valor
+  -- numérico de trigger (es estado online/offline, no una métrica).
+  trigger_value numeric(5,2),
   notified_via_whatsapp boolean not null default false
 );
 create index if not exists alarm_events_active_idx
   on public.alarm_events(resolved_at) where resolved_at is null;
+
+-- WIK-280: migración para DBs existentes (las tablas ya existen, el
+-- `create table if not exists` de arriba no las altera). Relaja
+-- operator/threshold/trigger_value a nullable y agrega 'power_outage'
+-- al CHECK de metric.
+alter table public.alarm_rules
+  drop constraint if exists alarm_rules_metric_check;
+alter table public.alarm_rules
+  add constraint alarm_rules_metric_check
+  check (metric in ('temperature_c', 'humidity_pct', 'power_outage'));
+alter table public.alarm_rules
+  drop constraint if exists alarm_rules_operator_check;
+alter table public.alarm_rules
+  add constraint alarm_rules_operator_check
+  check (operator is null or operator in ('gt', 'lt'));
+alter table public.alarm_rules alter column operator drop not null;
+alter table public.alarm_rules alter column threshold drop not null;
+alter table public.alarm_events alter column trigger_value drop not null;
 
 -- RLS: lectura admin/gestor/mantenimiento; escritura admin/gestor.
 alter table public.rooms enable row level security;
