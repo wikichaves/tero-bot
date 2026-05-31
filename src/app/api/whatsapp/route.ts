@@ -16,6 +16,7 @@ import {
   type PropertyChoiceIntent,
 } from "@/lib/whatsapp/create-task";
 import { handlePreCheckinResponse } from "@/lib/pre-checkin/handle-response";
+import { getAdminChatId, sendTelegramMessage } from "@/lib/telegram";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { APP_NAME } from "@/lib/brand";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/locales";
@@ -86,10 +87,22 @@ type KapsoMessage = {
   kapso?: { direction?: "inbound" | "outbound" };
 };
 
+type KapsoStatusError = {
+  code?: number;
+  title?: string;
+  message?: string;
+  error_data?: { details?: string };
+  href?: string;
+};
+
 type KapsoStatus = {
   id?: string;
   status?: string; // sent | delivered | read | failed
   recipient_id?: string;
+  // Meta adjunta el motivo SOLO en eventos `failed`. Sin esto, una
+  // bienvenida que Meta aceptó (devolvió wamid) pero nunca entregó queda
+  // como un misterio (WIK-277): el código de error es la única pista.
+  errors?: KapsoStatusError[];
 };
 
 type KapsoContact = {
@@ -173,19 +186,87 @@ async function processEvent(event: KapsoEvent, eventType: string | null) {
   }
 
   // --- Outbound delivery status updates ---
-  if (event.status?.id) {
-    // Update existing message row's status if we have it.
-    // (We don't necessarily have it if the outbound was sent from outside
-    // this app; ignore silently in that case.)
-    const { createAdminClient } = await import("@/lib/supabase/admin");
+  const st = event.status;
+  if (st?.id) {
+    const wamid = st.id;
     const admin = createAdminClient();
-    await admin
-      .from("whatsapp_messages")
-      .update({ status: event.status.status ?? null })
-      .eq("external_id", event.status.id);
+
+    if (st.status === "failed") {
+      // Meta ACEPTÓ el envío (devolvió wamid) pero no lo entregó. El motivo
+      // viaja en `errors[]` y es la única pista de POR QUÉ no llegó (WIK-277).
+      // Lo persistimos en `raw.delivery_error` (merge, para no pisar el
+      // payload de envío original) y alertamos al operador — antes este
+      // motivo se descartaba y "no llegó" quedaba invisible.
+      const reason = st.errors?.[0];
+      const { data: row } = await admin
+        .from("whatsapp_messages")
+        .select("template_name, raw")
+        .eq("external_id", wamid)
+        .maybeSingle();
+
+      const mergedRaw = {
+        ...(row?.raw && typeof row.raw === "object" ? row.raw : {}),
+        delivery_error: st.errors ?? null,
+      };
+      await admin
+        .from("whatsapp_messages")
+        .update({ status: "failed", raw: mergedRaw })
+        .eq("external_id", wamid);
+
+      console.warn(
+        `[kapso status] failed wamid=${wamid} recipient=${st.recipient_id ?? "?"} ` +
+          `template=${row?.template_name ?? "?"} code=${reason?.code ?? "?"} ` +
+          `title=${reason?.title ?? reason?.message ?? "?"}`,
+      );
+
+      await notifyAdminDeliveryFailure({
+        wamid,
+        recipient: st.recipient_id ?? null,
+        templateName: row?.template_name ?? null,
+        code: reason?.code ?? null,
+        title: reason?.title ?? reason?.message ?? null,
+        details: reason?.error_data?.details ?? null,
+      }).catch((err) =>
+        console.warn("[kapso status] admin alert failed", err),
+      );
+    } else {
+      // sent | delivered | read — update if we have the row (outbound sent
+      // from outside this app won't match; ignore silently).
+      await admin
+        .from("whatsapp_messages")
+        .update({ status: st.status ?? null })
+        .eq("external_id", wamid);
+    }
   }
 
   return null;
+}
+
+/**
+ * Avisa al operador por Telegram cuando Meta reporta que un outbound
+ * `failed` — un mensaje que Meta aceptó (hay wamid) pero no entregó. El
+ * código de Meta dice el motivo (ej. 131049 = limitado por engagement,
+ * 131026 = número no es WhatsApp / no recibe). Best-effort: no throws.
+ */
+async function notifyAdminDeliveryFailure(opts: {
+  wamid: string;
+  recipient: string | null;
+  templateName: string | null;
+  code: number | null;
+  title: string | null;
+  details: string | null;
+}): Promise<void> {
+  const chatId = getAdminChatId();
+  if (!chatId) return;
+  const lines = [
+    `⚠️ WhatsApp no entregado (Meta lo aceptó pero falló la entrega)`,
+    opts.templateName ? `Template: ${opts.templateName}` : null,
+    opts.recipient ? `Destino: ${opts.recipient}` : null,
+    `Motivo Meta: ${opts.code ?? "?"}${opts.title ? ` — ${opts.title}` : ""}`,
+    opts.details ? `Detalle: ${opts.details}` : null,
+    `wamid: ${opts.wamid}`,
+  ].filter(Boolean);
+  await sendTelegramMessage({ chatId, text: lines.join("\n") });
 }
 
 async function sendAndPersist(opts: {
