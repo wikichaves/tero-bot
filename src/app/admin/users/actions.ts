@@ -6,7 +6,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
 import {
   normalizePhone,
+  persistMessage,
   sendKapsoTemplateWithFallback,
+  upsertConversation,
 } from "@/lib/whatsapp";
 import { formatPropertyList } from "@/lib/whatsapp/templates";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
@@ -330,6 +332,45 @@ export async function resetUserPassword(input: {
  * Requiere: admin role, profile con `whatsapp` configurado, env vars
  * `WHATSAPP_PHONE_NUMBER_ID` + `KAPSO_API_KEY`.
  */
+/**
+ * WIK-277: persiste el envío de la bienvenida en `whatsapp_messages`. Antes
+ * no se registraba (solo los textos), así que la bienvenida no dejaba
+ * rastro: sin fila, el webhook de status no tenía qué actualizar y "no
+ * llegó" era indiagnosticable. Con la fila + `external_id = wamid`, el
+ * webhook puede marcarla `delivered`/`failed` y adjuntar el motivo de Meta.
+ *
+ * Best-effort: el envío ya ocurrió, así que un fallo de persistencia no
+ * debe romper el action — solo se loguea.
+ */
+async function persistWelcomeOutbound(opts: {
+  to: string;
+  displayName: string | null;
+  templateName: string;
+  messageId: string | null;
+}): Promise<void> {
+  try {
+    const conv = await upsertConversation({
+      phone_number: opts.to,
+      display_name: opts.displayName,
+    });
+    await persistMessage({
+      conversation_id: conv.id,
+      external_id: opts.messageId,
+      direction: "outbound",
+      type: "template",
+      template_name: opts.templateName,
+      body: `Bienvenida de operador (${opts.templateName})`,
+      // "accepted" = Meta devolvió wamid; el webhook lo pasa a
+      // sent/delivered/failed. Sin wamid no hay nada que correlacionar.
+      status: opts.messageId ? "accepted" : null,
+    });
+  } catch (e) {
+    console.warn(
+      `[sendStaffWelcome] persist outbound falló: ${(e as Error).message}`,
+    );
+  }
+}
+
 export async function sendStaffWelcome(profileId: string): Promise<
   | {
       ok: true;
@@ -418,6 +459,12 @@ export async function sendStaffWelcome(profileId: string): Promise<
       preferredLanguage,
       bodyVariables: [firstName, propertyList],
     });
+    await persistWelcomeOutbound({
+      to: profile.whatsapp,
+      displayName: profile.full_name ?? null,
+      templateName: "staff_welcome_v3",
+      messageId: r.messageId ?? null,
+    });
     return {
       ok: true,
       templateUsed: "staff_welcome_v3",
@@ -439,6 +486,12 @@ export async function sendStaffWelcome(profileId: string): Promise<
         templateName: "staff_welcome",
         preferredLanguage,
         bodyVariables: [firstName],
+      });
+      await persistWelcomeOutbound({
+        to: profile.whatsapp,
+        displayName: profile.full_name ?? null,
+        templateName: "staff_welcome",
+        messageId: r.messageId ?? null,
       });
       return {
         ok: true,
