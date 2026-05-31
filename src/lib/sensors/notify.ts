@@ -13,8 +13,10 @@ import type { EvaluatedEvent } from "./alarms";
  * o se resuelve (WIK-82 F3).
  *
  * Reglas:
- *   - Solo notificamos a usuarios con role IN ('admin','gestor') Y que
- *     tengan `whatsapp` configurado en su profile.
+ *   - WIK-275: si la regla tiene destinatarios asignados (tabla
+ *     `alarm_rule_recipients`), notificamos solo a esos profiles que
+ *     tengan `whatsapp`. Si no tiene ninguno (reglas legacy), caemos al
+ *     comportamiento histórico: todos los admin/gestor con `whatsapp`.
  *   - Si el send falla (ventana 24h cerrada, error de Kapso, etc.) el
  *     mensaje queda persisted en la inbox con status=failed para que
  *     admin pueda ver el intento. Marca `notified_via_whatsapp=false`.
@@ -88,18 +90,54 @@ export async function notifyAlarmEvent(ev: EvaluatedEvent): Promise<boolean> {
   }
 
   const admin = createAdminClient();
-  const { data: recipients, error } = await admin
-    .from("profiles")
-    .select("id, full_name, whatsapp, role")
-    .in("role", ["admin", "gestor"])
-    .not("whatsapp", "is", null);
-  if (error) {
-    console.warn("[notifyAlarmEvent] recipients lookup failed:", error.message);
-    return false;
+
+  type Recipient = {
+    id: string;
+    full_name: string | null;
+    whatsapp: string | null;
+    role: string;
+  };
+
+  // WIK-275: destinatarios asignados explícitamente a la regla.
+  const { data: assignedRows, error: assignedErr } = await admin
+    .from("alarm_rule_recipients")
+    .select("profile:profiles(id, full_name, whatsapp, role)")
+    .eq("rule_id", ev.rule.id);
+  if (assignedErr) {
+    console.warn(
+      "[notifyAlarmEvent] assigned recipients lookup failed:",
+      assignedErr.message,
+    );
   }
-  if (!recipients || recipients.length === 0) {
+  let recipients: Recipient[] = (assignedRows ?? []).flatMap((r) => {
+    const p = (r as { profile: Recipient | Recipient[] | null }).profile;
+    if (!p) return [];
+    return Array.isArray(p) ? p : [p];
+  });
+
+  // Fallback (reglas legacy o sin nadie asignado): todos los admin/gestor
+  // con whatsapp configurado — el comportamiento histórico.
+  if (recipients.length === 0) {
+    const { data: fallback, error } = await admin
+      .from("profiles")
+      .select("id, full_name, whatsapp, role")
+      .in("role", ["admin", "gestor"])
+      .not("whatsapp", "is", null);
+    if (error) {
+      console.warn(
+        "[notifyAlarmEvent] recipients lookup failed:",
+        error.message,
+      );
+      return false;
+    }
+    recipients = (fallback ?? []) as Recipient[];
+  }
+
+  // Solo a los que tengan whatsapp configurado.
+  recipients = recipients.filter((r) => r.whatsapp);
+  if (recipients.length === 0) {
     console.log(
-      "[notifyAlarmEvent] no admin/gestor profiles with whatsapp configured",
+      "[notifyAlarmEvent] no recipients with whatsapp configured",
     );
     return false;
   }

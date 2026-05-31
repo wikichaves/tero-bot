@@ -42,6 +42,8 @@ export function AlarmRuleRow({
   properties,
   rooms,
   sensors,
+  profiles,
+  recipientIds,
   propertyById,
   roomById,
 }: {
@@ -49,6 +51,8 @@ export function AlarmRuleRow({
   properties: Pick<Property, "id" | "name">[];
   rooms: Pick<Room, "id" | "name" | "property_id">[];
   sensors: { id: string; tuya_device_name: string | null; property_id: string }[];
+  profiles: { id: string; full_name: string | null; email: string; role: string }[];
+  recipientIds: string[];
   propertyById: Map<string, Pick<Property, "id" | "name">>;
   roomById: Map<string, Pick<Room, "id" | "name" | "property_id">>;
 }) {
@@ -162,7 +166,9 @@ export function AlarmRuleRow({
           properties={properties}
           rooms={rooms}
           sensors={sensors}
+          profiles={profiles}
           initialRule={rule}
+          initialRecipientIds={recipientIds}
           open={editOpen}
           onOpenChange={setEditOpen}
         />

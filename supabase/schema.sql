@@ -726,6 +726,33 @@ create policy alarm_events_read on public.alarm_events for select
   using (public.current_role() in ('admin', 'gestor', 'mantenimiento'));
 
 -- ────────────────────────────────────────────────────────────────────────
+-- WIK-275: destinatarios por regla de alarma.
+--
+-- Hasta ahora una alarma notificaba a TODOS los admin/gestor con whatsapp.
+-- Ahora cada regla puede tener una lista explícita de profiles asignados
+-- (checkbox group en el dialog de la regla). Si una regla NO tiene filas
+-- acá (reglas legacy o sin asignar), notify.ts cae al comportamiento
+-- anterior: todos los admin/gestor con whatsapp.
+
+create table if not exists public.alarm_rule_recipients (
+  rule_id uuid not null references public.alarm_rules(id) on delete cascade,
+  profile_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (rule_id, profile_id)
+);
+create index if not exists alarm_rule_recipients_rule_idx
+  on public.alarm_rule_recipients(rule_id);
+
+alter table public.alarm_rule_recipients enable row level security;
+drop policy if exists alarm_rule_recipients_read on public.alarm_rule_recipients;
+create policy alarm_rule_recipients_read on public.alarm_rule_recipients for select
+  using (public.current_role() in ('admin', 'gestor', 'mantenimiento'));
+drop policy if exists alarm_rule_recipients_write on public.alarm_rule_recipients;
+create policy alarm_rule_recipients_write on public.alarm_rule_recipients for all
+  using (public.current_role() in ('admin', 'gestor'))
+  with check (public.current_role() in ('admin', 'gestor'));
+
+-- ────────────────────────────────────────────────────────────────────────
 -- WIK-94: scope por property para roles gestor / mantenimiento.
 --
 -- Admin tiene acceso global (no se mete en esta tabla — la lógica en

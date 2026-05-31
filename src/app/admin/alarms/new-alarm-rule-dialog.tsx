@@ -26,7 +26,9 @@ export function NewAlarmRuleDialog({
   properties,
   rooms,
   sensors,
+  profiles,
   initialRule,
+  initialRecipientIds,
   trigger,
   open: openProp,
   onOpenChange: onOpenChangeProp,
@@ -34,6 +36,11 @@ export function NewAlarmRuleDialog({
   properties: Pick<Property, "id" | "name">[];
   rooms: Pick<Room, "id" | "name" | "property_id">[];
   sensors: { id: string; tuya_device_name: string | null; property_id: string }[];
+  /** WIK-275: todos los usuarios, para el checkbox group de destinatarios. */
+  profiles: { id: string; full_name: string | null; email: string; role: string }[];
+  /** WIK-275: ids ya asignados (edición). undefined = regla nueva → admins
+   *  pre-chequeados por default. */
+  initialRecipientIds?: string[];
   initialRule?: {
     id: string;
     property_id: string | null;
@@ -90,6 +97,21 @@ export function NewAlarmRuleDialog({
   const [debounce, setDebounce] = useState(
     String(initialRule?.debounce_minutes ?? 15),
   );
+  // WIK-275: destinatarios. Regla nueva → admins pre-chequeados por default.
+  const [recipientIds, setRecipientIds] = useState<Set<string>>(() =>
+    initialRecipientIds
+      ? new Set(initialRecipientIds)
+      : new Set(profiles.filter((p) => p.role === "admin").map((p) => p.id)),
+  );
+
+  function toggleRecipient(id: string) {
+    setRecipientIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   function changeMetric(m: Metric) {
     setMetric(m);
@@ -115,6 +137,7 @@ export function NewAlarmRuleDialog({
         threshold: Number(threshold),
         debounce_minutes: Number(debounce),
         enabled: initialRule?.enabled ?? true,
+        recipient_profile_ids: Array.from(recipientIds),
       });
       if (result?.error) {
         toast.error(result.error);
@@ -273,6 +296,36 @@ export function NewAlarmRuleDialog({
                 </select>
               </div>
             )}
+            {/* WIK-275: destinatarios de la alarma (checkbox group con todos
+                los usuarios). Admin pre-chequeado por default en reglas
+                nuevas. */}
+            <div className="grid gap-2">
+              <Label>{t("fields.recipients")}</Label>
+              <div className="grid max-h-44 gap-1.5 overflow-y-auto">
+                {profiles.map((p) => (
+                  <label
+                    key={p.id}
+                    className="flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm hover:bg-muted/50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={recipientIds.has(p.id)}
+                      onChange={() => toggleRecipient(p.id)}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    <span>{p.full_name?.trim() || p.email}</span>
+                    {p.role === "admin" && (
+                      <span className="text-xs text-muted-foreground">
+                        · admin
+                      </span>
+                    )}
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t("fields.recipientsHint")}
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button type="submit" disabled={pending}>

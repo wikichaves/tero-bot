@@ -14,6 +14,9 @@ const ruleSchema = z.object({
   threshold: z.coerce.number(),
   debounce_minutes: z.coerce.number().int().min(0).max(1440).default(15),
   enabled: z.boolean().default(true),
+  // WIK-275: usuarios asignados a la regla (checkbox group). Vacío =
+  // fallback a todos los admin/gestor con whatsapp (ver notify.ts).
+  recipient_profile_ids: z.array(z.string().uuid()).default([]),
 });
 
 export async function saveAlarmRule(input: unknown) {
@@ -40,6 +43,7 @@ export async function saveAlarmRule(input: unknown) {
   }
 
   const admin = createAdminClient();
+  let ruleId = v.id;
   if (v.id) {
     const { error } = await admin
       .from("alarm_rules")
@@ -47,9 +51,35 @@ export async function saveAlarmRule(input: unknown) {
       .eq("id", v.id);
     if (error) return { error: error.message };
   } else {
-    const { error } = await admin.from("alarm_rules").insert(row);
+    const { data: inserted, error } = await admin
+      .from("alarm_rules")
+      .insert(row)
+      .select("id")
+      .single();
     if (error) return { error: error.message };
+    ruleId = inserted.id;
   }
+
+  // WIK-275: sincronizar destinatarios (delete + insert). Idempotente.
+  if (ruleId) {
+    const { error: delErr } = await admin
+      .from("alarm_rule_recipients")
+      .delete()
+      .eq("rule_id", ruleId);
+    if (delErr) return { error: delErr.message };
+    if (v.recipient_profile_ids.length > 0) {
+      const { error: insErr } = await admin
+        .from("alarm_rule_recipients")
+        .insert(
+          v.recipient_profile_ids.map((profile_id) => ({
+            rule_id: ruleId,
+            profile_id,
+          })),
+        );
+      if (insErr) return { error: insErr.message };
+    }
+  }
+
   revalidatePath("/admin/alarms");
   return { ok: true };
 }
