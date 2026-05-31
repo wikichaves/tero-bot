@@ -482,18 +482,18 @@
   },
   "whatsapp": {
     "help": {
-      "headerFull": "*{appName} Commands*\n\n📊 *Consumption* (admin/manager)\n• _consumo_ — total summary (today + 7 days)\n• _consumo <name>_ — filter by property\n   Ex: _consumo merced_ or _consumo 14 julio_\n\n🌡️ *Rooms* (admin/manager)\n• _ambientes_ — avg T/H over the last 24 h per room\n\n📋 *Tasks*\n• _tareas_ — your pending tasks\n• _tarea <description>_ — create a new task\n   Ex: _tarea the bathroom tap broke_\n• 📸 send a *photo* (with or without caption) → auto-creates a task\n\n❓ *Help*\n• _ayuda_ — this list",
-      "headerStaff": "*{appName} Commands*\n\n📋 *Tasks*\n• _tareas_ — your pending tasks\n• _tarea <description>_ — create a task (assigned to you)\n   Ex: _tarea the bathroom tap broke_\n• 📸 send a *photo* → auto-creates a task\n\n❓ *Help*\n• _ayuda_ — this list"
+      "headerFull": "*{appName} Commands*\n\n*Consumption* (admin/manager)\n• _consumo_ — total summary (today + 7 days)\n• _consumo <name>_ — filter by property\nEx: _consumo merced_ or _consumo 14 julio_\n\n*Rooms* (admin/manager)\n• _ambientes_ — avg T/H over the last 24 h per room\n\n*Tasks*\n• _tareas_ — your pending tasks\n• _tarea <description>_ — create a new task\nEx: _tarea the bathroom tap broke_\n• send a *photo* (with or without caption) → auto-creates a task\n\n*Help*\n• _ayuda_ — this list",
+      "headerStaff": "*{appName} Commands*\n\n*Tasks*\n• _tareas_ — your pending tasks\n• _tarea <description>_ — create a task (assigned to you)\nEx: _tarea the bathroom tap broke_\n• send a *photo* → auto-creates a task\n\n*Help*\n• _ayuda_ — this list"
     },
     "myTasks": {
-      "errorQuery": "❌ Could not query your tasks: {message}",
-      "empty": "✨ You have no pending tasks!",
-      "header": "📋 *Your pending tasks* ({n})",
-      "overdue": "⚠️ overdue ",
+      "errorQuery": "Could not query your tasks: {message}",
+      "empty": "You have no pending tasks!",
+      "header": "*Your pending tasks* ({n})",
+      "overdue": "Overdue",
       "footer": "_Mark them done at: {host}/my-tasks_"
     },
     "consumption": {
-      "errorReport": "❌ Could not generate the report: {message}",
+      "errorReport": "Could not generate the report: {message}",
       "noMatchFilter": "No property matches \"{filter}\". Try without a filter or with a different name.",
       "noProperties": "No properties loaded yet.",
       "title": "*{appName} · Consumption*",
@@ -505,11 +505,11 @@
       "fxFooter": "_Today's rate: 1 USD ≈ {rates}_"
     },
     "rooms": {
-      "errorReport": "❌ Could not generate the rooms report: {message}",
-      "noVisibleProperties": "📭 You have no properties visible with your user.",
-      "noSensors": "📭 No T/H sensors assigned. Assign them at {host}/admin/tuya",
-      "noRecent": "📭 No room has readings in the last 24h. Force a capture from /admin/tuya.",
-      "title": "🌡️ *Rooms — last 24 h*",
+      "errorReport": "Could not generate the rooms report: {message}",
+      "noVisibleProperties": "You have no properties visible with your user.",
+      "noSensors": "No T/H sensors assigned. Assign them at {host}/admin/tuya",
+      "noRecent": "No room has readings in the last 24h. Force a capture from /admin/tuya.",
+      "title": "*Rooms — last 24 h*",
       "noReadings": "_no readings_",
       "footer": "_Details: {host}/rooms_"
     },
@@ -518,40 +518,40 @@
       "noData": "_no data_"
     },
     "auth": {
-      "myTasksUnlinked": "🔒 Your number (`{phone}`) is not linked to any user.\n\nAsk an admin/manager to add that exact number to your profile ({host} → Users → edit) and try again.",
-      "notAuthorized": "🔒 Your number (`{phone}`) is not authorized to use commands.\n\nIf you're an admin/manager of {appName}, add that exact number to your profile ({host} → Users → edit) and try again."
+      "myTasksUnlinked": "Your number (`{phone}`) is not linked to any user.\n\nAsk an admin/manager to add that exact number to your profile ({host} → Users → edit) and try again.",
+      "notAuthorized": "Your number (`{phone}`) is not authorized to use commands.\n\nIf you're an admin/manager of {appName}, add that exact number to your profile ({host} → Users → edit) and try again."
     },
     "staffWelcome": {
-      "session": "Hi {name}, your operator access to {properties} is now active. 🎉\n\nSend `ayuda` to see the available commands.",
-      "notLinked": "🔒 Your number (`{phone}`) is not linked to any user yet.\n\nAsk an admin to add that exact number to your profile and try again."
+      "session": "Hi {name}, your operator access to {properties} is now active.\n\nSend `ayuda` to see the available commands.",
+      "notLinked": "Your number (`{phone}`) is not linked to any user yet.\n\nAsk an admin to add that exact number to your profile and try again."
     },
-    "staffUnknownCommand": "Hi, I'm *{appName}* 🐦. I didn't understand that message. Send `ayuda` to see the available commands.",
+    "staffUnknownCommand": "Hi, I'm *{appName}*. I didn't understand that message. Send `ayuda` to see the available commands.",
     "createTask": {
-      "needsDescription": "📝 I need a description or a photo to create the task.\n\nTry:\n• `tarea <property> the tap broke`\n• or send a photo of the issue (caption optional)",
-      "errorFindProperties": "❌ Could not look up properties: {message}",
-      "noPropertiesYet": "❌ No properties loaded yet. Ask an admin to create them.",
-      "propertyGone": "❌ That property no longer exists. Try again.",
-      "errorInsert": "❌ Could not create the task: {message}",
+      "needsDescription": "I need a description or a photo to create the task.\n\nTry:\n• `tarea <property> the tap broke`\n• or send a photo of the issue (caption optional)",
+      "errorFindProperties": "Could not look up properties: {message}",
+      "noPropertiesYet": "No properties loaded yet. Ask an admin to create them.",
+      "propertyGone": "That property no longer exists. Try again.",
+      "errorInsert": "Could not create the task: {message}",
       "errorUnknown": "unknown error",
-      "askWhichProperty": "🤔 *Which property?* Reply with the number:",
+      "askWhichProperty": "*Which property?* Reply with the number:",
       "cancelOption": "*0.* Cancel",
       "previewText": "_For: \"{preview}\"_",
       "previewPhoto": "_For your attached photo._",
       "invalidChoice": "That option isn't available. Try a number between 1 and {max}, or *0* to cancel.",
-      "cancelled": "👍 Cancelled. The task was not created.",
-      "unlinkedSender": "🔒 Your number (`{phone}`) is not linked to any user, so I can't create the task. Ask an admin to add the number to your profile.",
-      "createdHeader": "✅ *Task created*",
+      "cancelled": "Cancelled. The task was not created.",
+      "unlinkedSender": "Your number (`{phone}`) is not linked to any user, so I can't create the task. Ask an admin to add the number to your profile.",
+      "createdHeader": "*Task created*",
       "photoTitleFallback": "Photo report · {property}",
       "untitledFallback": "WhatsApp report",
-      "reportedBy": "🟢 Reported via WhatsApp by {who}",
-      "photoLine": "📸 Photo: {url}",
-      "assignedToYou": "👤 Assigned to you.",
-      "assignedTriage": "👤 Unassigned — an admin/manager will route it.",
+      "reportedBy": "Reported via WhatsApp by {who}",
+      "photoLine": "Photo: {url}",
+      "assignedToYou": "Assigned to you.",
+      "assignedTriage": "Unassigned — an admin/manager will route it.",
       "kindLabel": {
-        "limpieza": "🧹 Cleaning",
-        "mantenimiento": "🔧 Maintenance",
-        "insumos": "📦 Supplies",
-        "otro": "📋 Task"
+        "limpieza": "Cleaning",
+        "mantenimiento": "Maintenance",
+        "insumos": "Supplies",
+        "otro": "Task"
       },
       "viewAt": "_View it at: {url}_"
     }

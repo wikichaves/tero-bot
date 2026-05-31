@@ -482,18 +482,18 @@
   },
   "whatsapp": {
     "help": {
-      "headerFull": "*{appName} Comandos*\n\n📊 *Consumo* (admin/gestor)\n• _consumo_ — resumen total (hoy + 7 días)\n• _consumo <nombre>_ — filtrar por propiedad\n   Ej: _consumo merced_ o _consumo 14 julio_\n\n🌡️ *Ambientes* (admin/gestor)\n• _ambientes_ — T/H promedio últimas 24 h por ambiente\n\n📋 *Tareas*\n• _tareas_ — tus tareas pendientes\n• _tarea <descripción>_ — crear una tarea nueva\n   Ej: _tarea se rompió la canilla del baño_\n• 📸 mandá una *foto* (con o sin caption) → crea tarea automática\n\n❓ *Ayuda*\n• _ayuda_ — esta lista",
-      "headerStaff": "*{appName} Comandos*\n\n📋 *Tareas*\n• _tareas_ — tus tareas pendientes\n• _tarea <descripción>_ — crear una tarea (te queda asignada)\n   Ej: _tarea se rompió la canilla del baño_\n• 📸 mandá una *foto* → crea tarea automática\n\n❓ *Ayuda*\n• _ayuda_ — esta lista"
+      "headerFull": "*{appName} Comandos*\n\n*Consumo* (admin/gestor)\n• _consumo_ — resumen total (hoy + 7 días)\n• _consumo <nombre>_ — filtrar por propiedad\nEj: _consumo merced_ o _consumo 14 julio_\n\n*Ambientes* (admin/gestor)\n• _ambientes_ — T/H promedio últimas 24 h por ambiente\n\n*Tareas*\n• _tareas_ — tus tareas pendientes\n• _tarea <descripción>_ — crear una tarea nueva\nEj: _tarea se rompió la canilla del baño_\n• mandá una *foto* (con o sin caption) → crea tarea automática\n\n*Ayuda*\n• _ayuda_ — esta lista",
+      "headerStaff": "*{appName} Comandos*\n\n*Tareas*\n• _tareas_ — tus tareas pendientes\n• _tarea <descripción>_ — crear una tarea (te queda asignada)\nEj: _tarea se rompió la canilla del baño_\n• mandá una *foto* → crea tarea automática\n\n*Ayuda*\n• _ayuda_ — esta lista"
     },
     "myTasks": {
-      "errorQuery": "❌ No pude consultar tus tareas: {message}",
-      "empty": "✨ ¡No tenés tareas pendientes!",
-      "header": "📋 *Tus tareas pendientes* ({n})",
-      "overdue": "⚠️ vencida ",
+      "errorQuery": "No pude consultar tus tareas: {message}",
+      "empty": "¡No tenés tareas pendientes!",
+      "header": "*Tus tareas pendientes* ({n})",
+      "overdue": "Vencida",
       "footer": "_Marcá hechas en: {host}/my-tasks_"
     },
     "consumption": {
-      "errorReport": "❌ No pude generar el reporte: {message}",
+      "errorReport": "No pude generar el reporte: {message}",
       "noMatchFilter": "No encontré una propiedad que coincida con \"{filter}\". Probá sin filtro o con otro nombre.",
       "noProperties": "No hay propiedades cargadas todavía.",
       "title": "*{appName} · Consumo*",
@@ -505,11 +505,11 @@
       "fxFooter": "_Cambio del día: 1 USD ≈ {rates}_"
     },
     "rooms": {
-      "errorReport": "❌ No pude generar el reporte de ambientes: {message}",
-      "noVisibleProperties": "📭 No tenés propiedades visibles con tu usuario.",
-      "noSensors": "📭 No hay sensores T/H asignados. Asignalos en {host}/admin/tuya",
-      "noRecent": "📭 Ningún ambiente tiene lecturas en las últimas 24h. Forzá una captura desde /admin/tuya.",
-      "title": "🌡️ *Ambientes — últimas 24 h*",
+      "errorReport": "No pude generar el reporte de ambientes: {message}",
+      "noVisibleProperties": "No tenés propiedades visibles con tu usuario.",
+      "noSensors": "No hay sensores T/H asignados. Asignalos en {host}/admin/tuya",
+      "noRecent": "Ningún ambiente tiene lecturas en las últimas 24h. Forzá una captura desde /admin/tuya.",
+      "title": "*Ambientes — últimas 24 h*",
       "noReadings": "_sin lecturas_",
       "footer": "_Detalle: {host}/rooms_"
     },
@@ -518,40 +518,40 @@
       "noData": "_sin datos_"
     },
     "auth": {
-      "myTasksUnlinked": "🔒 Tu número (`{phone}`) no está vinculado a ningún usuario.\n\nPedile a un admin/gestor que te cargue ese número exacto en tu perfil ({host} → Usuarios → editar) y reintentá.",
-      "notAuthorized": "🔒 Tu número (`{phone}`) no está autorizado para usar comandos.\n\nSi sos admin/gestor de {appName}, cargá ese número exacto en tu profile ({host} → Usuarios → editar) y reintentá."
+      "myTasksUnlinked": "Tu número (`{phone}`) no está vinculado a ningún usuario.\n\nPedile a un admin/gestor que te cargue ese número exacto en tu perfil ({host} → Usuarios → editar) y reintentá.",
+      "notAuthorized": "Tu número (`{phone}`) no está autorizado para usar comandos.\n\nSi sos admin/gestor de {appName}, cargá ese número exacto en tu profile ({host} → Usuarios → editar) y reintentá."
     },
     "staffWelcome": {
-      "session": "Hola {name}, tu acceso de operador en {properties} ya está activo. 🎉\n\nMandá `ayuda` para ver los comandos disponibles.",
-      "notLinked": "🔒 Tu número (`{phone}`) todavía no está vinculado a ningún usuario.\n\nPedile a un admin que cargue ese número exacto en tu perfil y reintentá."
+      "session": "Hola {name}, tu acceso de operador en {properties} ya está activo.\n\nMandá `ayuda` para ver los comandos disponibles.",
+      "notLinked": "Tu número (`{phone}`) todavía no está vinculado a ningún usuario.\n\nPedile a un admin que cargue ese número exacto en tu perfil y reintentá."
     },
-    "staffUnknownCommand": "Hola, soy *{appName}* 🐦. No entendí ese mensaje. Mandá `ayuda` para ver los comandos disponibles.",
+    "staffUnknownCommand": "Hola, soy *{appName}*. No entendí ese mensaje. Mandá `ayuda` para ver los comandos disponibles.",
     "createTask": {
-      "needsDescription": "📝 Necesito una descripción o una foto para crear la tarea.\n\nProbá:\n• `tarea <propiedad> se rompió la canilla`\n• o mandá una foto del problema (con caption opcional)",
-      "errorFindProperties": "❌ No pude buscar propiedades: {message}",
-      "noPropertiesYet": "❌ No hay propiedades cargadas todavía. Pedile a un admin que las cree.",
-      "propertyGone": "❌ Esa propiedad ya no existe. Reintentá.",
-      "errorInsert": "❌ No pude crear la tarea: {message}",
+      "needsDescription": "Necesito una descripción o una foto para crear la tarea.\n\nProbá:\n• `tarea <propiedad> se rompió la canilla`\n• o mandá una foto del problema (con caption opcional)",
+      "errorFindProperties": "No pude buscar propiedades: {message}",
+      "noPropertiesYet": "No hay propiedades cargadas todavía. Pedile a un admin que las cree.",
+      "propertyGone": "Esa propiedad ya no existe. Reintentá.",
+      "errorInsert": "No pude crear la tarea: {message}",
       "errorUnknown": "error desconocido",
-      "askWhichProperty": "🤔 *¿En qué propiedad?* Respondé con el número:",
+      "askWhichProperty": "*¿En qué propiedad?* Respondé con el número:",
       "cancelOption": "*0.* Cancelar",
       "previewText": "_Para: \"{preview}\"_",
       "previewPhoto": "_Para tu foto adjunta._",
       "invalidChoice": "Esa opción no está. Probá con un número entre 1 y {max}, o *0* para cancelar.",
-      "cancelled": "👍 Cancelado. La tarea no se creó.",
-      "unlinkedSender": "🔒 Tu número (`{phone}`) no está vinculado a ningún usuario, así que no puedo crear la tarea. Pedile a un admin que te cargue el número en tu perfil.",
-      "createdHeader": "✅ *Tarea creada*",
+      "cancelled": "Cancelado. La tarea no se creó.",
+      "unlinkedSender": "Tu número (`{phone}`) no está vinculado a ningún usuario, así que no puedo crear la tarea. Pedile a un admin que te cargue el número en tu perfil.",
+      "createdHeader": "*Tarea creada*",
       "photoTitleFallback": "Reporte con foto · {property}",
       "untitledFallback": "Reporte WhatsApp",
-      "reportedBy": "🟢 Reportado por WhatsApp por {who}",
-      "photoLine": "📸 Foto: {url}",
-      "assignedToYou": "👤 Asignada a vos.",
-      "assignedTriage": "👤 Sin asignar — algún admin/gestor te la deriva.",
+      "reportedBy": "Reportado por WhatsApp por {who}",
+      "photoLine": "Foto: {url}",
+      "assignedToYou": "Asignada a vos.",
+      "assignedTriage": "Sin asignar — algún admin/gestor te la deriva.",
       "kindLabel": {
-        "limpieza": "🧹 Limpieza",
-        "mantenimiento": "🔧 Mantenimiento",
-        "insumos": "📦 Insumos",
-        "otro": "📋 Tarea"
+        "limpieza": "Limpieza",
+        "mantenimiento": "Mantenimiento",
+        "insumos": "Insumos",
+        "otro": "Tarea"
       },
       "viewAt": "_Verla en: {url}_"
     }

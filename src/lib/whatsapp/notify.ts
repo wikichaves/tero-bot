@@ -54,16 +54,16 @@ function buildAssignedMessage(t: TaskRow): string {
   const name = t.assignee?.full_name?.split(" ")[0] ?? null;
   const greeting = name ? `Hola ${name}, ` : "";
   const dueLine = t.due_date
-    ? `\n📅 Vence: ${format(parseISO(t.due_date), "EEE d 'de' MMMM", {
+    ? `\nVence: ${format(parseISO(t.due_date), "EEE d 'de' MMMM", {
         locale: es,
       })}`
     : "";
-  const propertyLine = t.property?.name ? `\n🏠 ${t.property.name}` : "";
+  const propertyLine = t.property?.name ? `\nPropiedad: ${t.property.name}` : "";
   const descLine = t.description ? `\n\n${t.description}` : "";
   return (
     `*${greeting}te asignaron una tarea*\n\n` +
     `*${t.title}*\n` +
-    `🔧 ${KIND_LABEL[t.kind]}` +
+    `${KIND_LABEL[t.kind]}` +
     propertyLine +
     dueLine +
     descLine +
@@ -165,20 +165,14 @@ const STATUS_VERB: Record<TaskRow["status"], string> = {
   done: "marcada como hecha",
 };
 
-const STATUS_EMOJI: Record<TaskRow["status"], string> = {
-  pending: "🔄",
-  in_progress: "▶️",
-  done: "✅",
-};
-
 function buildStatusChangedMessage(t: TaskRow): string {
   const name = t.reporter?.full_name?.split(" ")[0] ?? null;
   const greeting = name ? `Hola ${name}, ` : "";
-  const propertyLine = t.property?.name ? `\n🏠 ${t.property.name}` : "";
+  const propertyLine = t.property?.name ? `\nPropiedad: ${t.property.name}` : "";
   return (
-    `${STATUS_EMOJI[t.status]} *${greeting}una tarea que reportaste fue ${STATUS_VERB[t.status]}*\n\n` +
+    `*${greeting}una tarea que reportaste fue ${STATUS_VERB[t.status]}*\n\n` +
     `*${t.title}*\n` +
-    `🔧 ${KIND_LABEL[t.kind]}` +
+    `${KIND_LABEL[t.kind]}` +
     propertyLine +
     `\n\n_Detalle: ${APP_HOST}/tasks/${t.id}_`
   );

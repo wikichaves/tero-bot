@@ -362,7 +362,7 @@ export async function createTaskFromWhatsApp(
   const reply =
     `${t("createdHeader")}\n\n` +
     `*${title}*\n` +
-    `${kindLabel} · 🏠 ${property.name}` +
+    `${kindLabel} · ${property.name}` +
     assignedLine +
     `\n\n${t("viewAt", { url: link })}`;
 
