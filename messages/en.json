@@ -663,7 +663,9 @@
       "operator": "Condition",
       "threshold": "Threshold",
       "debounce": "Debounce (min)",
-      "scopeType": "Applies to"
+      "scopeType": "Applies to",
+      "recipients": "Notify",
+      "recipientsHint": "Users who receive the alarm via WhatsApp. If you select no one, all admins/managers are notified."
     },
     "metricOptions": {
       "humidity": "Humidity (%)",

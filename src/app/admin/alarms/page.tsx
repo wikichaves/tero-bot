@@ -116,8 +116,27 @@ export default async function AlarmasPage() {
     .eq("device_kind", "sensor");
   if (allowedIds !== null) devicesQuery = devicesQuery.in("property_id", allowedIds);
 
-  const [rulesRes, eventsRes, propsRes, roomsRes, devicesRes] =
-    await Promise.all([rulesQuery, typedEventsQuery, propsQuery, roomsQuery, devicesQuery]);
+  // WIK-275: usuarios (para el checkbox group de destinatarios) y las
+  // asignaciones actuales por regla. profiles está RLS-protegido: admin ve
+  // todos, gestor solo a sí mismo — coherente con la política de la tabla.
+  const profilesQuery = supabase
+    .from("profiles")
+    .select("id, full_name, email, role")
+    .order("full_name", { ascending: true });
+  const recipientsQuery = supabase
+    .from("alarm_rule_recipients")
+    .select("rule_id, profile_id");
+
+  const [rulesRes, eventsRes, propsRes, roomsRes, devicesRes, profilesRes, recipientsRes] =
+    await Promise.all([
+      rulesQuery,
+      typedEventsQuery,
+      propsQuery,
+      roomsQuery,
+      devicesQuery,
+      profilesQuery,
+      recipientsQuery,
+    ]);
 
   const rules = (rulesRes.data ?? []) as AlarmRuleRow[];
   const events = eventsRes.data ?? [];
@@ -134,6 +153,23 @@ export default async function AlarmasPage() {
     tuya_device_name: string | null;
     property_id: string;
   }>;
+
+  const profiles = (profilesRes.data ?? []) as Array<{
+    id: string;
+    full_name: string | null;
+    email: string;
+    role: string;
+  }>;
+  const recipientRows = (recipientsRes.data ?? []) as Array<{
+    rule_id: string;
+    profile_id: string;
+  }>;
+  const recipientsByRule = new Map<string, string[]>();
+  for (const row of recipientRows) {
+    const arr = recipientsByRule.get(row.rule_id) ?? [];
+    arr.push(row.profile_id);
+    recipientsByRule.set(row.rule_id, arr);
+  }
 
   const propertyById = new Map(properties.map((p) => [p.id, p]));
   const roomById = new Map(rooms.map((r) => [r.id, r]));
@@ -154,6 +190,7 @@ export default async function AlarmasPage() {
           properties={properties}
           rooms={rooms}
           sensors={sensors}
+          profiles={profiles}
         />
       </div>
 
@@ -206,6 +243,8 @@ export default async function AlarmasPage() {
                   properties={properties}
                   rooms={rooms}
                   sensors={sensors}
+                  profiles={profiles}
+                  recipientIds={recipientsByRule.get(r.id) ?? []}
                   propertyById={propertyById}
                   roomById={roomById}
                 />

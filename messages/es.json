@@ -663,7 +663,9 @@
       "operator": "Condición",
       "threshold": "Umbral",
       "debounce": "Debounce (min)",
-      "scopeType": "Aplica a"
+      "scopeType": "Aplica a",
+      "recipients": "Notificar a",
+      "recipientsHint": "Usuarios que reciben la alarma por WhatsApp. Si no marcás a nadie, se notifica a todos los admin/gestor."
     },
     "metricOptions": {
       "humidity": "Humedad (%)",
