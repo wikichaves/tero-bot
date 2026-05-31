@@ -1,32 +1,40 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getDevice } from "@/lib/tuya/devices";
+import { decodeFault, getDeviceFaultLogs } from "@/lib/tuya/fault-logs";
 import { notifyAlarmEvent } from "./notify";
 import type { AlarmRule, AlarmDeviceContext } from "./alarms";
 
 /**
- * WIK-280: detección de corte de luz por estado online de los breakers (dlq).
+ * WIK-281: detección de corte de luz por el DP `fault` de los breakers (dlq).
  *
- * Distinto al evaluador de snapshots (T/H): acá NO hay una lectura — el
- * trigger es la CONECTIVIDAD del breaker. Un breaker `dlq` sin energía pierde
- * conexión con Tuya → `online=false`. El cron `/api/cron/power-outage` corre
- * esto cada ~10 min.
+ * Reemplaza la detección por estado `online` (WIK-280), que falló en un corte
+ * real: el modem estaba en un UPS chico, así que el breaker siguió reportando
+ * online y la alarma nunca disparó. Además, `online` tarda ~3min en cambiar y
+ * jamás capta micro-cortes de segundos.
  *
- * Por cada regla `power_outage` (scope = propiedad), evaluamos CADA breaker
- * de esa propiedad por separado (un breaker = un alarm_event). Con un solo
- * breaker por propiedad es un corte total; si en el futuro hay varios, cada
- * uno dispara su propio evento (granularidad "parcial" gratis).
+ * En vez de eso leemos los device logs del breaker (`/v1.0/devices/{id}/logs`),
+ * que guardan cada transición del DP `fault` con timestamp exacto. Un corte de
+ * luz = fault de subtensión/outage; vuelve la luz = fault vuelve a 0. Esto:
+ *   - capta micro-cortes de ~5s aunque empiecen y terminen entre dos polls;
+ *   - capta cortes totales retroactivamente (el breaker loguea la subtensión
+ *     justo antes de morir y el cloud lo entrega cuando vuelve la conexión).
  *
- * Debounce sin estado extra, usando `alarm_events.notified_via_whatsapp`:
- *   - offline + sin evento abierto → crear evento (fired_at=now,
- *     notified=false). NO notificar todavía.
- *   - offline + evento abierto + !notified + (now - fired_at ≥ debounce) →
- *     notificar "corte" (notifyAlarmEvent marca notified=true).
- *   - offline + evento abierto + notified → nada (ya avisamos).
- *   - online + evento abierto:
- *       · si ya se notificó → resolver + avisar "volvió la luz".
- *       · si nunca se notificó (fue un parpadeo) → resolver en silencio.
+ * El cron `/api/cron/power-outage` corre esto cada ~10 min. Por breaker
+ * guardamos un cursor (`tuya_log_cursors.last_event_time_ms`) para no
+ * re-escanear ni re-disparar.
+ *
+ * Máquina de estados (por breaker), reusando alarm_events + notifyAlarmEvent:
+ *   - transición a power-loss y NO hay evento abierto → crear alarm_event
+ *     (fired_at = timestamp del log) + notificar "corte".
+ *   - transición fuera de power-loss y HAY evento abierto → resolver
+ *     (resolved_at = timestamp del log) + notificar "volvió la luz".
+ *   - power-loss estando ya en corte / fault=0 estando ya normal → no-op.
  */
+
+// Ventana a mirar en la primera corrida de un breaker (sin cursor previo).
+// Cubre un par de ciclos del cron para no perder un corte reciente, sin
+// arrastrar historia vieja que dispararía alarmas retroactivas inútiles.
+const FIRST_RUN_LOOKBACK_MS = 30 * 60_000;
 
 type BreakerRow = {
   id: string;
@@ -37,16 +45,32 @@ type BreakerRow = {
   property: { name: string } | null;
 };
 
-async function isBreakerOnline(tuyaDeviceId: string): Promise<boolean | null> {
-  try {
-    const d = await getDevice(tuyaDeviceId);
-    return d?.online ?? null;
-  } catch (e) {
-    console.warn(
-      `[power-outage] getDevice falló para ${tuyaDeviceId}: ${(e as Error).message}`,
-    );
-    return null; // desconocido → no tomamos decisión
-  }
+async function getCursor(
+  admin: ReturnType<typeof createAdminClient>,
+  tuyaDeviceId: string,
+): Promise<number | null> {
+  const { data } = await admin
+    .from("tuya_log_cursors")
+    .select("last_event_time_ms")
+    .eq("tuya_device_id", tuyaDeviceId)
+    .maybeSingle();
+  const v = data?.last_event_time_ms;
+  return v == null ? null : Number(v);
+}
+
+async function setCursor(
+  admin: ReturnType<typeof createAdminClient>,
+  tuyaDeviceId: string,
+  eventTimeMs: number,
+): Promise<void> {
+  await admin.from("tuya_log_cursors").upsert(
+    {
+      tuya_device_id: tuyaDeviceId,
+      last_event_time_ms: eventTimeMs,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "tuya_device_id" },
+  );
 }
 
 export async function evaluatePowerOutages(): Promise<{
@@ -72,9 +96,10 @@ export async function evaluatePowerOutages(): Promise<{
   const rules = (rulesData ?? []) as AlarmRule[];
   if (rules.length === 0) return { checked, fired, resolved };
 
+  const now = Date.now();
+
   for (const rule of rules) {
-    // Scope esperado: propiedad. (Sin property_id no sabemos qué breakers
-    // mirar — se ignora.)
+    // Scope esperado: propiedad. Sin property_id no sabemos qué breakers mirar.
     if (!rule.property_id) continue;
 
     // 2. Breakers de la propiedad.
@@ -86,11 +111,9 @@ export async function evaluatePowerOutages(): Promise<{
       .eq("property_id", rule.property_id)
       .eq("device_kind", "breaker");
 
-    // Supabase tipa el join `property:properties(name)` como array; en
-    // runtime es un objeto (FK to-one). Cast vía unknown.
+    // Supabase tipa el join `property:properties(name)` como array; en runtime
+    // es un objeto (FK to-one). Cast vía unknown.
     for (const b of (breakers ?? []) as unknown as BreakerRow[]) {
-      const online = await isBreakerOnline(b.tuya_device_id);
-      if (online == null) continue; // estado desconocido → skip
       checked++;
 
       const device: AlarmDeviceContext = {
@@ -102,60 +125,84 @@ export async function evaluatePowerOutages(): Promise<{
         room_name: null,
       };
 
-      // ¿Evento abierto para (rule, breaker)?
+      // 3. Ventana de logs: desde el cursor (exclusivo) hasta ahora.
+      const cursor = await getCursor(admin, b.tuya_device_id);
+      const startMs = cursor != null ? cursor + 1 : now - FIRST_RUN_LOOKBACK_MS;
+
+      let logs;
+      try {
+        logs = await getDeviceFaultLogs(b.tuya_device_id, startMs, now);
+      } catch (e) {
+        console.warn(
+          `[power-outage] getDeviceFaultLogs falló para ${b.tuya_device_id}: ${(e as Error).message}`,
+        );
+        continue; // no avanzamos el cursor → reintentamos la ventana
+      }
+
+      // 4. Estado inicial: ¿hay un evento abierto para (rule, breaker)?
       const { data: openRows } = await admin
         .from("alarm_events")
-        .select("id, fired_at, notified_via_whatsapp")
+        .select("id, notified_via_whatsapp")
         .eq("rule_id", rule.id)
         .eq("property_device_id", b.id)
         .is("resolved_at", null)
         .order("fired_at", { ascending: false })
         .limit(1);
-      const open = openRows?.[0] ?? null;
+      let openEvent = openRows?.[0] ?? null;
 
-      if (!online) {
-        if (!open) {
-          // Primer offline detectado — crear evento, sin notificar (debounce).
-          await admin.from("alarm_events").insert({
-            rule_id: rule.id,
-            property_device_id: b.id,
-            fired_at: new Date().toISOString(),
-            trigger_value: null,
-          });
-          continue;
-        }
-        if (open.notified_via_whatsapp) continue; // ya avisamos
-        // Pasó el debounce?
-        const offlineMs = Date.now() - new Date(open.fired_at as string).getTime();
-        if (offlineMs < rule.debounce_minutes * 60_000) continue;
-        // Notificar corte (marca notified=true adentro).
-        const ok = await notifyAlarmEvent({
-          kind: "fired",
-          rule,
-          device,
-          value: null,
-          event_id: open.id,
-        });
-        if (ok) fired++;
-      } else {
-        // Online: si había evento abierto, resolverlo.
-        if (!open) continue;
-        await admin
-          .from("alarm_events")
-          .update({ resolved_at: new Date().toISOString() })
-          .eq("id", open.id);
-        resolved++;
-        // Solo avisar "volvió la luz" si antes habíamos avisado el corte.
-        if (open.notified_via_whatsapp) {
-          await notifyAlarmEvent({
-            kind: "resolved",
+      // 5. Recorrer las transiciones del fault en orden cronológico.
+      for (const entry of logs) {
+        const { isPowerLoss } = decodeFault(Number(entry.value));
+        const at = new Date(entry.event_time).toISOString();
+
+        if (isPowerLoss && !openEvent) {
+          // Empieza un corte. Crear evento con el timestamp real del log.
+          const { data: inserted } = await admin
+            .from("alarm_events")
+            .insert({
+              rule_id: rule.id,
+              property_device_id: b.id,
+              fired_at: at,
+              trigger_value: null,
+            })
+            .select("id, notified_via_whatsapp")
+            .single();
+          if (!inserted) continue;
+          openEvent = inserted;
+          const ok = await notifyAlarmEvent({
+            kind: "fired",
             rule,
             device,
             value: null,
-            event_id: open.id,
+            event_id: inserted.id,
           });
+          if (ok) fired++;
+        } else if (!isPowerLoss && openEvent) {
+          // Vuelve la luz. Resolver con el timestamp real del log.
+          await admin
+            .from("alarm_events")
+            .update({ resolved_at: at })
+            .eq("id", openEvent.id);
+          resolved++;
+          // Solo avisar "volvió la luz" si antes avisamos el corte.
+          if (openEvent.notified_via_whatsapp) {
+            await notifyAlarmEvent({
+              kind: "resolved",
+              rule,
+              device,
+              value: null,
+              event_id: openEvent.id,
+            });
+          }
+          openEvent = null;
         }
       }
+
+      // 6. Avanzar el cursor a `now` (la ventana ya quedó cubierta). La
+      // máquina de estados deja los logs sin transición como no-op, pero NO
+      // re-escaneamos para no arriesgar un doble-disparo de episodios ya
+      // resueltos.
+      await setCursor(admin, b.tuya_device_id, now);
     }
   }
 

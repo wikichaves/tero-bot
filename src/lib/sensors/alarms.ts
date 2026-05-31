@@ -24,9 +24,9 @@ export type AlarmRule = {
   property_id: string | null;
   room_id: string | null;
   property_device_id: string | null;
-  // WIK-280: 'power_outage' no es threshold-based — no usa operator/threshold
-  // (van null). Lo evalúa `power-outage.ts` (estado online del breaker), no
-  // el evaluador de snapshots.
+  // WIK-281: 'power_outage' no es threshold-based — no usa operator/threshold
+  // (van null). Lo evalúa `power-outage.ts` (DP `fault` del breaker vía device
+  // logs), no el evaluador de snapshots.
   metric: "temperature_c" | "humidity_pct" | "power_outage";
   operator: "gt" | "lt" | null;
   threshold: number | null;
@@ -101,8 +101,8 @@ export async function evaluateAlarmsForSnapshot(
 
   for (const rule of rules) {
     if (!rule.enabled) continue;
-    // WIK-280: las reglas de corte de luz se evalúan en power-outage.ts
-    // (estado online del breaker), no acá (snapshot-driven T/H).
+    // WIK-281: las reglas de corte de luz se evalúan en power-outage.ts
+    // (DP `fault` del breaker), no acá (snapshot-driven T/H).
     if (rule.metric === "power_outage") continue;
     if (!ruleAppliesToDevice(rule, device)) continue;
 
