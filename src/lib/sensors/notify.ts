@@ -29,10 +29,6 @@ import type { EvaluatedEvent } from "./alarms";
  * WA, no hace falta todavía.
  */
 
-function emojiFor(metric: "temperature_c" | "humidity_pct"): string {
-  return metric === "temperature_c" ? "🌡️" : "💧";
-}
-
 function unitOf(metric: "temperature_c" | "humidity_pct"): string {
   return metric === "temperature_c" ? "°C" : "%";
 }
@@ -42,34 +38,60 @@ function labelOf(metric: "temperature_c" | "humidity_pct"): string {
 }
 
 function buildMessage(ev: EvaluatedEvent): string {
-  const m = ev.rule.metric;
-  const op = ev.rule.operator === "gt" ? ">" : "<";
-  const valStr = m === "temperature_c"
-    ? `${ev.value.toFixed(1)}${unitOf(m)}`
-    : `${ev.value.toFixed(0)}${unitOf(m)}`;
-  const thrStr = m === "temperature_c"
-    ? `${ev.rule.threshold.toFixed(1)}${unitOf(m)}`
-    : `${ev.rule.threshold.toFixed(0)}${unitOf(m)}`;
   const location = ev.device.room_name
     ? `${ev.device.room_name} (${ev.device.property_name ?? "—"})`
     : (ev.device.property_name ?? "—");
+
+  // WIK-280: corte de luz — estado del breaker, sin valor numérico.
+  if (ev.rule.metric === "power_outage") {
+    const property = ev.device.property_name ?? location;
+    const breakerLine = ev.device.device_name
+      ? `\n_Llave: ${ev.device.device_name}_`
+      : "";
+    if (ev.kind === "fired") {
+      return (
+        `*Corte de luz en ${property}*\n\n` +
+        `La llave de luz se desconectó — probablemente no hay energía en la propiedad.` +
+        breakerLine +
+        `\n\n_Detalle: ${APP_HOST}/rooms_`
+      );
+    }
+    return (
+      `*Volvió la luz en ${property}*\n\n` +
+      `La llave de luz volvió a conectarse.` +
+      breakerLine
+    );
+  }
+
+  // Temp/humedad (threshold). Acá `value`/`threshold` siempre vienen (la
+  // regla los define); `?? 0` es defensa para TS por los tipos nullable.
+  const m = ev.rule.metric;
+  const op = ev.rule.operator === "gt" ? ">" : "<";
+  const value = ev.value ?? 0;
+  const threshold = ev.rule.threshold ?? 0;
+  const valStr = m === "temperature_c"
+    ? `${value.toFixed(1)}${unitOf(m)}`
+    : `${value.toFixed(0)}${unitOf(m)}`;
+  const thrStr = m === "temperature_c"
+    ? `${threshold.toFixed(1)}${unitOf(m)}`
+    : `${threshold.toFixed(0)}${unitOf(m)}`;
   const sensorLine = ev.device.device_name
     ? `\n_Sensor: ${ev.device.device_name}_`
     : "";
 
   if (ev.kind === "fired") {
     return (
-      `🚨 *Alarma ${labelOf(m).toLowerCase()}*\n\n` +
-      `${emojiFor(m)} *${valStr}* en *${location}*\n` +
+      `*Alarma de ${labelOf(m).toLowerCase()}*\n\n` +
+      `*${valStr}* en *${location}*\n` +
       `Umbral: ${op} ${thrStr}` +
       sensorLine +
-      `\n\n_Ver detalle: ${APP_HOST}/rooms_`
+      `\n\n_Detalle: ${APP_HOST}/rooms_`
     );
   }
   // resolved
   return (
-    `✅ *Alarma resuelta*\n\n` +
-    `${emojiFor(m)} ${labelOf(m)} volvió a *${valStr}* en *${location}* ` +
+    `*Alarma resuelta*\n\n` +
+    `${labelOf(m)} volvió a *${valStr}* en *${location}* ` +
     `(umbral ${op} ${thrStr})` +
     sensorLine
   );

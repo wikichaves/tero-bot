@@ -675,7 +675,8 @@
     },
     "metricOptions": {
       "humidity": "Humidity (%)",
-      "temperature": "Temperature (°C)"
+      "temperature": "Temperature (°C)",
+      "powerOutage": "Power outage"
     },
     "operatorOptions": {
       "gt": "Greater than (>)",
@@ -701,7 +702,8 @@
     "toast": {
       "created": "Rule created.",
       "updated": "Rule updated."
-    }
+    },
+    "powerOutageHint": "We alert you when the breaker for the property goes offline (likely a power cut). We wait the configured debounce minutes before alerting, to avoid notifying on very brief blips."
   },
   "adminTuyaPage": {
     "subtitle": "Smart Life / Tuya Open API integration.",

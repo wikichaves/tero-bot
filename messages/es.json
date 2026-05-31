@@ -675,7 +675,8 @@
     },
     "metricOptions": {
       "humidity": "Humedad (%)",
-      "temperature": "Temperatura (°C)"
+      "temperature": "Temperatura (°C)",
+      "powerOutage": "Corte de luz"
     },
     "operatorOptions": {
       "gt": "Mayor que (>)",
@@ -701,7 +702,8 @@
     "toast": {
       "created": "Regla creada.",
       "updated": "Regla actualizada."
-    }
+    },
+    "powerOutageHint": "Te avisamos cuando la llave de luz de la propiedad se desconecta (probable corte de energía). Esperamos los minutos de espera configurados antes de avisar, para no notificar por cortes muy breves."
   },
   "adminTuyaPage": {
     "subtitle": "Integración con Smart Life / Tuya Open API.",

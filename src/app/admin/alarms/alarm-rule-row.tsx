@@ -20,9 +20,9 @@ type Rule = {
   property_id: string | null;
   room_id: string | null;
   property_device_id: string | null;
-  metric: "temperature_c" | "humidity_pct";
-  operator: "gt" | "lt";
-  threshold: number;
+  metric: "temperature_c" | "humidity_pct" | "power_outage";
+  operator: "gt" | "lt" | null;
+  threshold: number | null;
   debounce_minutes: number;
   enabled: boolean;
 };
@@ -106,13 +106,17 @@ export function AlarmRuleRow({
     >
       <div className="flex flex-1 flex-col gap-0.5">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="font-medium">
-            {METRIC_LABEL[rule.metric]} {op}{" "}
-            <span className="tabular-nums">
-              {rule.threshold}
-              {UNIT[rule.metric]}
+          {rule.metric === "power_outage" ? (
+            <span className="font-medium">Corte de luz</span>
+          ) : (
+            <span className="font-medium">
+              {METRIC_LABEL[rule.metric]} {op}{" "}
+              <span className="tabular-nums">
+                {rule.threshold}
+                {UNIT[rule.metric]}
+              </span>
             </span>
-          </span>
+          )}
           {!rule.enabled && (
             <Badge variant="secondary" className="text-[10px]">
               deshabilitada
