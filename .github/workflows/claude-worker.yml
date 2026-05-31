@@ -165,8 +165,8 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SLUG: ${{ steps.repo.outputs.slug }}
         run: |
-          # Title + description vienen del JSON (no via ${{ }}) para no
-          # romper el bash con comillas/backticks/$ del ticket.
+          # Title + description vienen del JSON (no inline en el YAML) para
+          # no romper el bash con comillas/backticks/$ del ticket.
           TITLE=$(jq -r .title /tmp/ticket.json)
           DESC=$(jq -r '.description // ""' /tmp/ticket.json)
           PROMPT=$(cat <<EOF
@@ -320,9 +320,11 @@ jobs:
               REASON="$NEW_IMPORTS nuevos \`import\` lines — cambio de dependencies"
             fi
           fi
-          echo "safe=$SAFE" >> "$GITHUB_OUTPUT"
-          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
-          echo "loc=$LOC" >> "$GITHUB_OUTPUT"
+          {
+            echo "safe=$SAFE"
+            echo "reason=$REASON"
+            echo "loc=$LOC"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Auto-merge if safe
         if: steps.classify.outputs.safe == 'true' && steps.pr.outputs.number != ''
