@@ -1,0 +1,24 @@
+{
+  "_comment": "WIK-266 Fase 2: mapa Linear project -> repo de GitHub para el worker centralizado de Claude. La key es el NOMBRE EXACTO del project en Linear. `verify` es el comando de verificación post-cambio (vacío = sitio estático, se saltea). `install` corre antes de Claude/verify (vacío = sin deps). `autoMerge` = si el risk-classifier puede auto-mergear (solo tero-bot en v1; el resto siempre va a review manual). Mantener en sync con src/lib/repos.ts (lado app).",
+  "Tero Bot": {
+    "owner": "wikichaves",
+    "repo": "tero-bot",
+    "install": "npm ci",
+    "verify": "npm run build",
+    "autoMerge": true
+  },
+  "wikichaves.com": {
+    "owner": "wikichaves",
+    "repo": "wikichaves.com",
+    "install": "",
+    "verify": "",
+    "autoMerge": false
+  },
+  "Casa Bosque Montoya": {
+    "owner": "wikichaves",
+    "repo": "casabosquemontoya",
+    "install": "",
+    "verify": "",
+    "autoMerge": false
+  }
+}

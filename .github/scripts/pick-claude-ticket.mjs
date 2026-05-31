@@ -1,30 +1,44 @@
 #!/usr/bin/env node
 // Pick the next Linear ticket for the autonomous Claude worker (WIK-97).
 //
+// WIK-266 Fase 2 (worker centralizado): el worker ya no es exclusivo de
+// tero-bot. Toma el siguiente ticket autonomous de CUALQUIER project que
+// esté en el registry (.github/claude-repos.json) y devuelve su `project`
+// para que el workflow clone el repo correcto. Tickets de projects
+// desconocidos se ignoran (no hay repo donde trabajarlos).
+//
 // Strategy:
-//   1. If FORCED_TICKET env var set (workflow_dispatch input), fetch
-//      that specific ticket regardless of label/state.
-//   2. Otherwise, find tickets with label "claude:autonomous" in state
-//      "Todo", ordered by priority asc (1=urgent first), then
-//      createdAt asc. Take the first one.
+//   1. If FORCED_TICKET env var set (workflow_dispatch input), fetch that
+//      specific ticket. Se procesa solo si su project está en el registry.
+//   2. Otherwise: tickets con label "claude:autonomous" en estado Todo
+//      (type "unstarted"), de projects conocidos, ordenados por priority
+//      asc (1=urgent primero) y createdAt asc. Tomar el primero.
 //
-// Output: JSON to stdout with { id, identifier, title, description }
-// or { identifier: null } if no ticket matches.
+// Output: JSON a stdout con { id, identifier, title, description, project }
+// o { identifier: null } si no matchea ningún ticket.
 //
-// Requires:
-//   LINEAR_API_TOKEN env var.
+// Requires: LINEAR_API_TOKEN env var.
+
+import { readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const TOKEN = process.env.LINEAR_API_TOKEN;
 const FORCED = (process.env.FORCED_TICKET ?? "").trim();
-// WIK-266: el worker de tero-bot SOLO procesa tickets del project "Tero Bot".
-// Sin esto, el picker tomaba el top de cualquier project con label
-// claude:autonomous y los "arreglaba" en el repo equivocado (caso WIK-264).
-// Configurable por env para cuando exista el worker centralizado multi-repo.
-const PROJECT = (process.env.LINEAR_PROJECT_NAME ?? "Tero Bot").trim();
 if (!TOKEN) {
   console.error("LINEAR_API_TOKEN not set");
   process.exit(1);
 }
+
+// Registry de projects conocidos (Linear project name -> repo config). El
+// worker solo procesa tickets cuyo project esté acá; el resto se ignora.
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const REGISTRY = JSON.parse(
+  readFileSync(resolve(__dirname, "../claude-repos.json"), "utf8"),
+);
+const KNOWN_PROJECTS = new Set(
+  Object.keys(REGISTRY).filter((k) => k !== "_comment"),
+);
 
 const ENDPOINT = "https://api.linear.app/graphql";
 
@@ -61,21 +75,20 @@ async function fetchByIdentifier(identifier) {
 
 async function fetchTopAutonomous() {
   // Filter by label name + state type "unstarted" (Todo). Backlog NO
-  // se incluye a propósito: queremos doble approval gate — primero el
-  // label `claude:autonomous` (= "candidato para Claude"), después
-  // moverlo a Todo (= "ya lo revisé, go ahead"). Linear crea tickets
-  // nuevos en Backlog por default, así que el `/claude` desde Telegram
-  // los deja ahí, y el usuario los mueve a Todo cuando confirma.
+  // se incluye a propósito: doble approval gate — primero el label
+  // `claude:autonomous` (= "candidato"), después moverlo a Todo (= "go").
+  // WIK-266: SIN filtro por project — el worker centralizado resuelve el
+  // repo a partir del project del ticket. Filtramos client-side a los
+  // projects conocidos del registry.
   const data = await gql(
-    `query Pick($project: String!) {
+    `query Pick {
       issues(
         filter: {
           labels: { name: { eq: "claude:autonomous" } }
           state: { type: { eq: "unstarted" } }
-          project: { name: { eq: $project } }
         }
         orderBy: createdAt
-        first: 20
+        first: 50
       ) {
         nodes {
           id identifier title description
@@ -85,9 +98,11 @@ async function fetchTopAutonomous() {
         }
       }
     }`,
-    { project: PROJECT },
+    {},
   );
-  const all = data.issues?.nodes ?? [];
+  const all = (data.issues?.nodes ?? []).filter((n) =>
+    KNOWN_PROJECTS.has(n.project?.name ?? ""),
+  );
   if (all.length === 0) return null;
   // Sort: priority asc, but treat 0 (no priority) as last (Infinity).
   all.sort((a, b) => {
@@ -107,14 +122,13 @@ async function main() {
       process.stdout.write(JSON.stringify({ identifier: null }));
       return;
     }
-    // WIK-266: guard — un ticket forzado de OTRO project no se procesa en
-    // tero-bot (evita misrouting tipo WIK-264). Cuando exista el worker
-    // centralizado, esto lo maneja el dispatch por repo.
+    // WIK-266: el project del ticket forzado debe estar en el registry —
+    // si no, no hay repo donde trabajarlo.
     const proj = issue.project?.name ?? "(sin project)";
-    if (proj !== PROJECT) {
+    if (!KNOWN_PROJECTS.has(proj)) {
       console.error(
-        `Forced ticket ${FORCED} pertenece al project "${proj}", no "${PROJECT}". ` +
-          `El worker de tero-bot no lo procesa (sería el repo equivocado).`,
+        `Forced ticket ${FORCED} pertenece al project "${proj}", que no está ` +
+          `en .github/claude-repos.json. No hay repo target — se ignora.`,
       );
       process.stdout.write(JSON.stringify({ identifier: null }));
       return;
@@ -132,6 +146,7 @@ async function main() {
       identifier: issue.identifier,
       title: issue.title,
       description: issue.description ?? "",
+      project: issue.project?.name ?? "",
     }),
   );
 }

@@ -1,41 +1,27 @@
-# Claude autonomous worker (WIK-97).
+# Claude autonomous worker — CENTRALIZADO MULTI-REPO (WIK-97 → WIK-266).
 #
-# Levanta el siguiente Linear ticket etiquetado `claude:autonomous`,
-# le pasa el title+description a Claude Code en modo headless, deja
-# que escriba código, abre un PR con los cambios, y NOTIFICA al user
-# por WhatsApp para que merge desde el celular.
+# Levanta el siguiente Linear ticket etiquetado `claude:autonomous` (de
+# CUALQUIER project registrado en `.github/claude-repos.json`), resuelve a
+# qué repo de GitHub corresponde ese project, CLONA ese repo, corre Claude
+# Code headless ahí, verifica (si el repo define un comando), abre un PR EN
+# ESE REPO, y notifica al user por Telegram.
 #
-# Diseño deliberado (v1):
-#   - NO auto-merge — el user revisa y mergea desde la app de GitHub mobile.
-#   - NO scheduled trigger — manual via `workflow_dispatch` o vía el
-#     endpoint POST /api/admin/claude/trigger (que un futuro cmd `claude
-#     trabajá` en WhatsApp puede invocar).
-#   - Un ticket a la vez. Si el run anterior dejó un PR abierto, no
-#     toma uno nuevo hasta que se cierre.
+# Diseño (WIK-266 Fase 2):
+#   - Un solo worker (vive en tero-bot) opera sobre los 3 repos: tero-bot,
+#     wikichaves.com, casabosquemontoya. El repo target se deriva del
+#     `project` del ticket (ver `.github/claude-repos.json`).
+#   - Auto-merge SOLO para tero-bot (autoMerge:true + risk allowlist). Los
+#     repos estáticos (wiki/casa) SIEMPRE abren PR para review manual.
+#   - Cross-repo clone/push/PR requiere un PAT (`WORKFLOW_TOKEN`) con
+#     escritura en los 3 repos. Sin eso, el clone falla con un error claro.
+#   - Un ticket por run. `concurrency` serializa.
 #
-# Para activar:
-#   1. Generar Anthropic API key → https://console.anthropic.com/settings/keys
-#   2. Generar Linear PAT → linear.app/wikichaves/settings/api
-#   3. En el repo de GitHub:
-#      Settings → Secrets and variables → Actions → New repository secret
-#         ANTHROPIC_API_KEY  = <sk-ant-...>
-#         LINEAR_API_TOKEN   = <tu PAT de Linear>
-#   4. Settings → Actions → General → Workflow permissions →
-#      Read and write permissions (necesario para que el bot abra PRs)
-#   5. (opcional) Settings → Actions → General → Allow GitHub Actions
-#      to create and approve pull requests (necesario si querés que en
-#      el futuro habilites auto-merge)
-#   6. Probar: Actions tab → "Claude autonomous worker" → Run workflow
-#
-# El cron diario (14:00 UTC = 11:00 AR) está habilitado (WIK-136). Si
-# en algún momento querés pausar, comentá el bloque `schedule` de abajo
-# o borrá la label `claude:autonomous` de todos los tickets en Todo.
+# Secrets necesarios (en el repo tero-bot):
+#   ANTHROPIC_API_KEY, LINEAR_API_TOKEN, WORKFLOW_TOKEN (PAT repo+workflow,
+#   acceso a los 3 repos), TELEGRAM_BOT_TOKEN, TELEGRAM_ADMIN_CHAT_ID.
 
 name: Claude autonomous worker
 
-# concurrency (WIK-136): un solo run a la vez. Si llega un manual run
-# durante una corrida (o cron + manual coinciden), se encola sin
-# cancelar el que está corriendo — evita race conditions de branch.
 concurrency:
   group: claude-worker
   cancel-in-progress: false
@@ -44,7 +30,7 @@ on:
   workflow_dispatch:
     inputs:
       ticket_id:
-        description: 'Opcional: forzar un ticket específico (ej "WIK-150"). Si vacío, agarra el de mayor prioridad con label claude:autonomous.'
+        description: 'Opcional: forzar un ticket específico (ej "WIK-150"). Si vacío, agarra el de mayor prioridad con label claude:autonomous (de cualquier project registrado).'
         required: false
         type: string
   schedule:
@@ -52,75 +38,37 @@ on:
     - cron: '0 14 * * *'
 
 permissions:
-  contents: write       # commit + push
-  pull-requests: write  # create PR
-  issues: read          # leer Linear via API; este perm no aplica pero
-                        # es buena documentación
+  contents: write
+  pull-requests: write
+  issues: read
 
 jobs:
   work:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # WIK-194 fix: env a nivel JOB para que `env.X` esté disponible en
-    # los `if:` de los steps. Si lo definís a nivel step, el `if:` se
-    # evalúa ANTES de que el step set sus env vars — entonces `env.X`
-    # queda vacío y la condición siempre falsa → step skipeado silente.
-    # Antes el "Notify Telegram" se skipeaba sin loguear nada y el user
-    # nunca recibía la notif. Subiendo los TELEGRAM_* al job-level
-    # ambos `env.X` resuelven correctamente en el if + dentro del step.
     env:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+      # WIK-266: token para clone/push/PR cross-repo. DEBE tener escritura
+      # en los 3 repos. Fallback a GITHUB_TOKEN solo sirve para tero-bot
+      # (mismo repo) — para wiki/casa hace falta el PAT.
+      GH_PAT: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
     steps:
-      - name: Checkout
+      - name: Checkout tero-bot (scripts + registry)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # full history para que Claude pueda leer log
-          # WIK-228 follow-up: usar PAT (si está seteado) para que el push
-          # del worker dispare ci.yml. GitHub bloquea workflows triggered
-          # by GITHUB_TOKEN por seguridad (loop prevention). Con un PAT
-          # con scopes `repo` + `workflow`, el push se atribuye al user
-          # del PAT y workflows arrancan normal. Fallback a GITHUB_TOKEN
-          # si WORKFLOW_TOKEN no está configurado — el worker sigue
-          # corriendo pero los PRs no van a tener CI automático.
+          fetch-depth: 0
           token: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-
-      - name: Install deps
-        run: npm ci
 
       - name: Install Claude Code CLI
         run: npm install -g @anthropic-ai/claude-code
 
-      # Rate limit (WIK-136): si ya hay >5 PRs abiertos con label
-      # `claude:autonomous`, salir sin error. Evita inundar el queue de
-      # PRs si el user se atrasa con los reviews. El threshold (5) es
-      # arbitrario y conservador — ajustar si se vuelve molesto.
-      - name: Rate limit check
-        id: ratelimit
-        env:
-          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
-        run: |
-          OPEN=$(gh pr list \
-            --label "claude:autonomous" \
-            --state open \
-            --json number \
-            --jq 'length')
-          echo "open=$OPEN" >> "$GITHUB_OUTPUT"
-          if [ "$OPEN" -gt 5 ]; then
-            echo "::notice::Rate limit: $OPEN PRs autonomous abiertos (>5). Skipping run."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Pick next Linear ticket
-        if: steps.ratelimit.outputs.skip != 'true'
         id: pick
         env:
           LINEAR_API_TOKEN: ${{ secrets.LINEAR_API_TOKEN }}
@@ -132,81 +80,140 @@ jobs:
             echo "ticket_id=$(jq -r .identifier /tmp/ticket.json)"
             echo "ticket_uuid=$(jq -r '.id // ""' /tmp/ticket.json)"
             echo "ticket_title=$(jq -r .title /tmp/ticket.json)"
+            echo "project=$(jq -r '.project // ""' /tmp/ticket.json)"
             echo "has_ticket=$(jq -r 'if .identifier then "true" else "false" end' /tmp/ticket.json)"
           } >> "$GITHUB_OUTPUT"
 
       - name: Exit early if no ticket
         if: steps.pick.outputs.has_ticket != 'true'
         run: |
-          echo "::notice::No hay tickets con label claude:autonomous en estado Todo. Nothing to do."
+          echo "::notice::No hay tickets claude:autonomous en Todo (de projects registrados). Nothing to do."
           exit 0
 
-      - name: Create branch
+      # Resolver el repo target a partir del project del ticket.
+      - name: Resolve target repo
         if: steps.pick.outputs.has_ticket == 'true'
+        id: repo
+        env:
+          PROJECT: ${{ steps.pick.outputs.project }}
         run: |
-          BRANCH="claude/${{ steps.pick.outputs.ticket_id }}"
+          CFG=.github/claude-repos.json
+          OWNER=$(jq -r --arg p "$PROJECT" '.[$p].owner // ""' "$CFG")
+          REPO=$(jq -r --arg p "$PROJECT" '.[$p].repo // ""' "$CFG")
+          INSTALL=$(jq -r --arg p "$PROJECT" '.[$p].install // ""' "$CFG")
+          VERIFY=$(jq -r --arg p "$PROJECT" '.[$p].verify // ""' "$CFG")
+          AUTOMERGE=$(jq -r --arg p "$PROJECT" '.[$p].autoMerge // false' "$CFG")
+          if [ -z "$OWNER" ] || [ -z "$REPO" ]; then
+            echo "::error::Project '$PROJECT' no está en $CFG — no hay repo target."
+            exit 1
+          fi
+          {
+            echo "owner=$OWNER"
+            echo "repo=$REPO"
+            echo "slug=$OWNER/$REPO"
+            echo "install=$INSTALL"
+            echo "verify=$VERIFY"
+            echo "automerge=$AUTOMERGE"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::Target: $OWNER/$REPO (project '$PROJECT', autoMerge=$AUTOMERGE)"
+
+      # Rate limit: si ya hay >5 PRs autonomous abiertos en el repo TARGET,
+      # salir sin error (evita inundar la cola de reviews).
+      - name: Rate limit check
+        if: steps.pick.outputs.has_ticket == 'true'
+        id: ratelimit
+        env:
+          GH_TOKEN: ${{ env.GH_PAT }}
+          SLUG: ${{ steps.repo.outputs.slug }}
+        run: |
+          OPEN=$(gh pr list -R "$SLUG" --label "claude:autonomous" --state open --json number --jq 'length' 2>/dev/null || echo 0)
+          if [ "$OPEN" -gt 5 ]; then
+            echo "::notice::Rate limit: $OPEN PRs autonomous abiertos en $SLUG (>5). Skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Clone target repo
+        if: steps.pick.outputs.has_ticket == 'true' && steps.ratelimit.outputs.skip != 'true'
+        env:
+          SLUG: ${{ steps.repo.outputs.slug }}
+          TICKET_ID: ${{ steps.pick.outputs.ticket_id }}
+        run: |
+          # Clona con el PAT embebido (cross-repo). --depth 50 alcanza para
+          # el diff origin/<default>..HEAD del risk-classifier.
+          git clone --depth 50 "https://x-access-token:${GH_PAT}@github.com/${SLUG}.git" target-repo
+          cd target-repo
           git config user.email "claude-bot@users.noreply.github.com"
           git config user.name "Claude (autonomous)"
-          git checkout -b "$BRANCH"
+          git checkout -b "claude/${TICKET_ID}"
+          # Guardar el nombre del branch default para el diff del classifier.
+          DEF=$(git rev-parse --abbrev-ref origin/HEAD | sed 's#^origin/##')
+          echo "$DEF" > /tmp/default-branch
+
+      - name: Install target deps
+        if: steps.pick.outputs.has_ticket == 'true' && steps.ratelimit.outputs.skip != 'true' && steps.repo.outputs.install != ''
+        working-directory: target-repo
+        env:
+          CMD: ${{ steps.repo.outputs.install }}
+        run: eval "$CMD"
 
       - name: Run Claude Code
-        if: steps.pick.outputs.has_ticket == 'true'
+        if: steps.pick.outputs.has_ticket == 'true' && steps.ratelimit.outputs.skip != 'true'
+        working-directory: target-repo
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SLUG: ${{ steps.repo.outputs.slug }}
         run: |
-          # Construct prompt: title + description from the Linear ticket.
+          # Title + description vienen del JSON (no via ${{ }}) para no
+          # romper el bash con comillas/backticks/$ del ticket.
           TITLE=$(jq -r .title /tmp/ticket.json)
           DESC=$(jq -r '.description // ""' /tmp/ticket.json)
           PROMPT=$(cat <<EOF
-          Sos Claude trabajando autónomamente en el repo tero-bot. Te
+          Sos Claude trabajando autónomamente en el repo ${SLUG}. Te
           asignaron el siguiente ticket de Linear:
 
           # ${TITLE}
 
           ${DESC}
 
+          ANTES DE TOCAR NADA: si el repo tiene CLAUDE.md y/o AGENTS.md,
+          leelos y seguí sus convenciones (stack, build, estilo).
+
           Tu único trabajo: investigar el código y hacer los cambios
-          mínimos necesarios para resolver el ticket. Verificá con
-          \`npm run build\` que no rompiste nada.
+          mínimos necesarios para resolver el ticket.
 
           REGLA DE ORO: si el ticket es ambiguo o le falta información
           crítica (ej. "reemplazá X por algo nuevo" sin decir QUÉ poner),
-          NO hagas la interpretación más simple/destructiva. En vez de
-          eso, NO hagas cambios y dejá un mensaje explicando qué falta.
-          Es preferible un PR vacío con feedback que un cambio mal
-          interpretado.
+          NO hagas la interpretación más simple/destructiva. En vez de eso,
+          NO hagas cambios y dejá un mensaje explicando qué falta. Es
+          preferible un PR vacío con feedback que un cambio mal interpretado.
 
           IMPORTANTE — NO toques git de ninguna manera:
-          - NO hagas commit
-          - NO hagas push
-          - NO hagas reset, revert, ni force-push
+          - NO hagas commit, push, reset, revert, ni force-push
           - NO crees ni cambies branches
           NO uses ningún MCP (Linear, etc.) — no tenés ese contexto acá.
           NO cambies env vars ni archivos sensibles.
 
-          Después de hacer los cambios en el filesystem, simplemente
-          termininá. El workflow se encarga del commit, push y PR.
+          Después de hacer los cambios en el filesystem, terminá. El
+          workflow se encarga del commit, push y PR.
           EOF
           )
-          # Headless mode. --dangerously-skip-permissions porque estamos
-          # en CI aislado. --output-format text imprime solo la respuesta
-          # final de Claude.
           claude -p "$PROMPT" \
             --dangerously-skip-permissions \
             --output-format text || true
-          # `|| true` porque Claude a veces sale non-zero pero deja
-          # cambios útiles. El verify build de abajo es el gate real.
 
-      - name: Verify build
-        if: steps.pick.outputs.has_ticket == 'true'
-        run: npm run build
+      - name: Verify
+        if: steps.pick.outputs.has_ticket == 'true' && steps.ratelimit.outputs.skip != 'true' && steps.repo.outputs.verify != ''
+        working-directory: target-repo
+        env:
+          CMD: ${{ steps.repo.outputs.verify }}
+        run: eval "$CMD"
 
       - name: Commit + push
-        if: steps.pick.outputs.has_ticket == 'true'
+        if: steps.pick.outputs.has_ticket == 'true' && steps.ratelimit.outputs.skip != 'true'
         id: commit
-        # Pasar valores via env, no via `${{ }}` directo en el script —
-        # las interpolaciones de GH Actions no escapan quotes y rompen
-        # el bash si el title del ticket tiene `"`, `` ` ``, `$`, etc.
+        working-directory: target-repo
         env:
           TICKET_ID: ${{ steps.pick.outputs.ticket_id }}
           TICKET_TITLE: ${{ steps.pick.outputs.ticket_title }}
@@ -217,19 +224,11 @@ jobs:
             exit 0
           fi
           git add -A
-          # Dos `-m` flags: primero título, segundo body. Esto evita
-          # tener que meter newlines dentro de un solo -m que en bash
-          # es complicado.
           git commit \
             -m "${TICKET_ID}: ${TICKET_TITLE}" \
             -m "Generated by Claude autonomous worker."
-          # `--force` (no --force-with-lease) porque `actions/checkout@v4`
-          # solo fetchea main, no `claude/*`. Sin la tracking ref local
-          # del branch del worker, `--force-with-lease` rechaza el push
-          # cuando el remote ya tiene la branch de un run anterior — el
-          # caso típico cuando `/work all` re-dispatcha el mismo ticket.
-          # El branch `claude/<ticket>` es 100% propiedad del worker,
-          # no hay riesgo de sobrescribir trabajo humano.
+          # --force: el branch claude/<ticket> es 100% del worker; si un run
+          # previo lo dejó, se sobreescribe sin riesgo.
           git push --force -u origin HEAD
           echo "has_changes=true" >> "$GITHUB_OUTPUT"
 
@@ -237,38 +236,23 @@ jobs:
         if: steps.pick.outputs.has_ticket == 'true' && steps.commit.outputs.has_changes == 'true'
         id: pr
         env:
-          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ env.GH_PAT }}
+          SLUG: ${{ steps.repo.outputs.slug }}
           TICKET_ID: ${{ steps.pick.outputs.ticket_id }}
           TICKET_TITLE: ${{ steps.pick.outputs.ticket_title }}
         run: |
-          # WIK-186 follow-up: idempotencia sobre PRs existentes. Si ya
-          # hay un PR open para la branch `claude/<TICKET>`, reusarlo
-          # (el commit + push de arriba sobrescribió la branch con
-          # `--force-with-lease`, así que el PR existente ya refleja
-          # el último estado). Antes este step fallaba con
-          # `gh pr create` rechazando porque ya existía el PR — típico
-          # cuando se re-procesa el mismo ticket via /work all.
           BRANCH="claude/${TICKET_ID}"
-          EXISTING=$(gh pr list \
-            --head "$BRANCH" \
-            --state open \
-            --json number,url \
-            --jq '.[0] // empty')
+          EXISTING=$(gh pr list -R "$SLUG" --head "$BRANCH" --state open --json number,url --jq '.[0] // empty')
           if [ -n "$EXISTING" ]; then
             PR_NUMBER=$(echo "$EXISTING" | jq -r .number)
             PR_URL=$(echo "$EXISTING" | jq -r .url)
-            echo "::notice::Reusing existing PR #$PR_NUMBER (branch fue re-pusheada)"
+            echo "::notice::Reusing existing PR #$PR_NUMBER en $SLUG"
           else
-            # Asegurar que el label existe en GitHub (Linear y GitHub son
-            # universos distintos — el label de Linear no implica que
-            # exista en GH). `|| true` para que sea idempotente: si ya
-            # existe, gh devuelve non-zero pero seguimos.
-            gh label create "claude:autonomous" \
+            # El label puede no existir en un repo nuevo (wiki/casa) — crearlo.
+            gh label create "claude:autonomous" -R "$SLUG" \
               --color "F1B500" \
               --description "PR creado por el worker autónomo de Claude" \
               2>/dev/null || true
-            # Build body en un archivo temp para evitar problemas de quoting
-            # con multi-líneas + chars especiales del title.
             cat > /tmp/pr-body.md <<EOF
           Autonomous run for [${TICKET_ID}](https://linear.app/wikichaves/issue/${TICKET_ID}).
 
@@ -276,24 +260,18 @@ jobs:
 
           🤖 Generated with [Claude Code](https://claude.com/claude-code)
           EOF
-            PR_URL=$(gh pr create \
+            PR_URL=$(gh pr create -R "$SLUG" \
+              --head "$BRANCH" \
               --title "${TICKET_ID}: ${TICKET_TITLE}" \
               --body-file /tmp/pr-body.md \
               --label "claude:autonomous")
-            # gh pr create devuelve la URL completa — extraemos el número
-            # del final (.../pull/N).
             PR_NUMBER="${PR_URL##*/}"
           fi
           echo "url=$PR_URL" >> "$GITHUB_OUTPUT"
           echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
 
-      # WIK-237: mover el ticket de Linear a "In Review" (state type
-      # "started") una vez abierto el PR. Lo saca de la queue del picker
-      # (`pick-claude-ticket.mjs` filtra type=unstarted), evitando que la
-      # próxima corrida re-procese el MISMO ticket → PR duplicado +
-      # conflictos con main (caso WIK-235, donde #54 chocó contra #53 ya
-      # mergeado). Best-effort: el script sale 0 aunque falle, así un
-      # problema con Linear no marca el run como Failure (el PR ya existe).
+      # Mover el ticket de Linear a "In Review" (lo saca de la queue del
+      # picker). Best-effort: el script sale 0 aunque falle.
       - name: Move ticket to In Review
         if: steps.pr.outputs.number != '' && steps.pick.outputs.ticket_uuid != ''
         env:
@@ -303,31 +281,24 @@ jobs:
             "${{ steps.pick.outputs.ticket_uuid }}" \
             "In Review"
 
-      # Risk classifier (WIK-139): clasifica el cambio como safe o risky.
-      # Safe = solo toca archivos en la allowlist (visual/copy/assets/docs),
-      #        < 50 líneas modificadas en total, y sin nuevos `import` lines
-      #        (que indicarían cambio del grafo de módulos).
-      # Risky = todo lo demás. Default conservador: ante la duda, manual.
+      # Risk classifier — SOLO para repos con autoMerge:true (tero-bot). El
+      # resto va siempre a review manual.
       - name: Classify risk
-        if: steps.pr.outputs.number != ''
+        if: steps.pr.outputs.number != '' && steps.repo.outputs.automerge == 'true'
         id: classify
+        working-directory: target-repo
         run: |
-          CHANGED=$(git diff --name-only "origin/main..HEAD")
-          STAT=$(git diff --shortstat "origin/main..HEAD")
-          # Sumar insertions + deletions del shortstat.
+          DEF=$(cat /tmp/default-branch 2>/dev/null || echo main)
+          CHANGED=$(git diff --name-only "origin/${DEF}..HEAD")
+          STAT=$(git diff --shortstat "origin/${DEF}..HEAD")
           LOC=$(echo "$STAT" | grep -oE '[0-9]+ insertion|[0-9]+ deletion' | grep -oE '[0-9]+' | paste -sd+ | bc 2>/dev/null || echo 0)
           LOC=${LOC:-0}
-
           SAFE=true
           REASON=""
-
-          # Gate 1: LOC threshold.
           if [ "$LOC" -gt 50 ]; then
             SAFE=false
             REASON="$LOC líneas modificadas (>50 — cambio grande)"
           fi
-
-          # Gate 2: allowlist de paths. Cualquier archivo fuera = risky.
           if [ "$SAFE" = "true" ]; then
             while IFS= read -r f; do
               [ -z "$f" ] && continue
@@ -342,61 +313,40 @@ jobs:
               esac
             done <<< "$CHANGED"
           fi
-
-          # Gate 3: nuevos imports = potencial cambio de grafo de
-          # módulos / nueva dep. Conservador: marcar risky.
           if [ "$SAFE" = "true" ]; then
-            NEW_IMPORTS=$(git diff "origin/main..HEAD" | grep -cE '^\+import' || true)
+            NEW_IMPORTS=$(git diff "origin/${DEF}..HEAD" | grep -cE '^\+import' || true)
             if [ "$NEW_IMPORTS" -gt 0 ]; then
               SAFE=false
               REASON="$NEW_IMPORTS nuevos \`import\` lines — cambio de dependencies"
             fi
           fi
-
           echo "safe=$SAFE" >> "$GITHUB_OUTPUT"
           echo "reason=$REASON" >> "$GITHUB_OUTPUT"
           echo "loc=$LOC" >> "$GITHUB_OUTPUT"
-          if [ "$SAFE" = "true" ]; then
-            echo "::notice::🟢 Auto-merge: solo touch en allowlist, $LOC líneas, sin imports nuevos."
-          else
-            echo "::warning::🟡 Manual review necesario: $REASON"
-          fi
 
       - name: Auto-merge if safe
         if: steps.classify.outputs.safe == 'true' && steps.pr.outputs.number != ''
         env:
-          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ env.GH_PAT }}
+          SLUG: ${{ steps.repo.outputs.slug }}
         run: |
-          # WIK-137: `--auto` espera a que pasen los required status
-          # checks (definidos en branch protection de main) antes de
-          # mergear. Sin branch protection activa, `--auto` mergea
-          # inmediato como antes — la compat queda intacta. Con
-          # branch protection que requiere `build` (de ci.yml),
-          # esperás a que CI pase verde, después merge.
-          # Si el merge falla acá (ej. mergeable_state CONFLICTING),
-          # el step revienta y el run queda Failure — el PR queda open
-          # para resolver manual.
-          gh pr merge "${{ steps.pr.outputs.number }}" \
+          gh pr merge "${{ steps.pr.outputs.number }}" -R "$SLUG" \
             --auto --squash --delete-branch
-          echo "::notice::✅ PR #${{ steps.pr.outputs.number }} auto-merge habilitado (espera CI checks)."
+          echo "::notice::✅ PR #${{ steps.pr.outputs.number }} auto-merge habilitado (espera CI)."
 
-      - name: Mark PR as needs-review (manual case)
-        if: steps.classify.outputs.safe == 'false' && steps.pr.outputs.number != ''
+      - name: Mark PR as needs-review
+        if: steps.pr.outputs.number != '' && (steps.repo.outputs.automerge != 'true' || steps.classify.outputs.safe == 'false')
         env:
-          GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ env.GH_PAT }}
+          SLUG: ${{ steps.repo.outputs.slug }}
         run: |
-          # Crear el label si no existe (idempotente).
-          gh label create "needs-review" \
+          gh label create "needs-review" -R "$SLUG" \
             --color "D93F0B" \
             --description "PR autonomous que requiere review manual" \
             2>/dev/null || true
-          gh pr edit "${{ steps.pr.outputs.number }}" --add-label "needs-review"
+          gh pr edit "${{ steps.pr.outputs.number }}" -R "$SLUG" --add-label "needs-review"
 
-      # WIK-186: cierre del loop conversacional. Independiente del
-      # outcome del run (success/skip/no-changes/risky/safe), mandamos
-      # un mensaje a Telegram con el resultado + inline buttons para que
-      # el user pueda mergear / disparar el próximo sin abandonar el chat.
-      # `if: always()` para cubrir incluso steps que fallaron antes.
+      # Cierre del loop: notificación a Telegram con el resultado + buttons.
       - name: Notify Telegram
         if: always() && env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_ADMIN_CHAT_ID != ''
         env:
@@ -404,6 +354,7 @@ jobs:
           TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
           TICKET_ID: ${{ steps.pick.outputs.ticket_id }}
           TICKET_TITLE: ${{ steps.pick.outputs.ticket_title }}
+          SLUG: ${{ steps.repo.outputs.slug }}
           HAS_TICKET: ${{ steps.pick.outputs.has_ticket }}
           HAS_CHANGES: ${{ steps.commit.outputs.has_changes }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
@@ -414,57 +365,42 @@ jobs:
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
         run: |
-          # Construye el mensaje según el outcome. Tres casos típicos:
-          #   1) No ticket / no changes → ack simple, sin buttons
-          #   2) PR auto-merged (safe) → ack + button "Próximo"
-          #   3) PR open needs-review (risky) → buttons "Mergear" / "Ver PR" / "Stop"
-          #   4) Job failed → notificar con link a logs
           if [ "$JOB_STATUS" != "success" ]; then
-            TEXT="❌ <b>Worker falló</b>\n\nTicket: <b>${TICKET_ID:-(none)}</b>\n\n<a href=\"$RUN_URL\">Ver logs del run</a>"
+            TEXT="❌ <b>Worker falló</b>\n\nTicket: <b>${TICKET_ID:-(none)}</b>${SLUG:+ · <code>$SLUG</code>}\n\n<a href=\"$RUN_URL\">Ver logs del run</a>"
             KEYBOARD='{"inline_keyboard":[[{"text":"📋 Logs","url":"'"$RUN_URL"'"}]]}'
           elif [ "$HAS_TICKET" != "true" ]; then
-            TEXT="ℹ️ <b>Worker terminó</b>\n\nNo hay tickets con label <code>claude:autonomous</code> en Todo. Queue vacía."
+            TEXT="ℹ️ <b>Worker terminó</b>\n\nNo hay tickets con label <code>claude:autonomous</code> en Todo (de projects registrados). Queue vacía."
             KEYBOARD=''
           elif [ "$HAS_CHANGES" != "true" ]; then
-            TEXT="⚠️ <b>$TICKET_ID</b> procesado pero <b>sin cambios</b>\n\n$TICKET_TITLE\n\n<i>Claude no encontró nada que tocar (ticket ambiguo o ya hecho).</i>\n\n<a href=\"$RUN_URL\">Ver logs</a>"
+            TEXT="⚠️ <b>$TICKET_ID</b> procesado pero <b>sin cambios</b> · <code>$SLUG</code>\n\n$TICKET_TITLE\n\n<i>Claude no encontró nada que tocar (ticket ambiguo o ya hecho).</i>\n\n<a href=\"$RUN_URL\">Ver logs</a>"
             KEYBOARD='{"inline_keyboard":[[{"text":"🚀 Próximo","callback_data":"next"},{"text":"🛑 Stop","callback_data":"noop"}]]}'
           elif [ "$SAFE" = "true" ]; then
-            TEXT="✅ <b>$TICKET_ID</b> auto-mergeado 🚢\n\n$TICKET_TITLE\n<i>$LOC líneas en allowlist</i>\n\n<a href=\"$PR_URL\">PR #$PR_NUMBER</a>"
+            TEXT="✅ <b>$TICKET_ID</b> auto-mergeado 🚢 · <code>$SLUG</code>\n\n$TICKET_TITLE\n<i>$LOC líneas en allowlist</i>\n\n<a href=\"$PR_URL\">PR #$PR_NUMBER</a>"
             KEYBOARD='{"inline_keyboard":[[{"text":"🚀 Próximo","callback_data":"next"},{"text":"🛑 Stop","callback_data":"noop"}]]}'
           else
-            TEXT="🔍 <b>$TICKET_ID</b> listo, necesita review\n\n$TICKET_TITLE\n<i>$REASON</i>\n\n<a href=\"$PR_URL\">PR #$PR_NUMBER</a>"
-            KEYBOARD='{"inline_keyboard":[[{"text":"🚢 Mergear","callback_data":"merge:'"$PR_NUMBER"'"},{"text":"📋 Ver PR","url":"'"$PR_URL"'"}],[{"text":"🛑 Stop","callback_data":"noop"}]]}'
+            TEXT="🔍 <b>$TICKET_ID</b> listo, necesita review · <code>$SLUG</code>\n\n$TICKET_TITLE\n<i>${REASON:-review manual}</i>\n\n<a href=\"$PR_URL\">PR #$PR_NUMBER</a>"
+            # El botón "Mergear" (callback merge:N) solo sirve para tero-bot
+            # — mergePR está hardcodeado a ese repo. Para wiki/casa el user
+            # mergea desde GitHub (solo mostramos "Ver PR").
+            if [ "$SLUG" = "wikichaves/tero-bot" ]; then
+              KEYBOARD='{"inline_keyboard":[[{"text":"🚢 Mergear","callback_data":"merge:'"$PR_NUMBER"'"},{"text":"📋 Ver PR","url":"'"$PR_URL"'"}],[{"text":"🛑 Stop","callback_data":"noop"}]]}'
+            else
+              KEYBOARD='{"inline_keyboard":[[{"text":"📋 Ver PR","url":"'"$PR_URL"'"}],[{"text":"🛑 Stop","callback_data":"noop"}]]}'
+            fi
           fi
 
-          # POST a Telegram Bot API. Usamos jq para escapar el text
-          # safely y construir el body JSON.
           PAYLOAD=$(jq -nc \
             --arg chat_id "$TELEGRAM_ADMIN_CHAT_ID" \
             --arg text "$(printf '%b' "$TEXT")" \
             --argjson rm "${KEYBOARD:-null}" \
             '{chat_id: $chat_id, text: $text, parse_mode: "HTML", disable_web_page_preview: true} + (if $rm == null then {} else {reply_markup: $rm} end)')
 
-          # WIK-194: capturar respuesta de Telegram en vez de swallow
-          # silente con `|| true`. Antes el step pasaba en verde aunque
-          # Telegram devolviera 401/400 — el user reportaba "no recibo
-          # notifs" sin pista en el log.
           HTTP_STATUS=$(curl -sS -o /tmp/tg-response.json -w "%{http_code}" \
             -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD" || echo "0")
           echo "[notify] Telegram HTTP $HTTP_STATUS"
-          # `ok` field de Telegram indica success real; loguear el body
-          # para diagnosticar cuando falla (description suele decir
-          # "chat not found" / "Unauthorized" / etc.).
           if [ "$HTTP_STATUS" != "200" ]; then
-            echo "::warning::Telegram respondió HTTP $HTTP_STATUS — revisar TELEGRAM_BOT_TOKEN y TELEGRAM_ADMIN_CHAT_ID secrets."
+            echo "::warning::Telegram respondió HTTP $HTTP_STATUS"
             cat /tmp/tg-response.json 2>/dev/null || echo "(no response body)"
-          else
-            # Aún con 200, el `ok: false` indica error del lado de
-            # Telegram (ej. parse_mode malo, reply_markup inválido).
-            TG_OK=$(jq -r '.ok // false' /tmp/tg-response.json 2>/dev/null)
-            if [ "$TG_OK" != "true" ]; then
-              echo "::warning::Telegram devolvió ok=false:"
-              cat /tmp/tg-response.json
-            fi
           fi
