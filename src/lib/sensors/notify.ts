@@ -42,7 +42,8 @@ function buildMessage(ev: EvaluatedEvent): string {
     ? `${ev.device.room_name} (${ev.device.property_name ?? "—"})`
     : (ev.device.property_name ?? "—");
 
-  // WIK-280: corte de luz — estado del breaker, sin valor numérico.
+  // WIK-281: corte de luz — detectado por el DP `fault` del breaker, sin
+  // valor numérico.
   if (ev.rule.metric === "power_outage") {
     const property = ev.device.property_name ?? location;
     const breakerLine = ev.device.device_name
@@ -51,7 +52,7 @@ function buildMessage(ev: EvaluatedEvent): string {
     if (ev.kind === "fired") {
       return (
         `*Corte de luz en ${property}*\n\n` +
-        `La llave de luz se desconectó — probablemente no hay energía en la propiedad.` +
+        `La llave reportó falta de tensión — probablemente no hay energía en la propiedad.` +
         breakerLine +
         `\n\n_Detalle: ${APP_HOST}/rooms_`
       );

@@ -986,6 +986,20 @@ alter table public.reservations
   add constraint reservations_guest_language_supported
   check (guest_language in ('en', 'es'));
 
+-- ─── WIK-281: cursor de polling de device logs de Tuya ──────────────
+-- La detección de corte de luz (power-outage.ts) lee el DP `fault` de los
+-- breakers vía /v1.0/devices/{id}/logs, que devuelve el historial de eventos
+-- con timestamp exacto (capta micro-cortes de ~5s entre polls, retroactivo).
+-- Guardamos por breaker el `event_time` (ms epoch) del último log procesado
+-- para no re-escanear ni re-disparar en la próxima corrida del cron.
+create table if not exists public.tuya_log_cursors (
+  tuya_device_id text primary key,
+  last_event_time_ms bigint not null,
+  updated_at timestamptz not null default now()
+);
+alter table public.tuya_log_cursors enable row level security;
+-- Sin policies: solo el cron (service-role, bypassea RLS) lo lee/escribe.
+
 -- ─── WIK-223: GRANTs default para tablas futuras en public ──────────
 -- Supabase deprecó el comportamiento de "auto-grant on CREATE TABLE" en el
 -- schema public. Fechas:
