@@ -67,14 +67,20 @@ function buildStringToSign(
   return `${method.toUpperCase()}\n${contentHash}\n\n${url}`;
 }
 
-function canonicalQuery(params: Record<string, unknown> | undefined): string {
-  if (!params) return "";
+/**
+ * Sorted [key, value] query entries (ASCII order by key), with null/undefined
+ * dropped. Tuya's signature and the actual request URL need DIFFERENT encodings
+ * of these (see `tuyaFetch`), so we return the raw pairs and let the caller
+ * build each string.
+ */
+function sortedQueryEntries(
+  params: Record<string, unknown> | undefined,
+): Array<readonly [string, string]> {
+  if (!params) return [];
   return Object.entries(params)
     .filter(([, v]) => v !== undefined && v !== null)
     .map(([k, v]) => [k, String(v)] as const)
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
-    .join("&");
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 type TokenCache = { token: string; expiresAt: number };
@@ -151,14 +157,24 @@ export async function tuyaFetch<T = unknown>(
   const accessToken = await getAccessToken();
   const t = Date.now().toString();
 
-  const queryString = canonicalQuery(options.query);
+  const entries = sortedQueryEntries(options.query);
+  // Tuya signs over the RAW (un-encoded) "key=value" pairs, but the actual
+  // HTTP request must URL-encode the values. Signing the encoded form breaks
+  // for values with reserved chars (e.g. the base64 `start_row_key` used in
+  // pagination, which can contain `=`/`+`/`/`) → "sign invalid".
+  const signQueryString = entries.map(([k, v]) => `${k}=${v}`).join("&");
+  const urlQueryString = entries
+    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+    .join("&");
   const bodyStr = options.body ? JSON.stringify(options.body) : "";
 
-  const stringToSign = buildStringToSign(method, bodyStr, path, queryString);
+  const stringToSign = buildStringToSign(method, bodyStr, path, signQueryString);
   const signStr = id + accessToken + t + stringToSign;
   const sign = hmac(signStr, secret);
 
-  const url = queryString ? `${baseUrl}${path}?${queryString}` : `${baseUrl}${path}`;
+  const url = urlQueryString
+    ? `${baseUrl}${path}?${urlQueryString}`
+    : `${baseUrl}${path}`;
   const res = await fetch(url, {
     method,
     headers: {

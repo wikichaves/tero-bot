@@ -93,6 +93,10 @@ export async function getDeviceFaultLogs(
       end_time: endMs,
       // type=7 → "Data report" (reportes de DP). Es donde aparece `fault`.
       type: 7,
+      // Filtra server-side solo el DP `fault`: sin esto el endpoint devuelve
+      // TODOS los reportes (voltaje/corriente/energía…), miles por ventana →
+      // pagina 20 veces y choca el rate limit "log query too frequent".
+      codes: "fault",
       size: 100,
     };
     if (rowKey) query.start_row_key = rowKey;
