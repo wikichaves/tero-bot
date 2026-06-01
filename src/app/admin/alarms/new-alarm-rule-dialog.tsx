@@ -248,9 +248,10 @@ export function NewAlarmRuleDialog({
                 {t("powerOutageHint")}
               </p>
             )}
-            <div className="grid grid-cols-2 gap-2">
-              {/* WIK-280: corte de luz no usa umbral. */}
-              {!isOutage && (
+            {/* WIK-280/281: corte de luz no usa umbral ni debounce (la
+                detección por fault DP es inmediata, no hay debounce aplicado). */}
+            {!isOutage && (
+              <div className="grid grid-cols-2 gap-2">
                 <div className="grid gap-2">
                   <Label htmlFor="threshold">{t("fields.threshold")}</Label>
                   <Input
@@ -262,21 +263,21 @@ export function NewAlarmRuleDialog({
                     required
                   />
                 </div>
-              )}
-              <div className="grid gap-2">
-                <Label htmlFor="debounce">{t("fields.debounce")}</Label>
-                <Input
-                  id="debounce"
-                  type="number"
-                  step="1"
-                  min="0"
-                  max="1440"
-                  value={debounce}
-                  onChange={(e) => setDebounce(e.target.value)}
-                  required
-                />
+                <div className="grid gap-2">
+                  <Label htmlFor="debounce">{t("fields.debounce")}</Label>
+                  <Input
+                    id="debounce"
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="1440"
+                    value={debounce}
+                    onChange={(e) => setDebounce(e.target.value)}
+                    required
+                  />
+                </div>
               </div>
-            </div>
+            )}
             {/* WIK-280: el corte de luz es siempre por propiedad → ocultamos
                 el selector de scope (queda fijo en "property"). */}
             {!isOutage && (
