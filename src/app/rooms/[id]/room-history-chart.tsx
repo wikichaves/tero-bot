@@ -1,8 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import {
   CartesianGrid,
   Line,
@@ -13,6 +11,7 @@ import {
   YAxis,
   Legend,
 } from "recharts";
+import { formatChartAxisTime, formatChartTooltipTime } from "@/lib/format";
 
 /**
  * Gráfico histórico de un room. Eje X = tiempo, eje Y izq = T (°C),
@@ -112,9 +111,7 @@ export function RoomHistoryChart({
             // el chart, sin necesidad de leer el banner.
             domain={[windowStartMs, windowEndMs]}
             tick={{ fontSize: 11 }}
-            tickFormatter={(ms) =>
-              format(new Date(ms as number), "d MMM HH:mm", { locale: es })
-            }
+            tickFormatter={(ms) => formatChartAxisTime(ms as number)}
             minTickGap={60}
           />
           <YAxis
@@ -166,11 +163,7 @@ export function RoomHistoryChart({
               borderRadius: "var(--radius-md)",
               fontSize: 12,
             }}
-            labelFormatter={(ms) =>
-              format(new Date(ms as number), "EEE d MMM HH:mm", {
-                locale: es,
-              })
-            }
+            labelFormatter={(ms) => formatChartTooltipTime(ms as number)}
             formatter={(value, name, item) => {
               // `name` puede ser "Temperatura"/"Humedad" (single sensor)
               // o `<label> · T`/`<label> · H` (multi). Usamos `dataKey`
