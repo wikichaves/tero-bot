@@ -1,8 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import {
   CartesianGrid,
   Line,
@@ -12,7 +10,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { formatMoney } from "@/lib/format";
+import {
+  formatChartAxisTime,
+  formatChartTooltipTime,
+  formatMoney,
+} from "@/lib/format";
 import type { FxRate } from "@/lib/fx";
 
 /**
@@ -175,9 +177,7 @@ export function DeviceEnergyChart({
             scale="time"
             domain={[windowStartMs, windowEndMs]}
             tick={{ fontSize: 11 }}
-            tickFormatter={(ms) =>
-              format(new Date(ms as number), "d MMM HH:mm", { locale: es })
-            }
+            tickFormatter={(ms) => formatChartAxisTime(ms as number)}
             minTickGap={60}
           />
           {/* Eje izquierdo: métrica (A o kWh/h) */}
@@ -227,11 +227,7 @@ export function DeviceEnergyChart({
               borderRadius: "var(--radius-md)",
               fontSize: 12,
             }}
-            labelFormatter={(ms) =>
-              format(new Date(ms as number), "EEE d MMM HH:mm", {
-                locale: es,
-              })
-            }
+            labelFormatter={(ms) => formatChartTooltipTime(ms as number)}
             formatter={(value, name) => {
               const v = value as number;
               if (name === "Costo") {

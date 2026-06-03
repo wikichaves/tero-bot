@@ -10,6 +10,8 @@
  * the UI re-use them cleanly.
  */
 
+import { APP_TIMEZONE } from "./brand";
+
 const formatterCache = new Map<string, Intl.NumberFormat>();
 
 /**
@@ -106,6 +108,63 @@ export function formatNumeric(
     " " +
     unit
   );
+}
+
+/**
+ * Time formatting para los charts (energy / rooms).
+ *
+ * Los snapshots se guardan en UTC, pero queremos mostrarlos SIEMPRE en la
+ * hora local de las casas (Uruguay), no en la del browser del que mira.
+ * Si no fijamos timeZone, `new Date(ms)` se formatea en la tz del visitante
+ * y un usuario viajando (ej. San Francisco, UTC-7) ve los charts corridos
+ * varias horas — confuso, porque Tuya configura y muestra todo en hora local
+ * del device. Fijamos `APP_TIMEZONE` para que coincida con lo que se ve en
+ * la app de Tuya.
+ *
+ * Usamos `formatToParts` en vez del string directo de Intl para evitar la
+ * coma que Intl mete entre fecha y hora ("2 jun, 14:30") y para dropear el
+ * punto de abreviatura, replicando el layout que daba date-fns ("2 jun 14:30").
+ */
+function tzParts(
+  fmt: Intl.DateTimeFormat,
+  ms: number,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const p of fmt.formatToParts(ms)) out[p.type] = p.value;
+  return out;
+}
+
+const stripDot = (s: string): string => s.replace(/\.$/, "");
+
+const chartAxisFmt = new Intl.DateTimeFormat(LOCALE, {
+  timeZone: APP_TIMEZONE,
+  hour12: false,
+  day: "numeric",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+const chartTooltipFmt = new Intl.DateTimeFormat(LOCALE, {
+  timeZone: APP_TIMEZONE,
+  hour12: false,
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/** Eje X de los charts: "2 jun 14:30" en hora de las casas (Uruguay). */
+export function formatChartAxisTime(ms: number): string {
+  const p = tzParts(chartAxisFmt, ms);
+  return `${p.day} ${stripDot(p.month)} ${p.hour}:${p.minute}`;
+}
+
+/** Tooltip de los charts: "lun 2 jun 14:30" en hora de las casas (Uruguay). */
+export function formatChartTooltipTime(ms: number): string {
+  const p = tzParts(chartTooltipFmt, ms);
+  return `${stripDot(p.weekday)} ${p.day} ${stripDot(p.month)} ${p.hour}:${p.minute}`;
 }
 
 /**
