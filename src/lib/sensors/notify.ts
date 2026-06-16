@@ -3,9 +3,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { APP_HOST } from "@/lib/brand";
 import {
   persistMessage,
+  sendKapsoTemplateWithFallback,
   sendKapsoText,
   upsertConversation,
 } from "@/lib/whatsapp/index";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/locales";
 import type { EvaluatedEvent } from "./alarms";
 
 /**
@@ -17,17 +19,27 @@ import type { EvaluatedEvent } from "./alarms";
  *     `alarm_rule_recipients`), notificamos solo a esos profiles que
  *     tengan `whatsapp`. Si no tiene ninguno (reglas legacy), caemos al
  *     comportamiento histórico: todos los admin/gestor con `whatsapp`.
- *   - Si el send falla (ventana 24h cerrada, error de Kapso, etc.) el
- *     mensaje queda persisted en la inbox con status=failed para que
- *     admin pueda ver el intento. Marca `notified_via_whatsapp=false`.
+ *   - Enviamos por TEMPLATE UTILITY (sensor_alarm_fired_v2 /
+ *     sensor_alarm_resolved / power_outage_fired / power_outage_resolved).
+ *     Es la única forma de que la alarma llegue FUERA de la ventana 24h —
+ *     que es el caso típico, porque la ventana solo la abre un mensaje
+ *     entrante del destinatario, no los que manda el bot. Si el template
+ *     falla (p.ej. todavía no está APPROVED en Meta) caemos a texto libre,
+ *     que entra solo si la ventana está abierta.
+ *   - Si el send falla, el mensaje queda persisted en la inbox con
+ *     status=failed para que admin vea el intento. Marca
+ *     `notified_via_whatsapp=false`.
  *   - Si el send funciona en al menos un destinatario, marca
  *     `notified_via_whatsapp=true` (uno notificado es suficiente — no
  *     queremos volver a intentar si después conectamos a otro admin).
  *
- * Out of scope V1: rate limiting per recipient, templates para casos
- * fuera de la ventana 24h. Para un operator con 1-2 admins activos en
- * WA, no hace falta todavía.
+ * Out of scope: rate limiting per recipient.
  */
+
+function coerceLocale(raw: string | null | undefined): Locale {
+  if (!raw) return DEFAULT_LOCALE;
+  return isLocale(raw) ? raw : DEFAULT_LOCALE;
+}
 
 function unitOf(metric: "temperature_c" | "humidity_pct"): string {
   return metric === "temperature_c" ? "°C" : "%";
@@ -35,6 +47,60 @@ function unitOf(metric: "temperature_c" | "humidity_pct"): string {
 
 function labelOf(metric: "temperature_c" | "humidity_pct"): string {
   return metric === "temperature_c" ? "Temperatura" : "Humedad";
+}
+
+/** Palabra de la métrica para la variable {{1}} del template (localizada). */
+function metricWord(
+  metric: "temperature_c" | "humidity_pct",
+  locale: Locale,
+): string {
+  if (locale === "en") {
+    return metric === "temperature_c" ? "temperature" : "humidity";
+  }
+  return metric === "temperature_c" ? "temperatura" : "humedad";
+}
+
+/** Ambiente para la variable de ubicación: "Living · Casa A" o "Casa A". */
+function ambienteOf(ev: EvaluatedEvent): string {
+  const property = ev.device.property_name ?? "—";
+  return ev.device.room_name ? `${ev.device.room_name} · ${property}` : property;
+}
+
+/**
+ * Mapea un evento de alarma al template UTILITY + sus variables (en el
+ * orden de los `{{N}}` del body). Los templates son la única forma de
+ * notificar fuera de la ventana 24h de WhatsApp.
+ */
+function alarmTemplate(
+  ev: EvaluatedEvent,
+  locale: Locale,
+): { name: string; vars: string[] } {
+  if (ev.rule.metric === "power_outage") {
+    const property = ev.device.property_name ?? ambienteOf(ev);
+    return {
+      name:
+        ev.kind === "fired" ? "power_outage_fired" : "power_outage_resolved",
+      vars: [property],
+    };
+  }
+  const m = ev.rule.metric;
+  const value = ev.value ?? 0;
+  const threshold = ev.rule.threshold ?? 0;
+  const unit = unitOf(m);
+  const valStr =
+    m === "temperature_c"
+      ? `${value.toFixed(1)}${unit}`
+      : `${value.toFixed(0)}${unit}`;
+  const thrStr =
+    m === "temperature_c"
+      ? `${threshold.toFixed(1)}${unit}`
+      : `${threshold.toFixed(0)}${unit}`;
+  const op = ev.rule.operator === "gt" ? ">" : "<";
+  return {
+    name:
+      ev.kind === "fired" ? "sensor_alarm_fired_v2" : "sensor_alarm_resolved",
+    vars: [metricWord(m, locale), valStr, ambienteOf(ev), `${op} ${thrStr}`],
+  };
 }
 
 function buildMessage(ev: EvaluatedEvent): string {
@@ -119,12 +185,13 @@ export async function notifyAlarmEvent(ev: EvaluatedEvent): Promise<boolean> {
     full_name: string | null;
     whatsapp: string | null;
     role: string;
+    language: string | null;
   };
 
   // WIK-275: destinatarios asignados explícitamente a la regla.
   const { data: assignedRows, error: assignedErr } = await admin
     .from("alarm_rule_recipients")
-    .select("profile:profiles(id, full_name, whatsapp, role)")
+    .select("profile:profiles(id, full_name, whatsapp, role, language)")
     .eq("rule_id", ev.rule.id);
   if (assignedErr) {
     console.warn(
@@ -143,7 +210,7 @@ export async function notifyAlarmEvent(ev: EvaluatedEvent): Promise<boolean> {
   if (recipients.length === 0) {
     const { data: fallback, error } = await admin
       .from("profiles")
-      .select("id, full_name, whatsapp, role")
+      .select("id, full_name, whatsapp, role, language")
       .in("role", ["admin", "gestor"])
       .not("whatsapp", "is", null);
     if (error) {
@@ -175,8 +242,31 @@ export async function notifyAlarmEvent(ev: EvaluatedEvent): Promise<boolean> {
         phone_number: r.whatsapp,
         display_name: r.full_name ?? null,
       });
+      const locale = coerceLocale(r.language);
+      const tpl = alarmTemplate(ev, locale);
       try {
-        const { messageId } = await sendKapsoText(phoneNumberId, r.whatsapp, text);
+        let messageId: string | undefined;
+        try {
+          // Preferimos el template UTILITY: se entrega aunque la ventana
+          // 24h esté cerrada (el caso típico de una alarma).
+          const res = await sendKapsoTemplateWithFallback({
+            phoneNumberId,
+            to: r.whatsapp,
+            templateName: tpl.name,
+            preferredLanguage: locale,
+            bodyVariables: tpl.vars,
+          });
+          messageId = res.messageId;
+        } catch (tplErr) {
+          // Fallback a texto libre (solo entra dentro de la ventana 24h).
+          // Cubre el período en que un template nuevo todavía no está
+          // APPROVED en Meta: si el admin escribió hace poco, igual llega.
+          console.warn(
+            `[notifyAlarmEvent] template ${tpl.name} failed to=${r.whatsapp}: ${(tplErr as Error).message}. Fallback a texto libre.`,
+          );
+          const res = await sendKapsoText(phoneNumberId, r.whatsapp, text);
+          messageId = res.messageId;
+        }
         await persistMessage({
           conversation_id: conversationId,
           external_id: messageId ?? null,
@@ -187,7 +277,7 @@ export async function notifyAlarmEvent(ev: EvaluatedEvent): Promise<boolean> {
         });
         anySent = true;
         console.log(
-          `[notifyAlarmEvent] sent rule=${ev.rule.id} device=${ev.device.property_device_id} to=${r.whatsapp}`,
+          `[notifyAlarmEvent] sent rule=${ev.rule.id} device=${ev.device.property_device_id} to=${r.whatsapp} tpl=${tpl.name}`,
         );
       } catch (sendErr) {
         const reason = (sendErr as Error).message;
