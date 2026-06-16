@@ -260,6 +260,65 @@ export const sensorAlarmFired: WhatsAppTemplate = {
 };
 
 // ────────────────────────────────────────────────────────────────────────
+// 5b. Alarma de sensor T/H RESUELTA. Cuando el valor vuelve al rango. Mismo
+//     motivo que la de disparo: puede ocurrir fuera de la ventana 24h.
+
+export const sensorAlarmResolved: WhatsAppTemplate = {
+  name: "sensor_alarm_resolved",
+  language: "es",
+  category: "UTILITY",
+  description:
+    "Notif al admin/gestor cuando un sensor Tuya vuelve a entrar en el rango configurado (alarma resuelta). Variables: 1=métrica (humedad/temperatura), 2=valor con unidad (ej. 78%), 3=ambiente (ej. Living · Casa A), 4=umbral con unidad (ej. > 80%).",
+  components: [
+    {
+      type: "BODY",
+      text: `Se normalizó la {{1}} en {{3}}: el valor volvió a {{2}}, dentro del límite que configuraste ({{4}}). No hace falta que hagas nada. El historial está en ${BRAND_HOST}/rooms.`,
+      example: {
+        body_text: [["humedad", "78%", "Living · Casa A", "> 80%"]],
+      },
+    },
+    { type: "FOOTER", text: brandedFooter("Sensores") },
+  ],
+};
+
+// ────────────────────────────────────────────────────────────────────────
+// 5c. Corte de luz detectado / resuelto (WIK-281). Disparado por el DP
+//     `fault` del breaker. Como cualquier alarma, puede ocurrir fuera de la
+//     ventana 24h → necesita template.
+
+export const powerOutageFired: WhatsAppTemplate = {
+  name: "power_outage_fired",
+  language: "es",
+  category: "UTILITY",
+  description:
+    "Notif al admin/gestor cuando la llave (breaker) reporta falta de tensión — probable corte de luz. Variable: 1=propiedad.",
+  components: [
+    {
+      type: "BODY",
+      text: `Alerta: posible corte de luz en {{1}}. La llave reportó falta de tensión, así que probablemente la propiedad se quedó sin energía. Te conviene revisar el medidor o consultar con la compañía eléctrica. El historial está en ${BRAND_HOST}/rooms.`,
+      example: { body_text: [["Casa A"]] },
+    },
+    { type: "FOOTER", text: brandedFooter("Energía") },
+  ],
+};
+
+export const powerOutageResolved: WhatsAppTemplate = {
+  name: "power_outage_resolved",
+  language: "es",
+  category: "UTILITY",
+  description:
+    "Notif al admin/gestor cuando la llave (breaker) vuelve a tener tensión — volvió la luz. Variable: 1=propiedad.",
+  components: [
+    {
+      type: "BODY",
+      text: `Buenas noticias: volvió la luz en {{1}}. La llave se reconectó y la propiedad tiene energía de nuevo. No hace falta que hagas nada.`,
+      example: { body_text: [["Casa A"]] },
+    },
+    { type: "FOOTER", text: brandedFooter("Energía") },
+  ],
+};
+
+// ────────────────────────────────────────────────────────────────────────
 // 6. Recordatorio X horas antes del vencimiento de una tarea (WIK-124).
 //    Disparado por el cron `/api/cron/alarm-reminders` cuando el assignee
 //    tiene `alarm_hours_before` configurado en la task. Idempotente por
@@ -542,6 +601,56 @@ export const sensorAlarmFiredEn: WhatsAppTemplate = {
   ],
 };
 
+export const sensorAlarmResolvedEn: WhatsAppTemplate = {
+  name: "sensor_alarm_resolved",
+  language: "en",
+  category: "UTILITY",
+  description:
+    "EN variant of sensor_alarm_resolved. Notifies admin/manager when a Tuya sensor returns within the configured range (alarm cleared). Variables: 1=metric (humidity/temperature), 2=value with unit (e.g. 78%), 3=room (e.g. Living · House A), 4=threshold with unit (e.g. > 80%).",
+  components: [
+    {
+      type: "BODY",
+      text: `The {{1}} in {{3}} is back to normal: the value returned to {{2}}, within the limit you set ({{4}}). No action needed. You can see the history at ${BRAND_HOST}/rooms.`,
+      example: {
+        body_text: [["humidity", "78%", "Living · House A", "> 80%"]],
+      },
+    },
+    { type: "FOOTER", text: brandedFooter("Sensors") },
+  ],
+};
+
+export const powerOutageFiredEn: WhatsAppTemplate = {
+  name: "power_outage_fired",
+  language: "en",
+  category: "UTILITY",
+  description:
+    "EN variant of power_outage_fired. Notifies admin/manager when the breaker reports loss of line voltage — likely power outage. Variable: 1=property.",
+  components: [
+    {
+      type: "BODY",
+      text: `Alert: possible power outage at {{1}}. The breaker reported a loss of line voltage, so the property likely lost power. You may want to check the meter or contact the utility company. The history is at ${BRAND_HOST}/rooms.`,
+      example: { body_text: [["House A"]] },
+    },
+    { type: "FOOTER", text: brandedFooter("Energy") },
+  ],
+};
+
+export const powerOutageResolvedEn: WhatsAppTemplate = {
+  name: "power_outage_resolved",
+  language: "en",
+  category: "UTILITY",
+  description:
+    "EN variant of power_outage_resolved. Notifies admin/manager when the breaker regains line voltage — power is back. Variable: 1=property.",
+  components: [
+    {
+      type: "BODY",
+      text: `Good news: power is back at {{1}}. The breaker reconnected and the property has electricity again. No action needed on your side.`,
+      example: { body_text: [["House A"]] },
+    },
+    { type: "FOOTER", text: brandedFooter("Energy") },
+  ],
+};
+
 export const taskReminderEn: WhatsAppTemplate = {
   name: "task_reminder_v2",
   language: "en",
@@ -701,6 +810,11 @@ export const allTemplates: WhatsAppTemplate[] = [
   staffTaskAssigned,
   staffSupplyRequestReceived,
   sensorAlarmFired,
+  // Alarma resuelta + corte de luz: templates para entregar fuera de la
+  // ventana 24h (igual que sensor_alarm_fired_v2).
+  sensorAlarmResolved,
+  powerOutageFired,
+  powerOutageResolved,
   // WIK-124 — recordatorios disparados por cron alarm-reminders.
   taskReminder,
   reservationCheckinReminder,
@@ -721,6 +835,9 @@ export const allTemplates: WhatsAppTemplate[] = [
   staffTaskAssignedEn,
   staffSupplyRequestReceivedEn,
   sensorAlarmFiredEn,
+  sensorAlarmResolvedEn,
+  powerOutageFiredEn,
+  powerOutageResolvedEn,
   taskReminderEn,
   reservationCheckinReminderEn,
   preCheckinClimateAlertEn,
