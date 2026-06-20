@@ -370,8 +370,8 @@ jobs:
           if [ "$JOB_STATUS" != "success" ]; then
             TEXT="❌ <b>Worker falló</b>\n\nTicket: <b>${TICKET_ID:-(none)}</b>${SLUG:+ · <code>$SLUG</code>}\n\n<a href=\"$RUN_URL\">Ver logs del run</a>"
             KEYBOARD='{"inline_keyboard":[[{"text":"📋 Logs","url":"'"$RUN_URL"'"}]]}'
-          elif [ "$HAS_TICKET" != "true" ]; then
-            TEXT="ℹ️ <b>Worker terminó</b>\n\nNo hay tickets con label <code>claude:autonomous</code> en Todo (de projects registrados). Queue vacía."
+          echo "[notify] Queue vacía — no se envía notificación a Telegram."
+            exit 0
             KEYBOARD=''
           elif [ "$HAS_CHANGES" != "true" ]; then
             TEXT="⚠️ <b>$TICKET_ID</b> procesado pero <b>sin cambios</b> · <code>$SLUG</code>\n\n$TICKET_TITLE\n\n<i>Claude no encontró nada que tocar (ticket ambiguo o ya hecho).</i>\n\n<a href=\"$RUN_URL\">Ver logs</a>"
