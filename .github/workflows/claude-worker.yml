@@ -350,7 +350,7 @@ jobs:
 
       # Cierre del loop: notificación a Telegram con el resultado + buttons.
       - name: Notify Telegram
-        if: always() && env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_ADMIN_CHAT_ID != ''
+        if: always() && env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_ADMIN_CHAT_ID != '' && (steps.pick.outputs.has_ticket == 'true' || job.status == 'failure')
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
