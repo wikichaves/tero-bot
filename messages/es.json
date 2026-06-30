@@ -483,7 +483,8 @@
   "whatsapp": {
     "help": {
       "headerFull": "*{appName} Comandos*\n\n*Consumo* (admin/gestor)\n• _consumo_ — resumen total (hoy + 7 días)\n• _consumo <nombre>_ — filtrar por propiedad\nEj: _consumo merced_ o _consumo 14 julio_\n\n*Ambientes* (admin/gestor)\n• _ambientes_ — T/H promedio últimas 24 h por ambiente\n\n*Tareas*\n• _tareas_ — tus tareas pendientes\n• _tarea <descripción>_ — crear una tarea nueva\nEj: _tarea se rompió la canilla del baño_\n• mandá una *foto* (con o sin caption) → crea tarea automática\n\n*Ayuda*\n• _ayuda_ — esta lista",
-      "headerStaff": "*{appName} Comandos*\n\n*Tareas*\n• _tareas_ — tus tareas pendientes\n• _tarea <descripción>_ — crear una tarea (te queda asignada)\nEj: _tarea se rompió la canilla del baño_\n• mandá una *foto* → crea tarea automática\n\n*Ayuda*\n• _ayuda_ — esta lista"
+      "headerStaff": "*{appName} Comandos*\n\n*Tareas*\n• _tareas_ — tus tareas pendientes\n• _tarea <descripción>_ — crear una tarea (te queda asignada)\nEj: _tarea se rompió la canilla del baño_\n• mandá una *foto* → crea tarea automática\n\n*Ayuda*\n• _ayuda_ — esta lista",
+      "headerGuest": "*{appName} Comandos*\n\n*Ambientes*\n• _ambientes_ — T/H promedio últimas 24 h por ambiente\n\n*Ayuda*\n• _ayuda_ — esta lista"
     },
     "myTasks": {
       "errorQuery": "No pude consultar tus tareas: {message}",

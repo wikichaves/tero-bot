@@ -27,3 +27,52 @@ self.addEventListener("fetch", () => {
   // Tuya/Kapso calls, y no nos interesa offline support en este admin.
   return;
 });
+
+// ── Web Push (WIK-311) ──────────────────────────────────────────────
+// El server (lib/push) cifra y manda un payload JSON
+// { title, body, url?, tag? }. Lo mostramos como notificación nativa.
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    // Payload no-JSON (raro) — lo tratamos como cuerpo de texto plano.
+    data = { body: event.data ? event.data.text() : "" };
+  }
+
+  const title = data.title || "tero.bot";
+  const options = {
+    body: data.body || "",
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    // `tag` colapsa notificaciones del mismo tipo (ej. la misma alarma)
+    // en vez de apilar duplicados.
+    tag: data.tag || undefined,
+    data: { url: data.url || "/dashboard" },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url =
+    (event.notification.data && event.notification.data.url) || "/dashboard";
+
+  // Re-enfocar una ventana ya abierta de la app si existe; sino abrir una
+  // nueva. Navega a la URL del payload (ej. /rooms para una alarma).
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if ("focus" in client) {
+            client.navigate(url);
+            return client.focus();
+          }
+        }
+        if (self.clients.openWindow) return self.clients.openWindow(url);
+      }),
+  );
+});

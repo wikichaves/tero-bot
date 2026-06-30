@@ -483,7 +483,8 @@
   "whatsapp": {
     "help": {
       "headerFull": "*{appName} Commands*\n\n*Consumption* (admin/manager)\n• _consumo_ — total summary (today + 7 days)\n• _consumo <name>_ — filter by property\nEx: _consumo merced_ or _consumo 14 julio_\n\n*Rooms* (admin/manager)\n• _ambientes_ — avg T/H over the last 24 h per room\n\n*Tasks*\n• _tareas_ — your pending tasks\n• _tarea <description>_ — create a new task\nEx: _tarea the bathroom tap broke_\n• send a *photo* (with or without caption) → auto-creates a task\n\n*Help*\n• _ayuda_ — this list",
-      "headerStaff": "*{appName} Commands*\n\n*Tasks*\n• _tareas_ — your pending tasks\n• _tarea <description>_ — create a task (assigned to you)\nEx: _tarea the bathroom tap broke_\n• send a *photo* → auto-creates a task\n\n*Help*\n• _ayuda_ — this list"
+      "headerStaff": "*{appName} Commands*\n\n*Tasks*\n• _tareas_ — your pending tasks\n• _tarea <description>_ — create a task (assigned to you)\nEx: _tarea the bathroom tap broke_\n• send a *photo* → auto-creates a task\n\n*Help*\n• _ayuda_ — this list",
+      "headerGuest": "*{appName} Commands*\n\n*Rooms*\n• _ambientes_ — avg T/H over the last 24 h per room\n\n*Help*\n• _ayuda_ — this list"
     },
     "myTasks": {
       "errorQuery": "Could not query your tasks: {message}",

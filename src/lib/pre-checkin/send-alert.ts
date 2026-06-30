@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendKapsoTemplateWithFallback } from "@/lib/whatsapp";
+import { sendPushToPhones } from "@/lib/push";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/locales";
 import { getCurrentTempForProperty } from "./current-temp";
 import {
@@ -167,6 +168,18 @@ export async function sendPreCheckinAlert(
       preferredLanguage: recipientLocale,
       bodyVariables,
     });
+    // WIK-311: push a la PWA del destinatario (además del WhatsApp).
+    // Best-effort — no romper el flujo si falla.
+    try {
+      await sendPushToPhones([candidate.notify_phone], {
+        title: `🌡️ Pre-checkin — ${candidate.property_name}`,
+        body: `Ahora ${tempStr} (target ${targetStr}). ${bodyHint}`,
+        url: "/dashboard",
+        tag: `precheckin-${candidate.reservation_id}`,
+      });
+    } catch (e) {
+      console.warn(`[pre-checkin] push failed: ${(e as Error).message}`);
+    }
     await admin.from("pre_checkin_conditioning").insert({
       reservation_id: candidate.reservation_id,
       stage: "alert_sent_2h",
