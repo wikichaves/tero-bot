@@ -31,6 +31,8 @@ export async function getScopedAssignees(
     const { data } = await adminDb
       .from("profiles")
       .select("id, full_name, email, role")
+      // WIK-310: los `guest` no son operadores — no se les asignan tareas.
+      .neq("role", "guest")
       .order("full_name", { ascending: true });
     return (data ?? []) as TaskAssignee[];
   }
@@ -49,6 +51,9 @@ export async function getScopedAssignees(
       .from("profiles")
       .select("id, full_name, email, role")
       .in("id", Array.from(ids))
+      // WIK-310: excluir guests (pueden estar linkeados a una property por
+      // su scope de `ambientes`, pero no son asignables).
+      .neq("role", "guest")
       .order("full_name", { ascending: true });
     return (data ?? []) as TaskAssignee[];
   }

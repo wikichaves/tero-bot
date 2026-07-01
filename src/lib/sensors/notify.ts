@@ -7,6 +7,7 @@ import {
   sendKapsoText,
   upsertConversation,
 } from "@/lib/whatsapp/index";
+import { sendPushToProfiles, type PushPayload } from "@/lib/push";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/locales";
 import type { EvaluatedEvent } from "./alarms";
 
@@ -165,6 +166,59 @@ function buildMessage(ev: EvaluatedEvent): string {
 }
 
 /**
+ * Construye el payload de push para un evento de alarma (WIK-311). Texto
+ * plano (la notificación nativa no entiende el markdown de WhatsApp).
+ * `tag` colapsa el "fired" y el "resolved" de la misma regla en una sola
+ * notificación en el SO.
+ */
+function pushForEvent(ev: EvaluatedEvent): PushPayload {
+  const location = ev.device.room_name
+    ? `${ev.device.room_name} · ${ev.device.property_name ?? "—"}`
+    : (ev.device.property_name ?? "—");
+  const tag = `alarm-${ev.rule.id}`;
+
+  if (ev.rule.metric === "power_outage") {
+    const property = ev.device.property_name ?? location;
+    return ev.kind === "fired"
+      ? {
+          title: `⚡ Corte de luz en ${property}`,
+          body: "La llave reportó falta de tensión.",
+          url: "/rooms",
+          tag,
+        }
+      : {
+          title: `✅ Volvió la luz en ${property}`,
+          body: "La llave de luz se reconectó.",
+          url: "/rooms",
+          tag,
+        };
+  }
+
+  const label = labelOf(ev.rule.metric);
+  const value = ev.value ?? 0;
+  const unit = unitOf(ev.rule.metric);
+  const valStr =
+    ev.rule.metric === "temperature_c"
+      ? `${value.toFixed(1)}${unit}`
+      : `${value.toFixed(0)}${unit}`;
+  return ev.kind === "fired"
+    ? {
+        title: `🔔 Alarma de ${label.toLowerCase()} — ${location}`,
+        body: `${valStr} (umbral ${ev.rule.operator === "gt" ? ">" : "<"} ${
+          ev.rule.threshold ?? 0
+        }${unit})`,
+        url: "/rooms",
+        tag,
+      }
+    : {
+        title: `✅ Alarma resuelta — ${location}`,
+        body: `${label} volvió a ${valStr}.`,
+        url: "/rooms",
+        tag,
+      };
+}
+
+/**
  * Notifica un evento de alarma por WhatsApp. Best-effort, nunca tira:
  * si todo falla, los logs quedan en console.error y el caller continúa.
  *
@@ -221,6 +275,17 @@ export async function notifyAlarmEvent(ev: EvaluatedEvent): Promise<boolean> {
       return false;
     }
     recipients = (fallback ?? []) as Recipient[];
+  }
+
+  // WIK-311: push a la PWA de cada destinatario (independiente de WhatsApp —
+  // va a todos los profiles asignados, tengan o no `whatsapp`). Best-effort.
+  try {
+    await sendPushToProfiles(
+      recipients.map((r) => r.id),
+      pushForEvent(ev),
+    );
+  } catch (e) {
+    console.warn(`[notifyAlarmEvent] push failed: ${(e as Error).message}`);
   }
 
   // Solo a los que tengan whatsapp configurado.

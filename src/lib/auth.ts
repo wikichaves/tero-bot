@@ -24,6 +24,16 @@ export async function requireProfile(): Promise<Profile> {
     await supabase.auth.signOut();
     redirect("/login");
   }
+  // WIK-310: el rol `guest` no tiene acceso al dashboard — sólo interactúa
+  // con el bot de WhatsApp. Normalmente nunca llega acá (se crea sin
+  // password usable, así que no puede loguearse), pero por defensa-en-
+  // profundidad cerramos la sesión y lo mandamos a /login si lo intentara.
+  // Este es el choke point central: todas las pages autenticadas pasan por
+  // requireProfile/requireRole.
+  if ((data as Profile).role === "guest") {
+    await supabase.auth.signOut();
+    redirect("/login");
+  }
   return data as Profile;
 }
 

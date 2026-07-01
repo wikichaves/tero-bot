@@ -6,7 +6,7 @@
  * en los validadores de input. Los profiles existentes con role=limpieza
  * ya fueron migrados a mantenimiento.
  */
-export type UserRole = "admin" | "gestor" | "mantenimiento";
+export type UserRole = "admin" | "gestor" | "mantenimiento" | "guest";
 
 export type Profile = {
   id: string;
