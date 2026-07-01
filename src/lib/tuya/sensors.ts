@@ -80,11 +80,23 @@ function pickNumeric(
   map: Map<string, TuyaStatusValue>,
   keys: string[],
 ): number | null {
+  return pickNumericWithCode(map, keys)?.value ?? null;
+}
+
+/**
+ * Igual que `pickNumeric` pero devuelve también QUÉ código matcheó — lo
+ * necesita el escalado de temperatura, que depende del DP (`va_temperature`
+ * siempre viene en décimas de grado, otros códigos pueden venir en enteros).
+ */
+function pickNumericWithCode(
+  map: Map<string, TuyaStatusValue>,
+  keys: string[],
+): { code: string; value: number } | null {
   for (const k of keys) {
     const v = map.get(k);
-    if (typeof v === "number") return v;
+    if (typeof v === "number") return { code: k, value: v };
     if (typeof v === "string" && v && !Number.isNaN(Number(v)))
-      return Number(v);
+      return { code: k, value: Number(v) };
   }
   return null;
 }
@@ -105,15 +117,28 @@ export function parseSensorReading(
 ): SensorReading {
   const map = new Map(status.map((s) => [s.code, s.value]));
 
-  const rawTemp = pickNumeric(map, TEMP_KEYS);
+  const temp = pickNumericWithCode(map, TEMP_KEYS);
   const rawHum = pickNumeric(map, HUMIDITY_KEYS);
   let battery_pct = pickNumeric(map, BATTERY_KEYS);
 
   let temperature_c: number | null = null;
-  if (rawTemp != null) {
-    // Heurística unidades: si parece centésimas (rango fuera de -50..100), dividir.
-    temperature_c =
-      Math.abs(rawTemp) > 100 ? rawTemp / 10 : rawTemp;
+  if (temp != null) {
+    // WIK-312: escalar por CÓDIGO de DP, no por magnitud. `va_temperature`
+    // (el DP estándar de los wsdcg) SIEMPRE viene en décimas de grado, así
+    // que dividimos por 10 siempre. La heurística vieja por magnitud
+    // (`> 100 ? /10 : raw`) fallaba justo alrededor de ~10 °C: raw 96 (=9.6°C)
+    // se quedaba en 96 y raw 102 (=10.2°C) sí se dividía → temperaturas
+    // absurdas (96/100°C) cuando la casa estaba fría.
+    if (temp.code === "va_temperature") {
+      temperature_c = temp.value / 10;
+    } else {
+      // temp_current / temp_value / temperature: según firmware pueden venir
+      // en grados enteros o en décimas. Sin un DP estándar, caemos a la
+      // heurística por magnitud (imperfecta cerca de 10°C, pero son
+      // firmwares raros y no tenemos mejor señal).
+      temperature_c =
+        Math.abs(temp.value) > 100 ? temp.value / 10 : temp.value;
+    }
 
     // Convertir Fahrenheit a Celsius si el device reporta `temp_unit_convert=f`.
     const unit = map.get("temp_unit_convert");
