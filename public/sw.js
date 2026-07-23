@@ -44,8 +44,14 @@ self.addEventListener("push", (event) => {
   const title = data.title || "tero.bot";
   const options = {
     body: data.body || "",
+    // `icon`: imagen grande a color (a la derecha de la notificación).
     icon: "/icon-192.png",
-    badge: "/icon-192.png",
+    // `badge`: icono chico de la barra de estado (Android). DEBE ser una
+    // silueta monocroma sobre transparente — Android usa solo el canal alfa
+    // y lo pinta blanco. Antes apuntaba a `/icon-192.png` (opaco) → se veía
+    // como un cuadrado blanco. `notification-badge.png` es la silueta del
+    // pájaro de tero.bot.
+    badge: "/notification-badge.png",
     // `tag` colapsa notificaciones del mismo tipo (ej. la misma alarma)
     // en vez de apilar duplicados.
     tag: data.tag || undefined,
