@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { requireRole } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
@@ -174,7 +174,9 @@ export default async function AlarmasPage() {
   const propertyById = new Map(properties.map((p) => [p.id, p]));
   const roomById = new Map(rooms.map((r) => [r.id, r]));
 
-  const activeEvents = events.filter((e) => e.resolved_at == null);
+  // WIK-314: las alarmas ACTIVAS se movieron a /rooms/[id] (se resuelven
+  // desde el contexto del ambiente). Acá queda la config de reglas + el
+  // historial de resueltas recientes.
   const recentResolved = events.filter((e) => e.resolved_at != null).slice(0, 10);
 
   return (
@@ -193,30 +195,6 @@ export default async function AlarmasPage() {
           profiles={profiles}
         />
       </div>
-
-      {activeEvents.length > 0 && (
-        <Card className="border-destructive/30">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base text-destructive">
-              <AlertTriangle className="h-4 w-4" />
-              {t("active.title", { count: activeEvents.length })}
-            </CardTitle>
-            <CardDescription>
-              {t("active.description")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {activeEvents.map((e) => (
-              <AlarmEventRow
-                key={e.id}
-                event={e}
-                propertyById={propertyById}
-                roomById={roomById}
-              />
-            ))}
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader>
