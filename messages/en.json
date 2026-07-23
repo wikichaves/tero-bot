@@ -311,6 +311,8 @@
   },
   "roomDetail": {
     "back": "Back",
+    "alarmsActiveTitle": "{count, plural, one {# active alarm} other {# active alarms}}",
+    "alarmsActiveDescription": "Metrics out of range in this room. Mark resolved once you've checked.",
     "subtitle": "{property} · {sensorsLabel} · {readingsLabel} in {range}",
     "sensorsCount": "{n, plural, one {# sensor} other {# sensors}}",
     "readingsCount": "{n, plural, one {# reading} other {# readings}}",
@@ -639,6 +641,15 @@
       "syncedWithErrors": "{summary} ({errors, plural, one {# error} other {# errors}})",
       "deleted": "Property deleted."
     }
+  },
+  "alarmEvent": {
+    "valueAt": "{value} at {location}",
+    "threshold": "threshold {op} {threshold}",
+    "notifWa": "WA sent",
+    "startedAt": "Started {when}",
+    "resolvedAt": "Resolved {when}",
+    "resolve": "Resolve",
+    "resolvedToast": "Alarm marked resolved."
   },
   "adminAlarmsPage": {
     "title": "Alarms",

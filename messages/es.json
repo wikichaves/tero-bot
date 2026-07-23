@@ -311,6 +311,8 @@
   },
   "roomDetail": {
     "back": "Volver",
+    "alarmsActiveTitle": "{count, plural, one {# alarma activa} other {# alarmas activas}}",
+    "alarmsActiveDescription": "Métricas fuera de rango en este ambiente. Marcá resuelta cuando lo verifiques.",
     "subtitle": "{property} · {sensorsLabel} · {readingsLabel} en {range}",
     "sensorsCount": "{n, plural, one {# sensor} other {# sensores}}",
     "readingsCount": "{n, plural, one {# lectura} other {# lecturas}}",
@@ -639,6 +641,15 @@
       "syncedWithErrors": "{summary} ({errors, plural, one {# error} other {# errores}})",
       "deleted": "Propiedad eliminada."
     }
+  },
+  "alarmEvent": {
+    "valueAt": "{value} en {location}",
+    "threshold": "umbral {op} {threshold}",
+    "notifWa": "aviso WA",
+    "startedAt": "Inicio {when}",
+    "resolvedAt": "Resuelta {when}",
+    "resolve": "Resolver",
+    "resolvedToast": "Alarma marcada resuelta."
   },
   "adminAlarmsPage": {
     "title": "Alarmas",

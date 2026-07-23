@@ -1,11 +1,12 @@
 "use client";
 
 import { useTransition } from "react";
-import { format, parseISO } from "date-fns";
-import { es } from "date-fns/locale";
+import { parseISO } from "date-fns";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { formatShortDateTime } from "@/lib/i18n/date";
 import type { Property, Room } from "@/lib/types";
 import { resolveAlarmEvent } from "./actions";
 
@@ -36,14 +37,23 @@ const UNIT = {
 
 export function AlarmEventRow({
   event,
+  canResolve = true,
 }: {
   event: EventRow;
+  /** WIK-314: sólo admin/gestor pueden resolver (la acción lo exige). En
+   *  la página del room se lo pasamos según el rol; en /admin/alarms el
+   *  acceso ya está gateado a admin/gestor, así que el default `true` sirve. */
+  canResolve?: boolean;
   // Las maps no se usan ahora porque el row trae todo joineado, pero
   // las dejamos en la signature por si después queremos linkear a
   // /rooms/[id] o filtrar por property.
   propertyById?: Map<string, Pick<Property, "id" | "name">>;
   roomById?: Map<string, Pick<Room, "id" | "name" | "property_id">>;
 }) {
+  // WIK-314: strings ruteados por i18n (antes hardcodeados en español, lo
+  // que mezclaba idiomas cuando la UI estaba en inglés).
+  const t = useTranslations("alarmEvent");
+  const locale = useLocale();
   const [pending, startTransition] = useTransition();
 
   const metric = event.rule?.metric;
@@ -64,18 +74,16 @@ export function AlarmEventRow({
     "—";
   const sensorName = event.property_device?.tuya_device_name;
 
-  const firedFmt = format(parseISO(event.fired_at), "d MMM HH:mm", {
-    locale: es,
-  });
+  const firedFmt = formatShortDateTime(parseISO(event.fired_at), locale);
   const resolvedFmt = event.resolved_at
-    ? format(parseISO(event.resolved_at), "d MMM HH:mm", { locale: es })
+    ? formatShortDateTime(parseISO(event.resolved_at), locale)
     : null;
 
   function onResolve() {
     startTransition(async () => {
       const r = await resolveAlarmEvent(event.id);
       if (r?.error) toast.error(r.error);
-      else toast.success("Alarma marcada resuelta.");
+      else toast.success(t("resolvedToast"));
     });
   }
 
@@ -84,31 +92,31 @@ export function AlarmEventRow({
       <div className="flex flex-1 flex-col gap-0.5">
         <div className="flex flex-wrap items-baseline gap-2">
           <span className="font-medium tabular-nums">
-            {value} en {location}
+            {t("valueAt", { value, location })}
           </span>
           <span className="text-xs text-muted-foreground">
-            umbral {op} {threshold}
+            {t("threshold", { op, threshold })}
           </span>
           {event.notified_via_whatsapp && (
             <Badge variant="secondary" className="text-[10px]">
-              notif WA
+              {t("notifWa")}
             </Badge>
           )}
         </div>
         <span className="text-xs text-muted-foreground">
           {sensorName ? `${sensorName} · ` : ""}
-          Inicio {firedFmt}
-          {resolvedFmt ? ` · Resuelta ${resolvedFmt}` : ""}
+          {t("startedAt", { when: firedFmt })}
+          {resolvedFmt ? ` · ${t("resolvedAt", { when: resolvedFmt })}` : ""}
         </span>
       </div>
-      {!event.resolved_at && (
+      {canResolve && !event.resolved_at && (
         <Button
           variant="outline"
           size="sm"
           onClick={onResolve}
           disabled={pending}
         >
-          Resolver
+          {t("resolve")}
         </Button>
       )}
     </div>
