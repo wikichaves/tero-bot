@@ -24,7 +24,11 @@ import { Button } from "@/components/ui/button";
  *     no está configurado para push todavía).
  */
 
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+// WIK-313: `.trim()` defensivo. Un artefacto de pegado muy común al cargar
+// la env var en Vercel es un espacio o salto de línea al final del valor.
+// Sin esto, `urlBase64ToUint8Array` decodifica un largo incorrecto y el
+// browser rechaza con "applicationServerKey is not valid".
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
 
 /** Convierte la VAPID public key (base64url) al Uint8Array que pide el browser. */
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
