@@ -692,9 +692,30 @@ export async function POST(req: NextRequest) {
     body = rawBody;
   }
 
-  if (typeof body !== "object" || !Array.isArray(body.data)) {
+  // WIK-318: hasta acá llegaban webhooks que descartábamos en silencio con un
+  // 200 (p.ej. los callbacks de entrega, si Kapso no manda `data` como array).
+  // Sin esta traza no había forma de saber qué shape llega realmente: los
+  // envíos salían OK, los POST entraban OK, y aun así ningún mensaje pasaba a
+  // delivered/failed. Logueamos SOLO metadata estructural (header de evento y
+  // nombres de claves) — nunca contenido de mensajes ni teléfonos.
+  const bodyObj = typeof body === "object" && body !== null ? body : null;
+  const bodyKeys = bodyObj ? Object.keys(bodyObj) : [];
+  const dataArr = Array.isArray(bodyObj?.data) ? bodyObj.data : null;
+  const firstEventKeys =
+    dataArr && dataArr.length > 0 ? Object.keys(dataArr[0] as object) : [];
+  console.log(
+    `[kapso webhook] event=${meta.event ?? "?"} bodyKeys=${bodyKeys.join(",")} ` +
+      `dataIsArray=${dataArr !== null} n=${dataArr?.length ?? "-"} ` +
+      `firstEventKeys=${firstEventKeys.join(",")}`,
+  );
+
+  if (!bodyObj || !dataArr) {
+    console.warn(
+      `[kapso webhook] descartado sin procesar (shape inesperada) event=${meta.event ?? "?"} bodyKeys=${bodyKeys.join(",")}`,
+    );
     return NextResponse.json({ ok: true }, { status: 200 });
   }
+  const body2 = bodyObj as KapsoWebhookBody;
 
   // Process events; collect inbound text + image events so we can auto-reply
   // once the persistence is committed. Images get the create-task flow when
@@ -711,7 +732,7 @@ export async function POST(req: NextRequest) {
   }> = [];
 
   await Promise.allSettled(
-    body.data.map(async (event) => {
+    body2.data!.map(async (event) => {
       try {
         const result = await processEvent(event, meta.event);
         if (!result || !result.phoneNumberId) return;
