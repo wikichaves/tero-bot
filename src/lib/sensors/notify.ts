@@ -8,6 +8,7 @@ import {
   upsertConversation,
 } from "@/lib/whatsapp/index";
 import { sendPushToProfiles, type PushPayload } from "@/lib/push";
+import { escapeHtml, getAdminChatId, sendTelegramMessage } from "@/lib/telegram";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/locales";
 import type { EvaluatedEvent } from "./alarms";
 
@@ -227,9 +228,14 @@ function pushForEvent(ev: EvaluatedEvent): PushPayload {
 export async function notifyAlarmEvent(ev: EvaluatedEvent): Promise<boolean> {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const apiKey = process.env.KAPSO_API_KEY;
-  if (!phoneNumberId || !apiKey) {
-    console.log("[notifyAlarmEvent] WhatsApp env not configured, skipping");
-    return false;
+  // WIK-321: antes esto hacía un early-return y se saltaba TODA la
+  // notificación. Ahora WhatsApp es sólo uno de los canales: si no está
+  // configurado, push y Telegram salen igual.
+  const whatsappConfigured = !!(phoneNumberId && apiKey);
+  if (!whatsappConfigured) {
+    console.log(
+      "[notifyAlarmEvent] WhatsApp env no configurado — sólo push + Telegram",
+    );
   }
 
   const admin = createAdminClient();
@@ -288,13 +294,58 @@ export async function notifyAlarmEvent(ev: EvaluatedEvent): Promise<boolean> {
     console.warn(`[notifyAlarmEvent] push failed: ${(e as Error).message}`);
   }
 
+  // WIK-321: Telegram como canal de primera clase para las alarmas.
+  //
+  // Motivo: WhatsApp depende de que la WABA tenga la facturación de Meta
+  // configurada. Con ese bloqueo activo ("Business eligibility payment
+  // issue"), TODOS los envíos salientes fallan y las alarmas no llegan.
+  // Telegram no tiene ventana de 24h, ni templates que aprobar, ni
+  // facturación — así que sirve de canal garantizado y de respaldo
+  // permanente aunque WhatsApp vuelva a funcionar.
+  //
+  // Va al chat admin (TELEGRAM_ADMIN_CHAT_ID), igual que los alerts de cron.
+  // Best-effort: nunca rompe el flujo de WhatsApp/push.
+  let telegramSent = false;
+  try {
+    const chatId = getAdminChatId();
+    if (chatId) {
+      const p = pushForEvent(ev);
+      const res = await sendTelegramMessage({
+        chatId,
+        text:
+          `<b>${escapeHtml(p.title)}</b>\n\n${escapeHtml(p.body)}\n\n` +
+          `<a href="https://${APP_HOST}/rooms">Ver ambientes</a>`,
+        parseMode: "HTML",
+        disableWebPagePreview: true,
+      });
+      telegramSent = res != null;
+      if (telegramSent) {
+        console.log(
+          `[notifyAlarmEvent] telegram sent rule=${ev.rule.id} kind=${ev.kind}`,
+        );
+      }
+    }
+  } catch (e) {
+    console.warn(`[notifyAlarmEvent] telegram failed: ${(e as Error).message}`);
+  }
+
   // Solo a los que tengan whatsapp configurado.
   recipients = recipients.filter((r) => r.whatsapp);
-  if (recipients.length === 0) {
-    console.log(
-      "[notifyAlarmEvent] no recipients with whatsapp configured",
-    );
-    return false;
+  // WIK-321: sin destinatarios de WhatsApp (o sin config) igual dimos aviso
+  // por push + Telegram, así que devolvemos `telegramSent` en vez de false —
+  // un `false` acá haría que el evento se reintente como si nadie se hubiera
+  // enterado.
+  if (!whatsappConfigured || recipients.length === 0) {
+    if (recipients.length === 0) {
+      console.log("[notifyAlarmEvent] no recipients with whatsapp configured");
+    }
+    if (telegramSent && ev.kind === "fired") {
+      await admin
+        .from("alarm_events")
+        .update({ notified_via_whatsapp: true })
+        .eq("id", ev.event_id);
+    }
+    return telegramSent;
   }
 
   const text = buildMessage(ev);
@@ -380,13 +431,14 @@ export async function notifyAlarmEvent(ev: EvaluatedEvent): Promise<boolean> {
     }
   }
 
-  // Marcar el event como notificado si al menos uno funcionó.
-  if (anySent && ev.kind === "fired") {
+  // Marcar el event como notificado si al menos un canal funcionó (WIK-321:
+  // Telegram cuenta — el operador se enteró aunque WhatsApp esté bloqueado).
+  if ((anySent || telegramSent) && ev.kind === "fired") {
     await admin
       .from("alarm_events")
       .update({ notified_via_whatsapp: true })
       .eq("id", ev.event_id);
   }
 
-  return anySent;
+  return anySent || telegramSent;
 }
