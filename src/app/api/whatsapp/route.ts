@@ -173,14 +173,66 @@ function normalizeStatus(
   // El motivo sólo viene en `failed`. Probamos las rutas conocidas donde
   // Kapso/Meta lo adjuntan.
   const msg = event.message;
-  const rawErr = msg?.errors ?? msg?.error;
-  const errors = rawErr
-    ? Array.isArray(rawErr)
-      ? rawErr
-      : [rawErr]
-    : undefined;
+  const errors = extractErrors(msg);
 
   return { id, status: m[1], recipient_id: msg?.to, errors };
+}
+
+/**
+ * WIK-319: busca el motivo de fallo dentro del `message` sin asumir dónde lo
+ * pone Kapso. En los eventos `whatsapp.message.failed` reales el campo NO
+ * está en la raíz (las claves son id,to,type,kapso,context,template,…), sino
+ * anidado, así que recorremos el objeto hasta 3 niveles buscando una clave
+ * `errors`/`error` con forma de error de Meta (`code`/`title`/`message`).
+ *
+ * Devuelve `undefined` si no encuentra nada — el caller loguea las rutas
+ * disponibles para poder ajustarlo.
+ */
+function extractErrors(
+  obj: unknown,
+  depth = 0,
+): KapsoStatusError[] | undefined {
+  if (!obj || typeof obj !== "object" || depth > 3) return undefined;
+  const rec = obj as Record<string, unknown>;
+
+  for (const key of ["errors", "error"]) {
+    const val = rec[key];
+    if (val) {
+      const arr = Array.isArray(val) ? val : [val];
+      const valid = arr.filter(
+        (e) => e && typeof e === "object",
+      ) as KapsoStatusError[];
+      if (valid.length > 0) return valid;
+    }
+  }
+
+  for (const val of Object.values(rec)) {
+    if (val && typeof val === "object") {
+      const found = extractErrors(val, depth + 1);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Lista las rutas (hasta 3 niveles) de las claves anidadas del message, para
+ * poder ubicar dónde viaja el motivo cuando `extractErrors` no lo encuentra.
+ * Sólo nombres de campos — nunca valores.
+ */
+function describeShape(obj: unknown, path = "", depth = 0): string[] {
+  if (!obj || typeof obj !== "object" || depth > 2) return [];
+  const rec = obj as Record<string, unknown>;
+  const out: string[] = [];
+  for (const [k, v] of Object.entries(rec)) {
+    const p = path ? `${path}.${k}` : k;
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      out.push(...describeShape(v, p, depth + 1));
+    } else {
+      out.push(p);
+    }
+  }
+  return out;
 }
 
 type KapsoWebhookBody = {
@@ -299,8 +351,10 @@ async function processEvent(event: KapsoEvent, eventType: string | null) {
       // rutas conocidas, logueamos las claves del message para localizarlo
       // (sólo nombres de campos, sin contenido).
       if (!reason && event.message) {
+        // WIK-319: rutas anidadas completas (sólo nombres), para ubicar dónde
+        // viaja el motivo cuando la búsqueda no lo encuentra.
         console.warn(
-          `[kapso status] failed SIN motivo parseado — messageKeys=${Object.keys(
+          `[kapso status] failed SIN motivo parseado — paths=${describeShape(
             event.message,
           ).join(",")}`,
         );
