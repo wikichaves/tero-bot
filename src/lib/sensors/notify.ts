@@ -311,6 +311,12 @@ export async function notifyAlarmEvent(ev: EvaluatedEvent): Promise<boolean> {
       const tpl = alarmTemplate(ev, locale);
       try {
         let messageId: string | undefined;
+        // WIK-316: registrar si salió por template o por el fallback de texto
+        // libre. Antes se persistía siempre `type: "text"` sin
+        // `template_name`, así que en la inbox era imposible distinguir un
+        // envío por template de uno por texto — y "no llegó" quedaba
+        // indiagnosticable desde la app.
+        let sentViaTemplate = false;
         try {
           // Preferimos el template UTILITY: se entrega aunque la ventana
           // 24h esté cerrada (el caso típico de una alarma).
@@ -322,6 +328,7 @@ export async function notifyAlarmEvent(ev: EvaluatedEvent): Promise<boolean> {
             bodyVariables: tpl.vars,
           });
           messageId = res.messageId;
+          sentViaTemplate = true;
         } catch (tplErr) {
           // Fallback a texto libre (solo entra dentro de la ventana 24h).
           // Cubre el período en que un template nuevo todavía no está
@@ -336,9 +343,13 @@ export async function notifyAlarmEvent(ev: EvaluatedEvent): Promise<boolean> {
           conversation_id: conversationId,
           external_id: messageId ?? null,
           direction: "outbound",
-          type: "text",
+          type: sentViaTemplate ? "template" : "text",
+          template_name: sentViaTemplate ? tpl.name : null,
           body: text,
-          status: "sent",
+          // "accepted" = Meta devolvió wamid; el webhook de status lo pasa a
+          // sent/delivered/failed. Antes lo marcábamos "sent" de entrada, lo
+          // que hacía indistinguible "Meta lo aceptó" de "Meta lo entregó".
+          status: messageId ? "accepted" : "sent",
         });
         anySent = true;
         console.log(
