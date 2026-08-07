@@ -31,6 +31,8 @@ type SubmitResult = {
 
 type StatusEntry = {
   name: string;
+  /** WIK-320: idioma de la variante — cada una se aprueba por separado. */
+  language?: string;
   status:
     | "APPROVED"
     | "PENDING"
@@ -139,9 +141,19 @@ export function SubmitTemplatesButton() {
           <p className="mb-2 font-medium">{t("headings.metaStatus")}</p>
           <ul className="flex flex-col gap-1.5">
             {status.map((r) => (
-              <li key={r.name} className="flex flex-col gap-0.5">
+              <li
+                key={`${r.name}|${r.language ?? ""}`}
+                className="flex flex-col gap-0.5"
+              >
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-mono">{r.name}</span>
+                  <span className="font-mono">
+                    {r.name}
+                    {r.language && (
+                      <span className="ml-1 rounded bg-muted px-1 text-[10px] uppercase text-muted-foreground">
+                        {r.language}
+                      </span>
+                    )}
+                  </span>
                   <Badge
                     variant={STATUS_VARIANT[r.status]}
                     className="text-[10px]"

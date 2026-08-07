@@ -27,6 +27,10 @@ export type RemoteTemplate = {
 
 export type TemplateStatusEntry = {
   name: string;
+  /** WIK-320: idioma de ESTA variante (`es` | `en`). Meta aprueba cada una
+   *  por separado, así que sin este campo dos filas con el mismo nombre eran
+   *  indistinguibles y el estado de la variante EN quedaba oculto. */
+  language: string;
   status:
     | "APPROVED"
     | "PENDING"
@@ -80,15 +84,37 @@ export async function getTemplatesStatus(): Promise<{
   const remote = parsed.data ?? [];
 
   const byName = new Map<string, RemoteTemplate>();
+  // WIK-320: índice por (nombre, idioma). Meta registra cada variante de
+  // idioma por separado, con su propia aprobación.
+  const byLangName = new Map<string, RemoteTemplate>();
   for (const r of remote) {
-    if (r.name) byName.set(r.name, r);
+    if (!r.name) continue;
+    byName.set(r.name, r);
+    if (r.language) byLangName.set(`${r.name}|${r.language}`, r);
   }
 
   const entries: TemplateStatusEntry[] = allTemplates.map((local) => {
-    const r = byName.get(local.name);
+    // WIK-320: matchear por (nombre, idioma), NO sólo por nombre.
+    //
+    // Cada template existe dos veces con el MISMO nombre: variante `es` y
+    // variante `en`. Meta las trata como registros independientes, cada una
+    // con su propia aprobación. Al indexar sólo por nombre, ambas variantes
+    // locales caían en el mismo registro remoto y la pantalla mostraba el
+    // mismo estado repetido — así que si la variante EN estaba PENDING o
+    // REJECTED, era literalmente invisible.
+    //
+    // Importa porque el idioma por defecto de `profiles.language` es `en`:
+    // a un destinatario con ese default le mandamos la variante EN, y si esa
+    // no está aprobada Meta acepta el envío pero después falla la entrega
+    // (el fallback a `es` sólo salta ante un error HTTP inmediato, no ante
+    // un fallo asíncrono de entrega).
+    const r =
+      byLangName.get(`${local.name}|${local.language}`) ??
+      byName.get(local.name);
     if (!r) {
       return {
         name: local.name,
+        language: local.language,
         status: "NOT_SUBMITTED",
         template_id: null,
         rejected_reason: null,
@@ -108,6 +134,7 @@ export async function getTemplatesStatus(): Promise<{
     const remoteCategory = r.category ?? null;
     return {
       name: local.name,
+      language: local.language,
       status: known.includes(s) ? s : "UNKNOWN",
       template_id: r.id ?? null,
       rejected_reason: r.rejected_reason ?? null,
