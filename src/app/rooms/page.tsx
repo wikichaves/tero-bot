@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Property, Room } from "@/lib/types";
 import { SnapshotSensorsButton } from "@/app/admin/tuya/snapshot-sensors-button";
-import { RoomMiniChart } from "./room-mini-chart";
+import { RoomMiniChart } from "./room-mini-chart-wrapper";
 import { RoomSortControls } from "./room-sort-controls";
 
 /**

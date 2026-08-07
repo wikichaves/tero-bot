@@ -31,8 +31,3 @@ export const ALL_ROLES: readonly UserRole[] = [
   "mantenimiento",
   "guest",
 ] as const;
-
-/** Helper para casos donde sólo tenemos el string y queremos el label. */
-export function formatRoleLabel(role: UserRole): string {
-  return ROLE_LABEL[role] ?? role;
-}
