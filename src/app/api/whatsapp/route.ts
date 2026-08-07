@@ -113,10 +113,37 @@ type KapsoContact = {
 
 type KapsoEvent = {
   message?: KapsoMessage;
-  status?: KapsoStatus;
+  /**
+   * WIK-317: Kapso puede mandar el estado de entrega de dos formas —
+   * como objeto (`{ id, status, errors }`, shape de Meta) o como string
+   * plano (`"delivered"`) acompañado del `message.id`. Antes sólo
+   * contemplábamos la primera: con la segunda, `event.status?.id` daba
+   * undefined y descartábamos el evento en silencio (200 OK), así que
+   * NINGÚN mensaje pasaba nunca de `sent` a `delivered`/`failed` y el
+   * motivo de una no-entrega quedaba invisible.
+   */
+  status?: KapsoStatus | string;
   contacts?: KapsoContact[];
   phone_number_id?: string;
 };
+
+/**
+ * Normaliza el estado de entrega a la forma `{ id, status, errors }`
+ * sin importar cómo lo mande Kapso. Devuelve null si el evento no trae
+ * información de entrega utilizable.
+ */
+function normalizeStatus(event: KapsoEvent): KapsoStatus | null {
+  const raw = event.status;
+  if (!raw) return null;
+  if (typeof raw === "string") {
+    // Shape alternativa: el wamid viaja en `message.id`.
+    const id = event.message?.id;
+    return id ? { id, status: raw } : null;
+  }
+  // Shape objeto: algunos payloads omiten `id` y lo dejan en `message.id`.
+  const id = raw.id ?? event.message?.id;
+  return id ? { ...raw, id } : null;
+}
 
 type KapsoWebhookBody = {
   type?: string;
@@ -187,7 +214,18 @@ async function processEvent(event: KapsoEvent, eventType: string | null) {
   }
 
   // --- Outbound delivery status updates ---
-  const st = event.status;
+  const st = normalizeStatus(event);
+  if (!st?.id) {
+    // WIK-317: no era ni un inbound ni un status reconocible. Lo logueamos
+    // (sólo el tipo y las claves, sin contenido) para poder ver qué shape
+    // manda Kapso si aparece una variante nueva — antes se descartaba mudo.
+    if (event.status !== undefined || eventType?.includes("status")) {
+      console.warn(
+        `[kapso status] evento de estado no reconocido type=${eventType ?? "?"} ` +
+          `statusType=${typeof event.status} keys=${Object.keys(event).join(",")}`,
+      );
+    }
+  }
   if (st?.id) {
     const wamid = st.id;
     const admin = createAdminClient();
