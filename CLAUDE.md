@@ -19,9 +19,11 @@ No esperar a que el user pida el comment — hacerlo automáticamente al cerrar 
 
 Excepción: tickets archivados en Linear (campo `archivedAt` no nulo) rechazan comments con "Entity not found". En ese caso, avisar al user en el chat que no se pudo comentar.
 
-# Vacation mode
+# Vacation mode (INACTIVO por default — opt-in)
 
-Cuando el user esté de vacaciones (sin compu), el `claude-worker` corre desatendido. Reglas de seguridad:
+**Estas reglas NO aplican salvo que el user diga explícitamente "modo vacaciones ON".** Por default el user está reachable y autoriza acciones en el momento, así que no hay que tratar merges/pushes como bloqueados. Las reglas de abajo son solo para cuando el user se va sin compu y el `claude-worker` corre desatendido — el user las activa antes de viajar.
+
+Cuando estén activas:
 
 - **No auto-merge.** El worker abre PRs; el user los revisa desde GitHub mobile. Nunca mergear desde Claude Code.
 - **No deploy directo a `main`.** Todo cambio pasa por PR + CI.

@@ -220,16 +220,32 @@ async function processEvent(event: KapsoEvent, eventType: string | null) {
           `title=${reason?.title ?? reason?.message ?? "?"}`,
       );
 
-      await notifyAdminDeliveryFailure({
-        wamid,
-        recipient: st.recipient_id ?? null,
-        templateName: row?.template_name ?? null,
-        code: reason?.code ?? null,
-        title: reason?.title ?? reason?.message ?? null,
-        details: reason?.error_data?.details ?? null,
-      }).catch((err) =>
-        console.warn("[kapso status] admin alert failed", err),
-      );
+      // WIK-283: el 131042 ("Business eligibility payment issue") es un
+      // bloqueo a nivel CUENTA emisora — Meta rechaza TODO saliente hasta
+      // que se resuelva el pago. Mientras siga trabado dispararía un aviso
+      // por cada envío (spam). Como las alarmas ya salen por Telegram como
+      // canal de primera clase (#114), silenciamos SOLO este código: no
+      // aporta info nueva y no es accionable por envío. Otros fallos
+      // (número inválido, bloqueo del destinatario, etc.) SÍ se avisan.
+      const BILLING_BLOCK_CODE = 131042;
+      if (reason?.code === BILLING_BLOCK_CODE) {
+        console.warn(
+          `[kapso status] billing-block (131042) silenced wamid=${wamid} ` +
+            `template=${row?.template_name ?? "?"} — WhatsApp saliente ` +
+            `bloqueado a nivel cuenta; alarmas van por Telegram (#114).`,
+        );
+      } else {
+        await notifyAdminDeliveryFailure({
+          wamid,
+          recipient: st.recipient_id ?? null,
+          templateName: row?.template_name ?? null,
+          code: reason?.code ?? null,
+          title: reason?.title ?? reason?.message ?? null,
+          details: reason?.error_data?.details ?? null,
+        }).catch((err) =>
+          console.warn("[kapso status] admin alert failed", err),
+        );
+      }
     } else {
       // sent | delivered | read — update if we have the row (outbound sent
       // from outside this app won't match; ignore silently).
