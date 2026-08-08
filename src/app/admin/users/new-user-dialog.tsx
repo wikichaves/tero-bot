@@ -101,16 +101,20 @@ export function NewUserDialog({
                 {t("fields.emailHint")}
               </p>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="password">{t("fields.password")}</Label>
-              <Input
-                id="password"
-                name="password"
-                type="text"
-                minLength={8}
-                required
-              />
-            </div>
+            {/* WIK-310: el rol `guest` no se loguea (sin password usable);
+                ocultamos el campo y el server sintetiza uno aleatorio. */}
+            {role !== "guest" && (
+              <div className="grid gap-2">
+                <Label htmlFor="password">{t("fields.password")}</Label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="text"
+                  minLength={8}
+                  required
+                />
+              </div>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="role">{t("fields.role")}</Label>
               <select
@@ -130,6 +134,13 @@ export function NewUserDialog({
                   </option>
                 ))}
               </select>
+              {role === "guest" && (
+                <p className="text-xs text-muted-foreground">
+                  Sólo bot de WhatsApp (comandos <em>ambientes</em> y{" "}
+                  <em>ayuda</em>). No entra al dashboard ni necesita password.
+                  Asignale las propiedades que puede consultar.
+                </p>
+              )}
             </div>
             {/* WIK-242: asignación de propiedades dentro del modal (antes era
                 un dialog aparte). Solo para no-admin — admin = global. */}

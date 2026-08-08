@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PushToggle } from "@/components/push-toggle";
 import type { Profile } from "@/lib/types";
 import { updateOwnProfile } from "@/app/account/actions";
 import {
@@ -131,6 +132,8 @@ export function EditProfileDialog({
               ))}
             </select>
           </div>
+          {/* WIK-311: opt-in de push notifications de la PWA (por dispositivo). */}
+          <PushToggle />
         </div>
         <DialogFooter>
           <Button

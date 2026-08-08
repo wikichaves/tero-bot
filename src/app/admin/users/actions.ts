@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -13,7 +14,8 @@ import {
 import { buildWelcomeContent } from "@/lib/whatsapp/welcome";
 
 // WIK-74: "limpieza" deprecado, unificado en "mantenimiento".
-const ROLES = ["admin", "gestor", "mantenimiento"] as const;
+// WIK-310: "guest" — usuario de sólo-bot, sin acceso al dashboard.
+const ROLES = ["admin", "gestor", "mantenimiento", "guest"] as const;
 
 // WIK-118: teléfono obligatorio, email opcional. Si el user solo
 // tiene phone, sintetizamos un email fake `<phone>@phone.tero.local`
@@ -31,7 +33,15 @@ const createSchema = z.object({
     .optional()
     .or(z.literal(""))
     .transform((v) => (v ? v : null)),
-  password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres."),
+  // WIK-310: password opcional — el rol `guest` no se loguea (sin password
+  // usable), así que para guests sintetizamos un password aleatorio fuerte
+  // que nadie usa. Para el resto sigue siendo obligatorio (validado abajo
+  // en `createUser`, no acá, para poder condicionar por rol).
+  password: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v ? v : null)),
   full_name: z.string().min(1, "Falta el nombre.").max(100),
   role: z.enum(ROLES),
   // Teléfono ahora obligatorio.
@@ -72,10 +82,20 @@ export async function createUser(formData: FormData) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
   }
 
-  const { password, full_name, role } = parsed.data;
+  const { full_name, role } = parsed.data;
   const whatsapp = normalizePhone(parsed.data.whatsapp);
   if (!whatsapp) {
     return { error: "Teléfono inválido. Usá formato +598... o 099..." };
+  }
+
+  // WIK-310: password obligatorio salvo para `guest` (que no se loguea).
+  // Para guest sin password, sintetizamos uno aleatorio fuerte e inusable
+  // (el guest sólo interactúa con el bot). Para el resto, exigimos min 8.
+  let password = parsed.data.password;
+  if (role === "guest") {
+    if (!password) password = `guest-${randomUUID()}`;
+  } else if (!password || password.length < 8) {
+    return { error: "La contraseña debe tener al menos 8 caracteres." };
   }
 
   // Si el admin dio email lo usamos. Sino sintetizamos uno desde phone

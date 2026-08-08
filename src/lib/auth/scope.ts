@@ -43,16 +43,3 @@ export async function getAllowedPropertyIds(
   }
   return (data ?? []).map((r) => r.property_id);
 }
-
-/**
- * Sugar para chequear si un profile tiene acceso a una property
- * específica. Devuelve true para admin siempre.
- */
-export async function profileCanAccessProperty(
-  profile: Pick<Profile, "id" | "role">,
-  propertyId: string,
-): Promise<boolean> {
-  if (profile.role === "admin") return true;
-  const allowed = await getAllowedPropertyIds(profile);
-  return allowed === null || allowed.includes(propertyId);
-}

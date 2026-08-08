@@ -124,5 +124,8 @@ export async function resolveAlarmEvent(id: string) {
     .eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/admin/alarms");
+  // WIK-314: la sección de alarmas activas ahora vive en /rooms/[id];
+  // revalidamos todo el árbol de rooms para que se refresque al resolver.
+  revalidatePath("/rooms", "layout");
   return { ok: true };
 }

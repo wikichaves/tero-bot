@@ -86,6 +86,14 @@ type KapsoMessage = {
   video?: { link?: string };
   timestamp?: string | number;
   kapso?: { direction?: "inbound" | "outbound" };
+  /**
+   * WIK-318: en los eventos de estado (`whatsapp.message.failed`) Kapso
+   * adjunta el motivo de Meta dentro del propio message. La ubicación varía
+   * según el payload, así que probamos varias rutas conocidas.
+   */
+  errors?: KapsoStatusError[];
+  error?: KapsoStatusError | KapsoStatusError[];
+  status?: string;
 };
 
 type KapsoStatusError = {
@@ -113,10 +121,119 @@ type KapsoContact = {
 
 type KapsoEvent = {
   message?: KapsoMessage;
-  status?: KapsoStatus;
+  /**
+   * WIK-317: Kapso puede mandar el estado de entrega de dos formas —
+   * como objeto (`{ id, status, errors }`, shape de Meta) o como string
+   * plano (`"delivered"`) acompañado del `message.id`. Antes sólo
+   * contemplábamos la primera: con la segunda, `event.status?.id` daba
+   * undefined y descartábamos el evento en silencio (200 OK), así que
+   * NINGÚN mensaje pasaba nunca de `sent` a `delivered`/`failed` y el
+   * motivo de una no-entrega quedaba invisible.
+   */
+  status?: KapsoStatus | string;
   contacts?: KapsoContact[];
   phone_number_id?: string;
 };
+
+/**
+ * Normaliza el estado de entrega a la forma `{ id, status, errors }`
+ * sin importar cómo lo mande Kapso. Devuelve null si el evento no trae
+ * información de entrega utilizable.
+ */
+function normalizeStatus(
+  event: KapsoEvent,
+  eventType?: string | null,
+): KapsoStatus | null {
+  const raw = event.status;
+  if (typeof raw === "string") {
+    // Shape alternativa: el wamid viaja en `message.id`.
+    const id = event.message?.id;
+    return id ? { id, status: raw } : null;
+  }
+  if (raw) {
+    // Shape objeto: algunos payloads omiten `id` y lo dejan en `message.id`.
+    const id = raw.id ?? event.message?.id;
+    return id ? { ...raw, id } : null;
+  }
+
+  // WIK-318: shape real de Kapso para los callbacks de entrega — el body llega
+  // PLANO (`{ message, conversation, phone_number_id, ... }`, sin `data[]` ni
+  // objeto `status`) y el estado va en el header `x-webhook-event`
+  // (`whatsapp.message.sent` | `.delivered` | `.read` | `.failed`).
+  // Sin este caso, todos los avisos de entrega se descartaban con un 200 y
+  // ningún mensaje pasaba nunca de `sent` — ni se registraba el motivo de una
+  // no-entrega, que es la única pista de POR QUÉ Meta no entrega.
+  const m = /^whatsapp\.message\.(sent|delivered|read|failed)$/.exec(
+    eventType ?? "",
+  );
+  if (!m) return null;
+  const id = event.message?.id;
+  if (!id) return null;
+
+  // El motivo sólo viene en `failed`. Probamos las rutas conocidas donde
+  // Kapso/Meta lo adjuntan.
+  const msg = event.message;
+  const errors = extractErrors(msg);
+
+  return { id, status: m[1], recipient_id: msg?.to, errors };
+}
+
+/**
+ * WIK-319: busca el motivo de fallo dentro del `message` sin asumir dónde lo
+ * pone Kapso. En los eventos `whatsapp.message.failed` reales el campo NO
+ * está en la raíz (las claves son id,to,type,kapso,context,template,…), sino
+ * anidado, así que recorremos el objeto hasta 3 niveles buscando una clave
+ * `errors`/`error` con forma de error de Meta (`code`/`title`/`message`).
+ *
+ * Devuelve `undefined` si no encuentra nada — el caller loguea las rutas
+ * disponibles para poder ajustarlo.
+ */
+function extractErrors(
+  obj: unknown,
+  depth = 0,
+): KapsoStatusError[] | undefined {
+  if (!obj || typeof obj !== "object" || depth > 3) return undefined;
+  const rec = obj as Record<string, unknown>;
+
+  for (const key of ["errors", "error"]) {
+    const val = rec[key];
+    if (val) {
+      const arr = Array.isArray(val) ? val : [val];
+      const valid = arr.filter(
+        (e) => e && typeof e === "object",
+      ) as KapsoStatusError[];
+      if (valid.length > 0) return valid;
+    }
+  }
+
+  for (const val of Object.values(rec)) {
+    if (val && typeof val === "object") {
+      const found = extractErrors(val, depth + 1);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Lista las rutas (hasta 3 niveles) de las claves anidadas del message, para
+ * poder ubicar dónde viaja el motivo cuando `extractErrors` no lo encuentra.
+ * Sólo nombres de campos — nunca valores.
+ */
+function describeShape(obj: unknown, path = "", depth = 0): string[] {
+  if (!obj || typeof obj !== "object" || depth > 2) return [];
+  const rec = obj as Record<string, unknown>;
+  const out: string[] = [];
+  for (const [k, v] of Object.entries(rec)) {
+    const p = path ? `${path}.${k}` : k;
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      out.push(...describeShape(v, p, depth + 1));
+    } else {
+      out.push(p);
+    }
+  }
+  return out;
+}
 
 type KapsoWebhookBody = {
   type?: string;
@@ -187,7 +304,18 @@ async function processEvent(event: KapsoEvent, eventType: string | null) {
   }
 
   // --- Outbound delivery status updates ---
-  const st = event.status;
+  const st = normalizeStatus(event, eventType);
+  if (!st?.id) {
+    // WIK-317: no era ni un inbound ni un status reconocible. Lo logueamos
+    // (sólo el tipo y las claves, sin contenido) para poder ver qué shape
+    // manda Kapso si aparece una variante nueva — antes se descartaba mudo.
+    if (event.status !== undefined || eventType?.includes("status")) {
+      console.warn(
+        `[kapso status] evento de estado no reconocido type=${eventType ?? "?"} ` +
+          `statusType=${typeof event.status} keys=${Object.keys(event).join(",")}`,
+      );
+    }
+  }
   if (st?.id) {
     const wamid = st.id;
     const admin = createAdminClient();
@@ -219,6 +347,18 @@ async function processEvent(event: KapsoEvent, eventType: string | null) {
           `template=${row?.template_name ?? "?"} code=${reason?.code ?? "?"} ` +
           `title=${reason?.title ?? reason?.message ?? "?"}`,
       );
+      // WIK-318: si Meta marcó `failed` pero no encontramos el motivo en las
+      // rutas conocidas, logueamos las claves del message para localizarlo
+      // (sólo nombres de campos, sin contenido).
+      if (!reason && event.message) {
+        // WIK-319: rutas anidadas completas (sólo nombres), para ubicar dónde
+        // viaja el motivo cuando la búsqueda no lo encuentra.
+        console.warn(
+          `[kapso status] failed SIN motivo parseado — paths=${describeShape(
+            event.message,
+          ).join(",")}`,
+        );
+      }
 
       // WIK-283: el 131042 ("Business eligibility payment issue") es un
       // bloqueo a nivel CUENTA emisora — Meta rechaza TODO saliente hasta
@@ -670,7 +810,38 @@ export async function POST(req: NextRequest) {
     body = rawBody;
   }
 
-  if (typeof body !== "object" || !Array.isArray(body.data)) {
+  // WIK-318: hasta acá llegaban webhooks que descartábamos en silencio con un
+  // 200 (p.ej. los callbacks de entrega, si Kapso no manda `data` como array).
+  // Sin esta traza no había forma de saber qué shape llega realmente: los
+  // envíos salían OK, los POST entraban OK, y aun así ningún mensaje pasaba a
+  // delivered/failed. Logueamos SOLO metadata estructural (header de evento y
+  // nombres de claves) — nunca contenido de mensajes ni teléfonos.
+  const bodyObj = typeof body === "object" && body !== null ? body : null;
+  const bodyKeys = bodyObj ? Object.keys(bodyObj) : [];
+  const dataArr = Array.isArray(bodyObj?.data) ? bodyObj.data : null;
+  const firstEventKeys =
+    dataArr && dataArr.length > 0 ? Object.keys(dataArr[0] as object) : [];
+  console.log(
+    `[kapso webhook] event=${meta.event ?? "?"} bodyKeys=${bodyKeys.join(",")} ` +
+      `dataIsArray=${dataArr !== null} n=${dataArr?.length ?? "-"} ` +
+      `firstEventKeys=${firstEventKeys.join(",")}`,
+  );
+
+  // WIK-318: Kapso usa DOS shapes. Los webhooks en batch traen `data: []`;
+  // los de evento único (incluidos TODOS los callbacks de entrega) llegan
+  // planos: `{ message, conversation, phone_number_id, ... }`. Antes sólo
+  // aceptábamos la primera y respondíamos 200 a la segunda sin procesarla,
+  // por eso ningún mensaje pasaba nunca de `sent` a `delivered`/`failed`.
+  const events: KapsoEvent[] =
+    dataArr ??
+    (bodyObj && (bodyObj as KapsoEvent).message
+      ? [bodyObj as KapsoEvent]
+      : []);
+
+  if (events.length === 0) {
+    console.warn(
+      `[kapso webhook] descartado sin procesar (shape inesperada) event=${meta.event ?? "?"} bodyKeys=${bodyKeys.join(",")}`,
+    );
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
@@ -689,7 +860,7 @@ export async function POST(req: NextRequest) {
   }> = [];
 
   await Promise.allSettled(
-    body.data.map(async (event) => {
+    events.map(async (event) => {
       try {
         const result = await processEvent(event, meta.event);
         if (!result || !result.phoneNumberId) return;

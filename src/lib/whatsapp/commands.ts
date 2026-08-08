@@ -40,6 +40,29 @@ async function helpTextStaff(locale: Locale): Promise<string> {
   return tr(locale, "whatsapp.help.headerStaff", { appName: APP_NAME });
 }
 
+// WIK-310: ayuda para el rol `guest` — sólo `ambientes` + `ayuda`.
+async function helpTextGuest(locale: Locale): Promise<string> {
+  return tr(locale, "whatsapp.help.headerGuest", { appName: APP_NAME });
+}
+
+/**
+ * Texto de ayuda apropiado para el rol del profile. Centraliza el mapeo
+ * rol → variante de help para que `runCommand` lo reuse tanto en el comando
+ * `ayuda` explícito como en el fallback de "comando no permitido para tu
+ * rol" (así el usuario descubre qué SÍ puede hacer).
+ */
+async function helpForRole(profile: Profile): Promise<string> {
+  const locale = profileLocale(profile);
+  if (profile.role === "admin" || profile.role === "gestor") {
+    return await helpTextFull(locale);
+  }
+  if (profile.role === "guest") {
+    return await helpTextGuest(locale);
+  }
+  // mantenimiento (Staff)
+  return await helpTextStaff(locale);
+}
+
 /**
  * Parse a free-form WhatsApp text into a command. Returns null if it doesn't
  * look like a command — caller should fall through to default behavior.
@@ -128,18 +151,31 @@ export async function resolveLocaleForPhone(
   return profileLocale(profile);
 }
 
+/** Roles con acceso a datos business-wide (consumo). */
+function isBusinessRole(role: Profile["role"]): boolean {
+  return role === "admin" || role === "gestor";
+}
+
 /**
- * Check whether a phone number belongs to a profile that's authorized to
- * issue admin-level commands (admin or gestor). Used by `consumption`/`help`
- * which expose business-wide data; `my_tasks` is open to any profile and
- * scopes results to that user.
+ * Roles que pueden consultar `ambientes` (T/H por ambiente). WIK-310: el
+ * rol `guest` se suma a admin/gestor — su único dato accesible, scopeado a
+ * las propiedades que el admin le asigne (igual que gestor/staff).
+ */
+function canUseRooms(role: Profile["role"]): boolean {
+  return role === "admin" || role === "gestor" || role === "guest";
+}
+
+/**
+ * Check whether a phone number belongs to a profile authorized to issue
+ * admin-level (business-wide) commands. Kept as a thin wrapper for any
+ * external caller; internally `runCommand` gates per-command by role.
  */
 export async function isAuthorizedCommandSender(
   phoneNumber: string,
 ): Promise<boolean> {
   const profile = await getProfileByPhone(phoneNumber);
   if (!profile) return false;
-  return profile.role === "admin" || profile.role === "gestor";
+  return isBusinessRole(profile.role);
 }
 
 type TaskWithProperty = Task & { property: { name: string } | null };
@@ -192,9 +228,12 @@ async function buildMyTasksReport(
  * input wasn't a command at all. If it was a command but the sender isn't
  * authorized, returns an explanatory message.
  *
- * Authorization model:
- *  - `my_tasks`: any profile with whatsapp configured (results scoped to them)
- *  - `consumption` / `help`: admin or gestor only (business-wide data)
+ * Authorization model (por rol):
+ *  - `help`: cualquier profile — devuelve la variante de su rol
+ *  - `my_tasks`: admin/gestor/staff (results scoped to them); guest → su help
+ *  - `rooms` (ambientes): admin/gestor/guest, scopeado por property (WIK-310)
+ *  - `consumption`: admin/gestor only (business-wide data)
+ *  - sin profile: mensaje de "no autorizado"
  *
  * `locale` controls the response language — caller should resolve it from
  * the sender's profile (via `resolveLocaleForPhone`) before invoking. If
@@ -207,90 +246,86 @@ export async function runCommand(
 ): Promise<string | null> {
   if (!command) return null;
 
-  // Per-user commands (no role gate, but profile must exist).
+  // WIK-278: la activación se maneja en el webhook route (necesita el
+  // contexto del envío de sesión). No debería llegar acá; devolvemos null
+  // para no romper el flujo si lo hiciera.
+  if (command.type === "activate") return null;
+
+  const profile = await getProfileByPhone(fromPhone);
+
+  // Helper local: mensaje de "no autorizado" para números sin profile.
+  const unauthorized = async () => {
+    const normalized = normalizePhone(fromPhone) ?? fromPhone;
+    const tAuth = await getTranslations({ locale, namespace: "whatsapp.auth" });
+    return tAuth("notAuthorized", {
+      phone: normalized,
+      host: APP_HOST,
+      appName: APP_NAME,
+    });
+  };
+
+  // `ayuda` → variante de help según el rol (full / staff / guest). Sin
+  // profile, mostramos el mensaje de "no autorizado".
+  if (command.type === "help") {
+    if (!profile) return await unauthorized();
+    return await helpForRole(profile);
+  }
+
+  // `tareas` → cualquier profile operativo (admin/gestor/staff). El rol
+  // `guest` no tiene tareas: le devolvemos su help para que descubra que
+  // sólo puede usar `ambientes`/`ayuda`.
   if (command.type === "my_tasks") {
-    const profile = await getProfileByPhone(fromPhone);
     if (!profile) {
       const normalized = normalizePhone(fromPhone) ?? fromPhone;
       const tAuth = await getTranslations({
         locale,
         namespace: "whatsapp.auth",
       });
-      return tAuth("myTasksUnlinked", {
-        phone: normalized,
-        host: APP_HOST,
-      });
+      return tAuth("myTasksUnlinked", { phone: normalized, host: APP_HOST });
     }
+    if (profile.role === "guest") return await helpForRole(profile);
     // Use the profile's own locale for its tasks report — overrides the
     // caller-supplied one (which may have been the default).
     return await buildMyTasksReport(profile.id, profileLocale(profile));
   }
 
-  // Admin-level commands.
-  const allowed = await isAuthorizedCommandSender(fromPhone);
-  if (!allowed) {
-    const profile = await getProfileByPhone(fromPhone);
-    if (profile) {
-      // Profile exists but isn't admin/gestor — show staff help instead of
-      // a flat "denied" so they discover the `tareas` command.
-      return await helpTextStaff(profileLocale(profile));
+  // `ambientes` → admin / gestor / guest (WIK-310). Scope por property.
+  if (command.type === "rooms") {
+    if (!profile) return await unauthorized();
+    if (!canUseRooms(profile.role)) return await helpForRole(profile);
+    try {
+      // WIK-90 / WIK-94: scope igual que consumption. Para guest, el admin
+      // le asigna propiedades vía profile_properties (igual que gestor/staff).
+      const allowedIds = await getAllowedPropertyIds(profile);
+      return await buildRoomsReport(allowedIds, profileLocale(profile));
+    } catch (e) {
+      const t = await getTranslations({ locale, namespace: "whatsapp.rooms" });
+      return t("errorReport", { message: (e as Error).message });
     }
-    const normalized = normalizePhone(fromPhone) ?? fromPhone;
-    const tAuth = await getTranslations({
-      locale,
-      namespace: "whatsapp.auth",
-    });
-    return tAuth("notAuthorized", {
-      phone: normalized,
-      host: APP_HOST,
-      appName: APP_NAME,
-    });
   }
 
-  switch (command.type) {
-    case "help": {
-      const profile = await getProfileByPhone(fromPhone);
-      return await helpTextFull(profileLocale(profile));
+  // `consumo` → sólo admin/gestor (datos business-wide). Profile no
+  // business-role → su help; sin profile → no autorizado.
+  if (command.type === "consumption") {
+    if (!profile) return await unauthorized();
+    if (!isBusinessRole(profile.role)) return await helpForRole(profile);
+    try {
+      // WIK-94: scope por property — gestor solo ve consumo de sus
+      // properties asignadas. Admin → null (sin filtro).
+      const allowedIds = await getAllowedPropertyIds(profile);
+      return await buildConsumptionReport({
+        propertyFilter: command.propertyFilter,
+        allowedPropertyIds: allowedIds,
+        locale: profileLocale(profile),
+      });
+    } catch (e) {
+      const t = await getTranslations({
+        locale,
+        namespace: "whatsapp.consumption",
+      });
+      return t("errorReport", { message: (e as Error).message });
     }
-    case "consumption":
-      try {
-        // WIK-94: scope por property — gestor solo ve consumo de sus
-        // properties asignadas. Admin → null (sin filtro).
-        const profile = await getProfileByPhone(fromPhone);
-        const allowedIds = profile
-          ? await getAllowedPropertyIds(profile)
-          : null;
-        return await buildConsumptionReport({
-          propertyFilter: command.propertyFilter,
-          allowedPropertyIds: allowedIds,
-          locale: profileLocale(profile),
-        });
-      } catch (e) {
-        const t = await getTranslations({
-          locale,
-          namespace: "whatsapp.consumption",
-        });
-        return t("errorReport", { message: (e as Error).message });
-      }
-    case "rooms":
-      try {
-        // WIK-90 / WIK-94: scope igual que consumption.
-        const profile = await getProfileByPhone(fromPhone);
-        const allowedIds = profile
-          ? await getAllowedPropertyIds(profile)
-          : null;
-        return await buildRoomsReport(allowedIds, profileLocale(profile));
-      } catch (e) {
-        const t = await getTranslations({
-          locale,
-          namespace: "whatsapp.rooms",
-        });
-        return t("errorReport", { message: (e as Error).message });
-      }
-    case "activate":
-      // WIK-278: la activación se maneja en el webhook route (necesita el
-      // contexto del envío de sesión). No debería llegar acá; devolvemos
-      // null para no romper el flujo si lo hiciera.
-      return null;
   }
+
+  return null;
 }

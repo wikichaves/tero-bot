@@ -183,14 +183,23 @@ export async function SensorAlarmsCard() {
               const metric = e.rule?.metric;
               const op = e.rule?.operator === "gt" ? ">" : "<";
               const u = metric ? UNIT[metric] : "";
+              // WIK-281: los eventos de `power_outage` no tienen valor ni
+              // umbral numérico (`trigger_value`/`threshold` = null). Sin
+              // estas guardas, `.toFixed()` sobre null crashea el dashboard
+              // entero. Nota: el `?? "?"` anterior estaba mal ubicado — se
+              // evaluaba DESPUÉS del `.toFixed`, así que no protegía nada.
               const v =
-                metric === "temperature_c"
-                  ? `${e.trigger_value.toFixed(1)}${u}`
-                  : `${e.trigger_value.toFixed(0)}${u}`;
+                e.trigger_value == null
+                  ? "—"
+                  : metric === "temperature_c"
+                    ? `${e.trigger_value.toFixed(1)}${u}`
+                    : `${e.trigger_value.toFixed(0)}${u}`;
               const thr =
-                metric === "temperature_c"
-                  ? `${e.rule?.threshold.toFixed(1) ?? "?"}${u}`
-                  : `${e.rule?.threshold.toFixed(0) ?? "?"}${u}`;
+                e.rule?.threshold == null
+                  ? "?"
+                  : metric === "temperature_c"
+                    ? `${e.rule.threshold.toFixed(1)}${u}`
+                    : `${e.rule.threshold.toFixed(0)}${u}`;
               const Icon = metric === "temperature_c" ? Thermometer : Droplet;
               const iconColor =
                 metric === "temperature_c"

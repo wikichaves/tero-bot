@@ -1,12 +1,13 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Info } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Info } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { avg, percentile } from "@/lib/stats";
 import { formatShortDateTime } from "@/lib/i18n/date";
+import { AlarmEventRow } from "@/app/admin/alarms/alarm-event-row";
 import { serverNow } from "@/lib/util/server-now";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,6 +55,8 @@ export default async function RoomDetailPage({
   // a admin porque `runScene` también es admin-only).
   const profile = await requireProfile();
   const isAdmin = profile.role === "admin";
+  // WIK-314: sólo admin/gestor pueden resolver alarmas (la acción lo exige).
+  const canResolve = profile.role === "admin" || profile.role === "gestor";
   const { id } = await params;
   const sp = await searchParams;
   const range: RangeKey =
@@ -69,48 +72,92 @@ export default async function RoomDetailPage({
     nowMs - RANGES[range].hours * 60 * 60 * 1000,
   ).toISOString();
 
-  const { data: room } = await supabase
-    .from("rooms")
-    .select("id, name, property_id, properties:property_id(id, name)")
-    .eq("id", id)
-    .single<{
-      id: string;
-      name: string;
-      property_id: string;
-      properties: { id: string; name: string } | null;
-    }>();
+  // WIK-315: `room` y `devices` no dependen entre sí (ambos filtran por el
+  // `id` de la URL), así que van en paralelo. Antes eran round-trips
+  // secuenciales a Supabase y la página esperaba uno tras otro.
+  const [roomRes, devicesRes] = await Promise.all([
+    supabase
+      .from("rooms")
+      .select("id, name, property_id, properties:property_id(id, name)")
+      .eq("id", id)
+      .single<{
+        id: string;
+        name: string;
+        property_id: string;
+        properties: { id: string; name: string } | null;
+      }>(),
+    supabase
+      .from("property_devices")
+      .select("id, tuya_device_name")
+      .eq("room_id", id)
+      .eq("device_kind", "sensor"),
+  ]);
+  const room = roomRes.data;
   if (!room) notFound();
+  const sensors = devicesRes.data ?? [];
 
-  const { data: devices } = await supabase
-    .from("property_devices")
-    .select("id, tuya_device_name")
-    .eq("room_id", id)
-    .eq("device_kind", "sensor");
-  const sensors = devices ?? [];
+  // WIK-314: alarmas activas (sin resolver) de los sensores de este room.
+  // La sección se movió acá desde /admin/alarms — el operador resuelve
+  // desde el contexto del ambiente. RLS deja leer a admin/gestor/staff; el
+  // botón Resolver se muestra sólo a admin/gestor (`canResolve`).
+  type ActiveAlarm = {
+    id: string;
+    rule_id: string;
+    property_device_id: string;
+    fired_at: string;
+    resolved_at: string | null;
+    trigger_value: number;
+    notified_via_whatsapp: boolean;
+    rule: {
+      metric: "temperature_c" | "humidity_pct";
+      operator: "gt" | "lt";
+      threshold: number;
+    } | null;
+    property_device: {
+      tuya_device_name: string | null;
+      property: { name: string } | null;
+      room: { name: string } | null;
+    } | null;
+  };
 
+  const sensorIds = sensors.map((s) => s.id);
+  let activeAlarms: ActiveAlarm[] = [];
   let snapshots: Array<{
     property_device_id: string;
     taken_at: string;
     temperature_c: number | null;
     humidity_pct: number | null;
   }> = [];
-  if (sensors.length > 0) {
-    // Limit explícito (WIK-98): Supabase default es 1000 rows. Para 30d
-    // con captura horaria, 1 sensor genera ~720 rows; con 2-3 sensores
-    // por room nos pasamos del default y la query trunca silenciosa —
-    // el chart muestra sólo el primer pedazo de la ventana. 100k cubre
+
+  if (sensorIds.length > 0) {
+    // WIK-315: alarmas y snapshots sólo dependen de `sensors`, así que
+    // también van en paralelo entre sí.
+    //
+    // Limit explícito en snapshots (WIK-98): Supabase default es 1000 rows.
+    // Para 30d con captura horaria, 1 sensor genera ~720 rows; con 2-3
+    // sensores por room nos pasamos del default y la query trunca silenciosa
+    // — el chart muestra sólo el primer pedazo de la ventana. 100k cubre
     // 30d × 12 sensores × 1 snapshot cada 5min con margen.
-    const { data: snaps } = await supabase
-      .from("sensor_snapshots")
-      .select("property_device_id, taken_at, temperature_c, humidity_pct")
-      .in(
-        "property_device_id",
-        sensors.map((s) => s.id),
-      )
-      .gte("taken_at", since)
-      .order("taken_at", { ascending: true })
-      .limit(100_000);
-    snapshots = snaps ?? [];
+    const [alarmsRes, snapsRes] = await Promise.all([
+      supabase
+        .from("alarm_events")
+        .select(
+          "id, rule_id, property_device_id, fired_at, resolved_at, trigger_value, notified_via_whatsapp, rule:alarm_rules(metric, operator, threshold), property_device:property_devices!inner(tuya_device_name, property:properties(name), room:rooms(name))",
+        )
+        .in("property_device_id", sensorIds)
+        .is("resolved_at", null)
+        .order("fired_at", { ascending: false })
+        .returns<ActiveAlarm[]>(),
+      supabase
+        .from("sensor_snapshots")
+        .select("property_device_id, taken_at, temperature_c, humidity_pct")
+        .in("property_device_id", sensorIds)
+        .gte("taken_at", since)
+        .order("taken_at", { ascending: true })
+        .limit(100_000),
+    ]);
+    activeAlarms = alarmsRes.data ?? [];
+    snapshots = snapsRes.data ?? [];
   }
 
   // Stats por sensor (WIK-96): usamos percentiles p5/p95 para min/max
@@ -218,6 +265,24 @@ export default async function RoomDetailPage({
           </Link>
         ))}
       </div>
+
+      {/* WIK-314: alarmas activas de este room (movidas desde /admin/alarms). */}
+      {activeAlarms.length > 0 && (
+        <Card className="border-destructive/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              {t("alarmsActiveTitle", { count: activeAlarms.length })}
+            </CardTitle>
+            <CardDescription>{t("alarmsActiveDescription")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {activeAlarms.map((e) => (
+              <AlarmEventRow key={e.id} event={e} canResolve={canResolve} />
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {sensors.length === 0 ? (
         <Card>

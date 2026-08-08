@@ -13,6 +13,16 @@ do $$ begin
   create type user_role as enum ('admin', 'gestor', 'limpieza', 'mantenimiento');
 exception when duplicate_object then null; end $$;
 
+-- WIK-310: rol `guest` — usuario sin acceso al dashboard (sin password
+-- usable) que sólo interactúa con el bot de WhatsApp (comandos `ambientes`
+-- y `ayuda`). `add value if not exists` es idempotente. Importante: NO usar
+-- el literal 'guest' en ningún statement del schema (RLS policies,
+-- constraints) — Postgres prohíbe usar un valor de enum recién agregado en
+-- la MISMA transacción que el `ADD VALUE`, y `db-apply` corre todo el
+-- archivo en un único BEGIN/COMMIT. El gating del rol guest vive en el
+-- código de la app (service-role client, que bypassea RLS), no en SQL.
+alter type user_role add value if not exists 'guest';
+
 do $$ begin
   create type reservation_source as enum ('airbnb', 'booking', 'manual');
 exception when duplicate_object then null; end $$;
@@ -999,6 +1009,37 @@ create table if not exists public.tuya_log_cursors (
 );
 alter table public.tuya_log_cursors enable row level security;
 -- Sin policies: solo el cron (service-role, bypassea RLS) lo lee/escribe.
+
+-- ─── WIK-311: Push subscriptions (Web Push / PWA) ───────────────────
+-- Suscripciones de Web Push por usuario. Opt-in: una fila por cada
+-- (navegador/dispositivo) que el usuario habilitó las notificaciones push
+-- desde "Mi perfil". El endpoint es la URL única del push service del
+-- browser (FCM / Mozilla / WNS); lo usamos como clave natural para dedupe
+-- y para borrar suscripciones muertas (410/404) al enviar.
+--
+-- `p256dh` + `auth` son las claves de cifrado del cliente (de
+-- PushSubscription.toJSON().keys) que `web-push` necesita para cifrar el
+-- payload. Se guardan tal cual las manda el browser (base64url).
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references public.profiles(id) on delete cascade,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  user_agent text,
+  created_at timestamptz not null default now()
+);
+create index if not exists push_subscriptions_profile_idx
+  on public.push_subscriptions (profile_id);
+
+alter table public.push_subscriptions enable row level security;
+-- Cada usuario gestiona SOLO sus propias suscripciones (insert/select/
+-- delete desde las API routes con su sesión). El envío de push corre con
+-- service-role (cron / notify), que bypassea RLS.
+drop policy if exists push_self_all on public.push_subscriptions;
+create policy push_self_all on public.push_subscriptions
+  for all using (profile_id = auth.uid())
+  with check (profile_id = auth.uid());
 
 -- ─── WIK-223: GRANTs default para tablas futuras en public ──────────
 -- Supabase deprecó el comportamiento de "auto-grant on CREATE TABLE" en el

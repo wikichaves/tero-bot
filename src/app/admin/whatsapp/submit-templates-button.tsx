@@ -31,6 +31,8 @@ type SubmitResult = {
 
 type StatusEntry = {
   name: string;
+  /** WIK-320: idioma de la variante — cada una se aprueba por separado. */
+  language?: string;
   status:
     | "APPROVED"
     | "PENDING"
@@ -41,6 +43,10 @@ type StatusEntry = {
     | "UNKNOWN";
   template_id: string | null;
   rejected_reason: string | null;
+  /** WIK-316: categoría real en Meta vs. la que declaramos localmente. */
+  category?: string | null;
+  local_category?: string | null;
+  category_mismatch?: boolean;
 };
 
 const STATUS_VARIANT: Record<StatusEntry["status"], "default" | "secondary" | "destructive" | "outline"> = {
@@ -135,9 +141,19 @@ export function SubmitTemplatesButton() {
           <p className="mb-2 font-medium">{t("headings.metaStatus")}</p>
           <ul className="flex flex-col gap-1.5">
             {status.map((r) => (
-              <li key={r.name} className="flex flex-col gap-0.5">
+              <li
+                key={`${r.name}|${r.language ?? ""}`}
+                className="flex flex-col gap-0.5"
+              >
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-mono">{r.name}</span>
+                  <span className="font-mono">
+                    {r.name}
+                    {r.language && (
+                      <span className="ml-1 rounded bg-muted px-1 text-[10px] uppercase text-muted-foreground">
+                        {r.language}
+                      </span>
+                    )}
+                  </span>
                   <Badge
                     variant={STATUS_VARIANT[r.status]}
                     className="text-[10px]"
@@ -152,6 +168,23 @@ export function SubmitTemplatesButton() {
                     {r.template_id ? ` · ${r.template_id.slice(0, 8)}` : ""}
                   </Badge>
                 </div>
+                {/* WIK-316: categoría real en Meta. Si difiere de la que
+                    declaramos, la resaltamos: un UTILITY re-categorizado a
+                    MARKETING deja de entregarse fuera de la ventana de 24h
+                    aunque el status siga en APPROVED. */}
+                {r.category && (
+                  <p
+                    className={
+                      r.category_mismatch
+                        ? "text-[10px] font-medium text-destructive"
+                        : "text-[10px] text-muted-foreground"
+                    }
+                  >
+                    {r.category_mismatch
+                      ? `⚠ Meta la re-categorizó: ${r.local_category} → ${r.category} (puede no entregar fuera de la ventana 24h)`
+                      : `categoría: ${r.category}`}
+                  </p>
+                )}
                 {r.rejected_reason && (
                   <p className="text-[10px] italic text-destructive">
                     {r.rejected_reason}
