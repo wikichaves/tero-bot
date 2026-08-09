@@ -4,7 +4,6 @@ import { APP_HOST } from "@/lib/brand";
 import {
   persistMessage,
   sendKapsoTemplateWithFallback,
-  sendKapsoText,
   upsertConversation,
 } from "@/lib/whatsapp/index";
 import { sendPushToProfiles, type PushPayload } from "@/lib/push";
@@ -368,27 +367,50 @@ export async function notifyAlarmEvent(ev: EvaluatedEvent): Promise<boolean> {
         // envío por template de uno por texto — y "no llegó" quedaba
         // indiagnosticable desde la app.
         let sentViaTemplate = false;
-        try {
-          // Preferimos el template UTILITY: se entrega aunque la ventana
-          // 24h esté cerrada (el caso típico de una alarma).
-          const res = await sendKapsoTemplateWithFallback({
-            phoneNumberId,
-            to: r.whatsapp,
-            templateName: tpl.name,
-            preferredLanguage: locale,
-            bodyVariables: tpl.vars,
-          });
-          messageId = res.messageId;
-          sentViaTemplate = true;
-        } catch (tplErr) {
-          // Fallback a texto libre (solo entra dentro de la ventana 24h).
-          // Cubre el período en que un template nuevo todavía no está
-          // APPROVED en Meta: si el admin escribió hace poco, igual llega.
-          console.warn(
-            `[notifyAlarmEvent] template ${tpl.name} failed to=${r.whatsapp}: ${(tplErr as Error).message}. Fallback a texto libre.`,
-          );
-          const res = await sendKapsoText(phoneNumberId, r.whatsapp, text);
-          messageId = res.messageId;
+        // WIK-284: SOLO template UTILITY para alarmas. Los cuatro templates
+        // de alarma (sensor_alarm_fired_v2/_resolved, power_outage_*) están
+        // APPROVED en es/en, así que el template SIEMPRE es la vía correcta:
+        // se entrega aunque la ventana 24h esté cerrada (el caso típico).
+        //
+        // Antes caíamos a texto libre si el template fallaba. Pero para una
+        // alarma el destinatario casi nunca escribió en las últimas 24h, así
+        // que el texto libre NO entra: Meta lo rechaza con 131047
+        // ("Re-engagement message") y eso disparaba un aviso de fallo confuso
+        // al admin. El fallback era inútil y solo generaba ruido.
+        //
+        // Ahora: 1 retry del template ante fallo transitorio (timeout/hipo de
+        // red de Kapso/Meta). Si el retry también falla, dejamos que el error
+        // propague al catch de abajo (persist failed + log), sin texto libre.
+        {
+          let lastErr: unknown;
+          for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+              // Se entrega aunque la ventana 24h esté cerrada.
+              const res = await sendKapsoTemplateWithFallback({
+                phoneNumberId,
+                to: r.whatsapp,
+                templateName: tpl.name,
+                preferredLanguage: locale,
+                bodyVariables: tpl.vars,
+              });
+              messageId = res.messageId;
+              sentViaTemplate = true;
+              break;
+            } catch (tplErr) {
+              lastErr = tplErr;
+              if (attempt < 2) {
+                console.warn(
+                  `[notifyAlarmEvent] template ${tpl.name} failed to=${r.whatsapp} (attempt ${attempt}/2): ${(tplErr as Error).message}. Reintentando.`,
+                );
+                await new Promise((r) => setTimeout(r, 800));
+              }
+            }
+          }
+          if (!sentViaTemplate) {
+            // Sin fallback a texto libre: para una alarma fuera de ventana
+            // 24h nunca entraría (131047). Propagamos al catch de abajo.
+            throw lastErr;
+          }
         }
         await persistMessage({
           conversation_id: conversationId,
