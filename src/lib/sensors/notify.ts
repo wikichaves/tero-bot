@@ -7,7 +7,12 @@ import {
   upsertConversation,
 } from "@/lib/whatsapp/index";
 import { sendPushToProfiles, type PushPayload } from "@/lib/push";
-import { escapeHtml, getAdminChatId, sendTelegramMessage } from "@/lib/telegram";
+import {
+  escapeHtml,
+  getAdminChatId,
+  getOpsBotToken,
+  sendTelegramMessage,
+} from "@/lib/telegram";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/locales";
 import type { EvaluatedEvent } from "./alarms";
 
@@ -326,6 +331,51 @@ export async function notifyAlarmEvent(ev: EvaluatedEvent): Promise<boolean> {
     }
   } catch (e) {
     console.warn(`[notifyAlarmEvent] telegram failed: ${(e as Error).message}`);
+  }
+
+  // WIK-285: además del chat admin, mandamos la alarma por el bot de OPS
+  // (@tero_ops_bot) a cada admin/gestor con telegram_chat_id registrado.
+  // Así Agus/Mónica reciben las alarmas en Telegram sin depender de
+  // WhatsApp ni de un único chat admin. Best-effort.
+  try {
+    const opsToken = getOpsBotToken();
+    if (opsToken) {
+      const p = pushForEvent(ev);
+      const text =
+        `<b>${escapeHtml(p.title)}</b>\n\n${escapeHtml(p.body)}\n\n` +
+        `<a href="https://${APP_HOST}/rooms">Ver ambientes</a>`;
+      const { data: opsRows } = await admin
+        .from("profiles")
+        .select("telegram_chat_id")
+        .in("role", ["admin", "gestor"])
+        .not("telegram_chat_id", "is", null);
+      const chatIds = Array.from(
+        new Set(
+          (opsRows ?? [])
+            .map((r) => (r as { telegram_chat_id: number | null }).telegram_chat_id)
+            .filter((v): v is number => typeof v === "number"),
+        ),
+      );
+      for (const cid of chatIds) {
+        const res = await sendTelegramMessage({
+          token: opsToken,
+          chatId: cid,
+          text,
+          parseMode: "HTML",
+          disableWebPagePreview: true,
+        });
+        if (res != null) {
+          telegramSent = true;
+        }
+      }
+      if (chatIds.length > 0) {
+        console.log(
+          `[notifyAlarmEvent] ops-bot telegram sent to ${chatIds.length} recipient(s) rule=${ev.rule.id} kind=${ev.kind}`,
+        );
+      }
+    }
+  } catch (e) {
+    console.warn(`[notifyAlarmEvent] ops-bot telegram failed: ${(e as Error).message}`);
   }
 
   // Solo a los que tengan whatsapp configurado.

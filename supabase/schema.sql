@@ -67,6 +67,19 @@ alter table public.profiles
   add constraint profiles_language_supported
   check (language in ('en', 'es'));
 
+-- ────────────────────────────────────────────────────────────────────────
+-- WIK-285: tero_ops_bot — bot de Telegram de OPERACIÓN (multi-usuario).
+-- Distinto del bot de dev privado (WIK-97, un solo admin chat_id). Este es
+-- para que admin/gestor operen las casas desde Telegram (alarmas, reportes,
+-- tareas), incluso en grupos. Mapeamos cada profile a su chat_id de Telegram
+-- para autorizar por ROL (no por un único chat_id hardcodeado).
+alter table public.profiles
+  add column if not exists telegram_chat_id bigint;
+alter table public.profiles
+  drop constraint if exists profiles_telegram_chat_id_unique;
+alter table public.profiles
+  add constraint profiles_telegram_chat_id_unique unique (telegram_chat_id);
+
 -- IMPORTANT: do NOT read `role` from raw_user_meta_data here. That field is
 -- attacker-controlled at signup time (Supabase's public signup endpoint accepts
 -- arbitrary metadata with only the anon key). Allowing it would let anyone

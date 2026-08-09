@@ -17,6 +17,23 @@ export function getTelegramBotToken(): string | null {
 }
 
 /**
+ * WIK-285: token del bot de OPERACIÓN (@tero_ops_bot). Bot distinto del
+ * de dev (getTelegramBotToken). Se pasa explícitamente a los helpers de
+ * envío vía `opts.token` para no depender del env global.
+ */
+export function getOpsBotToken(): string | null {
+  return process.env.TELEGRAM_OPS_BOT_TOKEN ?? null;
+}
+
+/**
+ * WIK-285: secret del webhook del bot de ops. Separado del de dev para
+ * poder rotarlos independientemente.
+ */
+export function getOpsWebhookSecret(): string | null {
+  return process.env.TELEGRAM_OPS_WEBHOOK_SECRET ?? null;
+}
+
+/**
  * Chat ID del único admin autorizado (vos). Telegram usa ints positivos
  * para users, negativos para groups. Lo guardamos como string en env y
  * lo parseamos acá.
@@ -111,10 +128,12 @@ export async function sendTelegramMessage(opts: {
   replyToMessageId?: number;
   /** WIK-186: inline buttons debajo del mensaje. Tap → callback_query. */
   inlineKeyboard?: TelegramInlineKeyboard;
+  /** WIK-285: token override (ej. bot de ops). Default: bot de dev. */
+  token?: string | null;
 }): Promise<{ messageId: number } | null> {
-  const token = getTelegramBotToken();
+  const token = opts.token ?? getTelegramBotToken();
   if (!token) {
-    console.error("[telegram] TELEGRAM_BOT_TOKEN not set");
+    console.error("[telegram] bot token not set");
     return null;
   }
   const body: Record<string, unknown> = {
