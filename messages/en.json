@@ -1213,5 +1213,24 @@
     "pull": "Pull to refresh",
     "release": "Release to refresh",
     "refreshing": "Refreshing…"
+  },
+  "powerOutageCard": {
+    "title": "Power outages · {property}",
+    "summary": "{total} outages in 60 days · {micro} micro · {real} real",
+    "noneInWindow": "No outages in the last 60 days.",
+    "voltageLabel": "Voltage:",
+    "nowSuffix": "now",
+    "voltageRange": "(min {min}V · median {median}V)",
+    "voltageState": {
+      "ok": "Healthy voltage",
+      "warning": "Low voltage",
+      "danger": "Very low voltage"
+    },
+    "microTag": "micro-outage (sec)",
+    "ongoing": "ongoing",
+    "seconds": "seconds",
+    "minutes": "{n} min",
+    "hours": "{n} h",
+    "days": "{n} days"
   }
 }
