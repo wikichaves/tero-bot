@@ -147,7 +147,7 @@ export async function PreCheckinCard() {
               <div className="flex-1 space-y-0.5">
                 <div className="flex items-baseline justify-between gap-2">
                   <p className="font-medium">{r.property?.name ?? "—"}</p>
-                  <Badge variant={stageInfo.tone} className="text-[10px]">
+                  <Badge variant={stageInfo.tone}>
                     {stageInfo.text}
                   </Badge>
                 </div>

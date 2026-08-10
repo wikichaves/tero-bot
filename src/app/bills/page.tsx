@@ -105,7 +105,7 @@ export default async function FacturasPage() {
     : t("subtitleFallback");
 
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-6">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row">
         <div>
           <h1 className="text-4xl">{t("title")}</h1>

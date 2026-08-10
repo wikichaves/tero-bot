@@ -134,7 +134,7 @@ export default async function ConversationPage({
                     </p>
                   )}
                   <p
-                    className={`text-[10px] mt-1 ${m.direction === "outbound" ? "opacity-70" : "text-muted-foreground"}`}
+                    className={`text-xs mt-1 ${m.direction === "outbound" ? "opacity-70" : "text-muted-foreground"}`}
                   >
                     {format(parseISO(m.sent_at), "HH:mm", { locale: es })}
                     {m.status && ` · ${m.status}`}

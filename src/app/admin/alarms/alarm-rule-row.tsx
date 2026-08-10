@@ -118,7 +118,7 @@ export function AlarmRuleRow({
             </span>
           )}
           {!rule.enabled && (
-            <Badge variant="secondary" className="text-[10px]">
+            <Badge variant="secondary">
               deshabilitada
             </Badge>
           )}

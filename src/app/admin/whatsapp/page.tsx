@@ -60,10 +60,10 @@ export default async function WhatsAppAdminPage() {
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <CardTitle className="font-mono text-sm">{t.name}</CardTitle>
                 <div className="flex gap-1.5">
-                  <Badge variant={CATEGORY_VARIANT[t.category]} className="text-[10px]">
+                  <Badge variant={CATEGORY_VARIANT[t.category]}>
                     {t.category}
                   </Badge>
-                  <Badge variant="secondary" className="text-[10px]">
+                  <Badge variant="secondary">
                     {t.language}
                   </Badge>
                 </div>

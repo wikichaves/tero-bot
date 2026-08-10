@@ -109,7 +109,7 @@ export function AlarmEventRow({
             {t("threshold", { op, threshold })}
           </span>
           {event.notified_via_whatsapp && (
-            <Badge variant="secondary" className="text-[10px]">
+            <Badge variant="secondary">
               {t("notifWa")}
             </Badge>
           )}

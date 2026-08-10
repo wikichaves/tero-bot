@@ -86,7 +86,7 @@ export function BillFormDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={trigger as React.ReactElement} />
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl">
         <form onSubmit={onSubmit}>
           <DialogHeader>
             <DialogTitle>
