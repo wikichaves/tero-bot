@@ -383,6 +383,14 @@ function extractDueDate(body: string): string | null {
     // column header above unrelated rows.
     /Fecha\s+de\s+Vencimiento[ \t:]*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
 
+    // High-priority OSE pattern: OSE PDFs ponen el vencimiento real como
+    // "VENCE: DD/MM/YYYY". PERO tambien tienen un bloque "Fecha de
+    // vencimiento\nCAE: DD/MM/YYYY" (fecha de vencimiento del CAE fiscal, NO
+    // de la factura). El patron generico de \bvencimiento\b con [\s\S]{0,30}
+    // agarraba el CAE. Anclamos VENCE explicito ANTES del generico para ganarle.
+    // El "\b(?<!\.)" evita matchear dentro de otras palabras.
+    /\bVENCE\b\s*:?\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
+
     // "VTO PROXIMA FACTURA" or other VTO variants we explicitly DON'T want
     // to catch (they're for the next bill, not this one) — order matters:
     // we test specific positive patterns first.
@@ -393,7 +401,9 @@ function extractDueDate(body: string): string | null {
     /\bel\s+(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})\s+vence\b/i,
 
     // Standard forward-order patterns.
-    /\bvencimiento\b(?!\s+pr[oó]xim)[\s\S]{0,30}?(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
+    // Guard: NO matchear si entre "vencimiento" y la fecha aparece "CAE"
+    // (la fecha de vencimiento del CAE fiscal en OSE/DGI no es el vto real).
+    /\bvencimiento\b(?!\s+pr[oó]xim)(?![\s\S]{0,30}?CAE)[\s\S]{0,30}?(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
     /\bvence\b(?:\s+el)?\s*[:\s]*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
     /\bvto\.?\b(?!\s+pr[oó]xim)\s*:?\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
     /\bvencimiento\b(?!\s+pr[oó]xim)[\s\S]{0,30}?(\d{1,2}\s+(?:de\s+)?[a-záé]+(?:\s+(?:de\s+)?\d{2,4})?)/i,
