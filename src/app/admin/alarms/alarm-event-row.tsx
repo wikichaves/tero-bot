@@ -16,12 +16,16 @@ type EventRow = {
   property_device_id: string;
   fired_at: string;
   resolved_at: string | null;
-  trigger_value: number;
+  // WIK-329: power_outage no tiene valor numérico → trigger_value puede ser
+  // null. Antes el tipo lo forzaba a number y el render hacía .toFixed() sobre
+  // null, crasheando toda la página /admin/alarms cuando había un evento de
+  // corte de luz en el historial.
+  trigger_value: number | null;
   notified_via_whatsapp: boolean;
   rule: {
-    metric: "temperature_c" | "humidity_pct";
-    operator: "gt" | "lt";
-    threshold: number;
+    metric: "temperature_c" | "humidity_pct" | "power_outage";
+    operator: "gt" | "lt" | null;
+    threshold: number | null;
   } | null;
   property_device: {
     tuya_device_name: string | null;
@@ -58,16 +62,23 @@ export function AlarmEventRow({
 
   const metric = event.rule?.metric;
   const op = event.rule?.operator === "gt" ? ">" : "<";
-  const value =
-    metric === "temperature_c"
-      ? `${event.trigger_value.toFixed(1)}${UNIT.temperature_c}`
-      : `${event.trigger_value.toFixed(0)}${UNIT.humidity_pct ?? ""}`;
+  // WIK-329: power_outage (corte de luz) no tiene valor ni umbral numérico.
+  // Guardas de null en trigger_value/threshold para no crashear (.toFixed
+  // sobre null tiraba toda la página abajo).
+  const isOutage = metric === "power_outage";
+  const value = isOutage
+    ? t("powerOutageValue")
+    : event.trigger_value == null
+      ? "—"
+      : metric === "temperature_c"
+        ? `${event.trigger_value.toFixed(1)}${UNIT.temperature_c}`
+        : `${event.trigger_value.toFixed(0)}${UNIT.humidity_pct}`;
   const threshold =
-    event.rule != null
-      ? metric === "temperature_c"
+    isOutage || event.rule == null || event.rule.threshold == null
+      ? ""
+      : metric === "temperature_c"
         ? `${event.rule.threshold.toFixed(1)}${UNIT.temperature_c}`
-        : `${event.rule.threshold.toFixed(0)}${UNIT.humidity_pct ?? ""}`
-      : "";
+        : `${event.rule.threshold.toFixed(0)}${UNIT.humidity_pct}`;
   const location =
     event.property_device?.room?.name ??
     event.property_device?.property?.name ??

@@ -661,7 +661,8 @@
     "startedAt": "Inicio {when}",
     "resolvedAt": "Resuelta {when}",
     "resolve": "Resolver",
-    "resolvedToast": "Alarma marcada resuelta."
+    "resolvedToast": "Alarma marcada resuelta.",
+    "powerOutageValue": "Corte de luz"
   },
   "adminAlarmsPage": {
     "title": "Alarmas",

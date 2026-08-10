@@ -661,7 +661,8 @@
     "startedAt": "Started {when}",
     "resolvedAt": "Resolved {when}",
     "resolve": "Resolve",
-    "resolvedToast": "Alarm marked resolved."
+    "resolvedToast": "Alarm marked resolved.",
+    "powerOutageValue": "Power outage"
   },
   "adminAlarmsPage": {
     "title": "Alarms",
