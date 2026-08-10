@@ -1204,7 +1204,8 @@
     "conversationCount": "{count, plural, one {# conversation} other {# conversations}}.",
     "emptyState": "No conversations. When someone messages the WhatsApp number, it will show up here.",
     "outboundPrefix": "You: ",
-    "noMessages": "(no messages)"
+    "noMessages": "(no messages)",
+    "notDelivered": "Not delivered"
   },
   "pullToRefresh": {
     "pull": "Pull to refresh",

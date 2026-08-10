@@ -26,6 +26,36 @@ export default async function WhatsAppInboxPage() {
     .limit(100);
   const conversations = (data ?? []) as WhatsAppConversation[];
 
+  // WIK-327: badge "no entregado" en el inbox. La tabla whatsapp_conversations
+  // no guarda el status del último mensaje, así que traemos —en UNA query
+  // batcheada— los mensajes outbound con status=failed de estas conversaciones
+  // y marcamos como "con fallo" a las que su ÚLTIMO outbound falló. Solo
+  // aplica a conversaciones cuyo último mensaje fue outbound (si el último es
+  // inbound, un fallo viejo ya no es relevante para el estado actual).
+  const failedByConversation = new Set<string>();
+  const convIds = conversations
+    .filter((c) => c.last_message_direction === "outbound")
+    .map((c) => c.id);
+  if (convIds.length > 0) {
+    const { data: failedMsgs } = await supabase
+      .from("whatsapp_messages")
+      .select("conversation_id, status, sent_at")
+      .in("conversation_id", convIds)
+      .eq("direction", "outbound")
+      .order("sent_at", { ascending: false });
+    // Nos quedamos con el ÚLTIMO outbound por conversación; si ese está
+    // failed, la marcamos. (La lista viene ordenada desc por sent_at.)
+    const seen = new Set<string>();
+    for (const m of (failedMsgs ?? []) as Array<{
+      conversation_id: string;
+      status: string | null;
+    }>) {
+      if (seen.has(m.conversation_id)) continue;
+      seen.add(m.conversation_id);
+      if (m.status === "failed") failedByConversation.add(m.conversation_id);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -68,6 +98,14 @@ export default async function WhatsAppInboxPage() {
                         {c.unread_count > 0 && (
                           <Badge className="shrink-0">
                             {c.unread_count}
+                          </Badge>
+                        )}
+                        {failedByConversation.has(c.id) && (
+                          <Badge
+                            variant="destructive"
+                            className="shrink-0"
+                          >
+                            {t("notDelivered")}
                           </Badge>
                         )}
                       </div>

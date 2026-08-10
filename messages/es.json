@@ -1204,7 +1204,8 @@
     "conversationCount": "{count, plural, one {# conversación} other {# conversaciones}}.",
     "emptyState": "Sin conversaciones. Cuando alguien escriba al número de WhatsApp, va a aparecer acá.",
     "outboundPrefix": "Tú: ",
-    "noMessages": "(sin mensajes)"
+    "noMessages": "(sin mensajes)",
+    "notDelivered": "No entregado"
   },
   "pullToRefresh": {
     "pull": "Deslizá para actualizar",
