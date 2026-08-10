@@ -19,6 +19,11 @@ export type Profile = {
    *  UI del dashboard y las respuestas free-form del bot de WhatsApp.
    *  Default `en` a nivel DB. */
   language?: string | null;
+  /** WIK-311: chat_id de Telegram del usuario, para el bot de operación
+   *  (@tero_ops_bot). La persona manda /start al bot, el bot le devuelve
+   *  este número, y el admin lo carga acá para autorizarla. `null` = sin
+   *  Telegram vinculado. */
+  telegram_chat_id?: number | null;
 };
 
 export type Property = {

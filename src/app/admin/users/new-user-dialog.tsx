@@ -183,6 +183,20 @@ export function NewUserDialog({
                 ))}
               </select>
             </div>
+            {/* WIK-311: chat_id de Telegram (opcional al crear — normalmente
+                se carga después, cuando la persona manda /start al bot). */}
+            <div className="grid gap-2">
+              <Label htmlFor="telegram_chat_id">{t("fields.telegramChatId")}</Label>
+              <Input
+                id="telegram_chat_id"
+                name="telegram_chat_id"
+                inputMode="numeric"
+                placeholder="8968616039"
+              />
+              <p className="text-xs text-muted-foreground">
+                {t("fields.telegramChatIdHint")}
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button type="submit" disabled={pending}>
