@@ -1015,7 +1015,8 @@
     },
     "toast": {
       "submitSummary": "{submitted} submitted, {failed} failed (of {total})."
-    }
+    },
+    "categoryMismatch": "⚠ Meta re-categorized it: {from} → {to} (may not deliver outside the 24h window)"
   },
   "adminResetPassword": {
     "title": "Reset password",
