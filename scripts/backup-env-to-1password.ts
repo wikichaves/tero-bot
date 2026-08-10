@@ -69,7 +69,12 @@ function run(
 }
 
 function requireOpReady() {
-  const r = run("op", ["whoami"]);
+  // Probe with `op vault list`, not `op whoami`: under 1Password's desktop-app
+  // integration there is no CLI session token, so `whoami` fails with "account
+  // is not signed in" even though every real command works (the desktop app
+  // authorizes them one by one via biometrics). `vault list` hits the same auth
+  // path as the reads/writes below, so it can't give a false negative.
+  const r = run("op", ["vault", "list"]);
   if (r.error?.code === "ENOENT") {
     console.error(
       "[backup-env] `op` CLI not found. Install with:\n  brew install --cask 1password-cli",
@@ -78,7 +83,9 @@ function requireOpReady() {
   }
   if (r.code !== 0) {
     console.error(
-      "[backup-env] not signed in to 1Password. Run:\n  op signin",
+      "[backup-env] can't reach 1Password. Unlock the desktop app (Settings →\n" +
+        "Developer → Integrate with 1Password CLI), or run `op signin` if you\n" +
+        "authenticate with a session token instead.",
     );
     if (r.stderr) console.error(r.stderr);
     process.exit(1);
