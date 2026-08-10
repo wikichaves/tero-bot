@@ -50,42 +50,45 @@ function DialogContent({
   return (
     <DialogPortal>
       <DialogOverlay />
-      <DialogPrimitive.Popup
-        data-slot="dialog-content"
-        // WIK-128: match the card lift — rounded-2xl, more padding,
-        // softer border instead of ring, subtle shadow, and a wider
-        // default max-width on desktop (sm:max-w-md, was sm:max-w-sm)
-        // so forms feel comfortable.
-        // WIK-170: max-h-[90dvh] + overflow-y-auto para que dialogs
-        // largos (ej. edit-reservation con 10+ fields + lang selector)
-        // scrolleen internamente en lugar de quedar clippeados fuera de
-        // viewport. `dvh` (dynamic viewport height) considera la barra
-        // del browser en mobile — `vh` solo no funciona si el address
-        // bar baja/sube.
-        className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] max-h-[90dvh] overflow-x-hidden overflow-y-auto -translate-x-1/2 -translate-y-1/2 gap-5 rounded-2xl border border-b-2 border-border/60 bg-popover p-6 text-sm text-popover-foreground shadow-hard duration-100 outline-none sm:w-full sm:max-w-md dark:border-border/40 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-          className
-        )}
-        {...props}
-      >
-        {children}
-        {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            render={
-              <Button
-                variant="ghost"
-                className="absolute top-2 right-2"
-                size="icon-sm"
-              />
-            }
-          >
-            <XIcon
-            />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
-        )}
-      </DialogPrimitive.Popup>
+      {/* WIK-337: centrado por FLEX sobre un wrapper fixed inset-0, en vez de
+          `left-1/2 -translate-x-1/2` en el propio Popup. Motivo: el Popup de
+          Base UI es position:fixed, y un ancestro con backdrop-filter/transform
+          (nuestro <header> usa backdrop-blur, <body> usa isolate) crea un
+          containing block que NO es el viewport → `left-1/2` se resolvía contra
+          algo más ancho que la pantalla y el modal quedaba corrido a la
+          izquierda, con el borde izquierdo fuera de pantalla en iOS (reportado
+          en mobile). `inset-0 flex items-center justify-center` es inmune a eso:
+          el wrapper llena SIEMPRE el viewport y el flex centra. p-4 = margen
+          garantizado a los lados. */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <DialogPrimitive.Popup
+          data-slot="dialog-content"
+          // WIK-170: max-h + overflow-y-auto para que dialogs largos scrolleen
+          // internamente. dvh considera la barra del browser en mobile.
+          className={cn(
+            "grid max-h-[90dvh] w-full max-w-[calc(100vw-2rem)] overflow-x-hidden overflow-y-auto gap-5 rounded-2xl border border-b-2 border-border/60 bg-popover p-6 text-sm text-popover-foreground shadow-hard duration-100 outline-none sm:max-w-md dark:border-border/40 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            className
+          )}
+          {...props}
+        >
+          {children}
+          {showCloseButton && (
+            <DialogPrimitive.Close
+              data-slot="dialog-close"
+              render={
+                <Button
+                  variant="ghost"
+                  className="absolute top-2 right-2"
+                  size="icon-sm"
+                />
+              }
+            >
+              <XIcon />
+              <span className="sr-only">Close</span>
+            </DialogPrimitive.Close>
+          )}
+        </DialogPrimitive.Popup>
+      </div>
     </DialogPortal>
   )
 }
