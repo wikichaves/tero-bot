@@ -18,9 +18,10 @@ import { SubmitTemplatesButton } from "./submit-templates-button";
  * con un botón para submitarlas a Kapso/Meta. Meta aprueba en 1-2 días.
  *
  * Es una pantalla "operacional one-shot" — no se usa todos los días.
- * Funcionalidad mínima: ver las templates + disparar el submit + ver
- * el resultado. El status real (PENDING/APPROVED/REJECTED) de cada
- * template hay que consultarlo después en Kapso dashboard o con
+ * Funcionalidad: ver las templates + disparar el submit + ver el status
+ * real (PENDING/APPROVED/REJECTED + motivo de rechazo + re-categorización
+ * de Meta) en vivo. El status se auto-consulta contra Kapso al montar el
+ * botón de submit (WIK-313); también disponible por CLI con
  * `npm run wa:templates:status`.
  */
 

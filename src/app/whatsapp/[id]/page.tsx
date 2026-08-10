@@ -40,7 +40,9 @@ export default async function ConversationPage({
       .maybeSingle(),
     supabase
       .from("whatsapp_messages")
-      .select("*")
+      // WIK-325: columnas explícitas (evita traer la columna  JSONB
+      // pesada del payload de Meta/Kapso, que no se renderiza acá).
+      .select("id, conversation_id, external_id, direction, type, body, media_url, template_name, status, sent_at")
       .eq("conversation_id", id)
       .order("sent_at", { ascending: true })
       .limit(500),

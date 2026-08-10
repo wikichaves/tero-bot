@@ -128,7 +128,8 @@ export default async function ReservationDetailPage({
       conversation = convoData as WhatsAppConversation;
       const { data: msgs } = await supabase
         .from("whatsapp_messages")
-        .select("*")
+        // WIK-325: columnas explícitas (evita la columna  JSONB pesada).
+        .select("id, conversation_id, external_id, direction, type, body, media_url, template_name, status, sent_at")
         .eq("conversation_id", conversation.id)
         .order("sent_at", { ascending: true })
         .limit(100);
