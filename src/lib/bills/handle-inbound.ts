@@ -92,8 +92,22 @@ async function uploadAttachments(
       const buf = Buffer.from(att.Content, "base64");
       const isPdf = /pdf$/i.test(att.ContentType ?? safeName);
 
+      // WIK-332: 1 retry de la extracción si el primer intento vuelve vacío.
+      // En cold start de Vercel el primer import+parse de pdf-parse puede
+      // pasarse del timeout; el 2do intento (módulo ya cargado) casi siempre
+      // funciona (el warm-up baja de ~55ms a ~5ms). Sin esto, el PDF se
+      // guardaba pero sin texto → factura sin monto/fecha.
+      const extractWithRetry = async (): Promise<string | null> => {
+        if (!isPdf) return null;
+        const first = await extractPdfText(buf);
+        if (first) return first;
+        console.warn(
+          `[inbound bills] extractPdfText vacío para ${att.Name} — reintentando`,
+        );
+        return extractPdfText(buf);
+      };
       const [text, uploadRes] = await Promise.all([
-        isPdf ? extractPdfText(buf) : Promise.resolve(null),
+        extractWithRetry(),
         admin.storage
           .from("bill-attachments")
           .upload(path, buf, {
@@ -112,6 +126,12 @@ async function uploadAttachments(
       if (isPdf && text) {
         console.log(
           `[inbound bills] extracted ${text.length} chars from ${att.Name}`,
+        );
+      } else if (isPdf && !text) {
+        // WIK-332: PDF guardado pero sin texto tras el retry — la factura
+        // quedará sin parsear. Log explícito para triage (buscable en Vercel).
+        console.error(
+          `[inbound bills] PDF sin texto extraíble tras retry: ${att.Name} — factura quedará sin monto/fecha`,
         );
       }
       return { path, name: att.Name, isPdf, text };

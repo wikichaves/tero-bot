@@ -20,15 +20,17 @@ import "server-only";
 // pdf-parse has no ESM build; CJS interop via the dynamic import works
 // inside server-only code paths.
 
-const PDF_PARSE_TIMEOUT_MS = 5_000;
+const PDF_PARSE_TIMEOUT_MS = 15_000;
 
 export async function extractPdfText(buffer: Buffer): Promise<string | null> {
   try {
     const pdf = (await import("pdf-parse/lib/pdf-parse.js")).default as (
       data: Buffer,
     ) => Promise<{ text: string; numpages: number }>;
-    // Cap each PDF at 5s so one weird/corrupt attachment can't hang the
-    // whole inbound webhook (Postmark abandons us after 10s).
+    // WIK-332: cap subido a 15s. El 5s original cortaba pdf-parse en cold
+    // start de Vercel (el primer import + parse puede tardar >5s), dejando
+    // pdf_text vacio y facturas sin monto/fecha. El route tiene maxDuration=60
+    // y siempre acka 200, asi que 15s no cuelga el webhook.
     const result = await Promise.race([
       pdf(buffer),
       new Promise<never>((_, reject) =>
