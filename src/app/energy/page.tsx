@@ -24,7 +24,7 @@ import {
   startOfTodayIso,
 } from "@/lib/tuya/snapshots";
 import {
-  computeTuyaConsumption,
+  computeTuyaConsumptionBatch,
   deltaLevel,
 } from "@/lib/bills/tuya-comparison";
 import {
@@ -268,6 +268,30 @@ export default async function EnergyPage({
 
   const todayIso = startOfTodayIso();
 
+  // WIK-328: pre-cómputo BATCHEADO de las comparaciones bill-vs-Tuya. Antes se
+  // llamaba computeTuyaConsumption por cada (device, bill) dentro del map de
+  // abajo (N+1 compuesto). Ahora juntamos TODAS las bills candidatas de TODAS
+  // las properties visibles y las resolvemos en 2 queries.
+  const candidateBills = properties.flatMap((prop) =>
+    (billsByProperty.get(prop.id) ?? [])
+      .filter(
+        (b) =>
+          b.effective_period_from &&
+          b.effective_period_to &&
+          b.kwh_billed != null,
+      )
+      .slice(0, 6),
+  );
+  const comparisonByBillId = await computeTuyaConsumptionBatch(
+    admin,
+    candidateBills.map((b) => ({
+      id: b.id,
+      property_id: b.property_id,
+      period_from: b.effective_period_from!,
+      period_to: b.effective_period_to!,
+    })),
+  );
+
   const devicesWithContext: DeviceWithContext[] = await Promise.all(
     energyDevices.map(async (device) => {
       const assignment = deviceMap.get(device.id);
@@ -333,14 +357,11 @@ export default async function EnergyPage({
               b.kwh_billed != null,
           )
           .slice(0, 6);
-        const computed = await Promise.all(
-          candidates.map(async (bill) => {
-            const r = await computeTuyaConsumption(
-              admin,
-              bill.property_id,
-              bill.effective_period_from!,
-              bill.effective_period_to!,
-            );
+        billComparisons = candidates
+          .map((bill) => {
+            // WIK-328: lookup en el map precomputado en batch (misma lógica
+            // que computeTuyaConsumption, resuelta arriba en 2 queries).
+            const r = comparisonByBillId.get(bill.id);
             if (!r || r.kwh <= 0) return null;
             const deltaPct = ((bill.kwh_billed! - r.kwh) / r.kwh) * 100;
             return {
@@ -350,9 +371,8 @@ export default async function EnergyPage({
               level: deltaLevel(deltaPct),
               coverageFraction: r.coverageFraction,
             } satisfies BillComparison;
-          }),
-        );
-        billComparisons = computed.filter((x): x is BillComparison => x != null);
+          })
+          .filter((x): x is BillComparison => x != null);
       }
 
       return {
