@@ -8,7 +8,7 @@ import {
   loadEnabledRules,
   type AlarmDeviceContext,
 } from "./alarms";
-import { notifyAlarmEvent } from "./notify";
+import { notifyAlarmEventsBatch } from "./notify";
 
 /**
  * WIK-161 v2: cap de concurrencia para Tuya. Ver doc en
@@ -189,9 +189,13 @@ export async function snapshotAllSensors(): Promise<{
   // se complete el send a Kapso y las promises pendientes se cortan,
   // dejando los outbound messages sin persistir. Bug detectado al
   // probar end-to-end con WIK-82.
+  // WIK-322: recolectamos TODOS los eventos del run y notificamos en batch
+  // (un mensaje con las N alarmas) en vez de 1 mensaje por evento. Antes,
+  // cuando varios sensores cruzaban el umbral en el mismo run (madrugada
+  // fría, corte de luz multi-casa), se mandaban N notificaciones seguidas.
   let alarmsFired = 0;
   let alarmsResolved = 0;
-  const notifyPromises: Promise<unknown>[] = [];
+  const collectedEvents: import("./alarms").EvaluatedEvent[] = [];
   if (rules.length > 0) {
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
@@ -216,14 +220,7 @@ export async function snapshotAllSensors(): Promise<{
         for (const ev of events) {
           if (ev.kind === "fired") alarmsFired++;
           else alarmsResolved++;
-          notifyPromises.push(
-            notifyAlarmEvent(ev).catch((e) =>
-              console.warn(
-                "[snapshotAllSensors] notify failed:",
-                (e as Error).message,
-              ),
-            ),
-          );
+          collectedEvents.push(ev);
         }
       } catch (e) {
         console.warn(
@@ -233,10 +230,16 @@ export async function snapshotAllSensors(): Promise<{
       }
     }
   }
-  // Esperar todos los sends antes de devolver — garantiza que los
-  // outbound messages queden persisted aun en Vercel serverless.
-  if (notifyPromises.length > 0) {
-    await Promise.allSettled(notifyPromises);
+  // Notificar en batch. Con 1 evento el batch delega al notify histórico
+  // (mismo mensaje de siempre); con >1 agrupa. Se espera (await) porque en
+  // Vercel serverless la function no debe terminar antes del send.
+  if (collectedEvents.length > 0) {
+    await notifyAlarmEventsBatch(collectedEvents).catch((e) =>
+      console.warn(
+        "[snapshotAllSensors] batch notify failed:",
+        (e as Error).message,
+      ),
+    );
   }
 
   return { ranAt, results, alarmsFired, alarmsResolved };

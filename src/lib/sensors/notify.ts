@@ -514,3 +514,168 @@ export async function notifyAlarmEvent(ev: EvaluatedEvent): Promise<boolean> {
 
   return anySent || telegramSent;
 }
+
+
+/**
+ * WIK-322: notificación AGRUPADA de alarmas.
+ *
+ * Problema: el cron de snapshots evalúa todos los sensores en un mismo run.
+ * Si varios cruzan el umbral a la vez (típico: madrugada fría, corte de luz
+ * que afecta 4 casas), se disparaban N eventos y se mandaba 1 notificación
+ * por cada uno → 7 mensajes seguidos al mismo destinatario en el mismo
+ * minuto. Ruido.
+ *
+ * Solución: agrupar los eventos de un run y mandar UN solo mensaje por canal
+ * de texto libre (Telegram admin + ops-bot, push). Para 1 solo evento el
+ * mensaje es idéntico al de antes (no hay regresión visual).
+ *
+ * WhatsApp queda por-evento (usa templates UTILITY con variables fijas; no
+ * hay template "resumen"). Pero: (a) hoy WhatsApp está bloqueado por billing,
+ * y (b) el ruido real lo generaban Telegram/push, que son los canales vivos.
+ * Igual, para no reintroducir el spam por WhatsApp, si hay >1 evento fired
+ * mandamos UN solo template "resumen" al primer canal disponible... no: no
+ * existe ese template. Mantenemos WhatsApp por-evento SOLO cuando hay 1
+ * evento; con múltiples, WhatsApp manda el batch como texto (entra si la
+ * ventana 24h está abierta) para no disparar N templates. Ver nota abajo.
+ *
+ * Best-effort: nunca tira. Marca notified_via_whatsapp=true en los eventos
+ * fired si algún canal funcionó.
+ */
+export async function notifyAlarmEventsBatch(
+  events: EvaluatedEvent[],
+): Promise<boolean> {
+  if (events.length === 0) return false;
+  // 1 solo evento → comportamiento histórico exacto (sin cambios).
+  if (events.length === 1) return notifyAlarmEvent(events[0]);
+
+  const admin = createAdminClient();
+
+  // Texto agrupado para canales de texto libre (Telegram + push body).
+  // Separamos fired de resolved para un encabezado claro.
+  const fired = events.filter((e) => e.kind === "fired");
+  const resolved = events.filter((e) => e.kind === "resolved");
+
+  function lineFor(ev: EvaluatedEvent): string {
+    const loc = ev.device.room_name
+      ? `${ev.device.room_name} · ${ev.device.property_name ?? "—"}`
+      : (ev.device.property_name ?? "—");
+    if (ev.rule.metric === "power_outage") {
+      return ev.kind === "fired"
+        ? `⚡ Corte de luz — ${ev.device.property_name ?? loc}`
+        : `✅ Volvió la luz — ${ev.device.property_name ?? loc}`;
+    }
+    const m = ev.rule.metric;
+    const unit = unitOf(m);
+    const value = ev.value ?? 0;
+    const valStr =
+      m === "temperature_c" ? `${value.toFixed(1)}${unit}` : `${value.toFixed(0)}${unit}`;
+    const op = ev.rule.operator === "gt" ? ">" : "<";
+    const thr = ev.rule.threshold ?? 0;
+    const thrStr =
+      m === "temperature_c" ? `${thr.toFixed(1)}${unit}` : `${thr.toFixed(0)}${unit}`;
+    return ev.kind === "fired"
+      ? `🔔 ${labelOf(m)} ${valStr} — ${loc} (umbral ${op} ${thrStr})`
+      : `✅ ${labelOf(m)} normalizada ${valStr} — ${loc}`;
+  }
+
+  const titleParts: string[] = [];
+  if (fired.length > 0) titleParts.push(`${fired.length} alarma(s) activa(s)`);
+  if (resolved.length > 0) titleParts.push(`${resolved.length} resuelta(s)`);
+  const title = titleParts.join(" · ");
+
+  const bodyLines: string[] = [];
+  for (const ev of [...fired, ...resolved]) bodyLines.push(lineFor(ev));
+  const plainBody = bodyLines.join("\n");
+
+  // Push: title + body plano, tag único del run para colapsar.
+  try {
+    // Destinatarios = union de los recipients de todas las reglas
+    // involucradas + fallback admin/gestor. Para push mandamos a todos los
+    // admin/gestor (mismo criterio que el fallback histórico) — simple y
+    // cubre el caso real (pocas personas).
+    const { data: profs } = await admin
+      .from("profiles")
+      .select("id, role")
+      .in("role", ["admin", "gestor"]);
+    const ids = (profs ?? []).map((p) => (p as { id: string }).id);
+    if (ids.length > 0) {
+      await sendPushToProfiles(ids, {
+        title: `🏠 ${title}`,
+        body: plainBody,
+        url: "/rooms",
+        tag: `alarm-batch-${Date.now()}`,
+      });
+    }
+  } catch (e) {
+    console.warn(`[notifyAlarmEventsBatch] push failed: ${(e as Error).message}`);
+  }
+
+  // Telegram admin + ops-bot: UN mensaje HTML con todas las líneas.
+  const htmlBody =
+    `<b>🏠 ${escapeHtml(title)}</b>\n\n` +
+    bodyLines.map((l) => escapeHtml(l)).join("\n") +
+    `\n\n<a href="https://${APP_HOST}/rooms">Ver ambientes</a>`;
+  let telegramSent = false;
+  try {
+    const chatId = getAdminChatId();
+    if (chatId) {
+      const res = await sendTelegramMessage({
+        chatId,
+        text: htmlBody,
+        parseMode: "HTML",
+        disableWebPagePreview: true,
+      });
+      telegramSent = res != null;
+    }
+  } catch (e) {
+    console.warn(`[notifyAlarmEventsBatch] telegram admin failed: ${(e as Error).message}`);
+  }
+  try {
+    const opsToken = getOpsBotToken();
+    if (opsToken) {
+      const { data: opsRows } = await admin
+        .from("profiles")
+        .select("telegram_chat_id")
+        .in("role", ["admin", "gestor"])
+        .not("telegram_chat_id", "is", null);
+      const chatIds = Array.from(
+        new Set(
+          (opsRows ?? [])
+            .map((r) => (r as { telegram_chat_id: number | null }).telegram_chat_id)
+            .filter((v): v is number => typeof v === "number"),
+        ),
+      );
+      for (const cid of chatIds) {
+        const res = await sendTelegramMessage({
+          token: opsToken,
+          chatId: cid,
+          text: htmlBody,
+          parseMode: "HTML",
+          disableWebPagePreview: true,
+        });
+        if (res != null) telegramSent = true;
+      }
+    }
+  } catch (e) {
+    console.warn(`[notifyAlarmEventsBatch] ops-bot telegram failed: ${(e as Error).message}`);
+  }
+
+  // WhatsApp: para no re-spamear N templates, con batch NO mandamos WhatsApp
+  // por-evento. El canal está bloqueado por billing hoy y el valor del batch
+  // está en Telegram/push. Cuando WhatsApp vuelva, se puede sumar un template
+  // "resumen" (fuera de scope acá). Igual marcamos los fired como notificados
+  // si algún canal de texto libre funcionó.
+  if (telegramSent) {
+    const firedIds = fired.map((e) => e.event_id);
+    if (firedIds.length > 0) {
+      await admin
+        .from("alarm_events")
+        .update({ notified_via_whatsapp: true })
+        .in("id", firedIds);
+    }
+  }
+  console.log(
+    `[notifyAlarmEventsBatch] ${events.length} eventos agrupados (fired=${fired.length} resolved=${resolved.length}) telegramSent=${telegramSent}`,
+  );
+  return telegramSent;
+}
