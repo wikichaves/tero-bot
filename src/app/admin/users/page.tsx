@@ -69,7 +69,65 @@ export default async function UsersPage() {
         </Card>
       )}
 
-      <Card>
+      {/* Mobile: cards apiladas (sin scroll horizontal). Desktop: tabla. */}
+      <div className="flex flex-col gap-2 md:hidden">
+        {profiles.length === 0 ? (
+          <Card>
+            <CardContent className="py-6 text-center text-sm text-muted-foreground">
+              {t("empty")}
+            </CardContent>
+          </Card>
+        ) : (
+          profiles.map((p) => {
+            const scopedIds = scopedByProfile.get(p.id) ?? [];
+            const scopedNames = allProperties
+              .filter((prop) => scopedIds.includes(prop.id))
+              .map((prop) => prop.name);
+            return (
+              <Card key={p.id}>
+                <CardContent className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <span className="font-medium">{p.full_name ?? "—"}</span>
+                    <span className="break-all text-xs text-muted-foreground">
+                      {p.email}
+                    </span>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <Badge variant="secondary">{ROLE_LABEL[p.role]}</Badge>
+                      {p.whatsapp && (
+                        <span className="text-xs text-muted-foreground">
+                          {p.whatsapp}
+                        </span>
+                      )}
+                    </div>
+                    {p.role !== "admin" && (
+                      <span className="mt-0.5 text-xs text-muted-foreground">
+                        {scopedNames.length === 0 ? (
+                          <span className="text-amber-700 dark:text-amber-300">
+                            {t("scope.unassigned")}
+                          </span>
+                        ) : (
+                          scopedNames.join(", ")
+                        )}
+                      </span>
+                    )}
+                  </div>
+                  <div className="shrink-0">
+                    <UserActions
+                      profile={p}
+                      isSelf={p.id === me.id}
+                      allProperties={allProperties}
+                      scopedPropertyIds={scopedIds}
+                      botWhatsappNumber={botWhatsappNumber}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
+
+      <Card className="hidden md:block">
         <CardContent>
           <Table>
             <TableHeader>
