@@ -227,15 +227,26 @@ export default async function EnergyPage({
   // WIK-342: historial de cortes de luz + voltaje por propiedad (snapshot
   // visual). El medidor principal de cada property es el device is_primary
   // (breaker general). Ventana: los últimos 60 días para ver el patrón.
+  // Medidor de referencia por property para el voltaje: preferimos el marcado
+  // is_primary; si no hay ninguno marcado, caemos a CUALQUIER breaker de la
+  // property (para mostrar el voltaje igual, ej. Merced sin primary marcado).
   const primaryMeterByProperty = new Map<string, string>();
+  const fallbackBreakerByProperty = new Map<string, string>();
   for (const [, a] of deviceMap) {
-    if (a.is_primary && a.property_id && a.id) {
+    if (!a.property_id || !a.id) continue;
+    if (a.is_primary) {
       const existing = primaryMeterByProperty.get(a.property_id);
-      // preferir breaker si hubiera varios primary
       if (!existing || a.device_kind === "breaker") {
         primaryMeterByProperty.set(a.property_id, a.id);
       }
     }
+    if (a.device_kind === "breaker" && !fallbackBreakerByProperty.has(a.property_id)) {
+      fallbackBreakerByProperty.set(a.property_id, a.id);
+    }
+  }
+  // Rellenar con el fallback las properties sin primary marcado.
+  for (const [pid, bid] of fallbackBreakerByProperty) {
+    if (!primaryMeterByProperty.has(pid)) primaryMeterByProperty.set(pid, bid);
   }
   const outageSinceIso = new Date(
     serverNow() - 60 * 24 * 60 * 60 * 1000,
