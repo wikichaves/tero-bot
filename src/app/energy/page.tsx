@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getTranslations, getLocale } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -41,6 +41,8 @@ import type { Property } from "@/lib/types";
 import { SnapshotButton } from "./snapshot-button";
 import { BackfillButton } from "./backfill-button";
 import { DeviceEnergyCard } from "./device-energy-card";
+import { getPowerOutageSummaries } from "@/lib/energy/power-outage-history";
+import { PowerOutageCard } from "./power-outage-card";
 import type { BillComparison } from "./bill-comparisons-table";
 
 // El tipo `BillComparison` ahora vive en `bill-comparisons-table.tsx`
@@ -221,6 +223,29 @@ export default async function EnergyPage({
     billsByProperty.set(b.property_id, list);
   }
   const admin = createAdminClient();
+
+  // WIK-342: historial de cortes de luz + voltaje por propiedad (snapshot
+  // visual). El medidor principal de cada property es el device is_primary
+  // (breaker general). Ventana: los últimos 60 días para ver el patrón.
+  const primaryMeterByProperty = new Map<string, string>();
+  for (const [, a] of deviceMap) {
+    if (a.is_primary && a.property_id && a.id) {
+      const existing = primaryMeterByProperty.get(a.property_id);
+      // preferir breaker si hubiera varios primary
+      if (!existing || a.device_kind === "breaker") {
+        primaryMeterByProperty.set(a.property_id, a.id);
+      }
+    }
+  }
+  const outageSinceIso = new Date(
+    serverNow() - 60 * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const outageSummaries = await getPowerOutageSummaries(
+    admin,
+    properties.map((p) => p.id),
+    primaryMeterByProperty,
+    outageSinceIso,
+  ).catch(() => new Map());
 
   // Snapshots de todos los devices energéticos dentro del rango — única
   // query, agrupamos in-memory por property_device_id. Limit explícito
@@ -422,9 +447,30 @@ export default async function EnergyPage({
 
   const rangeLabel = t(`ranges.${range}` as const);
 
+  const localeForFmt = (await getLocale?.()) ?? "es";
+  const outageCards = properties
+    .map((prop) => ({ prop, summary: outageSummaries.get(prop.id) }))
+    .filter(
+      (x) =>
+        x.summary &&
+        (x.summary.totalOutages > 0 || x.summary.voltage.samples > 0),
+    );
+
   return (
     <div className="flex flex-col gap-6">
       <Header range={range} isAdmin={isAdmin} />
+      {outageCards.length > 0 && (
+        <div className="flex flex-col gap-3">
+          {outageCards.map(({ prop, summary }) => (
+            <PowerOutageCard
+              key={prop.id}
+              propertyName={prop.name}
+              summary={summary!}
+              locale={localeForFmt}
+            />
+          ))}
+        </div>
+      )}
 
       {devicesWithContext.length === 0 ? (
         <Card>

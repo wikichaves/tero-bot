@@ -1213,5 +1213,24 @@
     "pull": "Deslizá para actualizar",
     "release": "Soltá para actualizar",
     "refreshing": "Actualizando…"
+  },
+  "powerOutageCard": {
+    "title": "Cortes de luz · {property}",
+    "summary": "{total} cortes en 60 días · {micro} micro · {real} reales",
+    "noneInWindow": "Sin cortes en los últimos 60 días.",
+    "voltageLabel": "Tensión:",
+    "nowSuffix": "ahora",
+    "voltageRange": "(mín {min}V · mediana {median}V)",
+    "voltageState": {
+      "ok": "Tensión sana",
+      "warning": "Tensión baja",
+      "danger": "Tensión muy baja"
+    },
+    "microTag": "micro-corte (seg)",
+    "ongoing": "en curso",
+    "seconds": "segundos",
+    "minutes": "{n} min",
+    "hours": "{n} h",
+    "days": "{n} días"
   }
 }
