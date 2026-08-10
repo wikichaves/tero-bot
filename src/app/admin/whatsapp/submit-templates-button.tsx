@@ -117,8 +117,9 @@ export function SubmitTemplatesButton() {
   }
 
   return (
-    <div className="flex w-full max-w-lg flex-col items-end gap-2">
-      <div className="flex gap-2">
+    <div className="flex w-full flex-col gap-4">
+      {/* Acciones: compactas, alineadas a la derecha. */}
+      <div className="flex justify-end gap-2">
         <Button
           onClick={refreshStatus}
           disabled={statusPending}
@@ -136,27 +137,29 @@ export function SubmitTemplatesButton() {
         </Button>
       </div>
 
+      {/* Panel de status: ancho completo, grilla responsive. Cada template
+          es una card con jerarquía clara (nombre primario, meta secundaria). */}
       {status && status.length > 0 && (
-        <div className="w-full rounded-md border bg-card p-3 text-xs">
-          <p className="mb-2 font-medium">{t("headings.metaStatus")}</p>
-          <ul className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium">{t("headings.metaStatus")}</p>
+          <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
             {status.map((r) => (
               <li
                 key={`${r.name}|${r.language ?? ""}`}
-                className="flex flex-col gap-0.5"
+                className="flex flex-col gap-1.5 rounded-lg border border-border/60 bg-card p-3"
               >
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-mono">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="min-w-0 break-all font-mono text-sm">
                     {r.name}
                     {r.language && (
-                      <span className="ml-1 rounded bg-muted px-1 text-[10px] uppercase text-muted-foreground">
+                      <span className="ml-1.5 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">
                         {r.language}
                       </span>
                     )}
                   </span>
                   <Badge
                     variant={STATUS_VARIANT[r.status]}
-                    className="text-[10px]"
+                    className="shrink-0 text-[10px]"
                   >
                     {r.status === "APPROVED" && (
                       <CheckCircle2 className="mr-1 inline h-3 w-3" />
@@ -165,28 +168,26 @@ export function SubmitTemplatesButton() {
                       <XCircle className="mr-1 inline h-3 w-3" />
                     )}
                     {r.status}
-                    {r.template_id ? ` · ${r.template_id.slice(0, 8)}` : ""}
                   </Badge>
                 </div>
-                {/* WIK-316: categoría real en Meta. Si difiere de la que
-                    declaramos, la resaltamos: un UTILITY re-categorizado a
-                    MARKETING deja de entregarse fuera de la ventana de 24h
-                    aunque el status siga en APPROVED. */}
+                {/* WIK-316: categoría real en Meta. Si difiere de la declarada,
+                    la resaltamos: un UTILITY re-categorizado a MARKETING deja
+                    de entregar fuera de la ventana 24h aunque siga APPROVED. */}
                 {r.category && (
                   <p
                     className={
                       r.category_mismatch
-                        ? "text-[10px] font-medium text-destructive"
-                        : "text-[10px] text-muted-foreground"
+                        ? "text-xs font-medium text-destructive"
+                        : "text-xs text-muted-foreground"
                     }
                   >
                     {r.category_mismatch
                       ? `⚠ Meta la re-categorizó: ${r.local_category} → ${r.category} (puede no entregar fuera de la ventana 24h)`
-                      : `categoría: ${r.category}`}
+                      : `${r.category}`}
                   </p>
                 )}
                 {r.rejected_reason && (
-                  <p className="text-[10px] italic text-destructive">
+                  <p className="text-xs italic text-destructive">
                     {r.rejected_reason}
                   </p>
                 )}
@@ -197,28 +198,30 @@ export function SubmitTemplatesButton() {
       )}
 
       {submitResults && submitResults.length > 0 && (
-        <div className="w-full rounded-md border bg-card p-3 text-xs">
-          <p className="mb-2 font-medium">{t("headings.lastSubmit")}</p>
-          <ul className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium">{t("headings.lastSubmit")}</p>
+          <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
             {submitResults.map((r) => (
-              <li key={r.name} className="flex flex-col gap-0.5">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-mono">{r.name}</span>
+              <li
+                key={r.name}
+                className="flex flex-col gap-1.5 rounded-lg border border-border/60 bg-card p-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="min-w-0 break-all font-mono text-sm">
+                    {r.name}
+                  </span>
                   {r.ok ? (
-                    <Badge variant="default" className="text-[10px]">
+                    <Badge variant="default" className="shrink-0 text-[10px]">
                       {r.status ?? t("badges.submitted")}
-                      {r.template_id
-                        ? ` · ${r.template_id.slice(0, 8)}`
-                        : ""}
                     </Badge>
                   ) : (
-                    <Badge variant="destructive" className="text-[10px]">
+                    <Badge variant="destructive" className="shrink-0 text-[10px]">
                       {t("badges.failed")}
                     </Badge>
                   )}
                 </div>
                 {!r.ok && r.error && (
-                  <pre className="overflow-x-auto whitespace-pre-wrap text-[10px] text-destructive">
+                  <pre className="overflow-x-auto whitespace-pre-wrap text-xs text-destructive">
                     {r.error}
                   </pre>
                 )}
