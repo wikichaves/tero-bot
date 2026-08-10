@@ -108,13 +108,13 @@ export function PropertyBillsTable({
 
   return (
     <>
-      <div className="overflow-x-auto">
+      <div>
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>{t("type")}</TableHead>
-              <TableHead>{t("provider")}</TableHead>
-              <TableHead>{t("period")}</TableHead>
+              <TableHead className="hidden sm:table-cell">{t("provider")}</TableHead>
+              <TableHead className="hidden md:table-cell">{t("period")}</TableHead>
               <TableHead className="text-right">{t("amount")}</TableHead>
               <TableHead>{t("due")}</TableHead>
               <TableHead className="text-right">{t("actions")}</TableHead>
@@ -150,9 +150,9 @@ export function PropertyBillsTable({
                   )}
                   <TableRow>
                     <TableCell>{UTILITY_LABEL[b.utility_type]}</TableCell>
-                    <TableCell>{b.provider}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{b.provider}</TableCell>
                     <TableCell
-                      className={`whitespace-nowrap ${
+                      className={`hidden md:table-cell ${
                         b.period_inferred
                           ? "italic text-muted-foreground"
                           : ""

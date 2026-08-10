@@ -295,7 +295,84 @@ export default async function TasksPage({
         </div>
       </div>
 
-      <Card>
+      {/* Mobile: cards apiladas (sin scroll horizontal). Desktop: tabla. */}
+      <div className="flex flex-col gap-2 md:hidden">
+        {tasks.length === 0 ? (
+          <Card>
+            <CardContent className="py-6 text-center text-sm text-muted-foreground">
+              {t.rich("emptyHint", { em: (chunks) => <em>{chunks}</em> })}
+            </CardContent>
+          </Card>
+        ) : (
+          tasks.map((task) => {
+            const { urls: photos, cleaned } = extractPhotos(task.description);
+            const overdue =
+              task.status !== "done" &&
+              task.due_date != null &&
+              task.due_date < todayIso;
+            return (
+              <Card key={task.id}>
+                <CardContent className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <Link
+                      href={`/tasks/${task.id}`}
+                      className="flex items-center gap-2 font-medium hover:underline"
+                    >
+                      <span className="min-w-0 break-words">{task.title}</span>
+                      {photos.length > 0 && (
+                        <span className="inline-flex shrink-0 items-center gap-0.5 text-muted-foreground">
+                          <ImageIcon className="h-3.5 w-3.5" />
+                          {photos.length > 1 && (
+                            <span className="text-xs">×{photos.length}</span>
+                          )}
+                        </span>
+                      )}
+                    </Link>
+                    {cleaned && (
+                      <div className="line-clamp-1 text-xs text-muted-foreground">
+                        {cleaned}
+                      </div>
+                    )}
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                      <span>{task.property?.name ?? "—"}</span>
+                      <span>·</span>
+                      <span>
+                        {task.assignee
+                          ? (task.assignee.full_name ?? task.assignee.email)
+                          : tFilters("unassigned")}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <Badge variant={STATUS_BADGE[task.status]}>
+                        {tBadge(statusBadgeLabelKey(task.status))}
+                      </Badge>
+                      {task.due_date && (
+                        <span
+                          className={`text-xs ${overdue ? "font-medium text-destructive" : "text-muted-foreground"}`}
+                        >
+                          {overdue ? `${t("overdue")} ` : ""}
+                          {formatShortDate(parseISO(task.due_date), locale)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="shrink-0">
+                    <TaskRowActions
+                      task={task}
+                      properties={properties}
+                      assignees={assignees}
+                      role={profile.role}
+                      currentUserId={profile.id}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
+
+      <Card className="hidden md:block">
         <CardContent>
           <Table>
             <TableHeader>

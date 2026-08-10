@@ -50,7 +50,51 @@ export default async function PropertiesPage() {
         </Card>
       )}
 
-      <Card>
+      {/* Mobile: cards apiladas (sin scroll horizontal). Desktop: tabla. */}
+      <div className="flex flex-col gap-2 md:hidden">
+        {properties.length === 0 ? (
+          <Card>
+            <CardContent className="py-6 text-center text-sm text-muted-foreground">
+              {t.rich("emptyState", { em: (chunks) => <em>{chunks}</em> })}
+            </CardContent>
+          </Card>
+        ) : (
+          properties.map((p, idx) => (
+            <Card key={p.id}>
+              <CardContent className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <PropertyThumb
+                    propertyId={p.id}
+                    cacheBuster={p.created_at}
+                    size="sm"
+                    alt={p.name}
+                  />
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <span className="font-medium">{p.name}</span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {p.airbnb_ical_url ? (
+                        <Badge variant="default">{t("badge.configured")}</Badge>
+                      ) : (
+                        <Badge variant="secondary">—</Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <PropertySortControls
+                    propertyId={p.id}
+                    isFirst={idx === 0}
+                    isLast={idx === properties.length - 1}
+                  />
+                  <PropertyActions property={p} />
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+
+      <Card className="hidden md:block">
         <CardContent>
           <Table>
             <TableHeader>

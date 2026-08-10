@@ -2,32 +2,44 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * Tuya-measured kWh consumption for a property in a date range, summed
- * across all of its energy-monitored devices.
+ * Tuya-measured kWh consumption for a property in a date range, medido por el
+ * MEDIDOR PRINCIPAL de la property (WIK-340).
  *
- * Algorithm (per device):
- *   start_kwh = first energy_snapshots row with taken_at ≥ period_from
- *   end_kwh   = last  energy_snapshots row with taken_at ≤ period_to+1d
- *   delta     = end_kwh − start_kwh   (skip if negative — meter reset)
+ * Antes sumábamos TODOS los devices de la property. Eso rompía la comparación
+ * contra la factura por dos motivos:
+ *   1. Doble conteo: el breaker general ya incluye lo que consumen los switches
+ *      aguas abajo (Toallero, Lucecitas...). Sumarlos de nuevo infla el total.
+ *   2. No todo device es un medidor de la casa entera.
  *
- * Then we sum the deltas. Returns `null` when we don't have enough data
- * to compute reliably (no devices, no snapshots in range). Otherwise
- * returns `{ kwh, deviceCount }` so the UI can flag partial coverage.
+ * Ahora: se usa SOLO el device marcado `is_primary=true` de la property (el
+ * "medidor principal", típicamente el breaker general del tablero). Si la
+ * property no tiene ninguno marcado → devolvemos `null` y la UI no muestra Δ%
+ * (no tiene sentido comparar una factura de toda la casa contra un circuito
+ * parcial). El admin marca el medidor principal en /admin/tuya.
  *
- * Caveats:
- *   - Counters are cumulative, so a device whose meter was reset mid-period
- *     under-reports. We skip negative deltas (the simpler / safer choice)
- *     instead of trying to detect the wrap point.
- *   - If a device started reporting mid-period, start_kwh is the first
- *     available snapshot — which means the delta covers a shorter window
- *     than the bill. We don't try to extrapolate; the comparison just
- *     reads "low" in that case (admin can spot it from device count).
+ * Algoritmo (sobre el medidor principal):
+ *   start_kwh = primer energy_snapshots con taken_at ≥ period_from
+ *   end_kwh   = último energy_snapshots con taken_at ≤ period_to + fin de día
+ *   delta     = end_kwh − start_kwh   (skip si negativo — reset del contador)
+ *
+ * WIK-340 — filtro de saltos imposibles: los contadores de algunos breakers
+ * traen saltos espurios (ej. +362 kWh en 1h26 al arrancar). Descartamos
+ * incrementos entre lecturas consecutivas que superen MAX_KWH_PER_HOUR — son
+ * físicamente imposibles para un medidor residencial. El delta del período se
+ * computa sumando solo los incrementos "sanos" entre snapshots consecutivos,
+ * en vez de un simple last−first (que arrastra los saltos corruptos).
  */
 
+/** Techo físico de consumo por hora para un medidor residencial. Un breaker
+ *  general típico de casa raramente pasa de ~15-20 kWh/h sostenido; 25 deja
+ *  margen para picos reales (aire + estufa + horno juntos) y corta solo los
+ *  saltos claramente corruptos del contador. */
+const MAX_KWH_PER_HOUR = 25;
+
 export type ComparisonResult = {
-  /** Sum of (end − start) across all eligible devices, in kWh. */
+  /** Consumo medido por el medidor principal en el período, en kWh. */
   kwh: number;
-  /** How many devices contributed (vs. how many exist for the property). */
+  /** How many devices contributed (siempre 0 o 1 ahora: el principal). */
   deviceCount: number;
   totalDevices: number;
   /** Fraction of the bill's period that's actually covered by snapshots.
@@ -37,109 +49,100 @@ export type ComparisonResult = {
   coverageFraction: number;
 };
 
+/**
+ * Consumo "sano" de una serie de snapshots [{ms,kwh}] (ordenada asc) dentro
+ * de [fromMs,toMs]: suma incrementos entre lecturas consecutivas, descartando
+ * los negativos (reset) y los que exceden el techo físico (salto corrupto).
+ * Devuelve el kWh acumulado + los timestamps cubiertos, o null si no hay datos.
+ */
+function sanitizedConsumption(
+  series: Array<{ ms: number; kwh: number }>,
+  fromMs: number,
+  toMs: number,
+): { kwh: number; firstMs: number; lastMs: number } | null {
+  const win = series.filter((x) => x.ms >= fromMs && x.ms <= toMs);
+  if (win.length < 2) return null;
+  let kwh = 0;
+  let prev = win[0];
+  for (let i = 1; i < win.length; i++) {
+    const cur = win[i];
+    const delta = cur.kwh - prev.kwh;
+    const hours = Math.max((cur.ms - prev.ms) / 3_600_000, 1 / 60);
+    // Descartar: reset (negativo) o salto físicamente imposible.
+    if (Number.isFinite(delta) && delta >= 0 && delta / hours <= MAX_KWH_PER_HOUR) {
+      kwh += delta;
+    }
+    prev = cur;
+  }
+  return { kwh, firstMs: win[0].ms, lastMs: win[win.length - 1].ms };
+}
+
+async function primaryMeterId(
+  admin: SupabaseClient,
+  propertyId: string,
+): Promise<string | null> {
+  // El medidor principal = device is_primary=true de la property. Preferimos
+  // el breaker; si el índice único (property_id, device_kind) permitiera más
+  // de un is_primary por property, priorizamos breaker.
+  const { data } = await admin
+    .from("property_devices")
+    .select("id, device_kind")
+    .eq("property_id", propertyId)
+    .eq("is_primary", true);
+  const rows = (data ?? []) as Array<{ id: string; device_kind: string }>;
+  if (rows.length === 0) return null;
+  const breaker = rows.find((r) => r.device_kind === "breaker");
+  return (breaker ?? rows[0]).id;
+}
+
 export async function computeTuyaConsumption(
   admin: SupabaseClient,
   propertyId: string,
   periodFrom: string,
   periodTo: string,
 ): Promise<ComparisonResult | null> {
-  // Inclusive bounds: period_from is the *start* of the from-date (00:00Z),
-  // period_to is the *end* of the to-date (23:59:59Z) so snapshots taken
-  // anytime on that final day count.
+  const meterId = await primaryMeterId(admin, propertyId);
+  if (!meterId) return null; // sin medidor principal → no comparamos
+
   const fromTs = `${periodFrom}T00:00:00Z`;
   const toTs = `${periodTo}T23:59:59Z`;
+  const fromMs = new Date(fromTs).getTime();
+  const toMs = new Date(toTs).getTime();
 
-  const { data: devices } = await admin
-    .from("property_devices")
-    .select("id")
-    .eq("property_id", propertyId);
-  const deviceList = (devices ?? []) as Array<{ id: string }>;
-  if (deviceList.length === 0) return null;
+  const { data: snaps } = await admin
+    .from("energy_snapshots")
+    .select("total_energy_kwh, taken_at")
+    .eq("property_device_id", meterId)
+    .gte("taken_at", fromTs)
+    .lte("taken_at", toTs)
+    .not("total_energy_kwh", "is", null)
+    .order("taken_at", { ascending: true })
+    .limit(100_000);
+  const series = ((snaps ?? []) as Array<{ total_energy_kwh: number | null; taken_at: string }>)
+    .filter((s) => s.total_energy_kwh != null)
+    .map((s) => ({ ms: new Date(s.taken_at).getTime(), kwh: Number(s.total_energy_kwh) }));
 
-  let totalKwh = 0;
-  let contributingDevices = 0;
-  let earliestStartMs = Infinity;
-  let latestEndMs = 0;
-  for (const device of deviceList) {
-    const [startRes, endRes] = await Promise.all([
-      admin
-        .from("energy_snapshots")
-        .select("total_energy_kwh, taken_at")
-        .eq("property_device_id", device.id)
-        .gte("taken_at", fromTs)
-        .order("taken_at", { ascending: true })
-        .limit(1)
-        .maybeSingle(),
-      admin
-        .from("energy_snapshots")
-        .select("total_energy_kwh, taken_at")
-        .eq("property_device_id", device.id)
-        .lte("taken_at", toTs)
-        .order("taken_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
-    const start = startRes.data?.total_energy_kwh;
-    const end = endRes.data?.total_energy_kwh;
-    const startTakenAt = startRes.data?.taken_at;
-    const endTakenAt = endRes.data?.taken_at;
-    if (start == null || end == null) continue;
-    const delta = Number(end) - Number(start);
-    if (!Number.isFinite(delta) || delta < 0) continue;
-    totalKwh += delta;
-    contributingDevices++;
-    if (startTakenAt) {
-      const ms = new Date(startTakenAt).getTime();
-      if (ms < earliestStartMs) earliestStartMs = ms;
-    }
-    if (endTakenAt) {
-      const ms = new Date(endTakenAt).getTime();
-      if (ms > latestEndMs) latestEndMs = ms;
-    }
-  }
+  const res = sanitizedConsumption(series, fromMs, toMs);
+  if (!res) return null;
 
-  if (contributingDevices === 0) return null;
-
-  // Coverage: how much of [periodFrom, periodTo] is actually spanned by
-  // our snapshots. 1.0 when our earliest snap ≤ periodFrom and latest
-  // snap ≥ periodTo; smaller when Tuya only has data for part of the
-  // window (typical for recently-paired devices or 30-day log retention).
-  const periodFromMs = new Date(fromTs).getTime();
-  const periodToMs = new Date(toTs).getTime();
-  const totalSpan = Math.max(1, periodToMs - periodFromMs);
-  const coveredFrom = Math.max(earliestStartMs, periodFromMs);
-  const coveredTo = Math.min(latestEndMs, periodToMs);
-  const coverageFraction = Math.max(
-    0,
-    Math.min(1, (coveredTo - coveredFrom) / totalSpan),
-  );
+  const totalSpan = Math.max(1, toMs - fromMs);
+  const coveredFrom = Math.max(res.firstMs, fromMs);
+  const coveredTo = Math.min(res.lastMs, toMs);
+  const coverageFraction = Math.max(0, Math.min(1, (coveredTo - coveredFrom) / totalSpan));
 
   return {
-    kwh: totalKwh,
-    deviceCount: contributingDevices,
-    totalDevices: deviceList.length,
+    kwh: res.kwh,
+    deviceCount: 1,
+    totalDevices: 1,
     coverageFraction,
   };
 }
 
 /**
- * WIK-328: versión BATCHEADA de computeTuyaConsumption para /energy.
- *
- * El caller (/energy) compara hasta 6 facturas por property. La versión
- * per-bill hacía, por cada factura: 1 query de devices + 2 queries por device.
- * Con P properties × 6 bills × M devices eso explota en round-trips.
- *
- * Esta versión precarga TODO en 2 queries y computa en memoria:
- *   1. property_devices de todas las properties pedidas (1 query .in).
- *   2. energy_snapshots de esos devices en el rango GLOBAL
- *      [min(period_from), max(period_to)] (1 query .in + rango).
- * Luego, para cada (bill), replica la MISMA lógica que computeTuyaConsumption:
- *   - por device de la property de la bill: primer snapshot con
- *     taken_at ≥ from y último con taken_at ≤ to+fin-de-día; delta = end−start
- *     (skip si null o negativo). Suma deltas. coverageFraction idéntico.
- *
- * Devuelve un Map keyed por bill.id con el ComparisonResult (o ausente si
- * null, igual que la versión per-bill devolvía null).
+ * WIK-328/340: versión BATCHEADA para /energy. Precarga en 2 queries y computa
+ * en memoria, usando SOLO el medidor principal de cada property (igual que la
+ * versión per-bill). Properties sin medidor principal marcado quedan ausentes
+ * del Map (la UI no muestra Δ%).
  */
 export type BatchBillInput = {
   id: string;
@@ -159,107 +162,68 @@ export async function computeTuyaConsumptionBatch(
 
   const propertyIds = Array.from(new Set(bills.map((b) => b.property_id)));
 
-  // 1. Todos los devices de esas properties (1 query).
+  // 1. Medidor principal por property (1 query). Solo is_primary=true.
   const { data: devs } = await admin
     .from("property_devices")
-    .select("id, property_id")
-    .in("property_id", propertyIds);
-  const deviceList = (devs ?? []) as Array<{ id: string; property_id: string }>;
-  const devicesByProperty = new Map<string, string[]>();
-  for (const d of deviceList) {
-    const arr = devicesByProperty.get(d.property_id) ?? [];
-    arr.push(d.id);
-    devicesByProperty.set(d.property_id, arr);
+    .select("id, property_id, device_kind")
+    .in("property_id", propertyIds)
+    .eq("is_primary", true);
+  const primaryByProperty = new Map<string, string>();
+  for (const d of (devs ?? []) as Array<{ id: string; property_id: string; device_kind: string }>) {
+    // Preferir breaker si hubiera más de un primary por property.
+    const existing = primaryByProperty.get(d.property_id);
+    if (!existing || d.device_kind === "breaker") {
+      primaryByProperty.set(d.property_id, d.id);
+    }
   }
-  const allDeviceIds = deviceList.map((d) => d.id);
-  if (allDeviceIds.length === 0) return out;
+  const meterIds = Array.from(new Set(primaryByProperty.values()));
+  if (meterIds.length === 0) return out; // ninguna property tiene medidor principal
 
-  // 2. Rango global [min from 00:00Z, max to 23:59:59Z] — mismos bounds
-  //    inclusivos que la versión per-bill.
-  let minFrom = Infinity;
+  // 2. Snapshots de esos medidores hasta maxTo (1 query). Sin piso: el
+  //    filtro por período se hace en memoria.
   let maxTo = -Infinity;
   for (const b of bills) {
-    const f = new Date(`${b.period_from}T00:00:00Z`).getTime();
     const t = new Date(`${b.period_to}T23:59:59Z`).getTime();
-    if (f < minFrom) minFrom = f;
     if (t > maxTo) maxTo = t;
   }
-  // OJO semántica (WIK-328): la versión per-bill busca start = primer snapshot
-  // con taken_at ≥ from (SIN tope superior) y end = último con taken_at ≤ to
-  // (SIN piso inferior). Para replicarlo EXACTO no ponemos piso `minFrom`: un
-  // `end` válido puede ser anterior al from más chico del batch. Sí acotamos
-  // por arriba a `maxTo` (nada usa snapshots > maxTo: end es ≤to, y un start
-  // >to sin end ≤to se descarta). `minFrom` no se usa como filtro.
-  void minFrom;
   const { data: snaps } = await admin
     .from("energy_snapshots")
     .select("property_device_id, total_energy_kwh, taken_at")
-    .in("property_device_id", allDeviceIds)
+    .in("property_device_id", meterIds)
     .lte("taken_at", new Date(maxTo).toISOString())
     .not("total_energy_kwh", "is", null)
     .order("taken_at", { ascending: true })
     .limit(200_000);
-  // Agrupamos por device, ya ordenado asc por taken_at.
-  const snapsByDevice = new Map<
-    string,
-    Array<{ ms: number; kwh: number }>
-  >();
+  const snapsByMeter = new Map<string, Array<{ ms: number; kwh: number }>>();
   for (const s of (snaps ?? []) as Array<{
     property_device_id: string;
     total_energy_kwh: number | null;
     taken_at: string;
   }>) {
     if (s.total_energy_kwh == null) continue;
-    const arr = snapsByDevice.get(s.property_device_id) ?? [];
+    const arr = snapsByMeter.get(s.property_device_id) ?? [];
     arr.push({ ms: new Date(s.taken_at).getTime(), kwh: Number(s.total_energy_kwh) });
-    snapsByDevice.set(s.property_device_id, arr);
+    snapsByMeter.set(s.property_device_id, arr);
   }
 
-  // 3. Por bill: replicar computeTuyaConsumption en memoria.
+  // 3. Por bill: consumo sano del medidor principal en su período.
   for (const bill of bills) {
+    const meterId = primaryByProperty.get(bill.property_id);
+    if (!meterId) continue; // property sin medidor principal
+    const series = snapsByMeter.get(meterId);
+    if (!series) continue;
     const fromMs = new Date(`${bill.period_from}T00:00:00Z`).getTime();
     const toMs = new Date(`${bill.period_to}T23:59:59Z`).getTime();
-    const devIds = devicesByProperty.get(bill.property_id) ?? [];
-    if (devIds.length === 0) continue; // == null en la versión per-bill
-
-    let totalKwh = 0;
-    let contributingDevices = 0;
-    let earliestStartMs = Infinity;
-    let latestEndMs = 0;
-    for (const devId of devIds) {
-      const series = snapsByDevice.get(devId);
-      if (!series || series.length === 0) continue;
-      // primer snapshot con ms ≥ fromMs (series ordenada asc).
-      let start: { ms: number; kwh: number } | undefined;
-      for (const x of series) {
-        if (x.ms >= fromMs) { start = x; break; }
-      }
-      // último snapshot con ms ≤ toMs.
-      let end: { ms: number; kwh: number } | undefined;
-      for (let i = series.length - 1; i >= 0; i--) {
-        if (series[i].ms <= toMs) { end = series[i]; break; }
-      }
-      if (!start || !end) continue;
-      const delta = end.kwh - start.kwh;
-      if (!Number.isFinite(delta) || delta < 0) continue;
-      totalKwh += delta;
-      contributingDevices++;
-      if (start.ms < earliestStartMs) earliestStartMs = start.ms;
-      if (end.ms > latestEndMs) latestEndMs = end.ms;
-    }
-    if (contributingDevices === 0) continue;
-
+    const res = sanitizedConsumption(series, fromMs, toMs);
+    if (!res) continue;
     const totalSpan = Math.max(1, toMs - fromMs);
-    const coveredFrom = Math.max(earliestStartMs, fromMs);
-    const coveredTo = Math.min(latestEndMs, toMs);
-    const coverageFraction = Math.max(
-      0,
-      Math.min(1, (coveredTo - coveredFrom) / totalSpan),
-    );
+    const coveredFrom = Math.max(res.firstMs, fromMs);
+    const coveredTo = Math.min(res.lastMs, toMs);
+    const coverageFraction = Math.max(0, Math.min(1, (coveredTo - coveredFrom) / totalSpan));
     out.set(bill.id, {
-      kwh: totalKwh,
-      deviceCount: contributingDevices,
-      totalDevices: devIds.length,
+      kwh: res.kwh,
+      deviceCount: 1,
+      totalDevices: 1,
       coverageFraction,
     });
   }

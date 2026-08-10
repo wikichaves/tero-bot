@@ -78,7 +78,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
       // sumó `font-mono` y tracking más amplio (.14em) — gesto editorial
       // estilo casabosque, hace la table menos "Excel-grid" y más magazine.
       className={cn(
-        "h-11 px-3 text-left align-middle font-mono text-[11px] font-medium uppercase tracking-[0.14em] whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0",
+        "h-11 px-3 text-left align-middle font-mono text-[11px] font-medium uppercase tracking-[0.14em] whitespace-normal md:whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}
@@ -92,7 +92,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
       data-slot="table-cell"
       // WIK-128: bumped row height (p-2 → px-3 py-3) so rows breathe.
       className={cn(
-        "px-3 py-3 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        "px-3 py-3 align-middle whitespace-normal md:whitespace-nowrap [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}
