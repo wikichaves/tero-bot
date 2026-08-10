@@ -165,7 +165,7 @@ export default async function ReservationDetailPage({
       </div>
 
       {reservation.status === "cancelled" && (
-        <Card className="border-destructive">
+        <Card className="border-destructive/40">
           <CardContent className="pt-6 text-sm">
             <Badge variant="destructive">{t("cancelledBadge")}</Badge>{" "}
             <span className="ml-2 text-muted-foreground">
