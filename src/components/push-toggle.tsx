@@ -150,7 +150,7 @@ export function PushToggle() {
 
   return (
     <div className="rounded-md border p-3">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="text-sm font-medium">Notificaciones push</p>
           <p className="text-xs text-muted-foreground">
@@ -175,7 +175,7 @@ export function PushToggle() {
           </Button>
         )}
         {status === "on" && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 sm:shrink-0">
             <Button
               type="button"
               size="sm"
