@@ -66,7 +66,7 @@ function DialogContent({
           // WIK-170: max-h + overflow-y-auto para que dialogs largos scrolleen
           // internamente. dvh considera la barra del browser en mobile.
           className={cn(
-            "grid max-h-[90dvh] w-full max-w-[calc(100vw-2rem)] overflow-x-hidden overflow-y-auto gap-5 rounded-2xl border border-b-2 border-border/60 bg-popover p-6 text-sm text-popover-foreground shadow-hard duration-100 outline-none sm:max-w-md dark:border-border/40 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            "relative grid max-h-[90dvh] w-full max-w-[calc(100vw-2rem)] overflow-x-hidden overflow-y-auto gap-5 rounded-2xl border border-b-2 border-border/60 bg-popover p-6 text-sm text-popover-foreground shadow-hard duration-100 outline-none sm:max-w-md dark:border-border/40 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
             className
           )}
           {...props}
