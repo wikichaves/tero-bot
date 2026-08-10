@@ -77,9 +77,9 @@ export default async function UsersPage() {
                 <TableHead>{t("table.email")}</TableHead>
                 <TableHead>{t("table.name")}</TableHead>
                 <TableHead>{t("table.role")}</TableHead>
-                <TableHead>{t("table.properties")}</TableHead>
-                <TableHead>{t("table.whatsapp")}</TableHead>
-                <TableHead>{t("table.created")}</TableHead>
+                <TableHead className="hidden md:table-cell">{t("table.properties")}</TableHead>
+                <TableHead className="hidden lg:table-cell">{t("table.whatsapp")}</TableHead>
+                <TableHead className="hidden lg:table-cell">{t("table.created")}</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -101,12 +101,12 @@ export default async function UsersPage() {
                     .map((prop) => prop.name);
                   return (
                   <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.email}</TableCell>
+                    <TableCell className="font-medium break-all">{p.email}</TableCell>
                     <TableCell>{p.full_name ?? "—"}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{ROLE_LABEL[p.role]}</Badge>
                     </TableCell>
-                    <TableCell className="text-xs">
+                    <TableCell className="hidden text-xs md:table-cell">
                       {p.role === "admin" ? (
                         <span className="text-muted-foreground italic">
                           {t("scope.all")}
@@ -119,8 +119,10 @@ export default async function UsersPage() {
                         scopedNames.join(", ")
                       )}
                     </TableCell>
-                    <TableCell>{p.whatsapp ?? "—"}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      {p.whatsapp ?? "—"}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       {format(parseISO(p.created_at), "d MMM yyyy", {
                         locale: es,
                       })}

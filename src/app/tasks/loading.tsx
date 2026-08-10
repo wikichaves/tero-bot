@@ -24,7 +24,7 @@ export default function TasksLoading() {
 
       <Card>
         <CardHeader>
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-4 w-20" />
             ))}
@@ -32,7 +32,7 @@ export default function TasksLoading() {
         </CardHeader>
         <CardContent className="space-y-3">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="grid grid-cols-5 items-center gap-3">
+            <div key={i} className="grid grid-cols-2 md:grid-cols-5 items-center gap-3">
               <Skeleton className="h-5 w-16 rounded-full" />
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-3/4" />

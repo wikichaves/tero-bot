@@ -98,7 +98,7 @@ export function BillFormDialog({
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="property_id">{t("fields.property")}</Label>
                 <select
@@ -174,7 +174,7 @@ export function BillFormDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="period_from">{t("fields.periodFrom")}</Label>
                 <Input
@@ -195,7 +195,7 @@ export function BillFormDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="issue_date">{t("fields.issueDate")}</Label>
                 <Input
@@ -216,7 +216,7 @@ export function BillFormDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="status">{t("fields.status")}</Label>
                 <select
@@ -273,7 +273,7 @@ export function BillFormDialog({
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="account_number">{t("fields.accountNumber")}</Label>
                 <Input

@@ -354,7 +354,7 @@ function PropertyForm({
             sigue en la DB y los actions lo aceptan, por si hay rows
             existentes que ya lo tienen seteado. Reactivar el input cuando
             volvamos a usar Booking. */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="country">{t("fields.country")}</Label>
             <select
@@ -406,7 +406,7 @@ function PropertyForm({
               .
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="grid gap-1">
               <Label
                 htmlFor="target_temp_min_c"
@@ -444,7 +444,7 @@ function PropertyForm({
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="grid gap-1">
               <Label
                 htmlFor="heat_scene_id"
@@ -482,7 +482,7 @@ function PropertyForm({
           <p className="text-xs text-muted-foreground">
             {t("providers.description")}
           </p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {visibleProviders.map((p) => (
               <div key={p.key} className="grid gap-1">
                 <Label
