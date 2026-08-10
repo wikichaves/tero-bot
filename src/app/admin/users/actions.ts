@@ -67,6 +67,25 @@ function synthesizeEmail(normalizedPhone: string): string {
   return `${digits}@phone.tero.local`;
 }
 
+/**
+ * WIK-311: parsea el chat_id de Telegram desde un input de texto libre.
+ * Devuelve `undefined` = no tocar el campo (input vacío no vino), `null` =
+ * limpiar el vínculo (el admin borró el valor), o el número. Telegram usa
+ * ids enteros (pueden ser grandes → validamos que sean solo dígitos, sin
+ * castear a Number para no perder precisión en el límite; la columna es
+ * bigint y supabase-js serializa el número JS bien hasta 2^53, más que
+ * suficiente para chat_ids de usuario).
+ */
+function parseTelegramChatId(
+  raw: FormDataEntryValue | null | undefined,
+): number | null | undefined {
+  if (raw === null || raw === undefined) return undefined;
+  const v = String(raw).trim();
+  if (v === "") return null; // vino el campo pero vacío → limpiar
+  if (!/^-?\d+$/.test(v)) return "invalid" as unknown as number; // marca de error
+  return Number(v);
+}
+
 export async function createUser(formData: FormData) {
   await requireRole(["admin"]);
 
@@ -118,6 +137,14 @@ export async function createUser(formData: FormData) {
     return { error: "No se pudo crear el usuario." };
   }
 
+  // WIK-311: chat_id de Telegram (opcional). En create solo lo seteamos si
+  // vino un valor válido; vacío/ausente = no tocar (queda null por default).
+  const tgCreate = parseTelegramChatId(formData.get("telegram_chat_id"));
+  if ((tgCreate as unknown) === "invalid") {
+    // Rollback del auth user para no dejar huérfanos.
+    await admin.auth.admin.deleteUser(created.user.id);
+    return { error: "El chat_id de Telegram debe ser un número entero." };
+  }
   const { error: profileError } = await admin
     .from("profiles")
     .update({
@@ -125,6 +152,7 @@ export async function createUser(formData: FormData) {
       full_name,
       whatsapp,
       ...(parsed.data.language ? { language: parsed.data.language } : {}),
+      ...(typeof tgCreate === "number" ? { telegram_chat_id: tgCreate } : {}),
     })
     .eq("id", created.user.id);
   if (profileError) {
@@ -189,6 +217,9 @@ export async function updateProfile(input: {
   language?: string;
   /** WIK-248: rol editado dentro del modal. `undefined` = no tocar. */
   role?: string;
+  /** WIK-311: chat_id de Telegram. `undefined` = no tocar, `null` = limpiar
+   *  el vínculo, número = setear. */
+  telegram_chat_id?: number | null;
   /** WIK-242: scope de propiedades editado dentro del modal. `undefined`
    *  = no tocar el scope (caso admin). Array (incl. vacío) = reemplazar
    *  el set completo. */
@@ -216,6 +247,10 @@ export async function updateProfile(input: {
       whatsapp: normalizePhone(parsed.data.whatsapp),
       ...(parsed.data.language ? { language: parsed.data.language } : {}),
       ...(parsed.data.role ? { role: parsed.data.role } : {}),
+      // WIK-311: `undefined` = no tocar; `null` = limpiar; número = setear.
+      ...(input.telegram_chat_id !== undefined
+        ? { telegram_chat_id: input.telegram_chat_id }
+        : {}),
     })
     .eq("id", parsed.data.id);
   if (error) return { error: error.message };

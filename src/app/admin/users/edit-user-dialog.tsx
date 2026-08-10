@@ -62,11 +62,17 @@ export function EditUserDialog({
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
+      // WIK-311: parseo del chat_id de Telegram. Vacío = limpiar vínculo
+      // (null); texto = número (el server valida que sea entero).
+      const tgRaw = String(formData.get("telegram_chat_id") ?? "").trim();
+      const telegram_chat_id: number | null =
+        tgRaw === "" ? null : Number(tgRaw);
       const result = await updateProfile({
         id: profile.id,
         full_name: String(formData.get("full_name") ?? ""),
         whatsapp: String(formData.get("whatsapp") ?? ""),
         language: String(formData.get("language") ?? ""),
+        telegram_chat_id,
         // WIK-248: si es self no mandamos role (no se puede auto-cambiar);
         // sino mandamos el rol elegido en el select.
         role: isSelf ? undefined : role,
@@ -175,6 +181,23 @@ export function EditUserDialog({
                   </option>
                 ))}
               </select>
+            </div>
+            {/* WIK-311: chat_id de Telegram para el bot de operación
+                (@tero_ops_bot). La persona le manda /start al bot y el bot
+                le devuelve este número; el admin lo pega acá para
+                autorizarla. Vacío = desvincular. */}
+            <div className="grid gap-2">
+              <Label htmlFor="telegram_chat_id">{t("fields.telegramChatId")}</Label>
+              <Input
+                id="telegram_chat_id"
+                name="telegram_chat_id"
+                inputMode="numeric"
+                defaultValue={profile.telegram_chat_id?.toString() ?? ""}
+                placeholder="8968616039"
+              />
+              <p className="text-xs text-muted-foreground">
+                {t("fields.telegramChatIdHint")}
+              </p>
             </div>
           </div>
           <DialogFooter>

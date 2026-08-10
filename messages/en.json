@@ -473,7 +473,9 @@
       "properties": "Assigned properties",
       "propertiesHint": "The properties this user can see and manage.",
       "propertiesAdmin": "Admin has global access to ALL properties.",
-      "roleSelfHint": "You can't change your own role."
+      "roleSelfHint": "You can't change your own role.",
+      "telegramChatId": "Telegram chat_id (optional)",
+      "telegramChatIdHint": "For the ops bot. The person sends /start to @tero_ops_bot and it replies with this number; paste it here to authorize them. Empty = no Telegram."
     },
     "toast": {
       "created": "User created.",

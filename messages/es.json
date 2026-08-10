@@ -473,7 +473,9 @@
       "properties": "Propiedades asignadas",
       "propertiesHint": "Las propiedades que este usuario puede ver y manejar.",
       "propertiesAdmin": "Admin tiene acceso global a TODAS las propiedades.",
-      "roleSelfHint": "No podés cambiar tu propio rol."
+      "roleSelfHint": "No podés cambiar tu propio rol.",
+      "telegramChatId": "Telegram chat_id (opcional)",
+      "telegramChatIdHint": "Para el bot de operación. La persona le manda /start a @tero_ops_bot y el bot le devuelve este número; pegalo acá para autorizarla. Vacío = sin Telegram."
     },
     "toast": {
       "created": "Usuario creado.",
