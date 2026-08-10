@@ -82,3 +82,47 @@ self.addEventListener("notificationclick", (event) => {
       }),
   );
 });
+
+
+// ── Re-suscripción automática (WIK-324) ─────────────────────────────
+// El browser puede rotar/expirar el endpoint de push por su cuenta. Cuando
+// eso pasa dispara `pushsubscriptionchange`; si no re-suscribimos, el usuario
+// queda sin notificaciones hasta reactivarlas a mano. Re-suscribimos con la
+// misma VAPID key (pasada como query al registrar el SW) y re-posteamos a
+// /api/push/subscribe (auth por cookie del origin — el SW las comparte).
+self.addEventListener("pushsubscriptionchange", (event) => {
+  const applicationServerKey = getVapidKeyFromScriptUrl();
+  if (!applicationServerKey) return;
+  event.waitUntil(
+    self.registration.pushManager
+      .subscribe({ userVisibleOnly: true, applicationServerKey })
+      .then((sub) =>
+        fetch("/api/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(sub.toJSON()),
+        }),
+      )
+      .catch(() => {
+        /* best-effort: si falla, la poda 410 del server la limpia luego */
+      }),
+  );
+});
+
+/** Lee la VAPID key del query string con que se registró el SW
+ *  (/sw.js?vapid=BASE64URL) y la convierte a Uint8Array. */
+function getVapidKeyFromScriptUrl() {
+  try {
+    const u = new URL(self.location.href);
+    const b64 = u.searchParams.get("vapid");
+    if (!b64) return null;
+    const padding = "=".repeat((4 - (b64.length % 4)) % 4);
+    const base64 = (b64 + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = self.atob(base64);
+    const arr = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+    return arr;
+  } catch {
+    return null;
+  }
+}
