@@ -12,6 +12,10 @@ export const config = {
   //    Each route handler is responsible for its own auth (HMAC sig, Bearer
   //    token, etc.). Without this exclusion, unauth POSTs get redirected to
   //    /login (307) and the webhook never executes.
+  //  - sw.js — el service worker. El browser lo pide SIN cookies de sesión;
+  //    si el auth-proxy lo redirige a /login (307), el navegador recibe HTML
+  //    en vez del JS y el registro del SW FALLA. Sin SW no hay detección de
+  //    updates → los clientes quedan pegados a un bundle viejo (WIK-338).
   //  - manifest.webmanifest + manifest.json (PWA install). Chrome/Safari
   //    fetch este archivo SIN cookies de sesión cuando ofrecen "Add to
   //    Home Screen" — si lo redirigimos a /login, el browser no encuentra
@@ -21,6 +25,6 @@ export const config = {
     // it, `<picture>` sources with `image/avif` get a 307 → /login from
     // the auth proxy and the browser silently falls through to the WebP
     // fallback, defeating the optimization.
-    "/((?!api|_next/static|_next/image|favicon.ico|manifest\\.webmanifest|manifest\\.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|sw\\.js|manifest\\.webmanifest|manifest\\.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif)$).*)",
   ],
 };
