@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
+import { getAllowedPropertyIds } from "@/lib/auth/scope";
 
 /**
  * Mover un room arriba o abajo en el orden manual de /rooms
@@ -117,4 +118,64 @@ export async function moveRoom(id: string, direction: "up" | "down") {
 
   revalidatePath("/rooms");
   return { ok: true };
+}
+
+
+/**
+ * WIK-316: resolver alarmas activas en bloque desde la vista de lista de
+ * /rooms. Dos scopes:
+ *   - { roomId }     → resuelve todas las alarmas activas de los sensores
+ *                      de ESE room.
+ *   - { all: true }  → resuelve todas las alarmas activas visibles para el
+ *                      usuario (respeta el scope de propiedades: un gestor
+ *                      con scope acotado solo resuelve lo suyo).
+ *
+ * "Resolver" = setear resolved_at = now(). Idempotente: si ya estaban
+ * resueltas, el filtro `resolved_at is null` las ignora. Devuelve cuántas
+ * se resolvieron para el toast.
+ *
+ * Autorización: admin/gestor (igual que resolveAlarmEvent). El scope de
+ * propiedades se aplica siempre — nunca se resuelve fuera de lo permitido.
+ */
+export async function resolveAlarmEvents(
+  input: { roomId: string } | { all: true },
+): Promise<{ ok: true; resolved: number } | { error: string }> {
+  const profile = await requireRole(["admin", "gestor"]);
+  const admin = createAdminClient();
+  const allowedIds = await getAllowedPropertyIds(profile);
+
+  // Resolver el set de property_device_id (sensores) objetivo, aplicando
+  // siempre el scope de propiedades del usuario.
+  let deviceQuery = admin
+    .from("property_devices")
+    .select("id, property_id, room_id")
+    .eq("device_kind", "sensor");
+
+  if ("roomId" in input) {
+    if (!/^[0-9a-f-]{36}$/i.test(input.roomId)) {
+      return { error: "ID de ambiente inválido." };
+    }
+    deviceQuery = deviceQuery.eq("room_id", input.roomId);
+  }
+  if (allowedIds !== null) {
+    deviceQuery = deviceQuery.in("property_id", allowedIds);
+  }
+
+  const { data: devices, error: devErr } = await deviceQuery;
+  if (devErr) return { error: devErr.message };
+  const deviceIds = (devices ?? []).map((d) => d.id as string);
+  if (deviceIds.length === 0) return { ok: true, resolved: 0 };
+
+  const nowIso = new Date().toISOString();
+  const { data: resolved, error } = await admin
+    .from("alarm_events")
+    .update({ resolved_at: nowIso })
+    .in("property_device_id", deviceIds)
+    .is("resolved_at", null)
+    .select("id");
+  if (error) return { error: error.message };
+
+  revalidatePath("/rooms", "layout");
+  revalidatePath("/admin/alarms");
+  return { ok: true, resolved: (resolved ?? []).length };
 }

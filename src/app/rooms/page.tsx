@@ -19,6 +19,10 @@ import type { Property, Room } from "@/lib/types";
 import { SnapshotSensorsButton } from "@/app/admin/tuya/snapshot-sensors-button";
 import { RoomMiniChart } from "./room-mini-chart-wrapper";
 import { RoomSortControls } from "./room-sort-controls";
+import {
+  ResolveAllAlarmsButton,
+  ResolveRoomAlarmsButton,
+} from "./resolve-alarms-buttons";
 
 /**
  * /rooms — vista por room/ambiente con la última lectura de cada
@@ -113,12 +117,21 @@ export default async function AmbientesPage({
     .order("taken_at", { ascending: true })
     .limit(100_000);
 
-  const [propsRes, roomsRes, devicesRes, snapshotsRes] = await Promise.all([
-    propsQuery,
-    roomsQuery,
-    devicesQuery,
-    snapshotsQuery,
-  ]);
+  // WIK-316: alarmas activas (sin resolver) de todos los sensores en scope,
+  // para mostrar el conteo por room + habilitar los botones de resolver.
+  const alarmsQuery = supabase
+    .from("alarm_events")
+    .select("id, property_device_id")
+    .is("resolved_at", null);
+
+  const [propsRes, roomsRes, devicesRes, snapshotsRes, alarmsRes] =
+    await Promise.all([
+      propsQuery,
+      roomsQuery,
+      devicesQuery,
+      snapshotsQuery,
+      alarmsQuery,
+    ]);
 
   const properties = (propsRes.data ?? []) as Pick<
     Property,
@@ -145,6 +158,27 @@ export default async function AmbientesPage({
     list.push(s);
     snapshotsByDevice.set(s.property_device_id, list);
   }
+
+  // WIK-316: conteo de alarmas activas por device (los device fuera de scope
+  // ya vienen filtrados indirectamente: solo contamos las que caen en algún
+  // sensor visible al render el conteo por room).
+  const alarms = (alarmsRes.data ?? []) as {
+    id: string;
+    property_device_id: string;
+  }[];
+  const alarmCountByDevice = new Map<string, number>();
+  for (const a of alarms) {
+    alarmCountByDevice.set(
+      a.property_device_id,
+      (alarmCountByDevice.get(a.property_device_id) ?? 0) + 1,
+    );
+  }
+  // Total de alarmas activas dentro del scope visible (solo devices que
+  // pertenecen a alguna property mostrada).
+  const visibleDeviceIds = new Set(devices.map((d) => d.id));
+  const totalActiveAlarms = alarms.filter((a) =>
+    visibleDeviceIds.has(a.property_device_id),
+  ).length;
 
   // Properties que tienen al menos un sensor → mostrar
   const propertiesWithSensors = properties.filter((p) =>
@@ -180,10 +214,14 @@ export default async function AmbientesPage({
 
   // WIK-236: solo admin puede reordenar ambientes (antes también gestor).
   const canReorder = profile.role === "admin";
+  // WIK-316: resolver alarmas es para admin/gestor (la action lo exige;
+  // acá solo controla si se muestran los botones — defensa en profundidad).
+  const canResolveAlarms =
+    profile.role === "admin" || profile.role === "gestor";
 
   return (
     <div className="flex flex-col gap-6">
-      <Header range={range} />
+      <Header range={range} totalActiveAlarms={totalActiveAlarms} />
       {propertiesWithSensors.map((property) => {
         const propRooms = rooms.filter((r) => r.property_id === property.id);
         const noRoomKey = `__no_room_${property.id}`;
@@ -227,6 +265,10 @@ export default async function AmbientesPage({
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {visibleRooms.map((room, idx) => {
                 const roomDevices = devicesByRoom.get(room.id) ?? [];
+                const alarmCount = roomDevices.reduce(
+                  (n, d) => n + (alarmCountByDevice.get(d.id) ?? 0),
+                  0,
+                );
                 return (
                   <RoomCard
                     key={room.id}
@@ -239,6 +281,8 @@ export default async function AmbientesPage({
                     canReorder={canReorder}
                     isFirst={idx === 0}
                     isLast={idx === visibleRooms.length - 1}
+                    activeAlarmCount={alarmCount}
+                    canResolve={canResolveAlarms}
                   />
                 );
               })}
@@ -254,6 +298,11 @@ export default async function AmbientesPage({
                   canReorder={false}
                   isFirst={false}
                   isLast={false}
+                  activeAlarmCount={(devicesByRoom.get(noRoomKey) ?? []).reduce(
+                    (n, d) => n + (alarmCountByDevice.get(d.id) ?? 0),
+                    0,
+                  )}
+                  canResolve={canResolveAlarms}
                 />
               )}
             </div>
@@ -264,7 +313,13 @@ export default async function AmbientesPage({
   );
 }
 
-async function Header({ range }: { range: RangeKey }) {
+async function Header({
+  range,
+  totalActiveAlarms = 0,
+}: {
+  range: RangeKey;
+  totalActiveAlarms?: number;
+}) {
   const t = await getTranslations("rooms");
   return (
     <div className="flex flex-col gap-3">
@@ -273,7 +328,14 @@ async function Header({ range }: { range: RangeKey }) {
           <h1 className="text-4xl">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
-        <SnapshotSensorsButton />
+        <div className="flex items-center gap-2">
+          {/* WIK-316: resolver TODAS las alarmas activas visibles. Solo se
+              muestra si hay al menos una (el gating de rol lo hace la action). */}
+          {totalActiveAlarms > 0 && (
+            <ResolveAllAlarmsButton total={totalActiveAlarms} />
+          )}
+          <SnapshotSensorsButton />
+        </div>
       </div>
       <div className="flex flex-wrap gap-2">
         {(Object.keys(RANGES) as RangeKey[]).map((r) => (
@@ -301,6 +363,8 @@ async function RoomCard({
   canReorder,
   isFirst,
   isLast,
+  activeAlarmCount = 0,
+  canResolve = false,
 }: {
   roomId: string | null;
   roomName: string;
@@ -311,6 +375,9 @@ async function RoomCard({
   canReorder: boolean;
   isFirst: boolean;
   isLast: boolean;
+  /** WIK-316: alarmas activas de este room. >0 muestra badge + botón. */
+  activeAlarmCount?: number;
+  canResolve?: boolean;
 }) {
   const t = await getTranslations("rooms");
   // Tomamos la lectura más reciente entre todos los sensores del room.
@@ -382,6 +449,12 @@ async function RoomCard({
             el badge/dropdown quedan encima del Link.
           */}
           <div className="relative z-20 flex items-center gap-1.5">
+            {activeAlarmCount > 0 && (
+              <Badge variant="destructive" className="gap-1 text-[10px]">
+                <AlertTriangle className="h-3 w-3" />
+                {activeAlarmCount}
+              </Badge>
+            )}
             <Badge variant="secondary" className="text-[10px] font-normal">
               {t("sensorsCount", { n: devices.length })}
             </Badge>
@@ -433,6 +506,14 @@ async function RoomCard({
               <RoomMiniChart series={chartSeries} />
             )}
           </>
+        )}
+        {/* WIK-316: resolver las alarmas activas de este room. z-20 para
+            quedar encima del Link absolute de la card (que es clickeable
+            para navegar al detalle). Solo admin/gestor + si hay alarmas. */}
+        {canResolve && activeAlarmCount > 0 && roomId && (
+          <div className="relative z-20 pt-1">
+            <ResolveRoomAlarmsButton roomId={roomId} count={activeAlarmCount} />
+          </div>
         )}
       </CardContent>
     </Card>

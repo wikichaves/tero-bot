@@ -307,6 +307,16 @@
       "minutes": "{n}min ago",
       "hours": "{n}h ago",
       "days": "{n}d ago"
+    },
+    "alarms": {
+      "resolveAll": "Resolve alerts ({n})",
+      "resolveAllConfirmTitle": "Resolve all alerts?",
+      "resolveAllConfirmBody": "This will mark all {n} active alerts as resolved. This can't be undone.",
+      "resolveAllConfirm": "Yes, resolve all",
+      "resolveRoom": "Resolve ({n})",
+      "cancel": "Cancel",
+      "resolving": "Resolving…",
+      "resolvedToast": "{n} alert(s) resolved."
     }
   },
   "roomDetail": {
