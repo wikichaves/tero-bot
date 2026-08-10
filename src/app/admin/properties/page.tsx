@@ -51,7 +51,7 @@ export default async function PropertiesPage() {
       )}
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent>
           <Table>
             <TableHeader>
               <TableRow>

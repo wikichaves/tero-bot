@@ -30,7 +30,7 @@ export function NewPropertyDialog() {
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger render={<Button />}>{t("newProperty")}</DialogTrigger>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl">
           <PropertyForm onDone={() => setOpen(false)} />
         </DialogContent>
       </Dialog>
@@ -49,7 +49,7 @@ export function EditPropertyDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl">
         {/* key={property.id} re-mounts the form when switching between
             properties, so initial state can come from props in useState()
             without a useEffect sync. */}

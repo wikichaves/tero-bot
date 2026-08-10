@@ -70,7 +70,7 @@ export default async function UsersPage() {
       )}
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent>
           <Table>
             <TableHeader>
               <TableRow>

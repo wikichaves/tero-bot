@@ -450,12 +450,12 @@ async function RoomCard({
           */}
           <div className="relative z-20 flex items-center gap-1.5">
             {activeAlarmCount > 0 && (
-              <Badge variant="destructive" className="gap-1 text-[10px]">
+              <Badge variant="destructive" className="gap-1">
                 <AlertTriangle className="h-3 w-3" />
                 {activeAlarmCount}
               </Badge>
             )}
-            <Badge variant="secondary" className="text-[10px] font-normal">
+            <Badge variant="secondary" className="font-normal">
               {t("sensorsCount", { n: devices.length })}
             </Badge>
             {canReorder && roomId && (
