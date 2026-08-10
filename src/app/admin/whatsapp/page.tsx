@@ -42,15 +42,16 @@ export default async function WhatsAppAdminPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
-        <div>
-          <h1 className="text-4xl">{tr("title")}</h1>
-          <p className="text-sm text-muted-foreground">
-            {tr("subtitle", { count: allTemplates.length })}
-          </p>
-        </div>
-        <SubmitTemplatesButton />
+      <div>
+        <h1 className="text-4xl">{tr("title")}</h1>
+        <p className="text-sm text-muted-foreground">
+          {tr("subtitle", { count: allTemplates.length })}
+        </p>
       </div>
+
+      {/* WIK-334: acciones + panel de status a ancho completo (antes vivía
+          dentro del header flex → flotaba a la derecha con franja vacía). */}
+      <SubmitTemplatesButton />
 
       <div className="flex flex-col gap-3">
         {allTemplates.map((t) => (

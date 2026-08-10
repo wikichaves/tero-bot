@@ -117,9 +117,9 @@ export function SubmitTemplatesButton() {
   }
 
   return (
-    <div className="flex w-full flex-col gap-4">
-      {/* Acciones: compactas, alineadas a la derecha. */}
-      <div className="flex justify-end gap-2">
+    <div className="flex w-full flex-col gap-5">
+      {/* Acciones */}
+      <div className="flex flex-wrap justify-end gap-2">
         <Button
           onClick={refreshStatus}
           disabled={statusPending}
@@ -137,29 +137,46 @@ export function SubmitTemplatesButton() {
         </Button>
       </div>
 
-      {/* Panel de status: ancho completo, grilla responsive. Cada template
-          es una card con jerarquía clara (nombre primario, meta secundaria). */}
+      {/* Status en Meta — grilla responsive a ancho completo */}
       {status && status.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <p className="text-sm font-medium">{t("headings.metaStatus")}</p>
-          <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            {t("headings.metaStatus")}
+          </h2>
+          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {status.map((r) => (
               <li
                 key={`${r.name}|${r.language ?? ""}`}
-                className="flex flex-col gap-1.5 rounded-lg border border-border/60 bg-card p-3"
+                className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card p-4"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="min-w-0 break-all font-mono text-sm">
-                    {r.name}
-                    {r.language && (
-                      <span className="ml-1.5 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">
-                        {r.language}
-                      </span>
-                    )}
-                  </span>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <span className="min-w-0 break-all font-mono text-sm font-medium">
+                      {r.name}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                      {r.language && (
+                        <span className="uppercase">{r.language}</span>
+                      )}
+                      {r.category && (
+                        <>
+                          {r.language && <span aria-hidden>·</span>}
+                          <span
+                            className={
+                              r.category_mismatch
+                                ? "font-medium text-destructive"
+                                : ""
+                            }
+                          >
+                            {r.category}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
                   <Badge
                     variant={STATUS_VARIANT[r.status]}
-                    className="shrink-0 text-[10px]"
+                    className="shrink-0"
                   >
                     {r.status === "APPROVED" && (
                       <CheckCircle2 className="mr-1 inline h-3 w-3" />
@@ -170,20 +187,12 @@ export function SubmitTemplatesButton() {
                     {r.status}
                   </Badge>
                 </div>
-                {/* WIK-316: categoría real en Meta. Si difiere de la declarada,
-                    la resaltamos: un UTILITY re-categorizado a MARKETING deja
-                    de entregar fuera de la ventana 24h aunque siga APPROVED. */}
-                {r.category && (
-                  <p
-                    className={
-                      r.category_mismatch
-                        ? "text-xs font-medium text-destructive"
-                        : "text-xs text-muted-foreground"
-                    }
-                  >
-                    {r.category_mismatch
-                      ? `⚠ Meta la re-categorizó: ${r.local_category} → ${r.category} (puede no entregar fuera de la ventana 24h)`
-                      : `${r.category}`}
+                {r.category_mismatch && (
+                  <p className="text-xs font-medium text-destructive">
+                    {t("categoryMismatch", {
+                      from: r.local_category ?? "",
+                      to: r.category ?? "",
+                    })}
                   </p>
                 )}
                 {r.rejected_reason && (
@@ -194,28 +203,30 @@ export function SubmitTemplatesButton() {
               </li>
             ))}
           </ul>
-        </div>
+        </section>
       )}
 
       {submitResults && submitResults.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <p className="text-sm font-medium">{t("headings.lastSubmit")}</p>
-          <ul className="grid grid-cols-1 gap-2 md:grid-cols-2">
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            {t("headings.lastSubmit")}
+          </h2>
+          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {submitResults.map((r) => (
               <li
                 key={r.name}
-                className="flex flex-col gap-1.5 rounded-lg border border-border/60 bg-card p-3"
+                className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card p-4"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="min-w-0 break-all font-mono text-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="min-w-0 break-all font-mono text-sm font-medium">
                     {r.name}
                   </span>
                   {r.ok ? (
-                    <Badge variant="default" className="shrink-0 text-[10px]">
+                    <Badge variant="default" className="shrink-0">
                       {r.status ?? t("badges.submitted")}
                     </Badge>
                   ) : (
-                    <Badge variant="destructive" className="shrink-0 text-[10px]">
+                    <Badge variant="destructive" className="shrink-0">
                       {t("badges.failed")}
                     </Badge>
                   )}
@@ -228,7 +239,7 @@ export function SubmitTemplatesButton() {
               </li>
             ))}
           </ul>
-        </div>
+        </section>
       )}
     </div>
   );

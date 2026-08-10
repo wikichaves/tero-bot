@@ -1015,7 +1015,8 @@
     "badges": {
       "submitted": "enviado",
       "failed": "FALLÓ"
-    }
+    },
+    "categoryMismatch": "⚠ Meta la re-categorizó: {from} → {to} (puede no entregar fuera de la ventana 24h)"
   },
   "adminResetPassword": {
     "title": "Resetear password",
