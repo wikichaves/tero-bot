@@ -20,7 +20,6 @@ import {
 import { listPropertyDeviceMap } from "@/lib/tuya/property-devices";
 import { formatRate, getRatesToUsd, type FxRate } from "@/lib/fx";
 import {
-  getConsumptionSince,
   maybeSnapshotIfStale,
   startOfTodayIso,
 } from "@/lib/tuya/snapshots";
@@ -290,19 +289,35 @@ export default async function EnergyPage({
         readError = (e as Error).message;
       }
 
-      // Pull historical consumption (only meaningful if device is assigned —
-      // we key snapshots by property_device_id).
+      // WIK-326: consumo histórico (hoy + rango) calculado desde el mapa de
+      // snapshots que YA se trajo batcheado arriba (snapshotsByDeviceMap), en
+      // vez de 2 llamadas a getConsumptionSince por device (4 round-trips a
+      // energy_snapshots por device). Misma lógica que getConsumptionSince:
+      // delta = último − primer total_energy_kwh no-null en la ventana; se
+      // descarta si es negativo (reset del contador). El mapa cubre desde
+      // fetchSinceIso; today (todayIso) y range (rangeSinceIso) son subrangos.
       let todayKwh: number | null = null;
       let rangeKwh: number | null = null;
       let rangeFirstSnapshotIso: string | null = null;
       if (assignment?.id) {
-        const [today, rangeRes] = await Promise.all([
-          getConsumptionSince(assignment.id, todayIso),
-          getConsumptionSince(assignment.id, rangeSinceIso),
-        ]);
-        todayKwh = today.delta_kwh;
-        rangeKwh = rangeRes.delta_kwh;
-        rangeFirstSnapshotIso = rangeRes.first?.taken_at ?? null;
+        const series = snapshotsByDeviceMap.get(assignment.id) ?? [];
+        // El mapa ya viene ordenado por taken_at ascendente.
+        const withEnergy = series.filter((x) => x.total_energy_kwh != null);
+        const deltaFrom = (sinceMs: number): number | null => {
+          const win = withEnergy.filter((x) => x.ts >= sinceMs);
+          if (win.length === 0) return null;
+          const first = win[0].total_energy_kwh!;
+          const last = win[win.length - 1].total_energy_kwh!;
+          const d = Number(last) - Number(first);
+          return Number.isFinite(d) && d >= 0 ? d : null;
+        };
+        const todayMs = new Date(todayIso).getTime();
+        const rangeMs = new Date(rangeSinceIso).getTime();
+        todayKwh = deltaFrom(todayMs);
+        rangeKwh = deltaFrom(rangeMs);
+        const rangeWin = withEnergy.filter((x) => x.ts >= rangeMs);
+        rangeFirstSnapshotIso =
+          rangeWin.length > 0 ? new Date(rangeWin[0].ts).toISOString() : null;
       }
 
       // Bill-vs-Tuya comparisons para esta propiedad (las últimas hasta 6
