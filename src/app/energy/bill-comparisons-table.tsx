@@ -101,16 +101,16 @@ export function BillComparisonsTable({
       <div className="hidden overflow-x-auto sm:block">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-xs text-muted-foreground">
-              <th className="pb-1 font-medium">{t("columnPeriod")}</th>
-              <th className="pb-1 text-right font-medium">{t("columnBilled")}</th>
-              <th className="pb-1 text-right font-medium">{t("columnTuya")}</th>
-              <th className="pb-1 text-right font-medium">Δ</th>
+            <tr className="text-left font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+              <th className="pb-2 font-medium">{t("columnPeriod")}</th>
+              <th className="pb-2 text-right font-medium">{t("columnBilled")}</th>
+              <th className="pb-2 text-right font-medium">{t("columnTuya")}</th>
+              <th className="pb-2 text-right font-medium">Δ</th>
             </tr>
           </thead>
           <tbody>
             {comparisons.map((c) => (
-              <tr key={c.bill.id} className="border-t">
+              <tr key={c.bill.id} className="border-t border-border/60">
                 <td
                   className={`py-1.5 pr-2 whitespace-nowrap ${
                     c.bill.period_inferred

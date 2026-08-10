@@ -53,7 +53,7 @@ export function MyTaskCard({ task }: { task: MyTask }) {
   }
 
   return (
-    <Card className={isOverdue ? "border-destructive" : undefined}>
+    <Card className={isOverdue ? "border-destructive/40" : undefined}>
       <CardContent className="flex flex-col gap-3 pt-6">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
