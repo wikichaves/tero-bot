@@ -12,7 +12,7 @@ export default function FacturasLoading() {
         </CardHeader>
         <CardContent className="space-y-3">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="grid grid-cols-5 items-center gap-3">
+            <div key={i} className="grid grid-cols-2 md:grid-cols-5 items-center gap-3">
               <Skeleton className="h-4 w-20" />
               <Skeleton className="h-4 w-28" />
               <Skeleton className="h-4 w-24" />

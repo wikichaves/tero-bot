@@ -152,7 +152,7 @@ export function EditReservationDialog({
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="check_in_time">Horario check-in</Label>
                 <Input

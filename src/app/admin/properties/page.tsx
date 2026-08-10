@@ -57,8 +57,8 @@ export default async function PropertiesPage() {
               <TableRow>
                 <TableHead className="w-20">{t("table.order")}</TableHead>
                 <TableHead>{t("table.name")}</TableHead>
-                <TableHead>{t("table.airbnbIcal")}</TableHead>
-                <TableHead>{t("table.created")}</TableHead>
+                <TableHead className="hidden sm:table-cell">{t("table.airbnbIcal")}</TableHead>
+                <TableHead className="hidden md:table-cell">{t("table.created")}</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -95,14 +95,14 @@ export default async function PropertiesPage() {
                         <span>{p.name}</span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       {p.airbnb_ical_url ? (
                         <Badge variant="default">{t("badge.configured")}</Badge>
                       ) : (
                         <Badge variant="secondary">—</Badge>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       {format(parseISO(p.created_at), "d MMM yyyy", {
                         locale: es,
                       })}

@@ -345,7 +345,7 @@ async function HomeCard({
             <TableHeader>
               <TableRow>
                 <TableHead>{t("table.name")}</TableHead>
-                <TableHead>{t("table.category")}</TableHead>
+                <TableHead className="hidden md:table-cell">{t("table.category")}</TableHead>
                 <TableHead>{t("table.status")}</TableHead>
                 <TableHead>{t("table.room")}</TableHead>
                 <TableHead className="w-24" />
@@ -364,7 +364,7 @@ async function HomeCard({
                 return (
                   <TableRow key={d.id}>
                     <TableCell className="font-medium">{d.name}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       {d.category_name ?? d.category ?? "—"}
                     </TableCell>
                     <TableCell>
