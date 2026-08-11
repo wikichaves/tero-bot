@@ -325,6 +325,16 @@ create unique index if not exists property_devices_primary_idx
   on public.property_devices(property_id, device_kind)
   where is_primary;
 
+-- ─── Calibración de medidor vs factura (WIK-343) ───
+-- Algunos breakers Tuya reportan un consumo que no coincide con el medidor
+-- de la distribuidora (ej. 14 de Julio: el breaker mide ~2.6x de más vs
+-- EDENOR). `calibration_factor` es un multiplicador aplicado al consumo Tuya
+-- crudo para llevarlo a valores reales:  kWh_real = kWh_tuya * factor.
+-- Default 1.0 = sin calibración. Para 14 de Julio se setea ~0.3846 (1/2.6).
+alter table public.property_devices
+  add column if not exists calibration_factor numeric not null default 1.0
+    check (calibration_factor > 0);
+
 alter table public.property_devices enable row level security;
 
 drop policy if exists property_devices_read on public.property_devices;

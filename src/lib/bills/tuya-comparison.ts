@@ -77,22 +77,26 @@ function sanitizedConsumption(
   return { kwh, firstMs: win[0].ms, lastMs: win[win.length - 1].ms };
 }
 
-async function primaryMeterId(
+async function primaryMeter(
   admin: SupabaseClient,
   propertyId: string,
-): Promise<string | null> {
+): Promise<{ id: string; factor: number } | null> {
   // El medidor principal = device is_primary=true de la property. Preferimos
   // el breaker; si el índice único (property_id, device_kind) permitiera más
   // de un is_primary por property, priorizamos breaker.
   const { data } = await admin
     .from("property_devices")
-    .select("id, device_kind")
+    .select("id, device_kind, calibration_factor")
     .eq("property_id", propertyId)
     .eq("is_primary", true);
-  const rows = (data ?? []) as Array<{ id: string; device_kind: string }>;
+  const rows = (data ?? []) as Array<{
+    id: string;
+    device_kind: string;
+    calibration_factor: number | null;
+  }>;
   if (rows.length === 0) return null;
-  const breaker = rows.find((r) => r.device_kind === "breaker");
-  return (breaker ?? rows[0]).id;
+  const chosen = rows.find((r) => r.device_kind === "breaker") ?? rows[0];
+  return { id: chosen.id, factor: Number(chosen.calibration_factor ?? 1) || 1 };
 }
 
 export async function computeTuyaConsumption(
@@ -101,8 +105,9 @@ export async function computeTuyaConsumption(
   periodFrom: string,
   periodTo: string,
 ): Promise<ComparisonResult | null> {
-  const meterId = await primaryMeterId(admin, propertyId);
-  if (!meterId) return null; // sin medidor principal → no comparamos
+  const meter = await primaryMeter(admin, propertyId);
+  if (!meter) return null; // sin medidor principal → no comparamos
+  const meterId = meter.id;
 
   const fromTs = `${periodFrom}T00:00:00Z`;
   const toTs = `${periodTo}T23:59:59Z`;
@@ -131,7 +136,8 @@ export async function computeTuyaConsumption(
   const coverageFraction = Math.max(0, Math.min(1, (coveredTo - coveredFrom) / totalSpan));
 
   return {
-    kwh: res.kwh,
+    // Calibración: kWh_real = kWh_tuya * factor (WIK-343).
+    kwh: res.kwh * meter.factor,
     deviceCount: 1,
     totalDevices: 1,
     coverageFraction,
@@ -165,16 +171,25 @@ export async function computeTuyaConsumptionBatch(
   // 1. Medidor principal por property (1 query). Solo is_primary=true.
   const { data: devs } = await admin
     .from("property_devices")
-    .select("id, property_id, device_kind")
+    .select("id, property_id, device_kind, calibration_factor")
     .in("property_id", propertyIds)
     .eq("is_primary", true);
   const primaryByProperty = new Map<string, string>();
-  for (const d of (devs ?? []) as Array<{ id: string; property_id: string; device_kind: string }>) {
+  // Factor de calibración por medidor principal (WIK-343): kWh_real =
+  // kWh_tuya * factor. Default 1 si no está seteado.
+  const factorByMeter = new Map<string, number>();
+  for (const d of (devs ?? []) as Array<{
+    id: string;
+    property_id: string;
+    device_kind: string;
+    calibration_factor: number | null;
+  }>) {
     // Preferir breaker si hubiera más de un primary por property.
     const existing = primaryByProperty.get(d.property_id);
     if (!existing || d.device_kind === "breaker") {
       primaryByProperty.set(d.property_id, d.id);
     }
+    factorByMeter.set(d.id, Number(d.calibration_factor ?? 1) || 1);
   }
   const meterIds = Array.from(new Set(primaryByProperty.values()));
   if (meterIds.length === 0) return out; // ninguna property tiene medidor principal
@@ -220,8 +235,10 @@ export async function computeTuyaConsumptionBatch(
     const coveredFrom = Math.max(res.firstMs, fromMs);
     const coveredTo = Math.min(res.lastMs, toMs);
     const coverageFraction = Math.max(0, Math.min(1, (coveredTo - coveredFrom) / totalSpan));
+    const factor = factorByMeter.get(meterId) ?? 1;
     out.set(bill.id, {
-      kwh: res.kwh,
+      // Calibración: kWh_real = kWh_tuya * factor (WIK-343).
+      kwh: res.kwh * factor,
       deviceCount: 1,
       totalDevices: 1,
       coverageFraction,
