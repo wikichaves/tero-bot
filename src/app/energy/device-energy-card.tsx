@@ -103,8 +103,12 @@ export type DeviceCardCtx = {
     ts: number;
     power_w: number | null;
     current_a: number | null;
+    voltage_v: number | null;
     total_energy_kwh: number | null;
   }>;
+  /** Cortes de luz de la property dueña del device, para marcar en el
+   *  chart como líneas verticales rojas (WIK-342 v2). */
+  outages: Array<{ ts: number; micro: boolean }>;
   billComparisons: BillComparison[];
   /** Si la property no tiene tariff seteada (usa default). */
   isDefaultTariff: boolean;
@@ -140,6 +144,7 @@ export function DeviceEnergyCard({
     rangeKwh,
     rangeFirstSnapshotIso,
     rangeSnapshots,
+    outages,
     billComparisons,
     isDefaultTariff,
   } = ctx;
@@ -339,10 +344,7 @@ export function DeviceEnergyCard({
               metric={metric}
               windowStartMs={rangeStartMs}
               windowEndMs={nowMs}
-              tariff={tariff}
-              localCurrency={localCurrency}
-              displayCurrency={costCurrency}
-              fxRates={fxRates}
+              outages={outages}
             />
           </div>
         )}
