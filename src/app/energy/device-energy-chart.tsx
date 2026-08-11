@@ -5,6 +5,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -13,19 +14,19 @@ import {
 import {
   formatChartAxisTime,
   formatChartTooltipTime,
-  formatMoney,
 } from "@/lib/format";
-import type { FxRate } from "@/lib/fx";
 
 /**
- * Histórico del device (WIK-99 v6) — métrica seleccionable + línea de
- * gasto en moneda elegida.
+ * Histórico del device (WIK-342 v2) — correlación consumo vs cortes.
  *
- *   - Línea principal (sólida, naranja): corriente (A) o consumo
- *     por hora (kWh/h), según el toggle del card.
- *   - Línea secundaria (punteada, azul): gasto por hora en la moneda
- *     elegida (USD o local). Comparable visualmente con humedad en
- *     /rooms — mismo styling dashed.
+ *   - Línea principal (sólida, AZUL): corriente (A) o consumo por hora
+ *     (kWh/h), según el toggle del card. Eje izquierdo.
+ *   - Línea secundaria (sólida, NARANJA): voltaje (V). Eje derecho.
+ *     Es donde se ven los cortes súbitos (caída de tensión) y sirve
+ *     para buscar correlación con picos de amperaje.
+ *   - Líneas verticales ROJAS: cada corte de luz registrado (fired_at)
+ *     dentro de la ventana. Así se ve de un vistazo si justo antes del
+ *     corte hubo un pico de consumo o una caída de tensión.
  *
  * Eje X = tiempo, dominio fijo al rango seleccionado para que los
  * huecos de data se vean como franja vacía y no como "salto".
@@ -37,7 +38,16 @@ type Point = {
   ts: number;
   power_w: number | null;
   current_a: number | null;
+  voltage_v: number | null;
   total_energy_kwh: number | null;
+};
+
+/** Corte de luz a marcar como línea vertical. */
+export type OutageMark = {
+  /** epoch ms del inicio del corte (fired_at). */
+  ts: number;
+  /** true si fue micro-corte (< 1 min). */
+  micro: boolean;
 };
 
 export function DeviceEnergyChart({
@@ -45,65 +55,37 @@ export function DeviceEnergyChart({
   metric,
   windowStartMs,
   windowEndMs,
-  tariff,
-  localCurrency,
-  displayCurrency,
-  fxRates,
+  outages = [],
 }: {
   data: Point[];
   metric: ChartMetric;
   windowStartMs: number;
   windowEndMs: number;
-  tariff: number;
-  localCurrency: string;
-  displayCurrency: string;
-  fxRates: Map<string, FxRate>;
+  /** Cortes de luz de la property dueña de este device (para marcarlos). */
+  outages?: OutageMark[];
 }) {
-  // Convierte un valor en `localCurrency` a `displayCurrency` via USD.
-  // Memoizado afuera del useMemo de chartData para evitar churn.
-  const convertCost = useMemo(() => {
-    const fromFx = fxRates.get(localCurrency.toUpperCase());
-    const toFx = fxRates.get(displayCurrency.toUpperCase());
-    if (!fromFx || !toFx) return null;
-    const factor = toFx.per_usd / fromFx.per_usd;
-    return (amount: number): number => amount * factor;
-  }, [fxRates, localCurrency, displayCurrency]);
-
   // Computar datos derivados para el chart:
   //   - `metricValue`: corriente (A) o consumo por hora (kWh delta).
-  //   - `cost`: gasto por hora en la moneda mostrada.
+  //   - `voltage`: tensión (V) directa del snapshot.
   //
   // El kWh por hora se calcula como delta entre snapshots consecutivos
-  // (no es total_energy_kwh, que es acumulado). Anchor al inicio y fin
-  // del rango con nulls para forzar eje X completo.
+  // (no es total_energy_kwh, que es acumulado).
   const chartData = useMemo(() => {
-    const sorted = data
-      .slice()
-      .sort((a, b) => a.ts - b.ts);
+    const sorted = data.slice().sort((a, b) => a.ts - b.ts);
 
     type Row = {
       ts: number;
       metricValue: number | null;
-      cost: number | null;
+      voltage: number | null;
     };
     const rows: Row[] = [];
-
-    // (No initial null anchor: the XAxis `domain` already pins the
-    // visible range to [windowStartMs, windowEndMs]. Snapshots fetched
-    // from one hour BEFORE windowStart (see `fetchSinceIso` in
-    // page.tsx) make the line enter from the axis edge naturally.)
 
     for (let i = 0; i < sorted.length; i++) {
       const p = sorted[i];
       let metricValue: number | null = null;
-      let costLocal: number | null = null;
 
       if (metric === "amperes") {
         metricValue = p.current_a;
-        // Costo horario al consumo actual = (W → kW) × tariff.
-        if (p.power_w != null) {
-          costLocal = (p.power_w / 1000) * tariff;
-        }
       } else {
         // kWh por hora = delta con snapshot anterior, normalizado por
         // las horas transcurridas. Si no hay anterior o el delta es
@@ -118,46 +100,44 @@ export function DeviceEnergyChart({
           const deltaHours = (p.ts - prev.ts) / (60 * 60 * 1000);
           if (deltaKwh >= 0 && deltaHours > 0) {
             metricValue = deltaKwh / deltaHours; // kWh/h
-            costLocal = (deltaKwh / deltaHours) * tariff;
           }
         }
       }
 
-      const cost =
-        costLocal != null && convertCost ? convertCost(costLocal) : null;
-      rows.push({ ts: p.ts, metricValue, cost });
+      rows.push({ ts: p.ts, metricValue, voltage: p.voltage_v });
     }
 
-    // Trailing anchor: if the latest snapshot is still recent (within
-    // the typical hourly cron cadence + slack), extend its value
-    // forward to "now". That eliminates the cosmetic gap between the
-    // last data point and the axis edge that confuses readers ("is
-    // the chart broken?"). If the latest snapshot is older than ~90
-    // min the device is likely offline / cron stalled — we deliberately
-    // leave a gap there because it's real information.
+    // Trailing anchor: si el último snapshot es reciente (dentro de la
+    // cadencia horaria del cron + slack), extender su valor hasta "ahora"
+    // para eliminar el hueco cosmético al borde del eje. Si es más viejo
+    // que ~90 min el device está offline / cron parado → dejamos hueco
+    // real (es información).
     const last = rows[rows.length - 1];
     if (last && last.ts < windowEndMs) {
       const ageMs = windowEndMs - last.ts;
       const FRESH_THRESHOLD_MS = 90 * 60 * 1000;
       if (ageMs <= FRESH_THRESHOLD_MS) {
-        // Carry the last known value forward — visually flat line to
-        // "now", which matches the assumption that recent consumption
-        // is unchanged.
         rows.push({
           ts: windowEndMs,
           metricValue: last.metricValue,
-          cost: last.cost,
+          voltage: last.voltage,
         });
       } else {
-        // Old data: leave a real gap so the absence is visible.
-        rows.push({ ts: windowEndMs, metricValue: null, cost: null });
+        rows.push({ ts: windowEndMs, metricValue: null, voltage: null });
       }
     }
     return rows;
-  }, [data, metric, windowEndMs, tariff, convertCost]);
+  }, [data, metric, windowEndMs]);
 
   const metricUnit = metric === "amperes" ? "A" : "kWh/h";
   const metricLabel = metric === "amperes" ? "Corriente" : "Consumo";
+
+  // Sólo marcamos cortes dentro de la ventana visible.
+  const visibleOutages = useMemo(
+    () =>
+      outages.filter((o) => o.ts >= windowStartMs && o.ts <= windowEndMs),
+    [outages, windowStartMs, windowEndMs],
+  );
 
   return (
     <div style={{ width: "100%", height: 200, minHeight: 200 }}>
@@ -180,7 +160,7 @@ export function DeviceEnergyChart({
             tickFormatter={(ms) => formatChartAxisTime(ms as number)}
             minTickGap={60}
           />
-          {/* Eje izquierdo: métrica (A o kWh/h) */}
+          {/* Eje izquierdo: métrica (A o kWh/h) — AZUL */}
           <YAxis
             yAxisId="metric"
             orientation="left"
@@ -190,8 +170,6 @@ export function DeviceEnergyChart({
               if (metricUnit === "A") {
                 return `${n.toLocaleString("es-UY", { maximumFractionDigits: 1 })}A`;
               }
-              // kWh/h con 2 decimales para que se distingan valores
-              // chicos como 0.05 vs 0.10.
               return `${n.toLocaleString("es-UY", { maximumFractionDigits: 2 })}`;
             }}
             domain={[
@@ -203,22 +181,21 @@ export function DeviceEnergyChart({
             allowDecimals
             width={metric === "amperes" ? 48 : 56}
           />
-          {/* Eje derecho: costo */}
+          {/* Eje derecho: voltaje (V) — NARANJA */}
           <YAxis
-            yAxisId="cost"
+            yAxisId="voltage"
             orientation="right"
             tick={{ fontSize: 11 }}
-            tickFormatter={(v) =>
-              `${displayCurrency === "USD" ? "$" : ""}${v}`
-            }
+            tickFormatter={(v) => `${Math.round(Number(v))}V`}
             domain={[
-              (dataMin: number) =>
-                Math.max(0, Number(((dataMin ?? 0) * 0.9).toFixed(2))),
+              // Piso en 0 para que las caídas súbitas (corte = ~0V) se
+              // vean como desplome hasta abajo, no recortadas.
+              0,
               (dataMax: number) =>
-                Number(((dataMax ?? 0) * 1.1).toFixed(2)),
+                Math.round(((dataMax ?? 240) * 1.05) / 5) * 5,
             ]}
-            allowDecimals
-            width={52}
+            allowDecimals={false}
+            width={44}
           />
           <Tooltip
             contentStyle={{
@@ -230,8 +207,8 @@ export function DeviceEnergyChart({
             labelFormatter={(ms) => formatChartTooltipTime(ms as number)}
             formatter={(value, name) => {
               const v = value as number;
-              if (name === "Costo") {
-                return [formatMoney(v, displayCurrency), name];
+              if (name === "Voltaje") {
+                return [`${v.toFixed(0)} V`, name];
               }
               if (metricUnit === "A") {
                 return [`${v.toFixed(2)} A`, metricLabel];
@@ -239,25 +216,36 @@ export function DeviceEnergyChart({
               return [`${v.toFixed(3)} kWh/h`, metricLabel];
             }}
           />
+          {/* Marcas verticales de cortes de luz (rojas). */}
+          {visibleOutages.map((o, i) => (
+            <ReferenceLine
+              key={`outage-${o.ts}-${i}`}
+              yAxisId="metric"
+              x={o.ts}
+              stroke="oklch(0.6 0.24 25)"
+              strokeWidth={o.micro ? 1 : 1.75}
+              strokeDasharray={o.micro ? "2 3" : undefined}
+              ifOverflow="extendDomain"
+            />
+          ))}
           <Line
             yAxisId="metric"
             type="monotone"
             dataKey="metricValue"
             name={metricLabel}
-            stroke="oklch(0.7 0.22 45)"
+            stroke="oklch(0.62 0.22 245)"
             strokeWidth={2.5}
             dot={false}
             connectNulls={false}
             isAnimationActive={false}
           />
           <Line
-            yAxisId="cost"
+            yAxisId="voltage"
             type="monotone"
-            dataKey="cost"
-            name="Costo"
-            stroke="oklch(0.62 0.22 245)"
-            strokeWidth={2.5}
-            strokeDasharray="5 3"
+            dataKey="voltage"
+            name="Voltaje"
+            stroke="oklch(0.7 0.22 45)"
+            strokeWidth={2}
             dot={false}
             connectNulls={false}
             isAnimationActive={false}

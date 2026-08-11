@@ -91,8 +91,12 @@ type DeviceWithContext = {
     ts: number;
     power_w: number | null;
     current_a: number | null;
+    voltage_v: number | null;
     total_energy_kwh: number | null;
   }>;
+  /** Cortes de luz de la property dueña del device (fired_at) dentro de
+   *  la ventana de outages, para marcarlos en el chart. (WIK-342 v2) */
+  outages: Array<{ ts: number; micro: boolean }>;
   /** Facturas de luz con período + kWh facturado para la propiedad del
    *  device, comparadas contra el consumo Tuya en el mismo período. (WIK-75) */
   billComparisons: BillComparison[];
@@ -271,6 +275,7 @@ export default async function EnergyPage({
       ts: number;
       power_w: number | null;
       current_a: number | null;
+      voltage_v: number | null;
       total_energy_kwh: number | null;
     }>
   >();
@@ -278,7 +283,7 @@ export default async function EnergyPage({
     const { data: rangeSnaps } = await admin
       .from("energy_snapshots")
       .select(
-        "property_device_id, taken_at, power_w, current_a, total_energy_kwh",
+        "property_device_id, taken_at, power_w, current_a, voltage_v, total_energy_kwh",
       )
       .in("property_device_id", energyPropertyDeviceIds)
       .gte("taken_at", fetchSinceIso)
@@ -289,6 +294,7 @@ export default async function EnergyPage({
       taken_at: string;
       power_w: number | null;
       current_a: number | null;
+      voltage_v: number | null;
       total_energy_kwh: number | null;
     }>) {
       const list = snapshotsByDeviceMap.get(s.property_device_id) ?? [];
@@ -296,6 +302,7 @@ export default async function EnergyPage({
         ts: new Date(s.taken_at).getTime(),
         power_w: s.power_w,
         current_a: s.current_a,
+        voltage_v: s.voltage_v,
         total_energy_kwh: s.total_energy_kwh,
       });
       snapshotsByDeviceMap.set(s.property_device_id, list);
@@ -425,6 +432,17 @@ export default async function EnergyPage({
         rangeFirstSnapshotIso,
         rangeSnapshots: assignment?.id
           ? (snapshotsByDeviceMap.get(assignment.id) ?? [])
+          : [],
+        // Cortes de la property de este device (WIK-342 v2). Vienen del
+        // resumen de outages ya calculado arriba; los mapeamos a marcas
+        // { ts, micro } para las líneas verticales del chart.
+        outages: property
+          ? ((outageSummaries.get(property.id)?.outages ?? []).map(
+              (o: { firedAt: string; micro: boolean }) => ({
+                ts: new Date(o.firedAt).getTime(),
+                micro: o.micro,
+              }),
+            ))
           : [],
         billComparisons,
         isDefaultTariff:
