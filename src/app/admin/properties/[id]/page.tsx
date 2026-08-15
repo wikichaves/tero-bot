@@ -26,6 +26,10 @@ export const dynamic = "force-dynamic";
 
 const SENSOR_KINDS = new Set(["sensor"]);
 
+// Solo Casa Merced tiene plano vectorial dibujado por ahora. Las demás
+// properties muestran un placeholder hasta que se dibuje su propio plano.
+const MERCED_PROPERTY_ID = "5386f1fc-7440-45b0-a418-74086fb5f2f9";
+
 type DeviceRow = {
   id: string;
   tuya_device_name: string | null;
@@ -121,7 +125,13 @@ export default async function PropertyDetailPage({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <FloorPlanSvg pins={pins} />
+          {property.id === MERCED_PROPERTY_ID ? (
+            <FloorPlanSvg pins={pins} />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Esta casa todavía no tiene plano cargado.
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>
