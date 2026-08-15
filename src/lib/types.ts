@@ -52,6 +52,10 @@ export type Property = {
    *  esta property. Vacío = no se puede auto-enfriar. */
   cool_scene_id: string | null;
   heat_scene_id: string | null;
+  /** URL pública (bucket property-thumbnails) del plano recortado de la casa.
+   *  Se muestra como fondo en la página de detalle de la property con los
+   *  devices posicionados encima (pin_x / pin_y). */
+  floor_plan_url: string | null;
   created_at: string;
 };
 
@@ -238,6 +242,10 @@ export type PropertyDevice = {
   device_kind: DeviceKind;
   is_primary: boolean;
   room_id: string | null;   // WIK-82: vínculo opcional a un Room (ambiente).
+  /** Posición del pin sobre el plano de la property, en % (0-100) del
+   *  ancho/alto. Null = no se dibuja sobre el plano. */
+  pin_x: number | null;
+  pin_y: number | null;
   created_at: string;
 };
 

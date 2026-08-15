@@ -72,3 +72,4 @@ next-env.d.ts
 /scripts/timelapse/node_modules/
 /screenshots/
 /tero-bot-timelapse.mp4
+.openclaw/

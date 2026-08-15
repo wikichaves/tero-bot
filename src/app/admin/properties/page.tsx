@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { getTranslations } from "next-intl/server";
@@ -70,7 +71,7 @@ export default async function PropertiesPage() {
                     alt={p.name}
                   />
                   <div className="flex min-w-0 flex-col gap-1">
-                    <span className="font-medium">{p.name}</span>
+                    <Link href={`/admin/properties/${p.id}`} className="font-medium hover:underline">{p.name}</Link>
                     <div className="flex flex-wrap items-center gap-1.5">
                       {p.airbnb_ical_url ? (
                         <Badge variant="default">{t("badge.configured")}</Badge>
@@ -136,7 +137,7 @@ export default async function PropertiesPage() {
                           size="sm"
                           alt={p.name}
                         />
-                        <span>{p.name}</span>
+                        <Link href={`/admin/properties/${p.id}`} className="hover:underline">{p.name}</Link>
                       </div>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
