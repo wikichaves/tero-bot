@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { Property } from "@/lib/types";
-import { FloorPlan, type FloorPlanPin } from "./floor-plan";
+import { FloorPlanSvg, type FloorPin } from "./floor-plan-svg";
 
 /**
  * /admin/properties/[id] — detalle de una property.
@@ -84,7 +84,7 @@ export default async function PropertyDetailPage({
     }
   }
 
-  const pins: FloorPlanPin[] = devices
+  const pins: FloorPin[] = devices
     .filter((d) => d.pin_x !== null && d.pin_y !== null)
     .map((d) => {
       const isSensor = SENSOR_KINDS.has(d.device_kind);
@@ -121,13 +121,7 @@ export default async function PropertyDetailPage({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {property.floor_plan_url ? (
-            <FloorPlan floorPlanUrl={property.floor_plan_url} pins={pins} />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Esta property todavía no tiene plano cargado.
-            </p>
-          )}
+          <FloorPlanSvg pins={pins} />
         </CardContent>
       </Card>
     </div>
