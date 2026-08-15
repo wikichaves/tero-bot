@@ -551,12 +551,12 @@ async function Header({
           <h1 className="text-4xl">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">
             {t("subtitlePre")}
-            <a
+            <Link
               href="/admin/properties"
               className="underline hover:text-foreground"
             >
               {t("subtitleLink")}
-            </a>
+            </Link>
             {t("subtitlePost")}
           </p>
         </div>
