@@ -126,6 +126,11 @@ alter table public.properties
     check (currency ~ '^[A-Z]{3}$'),
   add column if not exists tariff_per_kwh numeric;
 
+-- ─── Plano de la casa (WIK: floor plan en la pagina de property) ───
+-- URL publica (bucket property-thumbnails) del plano recortado de la casa.
+alter table public.properties
+  add column if not exists floor_plan_url text;
+
 -- Reservations
 create table if not exists public.reservations (
   id uuid primary key default gen_random_uuid(),
@@ -688,6 +693,12 @@ alter table public.property_devices
   add column if not exists room_id uuid references public.rooms(id) on delete set null;
 create index if not exists property_devices_room_idx
   on public.property_devices(room_id);
+
+-- ─── Posicion del device sobre el plano (WIK: floor plan pins) ───
+-- pin_x / pin_y en % (0-100) del ancho/alto del plano. Null = no se dibuja.
+alter table public.property_devices
+  add column if not exists pin_x numeric,
+  add column if not exists pin_y numeric;
 
 create table if not exists public.sensor_snapshots (
   id uuid primary key default gen_random_uuid(),
