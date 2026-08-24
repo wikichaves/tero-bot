@@ -33,9 +33,6 @@ on:
         description: 'Opcional: forzar un ticket específico (ej "WIK-150"). Si vacío, agarra el de mayor prioridad con label claude:autonomous (de cualquier project registrado).'
         required: false
         type: string
-  schedule:
-    # 14:00 UTC = 11:00 AR/UY. Una corrida por día.
-    - cron: '0 14 * * *'
 
 permissions:
   contents: write
