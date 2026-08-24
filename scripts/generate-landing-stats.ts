@@ -52,6 +52,15 @@ type Stats = {
   activeDays: number;
 };
 
+// Build metadata is decorative: an upstream GitHub outage must never prevent
+// a production deploy. Kept as a conservative last-known snapshot for the
+// rare case where Vercel has neither network access nor a usable git history.
+const FALLBACK_STATS: Stats = {
+  commits: 515,
+  activeHours: 170,
+  activeDays: 33,
+};
+
 /**
  * Fetcha todos los commits del repo via GitHub API paginated. Devuelve
  * los timestamps en ms (sorted ASC). Si la API falla, devuelve null.
@@ -150,8 +159,21 @@ async function main() {
     source = "local-git";
   }
   if (!timestamps || timestamps.length === 0) {
-    console.error("[landing-stats] no commits available from any source");
-    process.exit(1);
+    const data = {
+      ...FALLBACK_STATS,
+      source: "cached",
+      generatedAt: new Date().toISOString(),
+    };
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const out = resolve(
+      __dirname,
+      "../src/lib/landing/stats.generated.json",
+    );
+    await writeFile(out, JSON.stringify(data, null, 2) + "\n");
+    console.warn(
+      `[landing-stats] no commits available; wrote cached fallback to ${out}`,
+    );
+    return;
   }
   const stats = computeStats(timestamps);
   const data = {

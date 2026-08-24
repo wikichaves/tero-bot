@@ -9,6 +9,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:whatsapp-webhook": "tsx --test src/lib/whatsapp/webhook.test.ts",
     "stats:landing": "tsx scripts/generate-landing-stats.ts",
     "wa:templates:submit": "tsx scripts/whatsapp-templates-submit.ts",
     "wa:templates:submit:dry": "tsx scripts/whatsapp-templates-submit.ts --dry-run",
