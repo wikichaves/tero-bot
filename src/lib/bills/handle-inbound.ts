@@ -147,15 +147,17 @@ async function uploadAttachments(
 
 /**
  * Smart upsert for utility_bills. Looks for an existing row matching
- * (property_id, provider, period_to) — if found, MERGE the new parsed
+ * (property_id, provider, invoice number) when available; otherwise it uses
+ * the billing period, or a conservative fallback fingerprint (account,
+ * date and amount). If found, MERGE the new parsed
  * fields with the existing ones (prefer new non-null values, keep
  * existing values when the new parse returned null). If not found,
  * insert a new row.
  *
- * Dedup is keyed on period_to only because that's the most stable
- * single-field identifier of "which billing cycle is this". Without
- * period_to (e.g. a partial parse from a notification email), we let
- * the row through and the admin can merge / delete by hand if needed.
+ * Some providers (notably Antel and Prosegur) don't expose a billing period
+ * in their emails. Their duplicate deliveries must still be idempotent, but
+ * we intentionally only use the fallback when it includes both a date and
+ * an amount so distinct invoices cannot be collapsed by a weak match.
  */
 type BillInsertFields = {
   property_id: string;
@@ -175,6 +177,61 @@ type BillInsertFields = {
   pdf_path: string | null;
 };
 
+const BILL_SELECT =
+  "id, amount, currency, period_from, issue_date, due_date, kwh_billed, m3_billed, account_number, invoice_number, pdf_path";
+
+async function findExistingBill(
+  admin: SupabaseClient,
+  fields: BillInsertFields,
+) {
+  const base = () =>
+    admin
+      .from("utility_bills")
+      .select(BILL_SELECT)
+      .eq("property_id", fields.property_id)
+      .eq("provider", fields.provider);
+
+  // Invoice number is the provider's natural identifier and takes priority.
+  if (fields.invoice_number) {
+    const { data } = await base()
+      .eq("invoice_number", fields.invoice_number)
+      .maybeSingle();
+    return data;
+  }
+
+  if (fields.period_to) {
+    let query = base().eq("period_to", fields.period_to);
+    query = fields.account_number
+      ? query.eq("account_number", fields.account_number)
+      : query.is("account_number", null);
+    const { data } = await query.maybeSingle();
+    return data;
+  }
+
+  // Providers that omit the billing period still produce a stable identity:
+  // same account (when parsed), issue/due date and amount. Do not dedupe a
+  // partial parse with no amount or date — that would be too speculative.
+  const fingerprintDate = fields.issue_date ?? fields.due_date;
+  if (fingerprintDate == null || fields.amount == null) return null;
+
+  let query = base()
+    .eq("utility_type", fields.utility_type)
+    .eq("amount", fields.amount)
+    .is("period_to", null);
+  query = fields.currency
+    ? query.eq("currency", fields.currency)
+    : query.is("currency", null);
+  query = fields.account_number
+    ? query.eq("account_number", fields.account_number)
+    : query.is("account_number", null);
+  query = fields.issue_date
+    ? query.eq("issue_date", fingerprintDate)
+    : query.is("issue_date", null).eq("due_date", fingerprintDate);
+
+  const { data } = await query.maybeSingle();
+  return data;
+}
+
 async function upsertBill(
   admin: SupabaseClient,
   fields: BillInsertFields,
@@ -183,17 +240,8 @@ async function upsertBill(
   action: "inserted" | "updated" | "error";
   error?: string;
 }> {
-  if (fields.period_to) {
-    const { data: existing } = await admin
-      .from("utility_bills")
-      .select(
-        "id, amount, currency, period_from, issue_date, due_date, kwh_billed, m3_billed, account_number, invoice_number, pdf_path",
-      )
-      .eq("property_id", fields.property_id)
-      .eq("provider", fields.provider)
-      .eq("period_to", fields.period_to)
-      .maybeSingle();
-    if (existing) {
+  const existing = await findExistingBill(admin, fields);
+  if (existing) {
       // Coalesce-style merge: new value wins when present, existing
       // value wins when the new parse returned null. The inbound_email_id
       // is overwritten to the latest one so traceability stays current.
@@ -218,7 +266,6 @@ async function upsertBill(
         return { id: existing.id, action: "error", error: error.message };
       }
       return { id: existing.id, action: "updated" };
-    }
   }
   const { data, error } = await admin
     .from("utility_bills")
