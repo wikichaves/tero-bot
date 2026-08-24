@@ -461,7 +461,9 @@ async function lookupProfileByPhone(phone: string): Promise<Profile | null> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("profiles")
-    .select("*")
+    .select(
+      "id, email, full_name, role, whatsapp, created_at, language, telegram_chat_id",
+    )
     .eq("whatsapp", normalized)
     .maybeSingle();
   return (data as Profile) ?? null;
