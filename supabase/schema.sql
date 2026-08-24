@@ -587,6 +587,69 @@ create index if not exists utility_bills_type_idx
 create index if not exists utility_bills_status_idx
   on public.utility_bills(status, due_date);
 
+-- ─── Bills: duplicate protection (WIK-351) ────────────────────────────────
+-- A provider may send the same invoice more than once with a different email
+-- MessageID. Keep the database as the final guard (the inbound handler also
+-- merges these rows before inserting) so concurrent webhook deliveries and
+-- manual reprocessing cannot create duplicate bills.
+--
+-- First collapse legacy duplicates, retaining the most recently updated row.
+-- The fingerprint intentionally requires amount + a meaningful date when a
+-- provider omitted both invoice number and billing period.
+with ranked_duplicates as (
+  select
+    id,
+    row_number() over (
+      partition by
+        property_id,
+        provider,
+        utility_type,
+        coalesce(currency, ''),
+        amount,
+        coalesce(account_number, ''),
+        coalesce(period_to, issue_date, due_date)
+      order by updated_at desc, created_at desc, id desc
+    ) as row_number
+  from public.utility_bills
+  where invoice_number is null
+    and amount is not null
+    and coalesce(period_to, issue_date, due_date) is not null
+)
+delete from public.utility_bills bills
+using ranked_duplicates duplicates
+where bills.id = duplicates.id
+  and duplicates.row_number > 1;
+
+create unique index if not exists utility_bills_invoice_identity_uidx
+  on public.utility_bills(property_id, provider, invoice_number)
+  where invoice_number is not null and btrim(invoice_number) <> '';
+
+-- A single property can have multiple UTE accounts, each with the same
+-- billing period. Account is therefore part of the period identity whenever
+-- the parser managed to extract it.
+create unique index if not exists utility_bills_period_account_identity_uidx
+  on public.utility_bills(property_id, provider, account_number, period_to)
+  where period_to is not null and account_number is not null;
+
+create unique index if not exists utility_bills_period_no_account_identity_uidx
+  on public.utility_bills(property_id, provider, period_to)
+  where period_to is not null and account_number is null;
+
+create unique index if not exists utility_bills_fallback_identity_uidx
+  on public.utility_bills(
+    property_id,
+    provider,
+    utility_type,
+    coalesce(currency, ''),
+    amount,
+    coalesce(account_number, ''),
+    coalesce(issue_date, due_date)
+  )
+  where invoice_number is null
+    and period_to is null
+    and amount is not null
+    and coalesce(issue_date, due_date) is not null;
+
 create or replace function public.utility_bills_set_updated_at()
 returns trigger language plpgsql as $$
 begin
