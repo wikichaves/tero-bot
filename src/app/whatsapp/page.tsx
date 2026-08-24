@@ -21,7 +21,9 @@ export default async function WhatsAppInboxPage() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("whatsapp_conversations")
-    .select("*")
+    .select(
+      "id, phone_number, display_name, audience, profile_id, last_message_at, last_message_text, last_message_direction, unread_count, created_at, updated_at",
+    )
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .limit(100);
   const conversations = (data ?? []) as WhatsAppConversation[];

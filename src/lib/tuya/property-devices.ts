@@ -3,6 +3,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { DeviceKind, PropertyDevice } from "@/lib/types";
 import type { TuyaDevice } from "./devices";
 
+const PROPERTY_DEVICE_COLUMNS =
+  "id, property_id, tuya_device_id, tuya_device_name, device_kind, is_primary, room_id, pin_x, pin_y, created_at";
+
 const KIND_VALUES: DeviceKind[] = [
   "lock",
   "thermostat",
@@ -82,7 +85,9 @@ export async function listPropertyDeviceMap(): Promise<
   Map<string, PropertyDevice>
 > {
   const admin = createAdminClient();
-  const { data } = await admin.from("property_devices").select("*");
+  const { data } = await admin
+    .from("property_devices")
+    .select(PROPERTY_DEVICE_COLUMNS);
   const list = (data ?? []) as PropertyDevice[];
   return new Map(list.map((pd) => [pd.tuya_device_id, pd]));
 }
@@ -94,7 +99,7 @@ export async function getPrimaryDeviceForProperty(
   const admin = createAdminClient();
   const { data } = await admin
     .from("property_devices")
-    .select("*")
+    .select(PROPERTY_DEVICE_COLUMNS)
     .eq("property_id", propertyId)
     .eq("device_kind", kind)
     .eq("is_primary", true)

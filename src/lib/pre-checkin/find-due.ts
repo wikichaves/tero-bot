@@ -79,71 +79,95 @@ function shortCode(propertyName: string): string {
   return (first ?? noAccents.toLowerCase().replace(/\s+/g, "")).slice(0, 10);
 }
 
-async function resolveNotifyProfile(
-  admin: ReturnType<typeof createAdminClient>,
-  propertyId: string,
-): Promise<{
+type NotifyProfile = {
   id: string;
   name: string | null;
   phone: string;
   language: string | null;
-} | null> {
+};
+
+type AssignmentRow = {
+  property_id: string;
+  profile: {
+    id: string;
+    full_name: string | null;
+    whatsapp: string | null;
+    role: string;
+    language: string | null;
+  };
+};
+
+/**
+ * Resolve notification recipients for a whole cron run in two queries:
+ * assigned profiles for the involved properties plus the global admin
+ * fallback. The previous per-reservation lookup multiplied those queries by
+ * the number of due reservations.
+ */
+async function resolveNotifyProfiles(
+  admin: ReturnType<typeof createAdminClient>,
+  propertyIds: string[],
+): Promise<Map<string, NotifyProfile>> {
+  const uniquePropertyIds = [...new Set(propertyIds)];
+  if (uniquePropertyIds.length === 0) return new Map();
+
   // Prefer gestor assigned to the property; fallback to any admin with
   // whatsapp set. Mirrors lib/alarm-reminders/find-due.ts logic.
-  type AssignmentRow = {
-    profile: {
-      id: string;
-      full_name: string | null;
-      whatsapp: string | null;
-      role: string;
-      language: string | null;
-    };
-  };
-  const { data: assignments } = await admin
-    .from("profile_properties")
-    .select("profile:profiles!inner(id, full_name, whatsapp, role, language)")
-    .eq("property_id", propertyId);
-  const list = ((assignments ?? []) as unknown) as AssignmentRow[];
-  const gestor = list.find((a) => a.profile.role === "gestor" && a.profile.whatsapp);
-  if (gestor) {
-    return {
-      id: gestor.profile.id,
-      name: gestor.profile.full_name,
-      phone: gestor.profile.whatsapp!,
-      language: gestor.profile.language,
-    };
-  }
-  const admin2 = list.find((a) => a.profile.role === "admin" && a.profile.whatsapp);
-  if (admin2) {
-    return {
-      id: admin2.profile.id,
-      name: admin2.profile.full_name,
-      phone: admin2.profile.whatsapp!,
-      language: admin2.profile.language,
-    };
-  }
-  // Fallback: any admin with whatsapp.
   type AdminRow = {
     id: string;
     full_name: string | null;
     whatsapp: string;
     language: string | null;
   };
-  const { data: adminRows } = await admin
-    .from("profiles")
-    .select("id, full_name, whatsapp, language")
-    .eq("role", "admin")
-    .not("whatsapp", "is", null)
-    .limit(1);
+  const [{ data: assignments }, { data: adminRows }] = await Promise.all([
+    admin
+      .from("profile_properties")
+      .select(
+        "property_id, profile:profiles!inner(id, full_name, whatsapp, role, language)",
+      )
+      .in("property_id", uniquePropertyIds),
+    admin
+      .from("profiles")
+      .select("id, full_name, whatsapp, language")
+      .eq("role", "admin")
+      .not("whatsapp", "is", null)
+      .limit(1),
+  ]);
+
+  const assignmentsByProperty = new Map<string, AssignmentRow[]>();
+  for (const assignment of (assignments ?? []) as unknown as AssignmentRow[]) {
+    const list = assignmentsByProperty.get(assignment.property_id) ?? [];
+    list.push(assignment);
+    assignmentsByProperty.set(assignment.property_id, list);
+  }
+
   const a = (((adminRows ?? []) as unknown) as AdminRow[])[0];
-  if (a)
-    return {
-      id: a.id,
-      name: a.full_name,
-      phone: a.whatsapp,
-      language: a.language,
-    };
-  return null;
+  const fallback = a
+    ? {
+        id: a.id,
+        name: a.full_name,
+        phone: a.whatsapp,
+        language: a.language,
+      }
+    : null;
+
+  const recipients = new Map<string, NotifyProfile>();
+  for (const propertyId of uniquePropertyIds) {
+    const list = assignmentsByProperty.get(propertyId) ?? [];
+    const assigned = list.find(
+      (row) => row.profile.role === "gestor" && row.profile.whatsapp,
+    ) ?? list.find((row) => row.profile.role === "admin" && row.profile.whatsapp);
+    if (assigned) {
+      recipients.set(propertyId, {
+        id: assigned.profile.id,
+        name: assigned.profile.full_name,
+        phone: assigned.profile.whatsapp!,
+        language: assigned.profile.language,
+      });
+    } else if (fallback) {
+      recipients.set(propertyId, fallback);
+    }
+  }
+  return recipients;
 }
 
 /**
@@ -183,6 +207,12 @@ export async function findDueAt2h(nowMs: number): Promise<PreCheckinCandidate[]>
   const trackedIds = new Set(
     ((existing ?? []) as { reservation_id: string }[]).map((r) => r.reservation_id),
   );
+  const notifyByProperty = await resolveNotifyProfiles(
+    admin,
+    reservations
+      .filter((r) => !trackedIds.has(r.id) && r.property)
+      .map((r) => r.property_id),
+  );
 
   const candidates: PreCheckinCandidate[] = [];
   for (const r of reservations) {
@@ -192,7 +222,7 @@ export async function findDueAt2h(nowMs: number): Promise<PreCheckinCandidate[]>
     const checkInMs = new Date(checkInIso).getTime();
     if (!isInStageWindow({ nowMs, checkInMs, stageHoursBefore: 2 })) continue;
 
-    const notify = await resolveNotifyProfile(admin, r.property_id);
+    const notify = notifyByProperty.get(r.property_id);
     if (!notify) continue; // sin destino, no podemos alertar; skip silencioso
 
     candidates.push({
@@ -248,6 +278,12 @@ export async function findStartedAtStage(
     reservation: ReservationJoin;
   };
   const list = ((rows ?? []) as unknown) as Row[];
+  const notifyByProperty = await resolveNotifyProfiles(
+    admin,
+    list
+      .filter((row) => row.reservation?.property && row.reservation.status === "confirmed")
+      .map((row) => row.reservation.property_id),
+  );
 
   const candidates: PreCheckinCandidate[] = [];
   for (const row of list) {
@@ -258,7 +294,7 @@ export async function findStartedAtStage(
     const checkInMs = new Date(checkInIso).getTime();
     if (!isInStageWindow({ nowMs, checkInMs, stageHoursBefore })) continue;
 
-    const notify = await resolveNotifyProfile(admin, r.property_id);
+    const notify = notifyByProperty.get(r.property_id);
     if (!notify) continue;
 
     candidates.push({

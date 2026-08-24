@@ -35,7 +35,9 @@ export default async function ConversationPage({
   const [{ data: convo }, { data: messages }] = await Promise.all([
     supabase
       .from("whatsapp_conversations")
-      .select("*")
+      .select(
+        "id, phone_number, display_name, audience, profile_id, last_message_at, last_message_text, last_message_direction, unread_count, created_at, updated_at",
+      )
       .eq("id", id)
       .maybeSingle(),
     supabase

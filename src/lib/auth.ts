@@ -16,7 +16,11 @@ export async function requireProfile(): Promise<Profile> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("*")
+    // This runs on every authenticated page/action. Keep the payload aligned
+    // with Profile instead of fetching every future column by default.
+    .select(
+      "id, email, full_name, role, whatsapp, created_at, language, telegram_chat_id",
+    )
     .eq("id", user.id)
     .single();
   if (error || !data) {
