@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { addDays, isSameDay, parseISO } from "date-fns";
+import { parseISO } from "date-fns";
 import { getLocale, getTranslations } from "next-intl/server";
 import {
   BadgeCheck,
@@ -41,10 +41,15 @@ import { SensorAlarmsCard } from "./sensor-alarms-card";
 import { EnergySummaryCard } from "./energy-summary-card";
 import { PreCheckinCard } from "./pre-checkin-card";
 
-const HORIZON_DAYS = 14;
-
 type ReservationWithProperty = Reservation & {
   property: { id: string; name: string } | null;
+};
+
+type DashboardProperty = { id: string; name: string };
+
+type NextStay = {
+  reservation: ReservationWithProperty;
+  dateField: "check_in" | "check_out";
 };
 
 type DashTask = Task & {
@@ -85,19 +90,26 @@ export default async function DashboardPage() {
 
   const supabase = await createClient();
   const today = new Date();
-  const horizon = addDays(today, HORIZON_DAYS);
   const todayIso = today.toISOString().slice(0, 10);
 
-  // Build queries con el scope aplicado condicional.
+  // El Home muestra la próxima operación de cada propiedad: la salida si
+  // ya está ocupada; si no, la próxima llegada. No usa una ventana fija.
   let reservationsQuery = supabase
     .from("reservations")
     .select("*, property:properties(id, name)")
-    .or(
-      `and(check_in.gte.${todayIso},check_in.lte.${horizon.toISOString().slice(0, 10)}),and(check_out.gte.${todayIso},check_out.lte.${horizon.toISOString().slice(0, 10)})`,
-    )
+    .neq("status", "cancelled")
+    .gte("check_out", todayIso)
     .order("check_in", { ascending: true });
   if (allowedIds !== null) {
     reservationsQuery = reservationsQuery.in("property_id", allowedIds);
+  }
+
+  let propertiesQuery = supabase
+    .from("properties")
+    .select("id, name")
+    .order("name");
+  if (allowedIds !== null) {
+    propertiesQuery = propertiesQuery.in("id", allowedIds);
   }
 
   let tasksQuery = supabase
@@ -117,8 +129,9 @@ export default async function DashboardPage() {
   // WIK-117/119: cards "Insumos" y "Mantenimiento pendiente" eliminadas
   // del dashboard. Las tareas siguen accesibles desde /tasks.
 
-  const [reservationsRes, tasksRes] = await Promise.all([
+  const [reservationsRes, propertiesRes, tasksRes] = await Promise.all([
     reservationsQuery,
+    propertiesQuery,
     tasksQuery,
   ]);
 
@@ -126,24 +139,32 @@ export default async function DashboardPage() {
   const tasks = (tasksRes.data ?? []) as DashTask[];
 
   const reservations = (data ?? []) as ReservationWithProperty[];
-  const checkIns = reservations.filter((r) =>
-    isOnOrAfter(parseISO(r.check_in), today),
-  );
-  const checkOuts = reservations.filter((r) =>
-    isOnOrAfter(parseISO(r.check_out), today),
-  );
-
-  // WIK-105: siempre mostrar el agrupamiento por propiedad en los
-  // cards de check-in/out, incluso si solo hay 1 property visible
-  // hoy. Cuando alguien tiene varias casas, conviene ver siempre
-  // de cuál es cada llegada/salida — el "noise" de mostrarlo con
-  // 1 sola es mínimo y simplifica el escaneo visual.
-  const showProperty = reservations.length > 0;
+  const properties = (propertiesRes.data ?? []) as DashboardProperty[];
+  const nextStaysByProperty = new Map<string, NextStay>();
+  for (const property of properties) {
+    const propertyReservations = reservations.filter(
+      (reservation) => reservation.property_id === property.id,
+    );
+    const activeStay = propertyReservations.find(
+      (reservation) =>
+        reservation.check_in < todayIso && reservation.check_out >= todayIso,
+    );
+    const upcomingStay = propertyReservations.find(
+      (reservation) => reservation.check_in >= todayIso,
+    );
+    const reservation = activeStay ?? upcomingStay;
+    if (reservation) {
+      nextStaysByProperty.set(property.id, {
+        reservation,
+        dateField: activeStay ? "check_out" : "check_in",
+      });
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-4xl">{t("title", { days: HORIZON_DAYS })}</h1>
+        <h1 className="text-4xl">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">
           {formatLongDate(today, locale)}
         </p>
@@ -157,22 +178,10 @@ export default async function DashboardPage() {
         </Card>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <ReservationsCard
-          title={t("checkInsTitle")}
-          description={t("checkInsDescription")}
-          rows={checkIns}
-          dateField="check_in"
-          showProperty={showProperty}
-        />
-        <ReservationsCard
-          title={t("checkOutsTitle")}
-          description={t("checkOutsDescription")}
-          rows={checkOuts}
-          dateField="check_out"
-          showProperty={showProperty}
-        />
-      </div>
+      <NextStaysCard
+        properties={properties}
+        nextStaysByProperty={nextStaysByProperty}
+      />
 
       {/* WIK-117: cards de Ambientes + Energía con resumen y link.
           Antes: Ambientes solo (alarmas). Ahora: ambas en grid 2x para
@@ -360,73 +369,59 @@ async function TodayTasksCard({
   );
 }
 
-async function ReservationsCard({
-  title,
-  description,
-  rows,
-  dateField,
-  showProperty,
+async function NextStaysCard({
+  properties,
+  nextStaysByProperty,
 }: {
-  title: string;
-  description: string;
-  rows: ReservationWithProperty[];
-  dateField: "check_in" | "check_out";
-  showProperty: boolean;
+  properties: DashboardProperty[];
+  nextStaysByProperty: Map<string, NextStay>;
 }) {
   const t = await getTranslations("dashboard");
-  // Group rows by property when there are multiple distinct properties so
-  // the admin can scan check-ins/outs of each place at a glance.
-  const grouped = new Map<
-    string,
-    {
-      property: ReservationWithProperty["property"];
-      rows: ReservationWithProperty[];
-    }
-  >();
-  for (const r of rows) {
-    const key = r.property?.id ?? "__none__";
-    if (!grouped.has(key)) grouped.set(key, { property: r.property, rows: [] });
-    grouped.get(key)!.rows.push(r);
-  }
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+        <CardTitle>{t("nextStaysTitle")}</CardTitle>
+        <CardDescription>{t("nextStaysDescription")}</CardDescription>
       </CardHeader>
       <CardContent>
-        {rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("noReservations")}</p>
+        {properties.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("noProperties")}</p>
         ) : (
-          <div className="flex flex-col gap-5">
-            {Array.from(grouped.values()).map((group, gi) => (
-              <div key={group.property?.id ?? `none-${gi}`}>
-                {showProperty && (
-                  <div className="mb-2 flex items-center gap-2 border-b pb-1">
-                    {group.property && (
-                      <PropertyThumb
-                        propertyId={group.property.id}
-                        size="xs"
-                        alt={group.property.name}
-                      />
+          <div className="grid gap-5 md:grid-cols-2">
+            {properties.map((property) => {
+              const nextStay = nextStaysByProperty.get(property.id);
+              return (
+                <div key={property.id} className="min-w-0">
+                  <div className="mb-3 flex items-center gap-2 border-b pb-2">
+                    <PropertyThumb
+                      propertyId={property.id}
+                      size="xs"
+                      alt={property.name}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                      {property.name}
+                    </span>
+                    {nextStay && (
+                      <span className="text-xs text-muted-foreground">
+                        {nextStay.dateField === "check_in"
+                          ? t("checkInLabel")
+                          : t("checkOutLabel")}
+                      </span>
                     )}
-                    <span className="text-sm font-semibold">
-                      {group.property?.name ?? t("noProperty")}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      ({group.rows.length})
-                    </span>
                   </div>
-                )}
-                <ul className="flex flex-col divide-y">
-                  {group.rows.map((r) => (
-                    <li key={r.id} className="py-3 first:pt-0 last:pb-0">
-                      <ReservationRow row={r} dateField={dateField} />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+                  {nextStay ? (
+                    <ReservationRow
+                      row={nextStay.reservation}
+                      dateField={nextStay.dateField}
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {t("noUpcomingStay")}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </CardContent>
@@ -554,8 +549,4 @@ async function formatGuestGroup(
       : t("guestsOther", { n: r.guest_count });
   }
   return null;
-}
-
-function isOnOrAfter(date: Date, ref: Date) {
-  return date >= ref || isSameDay(date, ref);
 }
