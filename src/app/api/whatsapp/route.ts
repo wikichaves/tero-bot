@@ -628,11 +628,13 @@ async function autoReply(opts: {
     }
   }
 
-  // 1) Photo from a registered profile → auto-create a task
-  // 2) Text starting with `tarea …` from a registered profile → create task
+  // 1) A receipt photo from a registered profile → auto-create an expense.
+  // 2) A text that names an expense → create an expense.
+  //    Photos used to become maintenance tasks before their caption could be
+  //    understood, which made sending a receipt unusable.
   // (We look up the profile once and reuse it.)
   // `gasto ...` es explícito: una foto no se convierte por error en tarea.
-  if (looksLikeCreateExpenseCommand(opts.messageBody)) {
+  if (opts.messageType === "image" || looksLikeCreateExpenseCommand(opts.messageBody)) {
     const profile = await getProfile();
     if (profile) {
       try {
@@ -645,9 +647,7 @@ async function autoReply(opts: {
     }
   }
 
-  const wantsCreate =
-    opts.messageType === "image" ||
-    looksLikeCreateTaskCommand(opts.messageBody);
+  const wantsCreate = looksLikeCreateTaskCommand(opts.messageBody);
   if (wantsCreate) {
     // Profile lookup AND properties fetch run in parallel — they're
     // independent and the create-task path needs both. Saves one

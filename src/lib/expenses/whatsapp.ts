@@ -6,7 +6,7 @@ export type ExpenseCategory = "combustible" | "ferreteria" | "materiales" | "her
 type ParsedExpense = { vendor: string | null; amount: number | null; currency: string; category: ExpenseCategory; description: string | null };
 
 export function looksLikeCreateExpenseCommand(text: string | null | undefined): boolean {
-  return !!text && /^(gasto|expense)\b/i.test(text.trim());
+  return !!text && /\b(gasto|expense|ticket|recibo|comprobante)\b/i.test(text.trim());
 }
 function categoryFor(text: string): ExpenseCategory {
   if (/\b(ancap|nafta|combustible|gasoil|diesel)\b/i.test(text)) return "combustible";
@@ -32,6 +32,6 @@ export async function createExpenseFromWhatsApp(input: { profile: Profile; text:
   const isComplete = !!parsed.vendor && parsed.amount !== null;
   const { data, error } = await createAdminClient().from("expenses").insert({ expense_date: uyToday(), vendor: parsed.vendor, amount: parsed.amount, currency: parsed.currency, category: parsed.category, description: parsed.description, receipt_url: input.mediaUrl, source: "whatsapp", source_message_id: input.sourceMessageId, recorded_by: input.profile.id, review_status: isComplete ? "pending_review" : "draft" }).select("id").single();
   if (error || !data) throw new Error("create expense failed: " + (error?.message ?? "no data"));
-  if (!isComplete) return { ok: true, id: data.id, reply: "Comprobante guardado como borrador. Mandame gasto Proveedor $ 1.234,56 para dejarlo listo para revisar." };
+  if (!isComplete) return { ok: true, id: data.id, reply: input.mediaUrl ? "Ticket guardado como gasto. Quedó como borrador para completar o revisar en tero.bot/expenses." : "Gasto guardado como borrador. Mandame el ticket o los datos del importe para dejarlo listo para revisar." };
   return { ok: true, id: data.id, reply: "Gasto registrado: *" + parsed.vendor + "* · " + parsed.currency + " " + (parsed.amount as number).toLocaleString("es-UY", { minimumFractionDigits: 2 }) + " · " + parsed.category + ". Quedó pendiente de revisión." };
 }

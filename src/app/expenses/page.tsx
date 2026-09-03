@@ -24,7 +24,7 @@ export default async function ExpensesPage() {
   const currency = country === "AR" ? "ARS" : "UYU";
   return <div className="grid gap-8">
     <div><h1 className="text-4xl">Gastos</h1><p className="mt-2 text-sm text-muted-foreground">Compras puntuales para rendir a Casa Bosque Montoya SAS: nafta, ferretería, insumos y más.</p></div>
-    <Card><CardHeader><CardTitle>Cargar gasto</CardTitle><CardDescription>La foto del ticket también se puede mandar por WhatsApp con “gasto …”.</CardDescription></CardHeader><CardContent>
+    <Card><CardHeader><CardTitle>Cargar gasto</CardTitle><CardDescription>Mandale una foto del ticket al WhatsApp de tero.bot y aparece acá para revisar.</CardDescription></CardHeader><CardContent>
       <form action={createExpense} className="grid gap-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><Field label="Fecha" name="expense_date" type="date" /><Field label="Comercio" name="vendor" placeholder="Ej. ANCAP" /><Field label="Importe" name="amount" type="number" step="0.01" /></div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><Select label="Moneda" name="currency" options={[currency, "USD"]} /><Select label="Categoría" name="category" options={["combustible", "ferreteria", "materiales", "herramientas", "transporte", "comidas", "servicios", "honorarios", "otro"]} /><Select label="Propiedad" name="property_id" options={["Sin asignar", ...properties.map((p) => p.name)]} values={["", ...properties.map((p) => p.id)]} /></div>
