@@ -11,6 +11,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
+import { getActiveCountry, getCountryPropertyIds } from "@/lib/country";
 import { maybeSnapshotIfStale } from "@/lib/tuya/snapshots";
 import { maybeSnapshotSensorsIfStale } from "@/lib/sensors/snapshots";
 import {
@@ -71,6 +72,8 @@ export default async function DashboardPage() {
   }
 
   const allowedIds = await getAllowedPropertyIds(profile);
+  const activeCountry = await getActiveCountry();
+  const countryPropertyIds = await getCountryPropertyIds(activeCountry, allowedIds);
   const t = await getTranslations("dashboard");
   const locale = await getLocale();
 
@@ -100,17 +103,13 @@ export default async function DashboardPage() {
     .neq("status", "cancelled")
     .gte("check_out", todayIso)
     .order("check_in", { ascending: true });
-  if (allowedIds !== null) {
-    reservationsQuery = reservationsQuery.in("property_id", allowedIds);
-  }
+  reservationsQuery = reservationsQuery.in("property_id", countryPropertyIds);
 
   let propertiesQuery = supabase
     .from("properties")
     .select("id, name")
     .order("name");
-  if (allowedIds !== null) {
-    propertiesQuery = propertiesQuery.in("id", allowedIds);
-  }
+  propertiesQuery = propertiesQuery.in("id", countryPropertyIds);
 
   let tasksQuery = supabase
     .from("tasks")
@@ -122,9 +121,7 @@ export default async function DashboardPage() {
     .order("due_date", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(20);
-  if (allowedIds !== null) {
-    tasksQuery = tasksQuery.in("property_id", allowedIds);
-  }
+  tasksQuery = tasksQuery.in("property_id", countryPropertyIds);
 
   // WIK-117/119: cards "Insumos" y "Mantenimiento pendiente" eliminadas
   // del dashboard. Las tareas siguen accesibles desde /tasks.
