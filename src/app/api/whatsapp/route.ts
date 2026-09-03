@@ -20,6 +20,7 @@ import { handlePreCheckinResponse } from "@/lib/pre-checkin/handle-response";
 import { getAdminChatId, sendTelegramMessage } from "@/lib/telegram";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { APP_NAME } from "@/lib/brand";
+import { createExpenseFromWhatsApp, looksLikeCreateExpenseCommand } from "@/lib/expenses/whatsapp";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/locales";
 import type { Profile } from "@/lib/types";
 
@@ -520,6 +521,7 @@ async function autoReply(opts: {
   messageType: string;
   messageBody: string | null;
   mediaUrl: string | null;
+  sourceMessageId?: string | null;
 }) {
   if (!isAutoReplyEnabled()) return;
 
@@ -629,6 +631,20 @@ async function autoReply(opts: {
   // 1) Photo from a registered profile → auto-create a task
   // 2) Text starting with `tarea …` from a registered profile → create task
   // (We look up the profile once and reuse it.)
+  // `gasto ...` es explícito: una foto no se convierte por error en tarea.
+  if (looksLikeCreateExpenseCommand(opts.messageBody)) {
+    const profile = await getProfile();
+    if (profile) {
+      try {
+        const result = await createExpenseFromWhatsApp({ profile, text: opts.messageBody, mediaUrl: opts.mediaUrl, sourceMessageId: opts.sourceMessageId ?? null });
+        await sendAndPersist({ phoneNumberId: opts.phoneNumberId, peer: opts.peer, conversationId: opts.conversationId, text: result.reply });
+        return;
+      } catch (err) {
+        console.error("[kapso expense] error", err);
+      }
+    }
+  }
+
   const wantsCreate =
     opts.messageType === "image" ||
     looksLikeCreateTaskCommand(opts.messageBody);
@@ -859,6 +875,7 @@ export async function POST(req: NextRequest) {
     messageType: string;
     messageBody: string | null;
     mediaUrl: string | null;
+    sourceMessageId: string | null;
   }> = [];
 
   await Promise.allSettled(
@@ -877,6 +894,7 @@ export async function POST(req: NextRequest) {
           messageType,
           messageBody: result.message ? extractBody(result.message) : null,
           mediaUrl: result.message ? extractMediaUrl(result.message) : null,
+          sourceMessageId: result.message?.id ?? null,
         });
       } catch (err) {
         console.error("[kapso webhook] processEvent error", err);

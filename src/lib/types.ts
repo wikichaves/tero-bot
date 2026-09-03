@@ -32,6 +32,7 @@ export type Property = {
   airbnb_ical_url: string | null;
   booking_ical_url: string | null;
   currency: string;
+  country: "AR" | "UY";
   tariff_per_kwh: number | null;
   /** Numeric Airbnb listing id (e.g. "1526467") used to match inbound
    *  confirmation emails to a property. Optional. */

@@ -4,6 +4,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireProfile } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
+import { getActiveCountry, getCountryPropertyIds } from "@/lib/country";
 import { getScopedAssignees } from "./get-assignees";
 import { formatShortDate } from "@/lib/i18n/date";
 import {
@@ -79,6 +80,7 @@ export default async function TasksPage({
   // `allowedIds` aplica scope por property — admin tiene null y
   // no filtra. Gestor / mantenimiento solo ven properties asignadas.
   const allowedIds = await getAllowedPropertyIds(profile);
+  const countryPropertyIds = await getCountryPropertyIds(await getActiveCountry(), allowedIds);
   const params = await searchParams;
   const rawStatus = params.status;
   const statusFilter: StatusFilter =
@@ -132,9 +134,7 @@ export default async function TasksPage({
     query = query.eq("assigned_to", profile.id);
   }
   // WIK-94 scope: gestor/Manager solo SUS properties (admin = null = todas).
-  if (allowedIds !== null) {
-    query = query.in("property_id", allowedIds);
-  }
+  query = query.in("property_id", countryPropertyIds);
 
   // El select de properties se scopea por allowedIds — el filter UI y el
   // diálogo "Nueva tarea" no deberían mostrar properties fuera del scope.
@@ -143,9 +143,7 @@ export default async function TasksPage({
   // veía la lista vacía y no podía elegir propiedad al crear una tarea. El
   // scope queda garantizado por el `.in("id", allowedIds)` de abajo.
   let propsQuery = adminDb.from("properties").select("id, name").order("name");
-  if (allowedIds !== null) {
-    propsQuery = propsQuery.in("id", allowedIds);
-  }
+  propsQuery = propsQuery.in("id", countryPropertyIds);
 
   // WIK-250/251: a quién se le puede asignar/filtrar según rol — helper
   // compartido con la página de detalle (ver get-assignees.ts).

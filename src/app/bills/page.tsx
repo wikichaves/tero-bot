@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { requireRole } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
+import { getActiveCountry, getCountryPropertyIds } from "@/lib/country";
 import { createClient } from "@/lib/supabase/server";
 import {
   enrichWithEffectivePeriod,
@@ -44,6 +45,7 @@ export default async function FacturasPage() {
   const profile = await requireRole(["admin", "gestor"]);
   // WIK-94: scope por property.
   const allowedIds = await getAllowedPropertyIds(profile);
+  const countryPropertyIds = await getCountryPropertyIds(await getActiveCountry(), allowedIds);
   const supabase = await createClient();
   const t = await getTranslations("billsPage");
 
@@ -53,14 +55,14 @@ export default async function FacturasPage() {
     .order("due_date", { ascending: false, nullsFirst: false })
     .order("period_to", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
-  if (allowedIds !== null) billsQuery = billsQuery.in("property_id", allowedIds);
+  billsQuery = billsQuery.in("property_id", countryPropertyIds);
 
   let propsQuery = supabase
     .from("properties")
     .select("id, name, currency")
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
-  if (allowedIds !== null) propsQuery = propsQuery.in("id", allowedIds);
+  propsQuery = propsQuery.in("id", countryPropertyIds);
 
   const [billsRes, propertiesRes] = await Promise.all([billsQuery, propsQuery]);
 

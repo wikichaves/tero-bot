@@ -1169,3 +1169,54 @@ alter default privileges for role postgres in schema public
 alter default privileges for role postgres in schema public
   grant execute on functions
   to anon, authenticated, service_role;
+
+-- ─── Gastos operativos (Casa Bosque) ───────────────────────────────────
+-- Comprobantes cotidianos, separados de utility_bills y de certificados.
+do $$ begin
+  create type expense_category as enum ('combustible', 'ferreteria', 'materiales', 'herramientas', 'transporte', 'comidas', 'servicios', 'honorarios', 'otro');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type expense_review_status as enum ('draft', 'pending_review', 'reviewed', 'exported');
+exception when duplicate_object then null; end $$;
+create table if not exists public.expenses (
+  id uuid primary key default gen_random_uuid(),
+  expense_date date not null default current_date, vendor text, amount numeric(14,2),
+  currency text not null default 'UYU' check (currency ~ '^[A-Z]{3}$'),
+  category expense_category not null default 'otro', payment_method text, description text,
+  receipt_url text, source text not null default 'manual' check (source in ('whatsapp', 'manual', 'import')),
+  source_message_id text unique, recorded_by uuid references public.profiles(id) on delete set null,
+  review_status expense_review_status not null default 'pending_review', reviewed_at timestamptz,
+  exported_at timestamptz, created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
+  check (amount is null or amount >= 0)
+);
+create index if not exists expenses_date_idx on public.expenses(expense_date desc);
+create index if not exists expenses_review_status_idx on public.expenses(review_status, expense_date desc);
+alter table public.expenses enable row level security;
+drop policy if exists expenses_admin_gestor_read on public.expenses;
+create policy expenses_admin_gestor_read on public.expenses for select using (public.current_role() in ('admin', 'gestor'));
+drop policy if exists expenses_admin_gestor_write on public.expenses;
+create policy expenses_admin_gestor_write on public.expenses for all using (public.current_role() in ('admin', 'gestor')) with check (public.current_role() in ('admin', 'gestor'));
+
+-- ─── País operativo y contactos comerciales ────────────────────────────
+alter table public.properties add column if not exists country text not null default 'UY' check (country in ('AR', 'UY'));
+update public.properties set country = 'AR' where lower(name) = '14 de julio';
+alter table public.expenses
+  add column if not exists country text not null default 'UY' check (country in ('AR', 'UY')),
+  add column if not exists property_id uuid references public.properties(id) on delete set null;
+create index if not exists expenses_country_date_idx on public.expenses(country, expense_date desc);
+create table if not exists public.leads (
+  id uuid primary key default gen_random_uuid(),
+  country text not null default 'UY' check (country in ('AR', 'UY')),
+  property_id uuid references public.properties(id) on delete set null,
+  first_name text not null, last_name text, phone text, email text,
+  check_in date, check_out date,
+  guest_count integer check (guest_count is null or guest_count > 0),
+  status text not null default 'new' check (status in ('new', 'contacted', 'follow_up', 'booked', 'lost')),
+  follow_up_at date, notes text,
+  created_at timestamptz not null default now(), updated_at timestamptz not null default now()
+);
+create index if not exists leads_country_status_idx on public.leads(country, status, follow_up_at);
+alter table public.leads enable row level security;
+drop policy if exists leads_admin_gestor_all on public.leads;
+create policy leads_admin_gestor_all on public.leads for all
+  using (public.current_role() in ('admin', 'gestor'))

@@ -209,6 +209,7 @@ function PropertyForm({
         airbnb_ical_url: airbnbUrl,
         booking_ical_url: bookingUrl,
         currency,
+        country,
         tariff_per_kwh: tariffNum,
         airbnb_listing_id: airbnbListingId.trim(),
         provider_accounts: filteredAccounts,

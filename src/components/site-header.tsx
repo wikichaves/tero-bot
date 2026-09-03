@@ -16,6 +16,8 @@ import { UserDropdown } from "@/components/user-dropdown";
 import { PullToRefresh } from "@/components/pull-to-refresh";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
+import { getActiveCountry } from "@/lib/country";
+import { CountrySwitcher } from "@/components/country-switcher";
 
 /**
  * Estructura del header (WIK-72):
@@ -57,6 +59,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
   // era `role === "limpieza" || role === "mantenimiento"`.
   const isStaff = profile.role === "mantenimiento";
   const homeHref = isStaff ? "/my-tasks" : "/dashboard";
+  const activeCountry = await getActiveCountry();
 
   // Counts for the nav badges. We track overdue separately so we can color
   // the badge red when something needs urgent attention.
@@ -147,6 +150,8 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
           },
           { href: "/energy", label: t("energy") },
           { href: "/bills", label: t("bills") },
+          { href: "/expenses", label: "Gastos" },
+          { href: "/leads", label: "Leads" },
           // WIK-108: WhatsApp se movió al submenú Configuración (definido
           // abajo) — antes vivía como leaf operacional para admin.
         ]
@@ -272,6 +277,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
         </nav>
       </div>
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+        {!isStaff && <CountrySwitcher country={activeCountry} />}
         {/* WIK-151: ModeToggle se movió al footer global (junto con
             LanguageSelector). Acá queda solo el user dropdown. */}
         {/* WIK-112: el span con email + form Salir se reemplazó por un
