@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
+import { getActiveCountry, getCountryPropertyIds } from "@/lib/country";
 import { maybeSnapshotSensorsIfStale } from "@/lib/sensors/snapshots";
 import { serverNow } from "@/lib/util/server-now";
 import {
@@ -71,6 +72,7 @@ export default async function AmbientesPage({
   // para aplicar scope por property (WIK-94).
   const profile = await requireProfile();
   const allowedIds = await getAllowedPropertyIds(profile);
+  const countryPropertyIds = await getCountryPropertyIds(await getActiveCountry(allowedIds), allowedIds);
   // Best-effort: si la última lectura está vieja, dispara captura nueva.
   await maybeSnapshotSensorsIfStale(60).catch(() => null);
 
@@ -90,20 +92,20 @@ export default async function AmbientesPage({
     .select("id, name, sort_order")
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
-  if (allowedIds !== null) propsQuery = propsQuery.in("id", allowedIds);
+  propsQuery = propsQuery.in("id", countryPropertyIds);
 
   let roomsQuery = supabase
     .from("rooms")
     .select("id, property_id, name, sort_order")
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
-  if (allowedIds !== null) roomsQuery = roomsQuery.in("property_id", allowedIds);
+  roomsQuery = roomsQuery.in("property_id", countryPropertyIds);
 
   let devicesQuery = supabase
     .from("property_devices")
     .select("id, property_id, tuya_device_name, room_id")
     .eq("device_kind", "sensor");
-  if (allowedIds !== null) devicesQuery = devicesQuery.in("property_id", allowedIds);
+  devicesQuery = devicesQuery.in("property_id", countryPropertyIds);
 
   // snapshots no se filtran por property — se filtran indirectamente
   // por property_device_id en el render (solo se muestran los devices

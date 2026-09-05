@@ -80,7 +80,7 @@ export default async function TasksPage({
   // `allowedIds` aplica scope por property — admin tiene null y
   // no filtra. Gestor / mantenimiento solo ven properties asignadas.
   const allowedIds = await getAllowedPropertyIds(profile);
-  const countryPropertyIds = await getCountryPropertyIds(await getActiveCountry(), allowedIds);
+  const countryPropertyIds = await getCountryPropertyIds(await getActiveCountry(allowedIds), allowedIds);
   const params = await searchParams;
   const rawStatus = params.status;
   const statusFilter: StatusFilter =

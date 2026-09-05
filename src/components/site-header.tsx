@@ -59,7 +59,8 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
   // era `role === "limpieza" || role === "mantenimiento"`.
   const isStaff = profile.role === "mantenimiento";
   const homeHref = isStaff ? "/my-tasks" : "/dashboard";
-  const activeCountry = await getActiveCountry();
+  const allowedCountryIds = await getAllowedPropertyIds(profile);
+  const activeCountry = await getActiveCountry(allowedCountryIds);
 
   // Counts for the nav badges. We track overdue separately so we can color
   // the badge red when something needs urgent attention.

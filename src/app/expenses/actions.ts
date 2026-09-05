@@ -28,10 +28,21 @@ function expenseValues(formData: FormData) {
   };
 }
 
+async function countryForExpense(formData: FormData) {
+  const activeCountry = await getActiveCountry();
+  const propertyId = optional(formData.get("property_id"));
+  if (propertyId) {
+    const { data } = await createAdminClient().from("properties").select("country").eq("id", propertyId).maybeSingle();
+    if (data?.country === "AR" || data?.country === "UY") return data.country;
+  }
+  if (activeCountry === "AR" || activeCountry === "UY") return activeCountry;
+  throw new Error("Elegí una propiedad para poder asignar el país del gasto.");
+}
+
 export async function createExpense(formData: FormData) {
   const profile = await requireRole(["admin", "gestor"]);
   const { error } = await createAdminClient().from("expenses").insert({
-    country: await getActiveCountry(),
+    country: await countryForExpense(formData),
     ...expenseValues(formData),
     source: "manual", recorded_by: profile.id, review_status: "pending_review",
   });
@@ -41,14 +52,14 @@ export async function createExpense(formData: FormData) {
 
 export async function updateExpense(id: string, formData: FormData) {
   await requireRole(["admin", "gestor"]);
-  const { error } = await createAdminClient().from("expenses").update(expenseValues(formData)).eq("id", id).eq("country", await getActiveCountry());
+  const { error } = await createAdminClient().from("expenses").update({ ...expenseValues(formData), country: await countryForExpense(formData) }).eq("id", id);
   if (error) throw new Error("No se pudo actualizar el gasto.");
   revalidatePath("/expenses");
 }
 
 export async function deleteExpense(id: string) {
   await requireRole(["admin", "gestor"]);
-  const { error } = await createAdminClient().from("expenses").delete().eq("id", id).eq("country", await getActiveCountry());
+  const { error } = await createAdminClient().from("expenses").delete().eq("id", id);
   if (error) throw new Error("No se pudo eliminar el gasto.");
   revalidatePath("/expenses");
 }

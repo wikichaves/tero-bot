@@ -36,6 +36,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
+import { getActiveCountry, getCountryPropertyIds } from "@/lib/country";
 import { serverNow } from "@/lib/util/server-now";
 import type { Property } from "@/lib/types";
 import { SnapshotButton } from "./snapshot-button";
@@ -64,7 +65,7 @@ type RangeKey = keyof typeof RANGES;
 
 type PropertySummary = Pick<
   Property,
-  "id" | "name" | "currency" | "tariff_per_kwh" | "sort_order"
+  "id" | "name" | "currency" | "tariff_per_kwh" | "sort_order" | "padron"
 >;
 
 type DeviceWithContext = {
@@ -139,6 +140,8 @@ export default async function EnergyPage({
   // de devices use el scope correcto.
   const profile = await requireProfile();
   const allowedIds = await getAllowedPropertyIds(profile);
+  const activeCountry = await getActiveCountry(allowedIds);
+  const countryPropertyIds = await getCountryPropertyIds(activeCountry, allowedIds);
   const isAdmin = profile.role === "admin";
 
   const [flatRes, groupedRes] = await Promise.all([
@@ -176,10 +179,10 @@ export default async function EnergyPage({
   const supabase = await createClient();
   let propsQuery = supabase
     .from("properties")
-    .select("id, name, currency, tariff_per_kwh, sort_order")
+    .select("id, name, currency, tariff_per_kwh, sort_order, padron")
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
-  if (allowedIds !== null) propsQuery = propsQuery.in("id", allowedIds);
+  propsQuery = propsQuery.in("id", countryPropertyIds);
 
   let billsQuery = supabase
     .from("utility_bills")
@@ -187,7 +190,7 @@ export default async function EnergyPage({
     .eq("utility_type", "luz")
     .not("kwh_billed", "is", null)
     .order("due_date", { ascending: false, nullsFirst: false });
-  if (allowedIds !== null) billsQuery = billsQuery.in("property_id", allowedIds);
+  billsQuery = billsQuery.in("property_id", countryPropertyIds);
 
   const [propertiesRes, deviceMap, billsRes] = await Promise.all([
     propsQuery,
@@ -204,16 +207,11 @@ export default async function EnergyPage({
   //     útil para asignarlo), gestor no lo ve.
   //   - device assigned to una property fuera de `allowedIds` → nadie
   //     lo ve (solo admin con allowedIds=null).
-  const energyDevices =
-    allowedIds === null
-      ? allEnergyDevices
-      : allEnergyDevices.filter((d) => {
-          const assignment = deviceMap.get(d.id);
-          return (
-            assignment?.property_id != null &&
-            allowedIds.includes(assignment.property_id)
-          );
-        });
+  const visiblePropertyIds = new Set(properties.map((property) => property.id));
+  const energyDevices = allEnergyDevices.filter((device) => {
+    const assignment = deviceMap.get(device.id);
+    return assignment?.property_id != null && visiblePropertyIds.has(assignment.property_id);
+  });
 
   // Enriquecemos con effective_period_from/to igual que /bills, para que
   // facturas sin período explícito puedan compararse usando el período
@@ -477,6 +475,8 @@ export default async function EnergyPage({
   const rangeLabel = t(`ranges.${range}` as const);
 
   const localeForFmt = (await getLocale?.()) ?? "es";
+  const propertiesWithoutMeters = properties.filter((property) => !devicesWithContext.some((device) => device.property?.id === property.id));
+
   const outageCards = properties
     .map((prop) => ({ prop, summary: outageSummaries.get(prop.id) }))
     .filter(
@@ -500,6 +500,8 @@ export default async function EnergyPage({
           ))}
         </div>
       )}
+
+      <NoMeterProperties properties={propertiesWithoutMeters} />
 
       {devicesWithContext.length === 0 ? (
         <Card>
@@ -606,4 +608,9 @@ async function FxFooter({ rates }: { rates: Map<string, FxRate> }) {
       </em>
     </p>
   );
+}
+
+function NoMeterProperties({ properties }: { properties: Array<{ id: string; name: string; padron: string | null }> }) {
+  if (properties.length === 0) return null;
+  return <Card><CardContent className="space-y-2 pt-6"><p className="text-sm font-medium">Propiedades sin medidor Tuya</p><div className="grid gap-2 sm:grid-cols-2">{properties.map((property) => <div key={property.id} className="rounded-md border border-border/60 px-3 py-2 text-sm"><span className="font-medium">{property.name}</span><span className="ml-2 text-muted-foreground">Padrón: {property.padron ?? "pendiente de cargar"}</span></div>)}</div></CardContent></Card>;
 }

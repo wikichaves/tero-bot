@@ -72,7 +72,7 @@ export default async function DashboardPage() {
   }
 
   const allowedIds = await getAllowedPropertyIds(profile);
-  const activeCountry = await getActiveCountry();
+  const activeCountry = await getActiveCountry(allowedIds);
   const countryPropertyIds = await getCountryPropertyIds(activeCountry, allowedIds);
   const t = await getTranslations("dashboard");
   const locale = await getLocale();
