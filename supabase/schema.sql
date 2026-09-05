@@ -1170,6 +1170,37 @@ alter default privileges for role postgres in schema public
   grant execute on functions
   to anon, authenticated, service_role;
 
+-- ─── Cámaras por propiedad ───────────────────────────────────────────────
+-- Inventario operativo independiente de Tuya: soporta cámaras cloud cerradas
+-- hoy, y URLs RTSP/ONVIF o snapshots cuando un proveedor lo permita mañana.
+create table if not exists public.property_cameras (
+  id uuid primary key default gen_random_uuid(),
+  property_id uuid not null references public.properties(id) on delete cascade,
+  name text not null,
+  location text,
+  provider text not null default 'Cloud Plus',
+  access_url text,
+  stream_url text,
+  snapshot_url text,
+  notes text,
+  is_active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (access_url is null or access_url ~ '^https?://'),
+  check (stream_url is null or stream_url ~ '^(https?|rtsp)://'),
+  check (snapshot_url is null or snapshot_url ~ '^https?://')
+);
+create index if not exists property_cameras_property_idx
+  on public.property_cameras(property_id, sort_order, name);
+alter table public.property_cameras enable row level security;
+drop policy if exists property_cameras_read on public.property_cameras;
+create policy property_cameras_read on public.property_cameras
+  for select using (public.current_role() in ('admin', 'gestor'));
+drop policy if exists property_cameras_write on public.property_cameras;
+create policy property_cameras_write on public.property_cameras
+  for all using (public.current_role() in ('admin', 'gestor'))
+  with check (public.current_role() in ('admin', 'gestor'));
 -- ─── Gastos operativos (Casa Bosque) ───────────────────────────────────
 -- Comprobantes cotidianos, separados de utility_bills y de certificados.
 do $$ begin

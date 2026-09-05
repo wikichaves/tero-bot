@@ -152,6 +152,7 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
           { href: "/energy", label: t("energy") },
           { href: "/bills", label: t("bills") },
           { href: "/expenses", label: "Gastos" },
+          { href: "/cameras", label: "Cámaras" },
           { href: "/leads", label: "Leads" },
           // WIK-108: WhatsApp se movió al submenú Configuración (definido
           // abajo) — antes vivía como leaf operacional para admin.

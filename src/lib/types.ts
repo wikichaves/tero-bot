@@ -250,6 +250,21 @@ export type PropertyDevice = {
   pin_y: number | null;
   created_at: string;
 };
+export type PropertyCamera = {
+  id: string;
+  property_id: string;
+  name: string;
+  location: string | null;
+  provider: string;
+  access_url: string | null;
+  stream_url: string | null;
+  snapshot_url: string | null;
+  notes: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
 
 export type Room = {
   id: string;
