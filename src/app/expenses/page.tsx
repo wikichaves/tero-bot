@@ -13,11 +13,15 @@ type ExpenseRow = { id: string; vendor: string | null; category: string; expense
 
 export default async function ExpensesPage() {
   const profile = await requireRole(["admin", "gestor"]);
-  const country = await getActiveCountry();
-  const propertyIds = await getCountryPropertyIds(country, await getAllowedPropertyIds(profile));
+  const allowedIds = await getAllowedPropertyIds(profile);
+  const country = await getActiveCountry(allowedIds);
+  const propertyIds = await getCountryPropertyIds(country, allowedIds);
   const db = await createClient();
+  let expensesQuery = db.from("expenses").select("*, property:properties(name)");
+  if (country !== "ALL") expensesQuery = expensesQuery.eq("country", country);
+  if (allowedIds !== null) expensesQuery = expensesQuery.in("property_id", propertyIds);
   const [expensesRes, propertiesRes] = await Promise.all([
-    db.from("expenses").select("*, property:properties(name)").eq("country", country).order("expense_date", { ascending: false }).limit(100),
+    expensesQuery.order("expense_date", { ascending: false }).limit(100),
     db.from("properties").select("id, name, currency").in("id", propertyIds).order("name"),
   ]);
   const expenses = expensesRes.data ?? [];

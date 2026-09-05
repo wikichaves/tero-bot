@@ -13,10 +13,14 @@ type LeadRow = { id: string; property_id: string | null; first_name: string; las
 
 export default async function LeadsPage() {
   const profile = await requireRole(["admin", "gestor"]);
-  const country = await getActiveCountry();
-  const ids = await getCountryPropertyIds(country, await getAllowedPropertyIds(profile));
+  const allowedIds = await getAllowedPropertyIds(profile);
+  const country = await getActiveCountry(allowedIds);
+  const ids = await getCountryPropertyIds(country, allowedIds);
   const db = await createClient();
-  const [leadsRes, propsRes] = await Promise.all([db.from("leads").select("*, property:properties(name)").eq("country", country).order("follow_up_at", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false }), db.from("properties").select("id, name").in("id", ids).order("name")]);
+  let leadsQuery = db.from("leads").select("*, property:properties(name)");
+  if (country !== "ALL") leadsQuery = leadsQuery.eq("country", country);
+  if (allowedIds !== null) leadsQuery = leadsQuery.in("property_id", ids);
+  const [leadsRes, propsRes] = await Promise.all([leadsQuery.order("follow_up_at", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false }), db.from("properties").select("id, name").in("id", ids).order("name")]);
   const leads = leadsRes.data ?? []; const properties = propsRes.data ?? [];
   return <div className="grid gap-8"><div><h1 className="text-4xl">Leads</h1><p className="mt-2 text-sm text-muted-foreground">Consultas y huéspedes para volver a contactar cuando haya precio o nueva temporada.</p></div>
     <div className="flex justify-end"><NewLeadDialog properties={properties} /></div>

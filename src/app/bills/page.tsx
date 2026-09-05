@@ -45,7 +45,7 @@ export default async function FacturasPage() {
   const profile = await requireRole(["admin", "gestor"]);
   // WIK-94: scope por property.
   const allowedIds = await getAllowedPropertyIds(profile);
-  const countryPropertyIds = await getCountryPropertyIds(await getActiveCountry(), allowedIds);
+  const countryPropertyIds = await getCountryPropertyIds(await getActiveCountry(allowedIds), allowedIds);
   const supabase = await createClient();
   const t = await getTranslations("billsPage");
 

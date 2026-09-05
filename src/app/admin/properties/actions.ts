@@ -27,6 +27,7 @@ const upsertSchema = z.object({
     .regex(/^[A-Z]{3}$/, "Moneda inválida (usá ISO 4217: UYU, ARS, USD, ...)")
     .default("UYU"),
   country: z.enum(["UY", "AR"]).default("UY"),
+  padron: z.string().max(80).optional().or(z.literal("")) .transform((v) => v ? v : null),
   tariff_per_kwh: z
     .number()
     .positive("La tarifa debe ser positiva.")
@@ -66,6 +67,7 @@ export async function upsertProperty(input: {
   booking_ical_url: string;
   currency: string;
   country?: "UY" | "AR";
+  padron?: string;
   tariff_per_kwh: number | null;
   airbnb_listing_id?: string;
   provider_accounts?: Record<string, string>;
@@ -86,6 +88,7 @@ export async function upsertProperty(input: {
     booking_ical_url: parsed.data.booking_ical_url,
     currency: parsed.data.currency,
     country: parsed.data.country,
+    padron: parsed.data.padron,
     tariff_per_kwh: parsed.data.tariff_per_kwh ?? null,
     airbnb_listing_id: parsed.data.airbnb_listing_id,
     provider_accounts: parsed.data.provider_accounts,

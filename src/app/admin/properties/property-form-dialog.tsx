@@ -132,6 +132,7 @@ function PropertyForm({
   const [country, setCountry] = useState<CountryKey>(() =>
     countryFromCurrency(property?.currency),
   );
+  const [padron, setPadron] = useState(property?.padron ?? "");
   const [tariff, setTariff] = useState<string>(
     property?.tariff_per_kwh != null ? String(property.tariff_per_kwh) : "",
   );
@@ -210,6 +211,7 @@ function PropertyForm({
         booking_ical_url: bookingUrl,
         currency,
         country,
+        padron: padron.trim(),
         tariff_per_kwh: tariffNum,
         airbnb_listing_id: airbnbListingId.trim(),
         provider_accounts: filteredAccounts,
@@ -355,7 +357,7 @@ function PropertyForm({
             sigue en la DB y los actions lo aceptan, por si hay rows
             existentes que ya lo tienen seteado. Reactivar el input cuando
             volvamos a usar Booking. */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="grid gap-2">
             <Label htmlFor="country">{t("fields.country")}</Label>
             <select
@@ -371,6 +373,11 @@ function PropertyForm({
                 </option>
               ))}
             </select>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="padron">Padrón</Label>
+            <Input id="padron" value={padron} onChange={(e) => setPadron(e.target.value)} placeholder="Ej. 12345" />
+            <p className="text-xs text-muted-foreground">Identifica la propiedad cuando no tiene medidor Tuya.</p>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="tariff_per_kwh">{t("fields.tariffPerKwh")}</Label>

@@ -1199,6 +1199,7 @@ create policy expenses_admin_gestor_write on public.expenses for all using (publ
 
 -- ─── País operativo y contactos comerciales ────────────────────────────
 alter table public.properties add column if not exists country text not null default 'UY' check (country in ('AR', 'UY'));
+alter table public.properties add column if not exists padron text;
 update public.properties set country = 'AR' where lower(name) = '14 de julio';
 alter table public.expenses
   add column if not exists country text not null default 'UY' check (country in ('AR', 'UY')),
