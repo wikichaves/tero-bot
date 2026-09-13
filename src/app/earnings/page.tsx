@@ -3,6 +3,7 @@ import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import { requireRole } from "@/lib/auth";
 import { getActiveCountry, getCountryPropertyIds } from "@/lib/country";
 import { createClient } from "@/lib/supabase/server";
+import { getTranslations } from "next-intl/server";
 
 type PropertyRef = { id: string; name: string; currency: string | null };
 type ReservationRow = {
@@ -34,6 +35,7 @@ function add(map: Map<string, number>, currency: string, amount: number) {
 }
 
 export default async function EarningsPage() {
+  const t = await getTranslations("earningsPage");
   const profile = await requireRole(["admin", "gestor"]);
   const allowedIds = await getAllowedPropertyIds(profile);
   const country = await getActiveCountry(allowedIds);
@@ -76,7 +78,7 @@ export default async function EarningsPage() {
     add(totals, currency, amount);
     const propertyId = property?.id ?? "unknown";
     const propertyEntry = properties.get(propertyId) ?? {
-      name: property?.name ?? "Sin propiedad",
+      name: property?.name ?? t("noProperty"),
       totals: new Map<string, number>(),
       stays: 0,
     };
@@ -95,40 +97,40 @@ export default async function EarningsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-4xl">Ganancias</h1>
-        <p className="text-sm text-muted-foreground">Historial disponible de pagos de reservas por propiedad.</p>
+        <h1 className="text-4xl">{t("title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("description")}</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
-          <CardHeader className="pb-2"><CardDescription>Total histórico</CardDescription></CardHeader>
+          <CardHeader className="pb-2"><CardDescription>{t("cards.total")}</CardDescription></CardHeader>
           <CardContent className="text-2xl font-semibold">{formatTotals(totals)}</CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardDescription>Estadías con pago</CardDescription></CardHeader>
+          <CardHeader className="pb-2"><CardDescription>{t("cards.paidStays")}</CardDescription></CardHeader>
           <CardContent className="text-2xl font-semibold">{rows.length - missingPayout}</CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardDescription>Sin dato de pago</CardDescription></CardHeader>
+          <CardHeader className="pb-2"><CardDescription>{t("cards.missingPayout")}</CardDescription></CardHeader>
           <CardContent className="text-2xl font-semibold">{missingPayout}</CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Por propiedad</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t("byProperty.title")}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {[...properties.values()].sort((a, b) => a.name.localeCompare(b.name)).map((item) => (
             <div key={item.name} className="flex items-center justify-between border-b pb-3 last:border-0">
-              <div><p className="font-medium">{item.name}</p><p className="text-sm text-muted-foreground">{item.stays} estadías</p></div>
+              <div><p className="font-medium">{item.name}</p><p className="text-sm text-muted-foreground">{t("byProperty.stays", { count: item.stays })}</p></div>
               <p className="font-semibold">{formatTotals(item.totals)}</p>
             </div>
           ))}
-          {properties.size === 0 && <p className="text-sm text-muted-foreground">Todavía no hay pagos cargados.</p>}
+          {properties.size === 0 && <p className="text-sm text-muted-foreground">{t("byProperty.empty")}</p>}
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Historial mensual</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t("monthlyHistory.title")}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {[...months.entries()].sort(([a], [b]) => b.localeCompare(a)).map(([month, values]) => (
             <div key={month} className="flex items-center justify-between border-b pb-3 last:border-0">
@@ -136,7 +138,7 @@ export default async function EarningsPage() {
               <p className="font-medium">{formatTotals(values)}</p>
             </div>
           ))}
-          {months.size === 0 && <p className="text-sm text-muted-foreground">No hay historial disponible.</p>}
+          {months.size === 0 && <p className="text-sm text-muted-foreground">{t("monthlyHistory.empty")}</p>}
         </CardContent>
       </Card>
     </div>
