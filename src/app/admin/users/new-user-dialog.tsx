@@ -69,7 +69,7 @@ export function NewUserDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button />}>{t("newUser")}</DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent mobileSheet className="sm:max-w-2xl">
         <form onSubmit={onSubmit}>
           <DialogHeader>
             <DialogTitle>{t("create.title")}</DialogTitle>

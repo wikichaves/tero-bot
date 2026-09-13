@@ -43,9 +43,11 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  mobileSheet = false,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
+  mobileSheet?: boolean
 }) {
   return (
     <DialogPortal>
@@ -60,13 +62,21 @@ function DialogContent({
           en mobile). `inset-0 flex items-center justify-center` es inmune a eso:
           el wrapper llena SIEMPRE el viewport y el flex centra. p-4 = margen
           garantizado a los lados. */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className={
+          mobileSheet
+            ? "fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
+            : "fixed inset-0 z-50 flex items-center justify-center p-4"
+        }
+      >
         <DialogPrimitive.Popup
           data-slot="dialog-content"
           // WIK-170: max-h + overflow-y-auto para que dialogs largos scrolleen
           // internamente. dvh considera la barra del browser en mobile.
           className={cn(
-            "relative grid max-h-[90dvh] w-full max-w-[calc(100vw-2rem)] overflow-x-hidden overflow-y-auto gap-5 rounded-2xl border border-b-2 border-border/60 bg-popover p-6 text-sm text-popover-foreground shadow-hard duration-100 outline-none sm:max-w-md dark:border-border/40 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            mobileSheet
+              ? "relative grid max-h-[90dvh] w-full max-w-none overflow-x-hidden overflow-y-auto gap-5 rounded-t-2xl rounded-b-none border border-b-2 border-border/60 bg-popover p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] text-sm text-popover-foreground shadow-hard duration-100 outline-none sm:max-w-md sm:rounded-2xl sm:pb-6 dark:border-border/40 data-open:animate-in data-open:fade-in-0 max-sm:data-open:slide-in-from-bottom sm:data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 max-sm:data-closed:slide-out-to-bottom sm:data-closed:zoom-out-95 [&_[data-slot=dialog-footer]]:rounded-b-none sm:[&_[data-slot=dialog-footer]]:rounded-b-2xl"
+              : "relative grid max-h-[90dvh] w-full max-w-[calc(100vw-2rem)] overflow-x-hidden overflow-y-auto gap-5 rounded-2xl border border-b-2 border-border/60 bg-popover p-6 text-sm text-popover-foreground shadow-hard duration-100 outline-none sm:max-w-md dark:border-border/40 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
             className
           )}
           {...props}
