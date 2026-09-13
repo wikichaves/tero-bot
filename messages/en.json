@@ -1315,6 +1315,60 @@
     "hours": "{n} h",
     "days": "{n} days"
   },
+  "newExpenseDialog": {
+    "title": "Add expense",
+    "description": "Send a photo of the receipt to tero.bot on WhatsApp and it will appear here for review.",
+    "fields": {
+      "date": "Date",
+      "vendor": "Vendor",
+      "amount": "Amount",
+      "currency": "Currency",
+      "category": "Category",
+      "property": "Property",
+      "paymentMethod": "Payment method",
+      "receiptUrl": "Receipt photo link",
+      "description": "Description"
+    },
+    "placeholders": {
+      "vendor": "e.g. Shell",
+      "paymentMethod": "Cash, card",
+      "receiptUrl": "Optional",
+      "description": "What was purchased and why."
+    },
+    "categoryOptions": {
+      "combustible": "fuel",
+      "ferreteria": "hardware",
+      "materiales": "materials",
+      "herramientas": "tools",
+      "transporte": "transportation",
+      "comidas": "meals",
+      "servicios": "services",
+      "honorarios": "professional fees",
+      "otro": "other"
+    },
+    "unassignedProperty": "Unassigned",
+    "submit": "Save expense"
+  },
+  "newLeadDialog": {
+    "trigger": "Add lead",
+    "title": "New contact",
+    "description": "Save the essentials now and schedule a follow-up so the inquiry stays warm.",
+    "fields": {
+      "firstName": "First name",
+      "lastName": "Last name",
+      "phone": "Phone",
+      "email": "Email",
+      "checkIn": "Estimated check-in",
+      "checkOut": "Estimated check-out",
+      "guests": "Guests",
+      "property": "Property of interest",
+      "followUp": "Next follow-up",
+      "notes": "Notes"
+    },
+    "undecidedProperty": "To be decided",
+    "notesPlaceholder": "What they need, their budget, and how they found us.",
+    "submit": "Save lead"
+  },
   "reservationsPage": {
     "title": "Reservations",
     "description": "Airbnb and direct stays, by country and property.",

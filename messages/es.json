@@ -1315,6 +1315,60 @@
     "hours": "{n} h",
     "days": "{n} días"
   },
+  "newExpenseDialog": {
+    "title": "Cargar gasto",
+    "description": "Mandale una foto del ticket al WhatsApp de tero.bot y aparece acá para revisar.",
+    "fields": {
+      "date": "Fecha",
+      "vendor": "Comercio",
+      "amount": "Importe",
+      "currency": "Moneda",
+      "category": "Categoría",
+      "property": "Propiedad",
+      "paymentMethod": "Medio de pago",
+      "receiptUrl": "Link de foto/ticket",
+      "description": "Descripción"
+    },
+    "placeholders": {
+      "vendor": "Ej. ANCAP",
+      "paymentMethod": "Efectivo, tarjeta",
+      "receiptUrl": "Opcional",
+      "description": "Qué se compró y para qué."
+    },
+    "categoryOptions": {
+      "combustible": "combustible",
+      "ferreteria": "ferreteria",
+      "materiales": "materiales",
+      "herramientas": "herramientas",
+      "transporte": "transporte",
+      "comidas": "comidas",
+      "servicios": "servicios",
+      "honorarios": "honorarios",
+      "otro": "otro"
+    },
+    "unassignedProperty": "Sin asignar",
+    "submit": "Guardar gasto"
+  },
+  "newLeadDialog": {
+    "trigger": "Cargar lead",
+    "title": "Nuevo contacto",
+    "description": "Guardá lo esencial ahora; el próximo contacto evita que se enfríe la consulta.",
+    "fields": {
+      "firstName": "Nombre",
+      "lastName": "Apellido",
+      "phone": "Teléfono",
+      "email": "Email",
+      "checkIn": "Check-in estimado",
+      "checkOut": "Check-out estimado",
+      "guests": "Huéspedes",
+      "property": "Propiedad de interés",
+      "followUp": "Próximo contacto",
+      "notes": "Notas"
+    },
+    "undecidedProperty": "A definir",
+    "notesPlaceholder": "Qué busca, presupuesto, cómo llegó.",
+    "submit": "Guardar lead"
+  },
   "reservationsPage": {
     "title": "Reservas",
     "description": "Estadías de Airbnb y reservas directas, por país y propiedad.",
