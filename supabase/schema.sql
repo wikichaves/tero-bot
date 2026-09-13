@@ -1322,3 +1322,7 @@ begin
 end $$;
 revoke all on function public.record_airbnb_payout(jsonb) from public, anon, authenticated;
 grant execute on function public.record_airbnb_payout(jsonb) to service_role;
+
+-- ─── Property rental eligibility ───
+alter table public.properties
+  add column if not exists is_rental boolean not null default true;

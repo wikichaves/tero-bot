@@ -27,6 +27,7 @@ export type Profile = {
 };
 
 export type Property = {
+  is_rental: boolean;
   id: string;
   name: string;
   airbnb_ical_url: string | null;

@@ -19,8 +19,10 @@ export async function createManualReservation(input: Record<string, string>) {
   if (allowed !== null && !allowed.includes(value.property_id)) return { error: t("notAllowed") };
   const country = await getActiveCountry(allowed);
   const db = createAdminClient();
-  const { data: property, error: propertyError } = await db.from("properties").select("id,country").eq("id", value.property_id).maybeSingle();
+  const { data: property, error: propertyError } = await db.from("properties").select("id,country,is_rental").eq("id", value.property_id).maybeSingle();
   if (propertyError || !property || (country !== "ALL" && property.country !== country)) return { error: t("notAllowed") };
+
+  if (!property.is_rental) return { error: t("notRental") };
 
   // A stable key uses the existing unique(source, external_id) constraint to
   // make simultaneous/retried submissions idempotent, not just a disabled button.
