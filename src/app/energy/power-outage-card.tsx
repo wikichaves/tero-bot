@@ -50,7 +50,7 @@ export async function PowerOutageCard({
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Zap className="h-4 w-4 text-amber-500" />
+          <Zap className="h-4 w-4 text-status-warning" />
           {t("title", { property: propertyName })}
         </CardTitle>
         <CardDescription>
@@ -116,7 +116,7 @@ export async function PowerOutageCard({
               >
                 <span className="flex items-center gap-2">
                   {o.micro ? (
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-status-warning" />
                   ) : (
                     <ZapOff className="h-3.5 w-3.5 shrink-0 text-destructive" />
                   )}

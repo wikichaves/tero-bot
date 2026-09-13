@@ -203,8 +203,8 @@ export async function SensorAlarmsCard() {
               const Icon = metric === "temperature_c" ? Thermometer : Droplet;
               const iconColor =
                 metric === "temperature_c"
-                  ? "text-orange-500"
-                  : "text-blue-500";
+                  ? "text-status-degraded"
+                  : "text-status-info";
               const location =
                 e.property_device?.room?.name ??
                 e.property_device?.property?.name ??
@@ -254,11 +254,11 @@ export async function SensorAlarmsCard() {
               >
                 <span className="font-medium">{p.name}</span>
                 <span className="tabular-nums text-muted-foreground">
-                  <span className="text-orange-600 dark:text-orange-400">
+                  <span className="text-status-degraded">
                     {p.avgT != null ? `${p.avgT.toFixed(1)}°C` : "—"}
                   </span>
                   {" · "}
-                  <span className="text-blue-600 dark:text-blue-400">
+                  <span className="text-status-info">
                     {p.avgH != null ? `${Math.round(p.avgH)}%` : "—"}
                   </span>
                 </span>

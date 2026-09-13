@@ -23,9 +23,9 @@ export type FloorPlanPin = {
 
 function tempClass(t: number | null): string {
   if (t === null) return "border-muted-foreground/40 text-muted-foreground";
-  if (t < 18) return "border-sky-400 text-sky-400";
-  if (t <= 24) return "border-amber-400 text-amber-400";
-  return "border-emerald-400 text-emerald-400";
+  if (t < 18) return "border-status-info text-status-info";
+  if (t <= 24) return "border-status-warning text-status-warning";
+  return "border-status-ok text-status-ok";
 }
 
 export function FloorPlan({
