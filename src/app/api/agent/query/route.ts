@@ -13,7 +13,14 @@ import type { Property } from "@/lib/types";
 export const runtime = "nodejs";
 
 const schema = z.object({
-  action: z.enum(["properties", "utility_spend", "bills_due", "energy_consumption"]),
+  action: z.enum([
+    "properties",
+    "utility_spend",
+    "bills_due",
+    "energy_consumption",
+    "reservations",
+    "earnings",
+  ]),
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   property: z.string().trim().min(1).optional(),
@@ -22,6 +29,17 @@ const schema = z.object({
 });
 type Query = z.infer<typeof schema>;
 type PropertySummary = Pick<Property, "id" | "name" | "currency">;
+type ReservationQueryRow = {
+  id: string;
+  guest_name: string | null;
+  check_in: string;
+  check_out: string;
+  source: string | null;
+  status: string | null;
+  payout_amount: number | string | null;
+  payout_currency: string | null;
+  property: PropertySummary | PropertySummary[] | null;
+};
 
 function reply(body: unknown, status = 200) {
   return NextResponse.json(body, {
@@ -86,7 +104,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const defaults = monthRange();
+  const defaults = query.action === "earnings"
+    ? { from: "2000-01-01", to: new Date().toISOString().slice(0, 10) }
+    : monthRange();
   const range = {
     from: query.from ?? defaults.from,
     to: query.to ?? defaults.to,
@@ -94,8 +114,9 @@ export async function POST(request: NextRequest) {
   const fromTime = Date.parse(`${range.from}T00:00:00Z`);
   const toTime = Date.parse(`${range.to}T00:00:00Z`);
   const days = (toTime - fromTime) / 86_400_000;
-  if (!Number.isFinite(days) || days < 0 || days > 370) {
-    return reply({ error: "Date range must be between 0 and 370 days" }, 400);
+  const maxDays = query.action === "earnings" ? 20_000 : 370;
+  if (!Number.isFinite(days) || days < 0 || days > maxDays) {
+    return reply({ error: `Date range must be between 0 and ${maxDays} days` }, 400);
   }
 
   const admin = createAdminClient();
@@ -110,6 +131,98 @@ export async function POST(request: NextRequest) {
   const resolved = resolveProperty(properties, query.property);
   if (resolved.error) return reply(resolved.error, 404);
   const property = resolved.property;
+
+  if (query.action === "reservations" || query.action === "earnings") {
+    const reservationRows: ReservationQueryRow[] = [];
+    const pageSize = 1_000;
+    for (let offset = 0; ; offset += pageSize) {
+      let reservationsQuery = admin
+        .from("reservations")
+        .select(
+          "id, guest_name, check_in, check_out, source, status, payout_amount, payout_currency, property:properties(id, name, currency)",
+        )
+        .neq("status", "cancelled")
+        .order("check_in", { ascending: query.action === "earnings" })
+        .range(offset, offset + pageSize - 1);
+      reservationsQuery = query.action === "earnings"
+        ? reservationsQuery.gte("check_in", range.from).lte("check_in", range.to)
+        : reservationsQuery.lte("check_in", range.to).gt("check_out", range.from);
+      if (property) reservationsQuery = reservationsQuery.eq("property_id", property.id);
+
+      const { data, error: reservationsError } = await reservationsQuery;
+      if (reservationsError) {
+        return reply({ error: "Could not load reservations" }, 500);
+      }
+      const page = (data ?? []) as unknown as ReservationQueryRow[];
+      reservationRows.push(...page);
+      if (page.length < pageSize) break;
+    }
+
+    const reservations = reservationRows.map((row) => {
+      const related = Array.isArray(row.property) ? row.property[0] : row.property;
+      return {
+        id: row.id,
+        property: related?.name ?? null,
+        guest_name: row.guest_name,
+        check_in: row.check_in,
+        check_out: row.check_out,
+        source: row.source,
+        status: row.status,
+        payout_amount: row.payout_amount == null ? null : Number(row.payout_amount),
+        payout_currency: row.payout_currency ?? related?.currency ?? null,
+      };
+    });
+
+    if (query.action === "reservations") {
+      return reply({
+        action: query.action,
+        period: range,
+        filters: { property: property?.name ?? null },
+        reservation_count: reservations.length,
+        reservations,
+      });
+    }
+
+    const totals = new Map<string, number>();
+    const byProperty = new Map<string, Map<string, number>>();
+    const byMonth = new Map<string, Map<string, number>>();
+    let missingPayout = 0;
+    for (const reservation of reservations) {
+      if (reservation.payout_amount == null || !reservation.payout_currency) {
+        missingPayout += 1;
+        continue;
+      }
+      const currency = reservation.payout_currency;
+      totals.set(currency, (totals.get(currency) ?? 0) + reservation.payout_amount);
+      const propertyName = reservation.property ?? "Sin propiedad";
+      const propertyTotals = byProperty.get(propertyName) ?? new Map<string, number>();
+      propertyTotals.set(
+        currency,
+        (propertyTotals.get(currency) ?? 0) + reservation.payout_amount,
+      );
+      byProperty.set(propertyName, propertyTotals);
+      const month = reservation.check_in.slice(0, 7);
+      const monthTotals = byMonth.get(month) ?? new Map<string, number>();
+      monthTotals.set(currency, (monthTotals.get(currency) ?? 0) + reservation.payout_amount);
+      byMonth.set(month, monthTotals);
+    }
+
+    return reply({
+      action: query.action,
+      period: range,
+      filters: { property: property?.name ?? null },
+      reservation_count: reservations.length,
+      reservations_with_payout: reservations.length - missingPayout,
+      reservations_missing_payout: missingPayout,
+      totals: Object.fromEntries(totals),
+      by_property: Object.fromEntries(
+        [...byProperty].map(([name, values]) => [name, Object.fromEntries(values)]),
+      ),
+      by_month: Object.fromEntries(
+        [...byMonth].map(([month, values]) => [month, Object.fromEntries(values)]),
+      ),
+    });
+  }
 
   if (query.action === "energy_consumption") {
     if (!property) {

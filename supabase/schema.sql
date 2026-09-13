@@ -575,10 +575,14 @@ create table if not exists public.utility_bills (
   invoice_number text,           -- nº de factura
   inbound_email_id uuid references public.bill_inbound_emails(id) on delete set null,
   pdf_path text,                 -- path en Storage (bucket 'bill-attachments')
+  document_hash text,            -- SHA-256 del PDF para deduplicación por propiedad
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.utility_bills
+  add column if not exists document_hash text;
 
 create index if not exists utility_bills_property_idx
   on public.utility_bills(property_id, period_to desc nulls last);
@@ -592,33 +596,10 @@ create index if not exists utility_bills_status_idx
 -- MessageID. Keep the database as the final guard (the inbound handler also
 -- merges these rows before inserting) so concurrent webhook deliveries and
 -- manual reprocessing cannot create duplicate bills.
---
--- First collapse legacy duplicates, retaining the most recently updated row.
--- The fingerprint intentionally requires amount + a meaningful date when a
--- provider omitted both invoice number and billing period.
-with ranked_duplicates as (
-  select
-    id,
-    row_number() over (
-      partition by
-        property_id,
-        provider,
-        utility_type,
-        coalesce(currency, ''),
-        amount,
-        coalesce(account_number, ''),
-        coalesce(period_to, issue_date, due_date)
-      order by updated_at desc, created_at desc, id desc
-    ) as row_number
-  from public.utility_bills
-  where invoice_number is null
-    and amount is not null
-    and coalesce(period_to, issue_date, due_date) is not null
-)
-delete from public.utility_bills bills
-using ranked_duplicates duplicates
-where bills.id = duplicates.id
-  and duplicates.row_number > 1;
+drop index if exists public.utility_bills_document_hash_uidx;
+create unique index utility_bills_document_hash_uidx
+  on public.utility_bills(property_id, document_hash)
+  where document_hash is not null;
 
 create unique index if not exists utility_bills_invoice_identity_uidx
   on public.utility_bills(property_id, provider, invoice_number)
