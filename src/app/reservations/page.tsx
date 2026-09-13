@@ -45,7 +45,7 @@ export default async function ReservationsPage({ searchParams }: { searchParams:
     return `/reservations?${query}`;
   }
   return <div className="space-y-6">
-    <div><h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1><p className="text-sm text-muted-foreground">{t("description")}</p></div>
+    <div><h1 className="text-4xl">{t("title")}</h1><p className="text-sm text-muted-foreground">{t("description")}</p></div>
     <CreateReservationForm key={`${country}:${selectedProperty}`} properties={properties.filter(p => p.is_rental)} selectedProperty={selectedProperty} />
     <form className="flex flex-wrap items-end gap-3" action="/reservations">
       <input type="hidden" name="period" value={period} />

@@ -84,7 +84,7 @@ export default async function ConversationPage({
           </Link>
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <h1 className="text-lg truncate">
+              <h1 className="min-w-0 truncate text-4xl">
                 {conversation.display_name ?? conversation.phone_number}
               </h1>
               <Badge variant="secondary">
