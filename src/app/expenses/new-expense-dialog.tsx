@@ -14,7 +14,7 @@ export function NewExpenseDialog({ properties, currency }: { properties: Propert
   async function submit(formData: FormData) { await createExpense(formData); setOpen(false); }
   return <Dialog open={open} onOpenChange={setOpen}>
     <DialogTrigger render={<Button />}>Cargar gasto</DialogTrigger>
-    <DialogContent className="sm:max-w-2xl">
+    <DialogContent mobileSheet className="sm:max-w-2xl">
       <form action={submit} className="grid gap-4">
         <DialogHeader><DialogTitle>Cargar gasto</DialogTitle><DialogDescription>Mandale una foto del ticket al WhatsApp de tero.bot y aparece acá para revisar.</DialogDescription></DialogHeader>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><Field label="Fecha" name="expense_date" type="date" /><Field label="Comercio" name="vendor" placeholder="Ej. ANCAP" /><Field label="Importe" name="amount" type="number" step="0.01" /></div>

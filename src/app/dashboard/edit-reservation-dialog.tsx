@@ -65,7 +65,7 @@ export function EditReservationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent mobileSheet className="sm:max-w-2xl">
         <form onSubmit={onSubmit}>
           <DialogHeader>
             <DialogTitle>{t("reservations.form.editTitle")}</DialogTitle>
