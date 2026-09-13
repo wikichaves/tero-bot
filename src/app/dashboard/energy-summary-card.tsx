@@ -25,7 +25,11 @@ import { serverNow } from "@/lib/util/server-now";
  * primer snapshot dentro de la ventana = delta_kwh.
  */
 
-export async function EnergySummaryCard() {
+export async function EnergySummaryCard({
+  countryPropertyIds,
+}: {
+  countryPropertyIds: string[];
+}) {
   const profile = await requireProfile();
   if (profile.role !== "admin" && profile.role !== "gestor") {
     return null;
@@ -43,6 +47,7 @@ export async function EnergySummaryCard() {
     )
     .gte("taken_at", since)
     .not("total_energy_kwh", "is", null)
+    .in("property_device.property_id", countryPropertyIds)
     .order("taken_at", { ascending: true })
     .limit(100_000);
   if (allowedIds !== null) {

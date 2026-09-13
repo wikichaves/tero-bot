@@ -152,6 +152,7 @@
     "checkInLabel": "Check-in",
     "checkOutLabel": "Check-out",
     "noUpcomingStay": "No upcoming reservations.",
+    "noUpcomingStays": "There are no upcoming stays.",
     "noProperties": "No properties.",
     "noReservations": "No reservations.",
     "noProperty": "No property",

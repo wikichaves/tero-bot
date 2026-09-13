@@ -108,6 +108,7 @@ export default async function DashboardPage() {
   let propertiesQuery = supabase
     .from("properties")
     .select("id, name")
+    .eq("is_rental", true)
     .order("name");
   propertiesQuery = propertiesQuery.in("id", countryPropertyIds);
 
@@ -184,8 +185,8 @@ export default async function DashboardPage() {
           Antes: Ambientes solo (alarmas). Ahora: ambas en grid 2x para
           dar pulso rápido de las dos métricas críticas. */}
       <div className="grid gap-6 md:grid-cols-2">
-        <SensorAlarmsCard />
-        <EnergySummaryCard />
+        <SensorAlarmsCard countryPropertyIds={countryPropertyIds} />
+        <EnergySummaryCard countryPropertyIds={countryPropertyIds} />
       </div>
 
       {/* WIK-125: card del pre-checkin conditioning. Solo aparece si hay
@@ -374,6 +375,9 @@ async function NextStaysCard({
   nextStaysByProperty: Map<string, NextStay>;
 }) {
   const t = await getTranslations("dashboard");
+  const propertiesWithNextStay = properties.filter((property) =>
+    nextStaysByProperty.has(property.id),
+  );
   return (
     <Card>
       <CardHeader>
@@ -381,12 +385,14 @@ async function NextStaysCard({
         <CardDescription>{t("nextStaysDescription")}</CardDescription>
       </CardHeader>
       <CardContent>
-        {properties.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("noProperties")}</p>
+        {propertiesWithNextStay.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t("noUpcomingStays")}
+          </p>
         ) : (
           <div className="grid gap-5 md:grid-cols-2">
-            {properties.map((property) => {
-              const nextStay = nextStaysByProperty.get(property.id);
+            {propertiesWithNextStay.map((property) => {
+              const nextStay = nextStaysByProperty.get(property.id)!;
               return (
                 <div key={property.id} className="min-w-0">
                   <div className="mb-3 flex items-center gap-2 border-b pb-2">
@@ -398,24 +404,16 @@ async function NextStaysCard({
                     <span className="min-w-0 flex-1 truncate text-sm font-semibold">
                       {property.name}
                     </span>
-                    {nextStay && (
-                      <span className="text-xs text-muted-foreground">
-                        {nextStay.dateField === "check_in"
-                          ? t("checkInLabel")
-                          : t("checkOutLabel")}
-                      </span>
-                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {nextStay.dateField === "check_in"
+                        ? t("checkInLabel")
+                        : t("checkOutLabel")}
+                    </span>
                   </div>
-                  {nextStay ? (
-                    <ReservationRow
-                      row={nextStay.reservation}
-                      dateField={nextStay.dateField}
-                    />
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      {t("noUpcomingStay")}
-                    </p>
-                  )}
+                  <ReservationRow
+                    row={nextStay.reservation}
+                    dateField={nextStay.dateField}
+                  />
                 </div>
               );
             })}
