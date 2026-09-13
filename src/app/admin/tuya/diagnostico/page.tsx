@@ -120,21 +120,21 @@ async function StatusBadge({ status }: { status: "ok" | "irregular" | "down" | "
   const t = await getTranslations("adminTuyaDiag");
   if (status === "ok") {
     return (
-      <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+      <Badge className="bg-status-ok/20 text-status-ok">
         <CheckCircle2 className="mr-1 h-3 w-3" /> {t("status.ok")}
       </Badge>
     );
   }
   if (status === "irregular") {
     return (
-      <Badge className="bg-amber-500/20 text-amber-700 dark:text-amber-300">
+      <Badge className="bg-status-warning/20 text-status-warning">
         <AlertTriangle className="mr-1 h-3 w-3" /> {t("status.irregular")}
       </Badge>
     );
   }
   if (status === "down") {
     return (
-      <Badge className="bg-red-500/20 text-red-700 dark:text-red-300">
+      <Badge className="bg-status-critical/20 text-status-critical">
         <XCircle className="mr-1 h-3 w-3" /> {t("status.down")}
       </Badge>
     );
@@ -389,16 +389,16 @@ async function HealthSummary({
     if (captured === total)
       return {
         label: t("status.ok"),
-        className: "text-emerald-600 dark:text-emerald-400",
+        className: "text-status-ok",
       };
     if (captured === 0)
       return {
         label: t("summary.down"),
-        className: "text-red-600 dark:text-red-400",
+        className: "text-status-critical",
       };
     return {
       label: t("summary.partial"),
-      className: "text-amber-600 dark:text-amber-400",
+      className: "text-status-warning",
     };
   }
   const sStatus = status(s.captured, s.total);

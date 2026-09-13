@@ -250,13 +250,13 @@ export default async function AmbientesPage({
               {propStats && (
                 <span className="text-sm text-muted-foreground tabular-nums">
                   {t("avgLabel")}{" "}
-                  <span className="text-orange-600 dark:text-orange-400">
+                  <span className="text-status-degraded">
                     {propStats.avgT != null
                       ? `${propStats.avgT.toFixed(1)}°C`
                       : "—"}
                   </span>{" "}
                   ·{" "}
-                  <span className="text-blue-600 dark:text-blue-400">
+                  <span className="text-status-info">
                     {propStats.avgH != null
                       ? `${propStats.avgH.toFixed(0)}%`
                       : "—"}
@@ -477,7 +477,7 @@ async function RoomCard({
       </CardHeader>
       <CardContent className="space-y-3">
         {hasNoRecentReadings ? (
-          <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">
+          <div className="flex items-start gap-2 rounded-md border border-status-warning/30 bg-status-warning/10 p-2 text-xs text-status-warning">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <div>
               <p className="font-medium">{t("noRecentTitle")}</p>
@@ -490,14 +490,14 @@ async function RoomCard({
           <>
             <div className="flex items-baseline gap-6">
               <div className="flex items-baseline gap-1.5">
-                <Thermometer className="h-4 w-4 self-center text-orange-500" />
+                <Thermometer className="h-4 w-4 self-center text-status-degraded" />
                 <span className="text-2xl font-semibold tabular-nums">
                   {avgT != null ? avgT.toFixed(1) : "—"}
                 </span>
                 <span className="text-xs text-muted-foreground">°C</span>
               </div>
               <div className="flex items-baseline gap-1.5">
-                <Droplet className="h-4 w-4 self-center text-blue-500" />
+                <Droplet className="h-4 w-4 self-center text-status-info" />
                 <span className="text-2xl font-semibold tabular-nums">
                   {avgH != null ? avgH.toFixed(0) : "—"}
                 </span>
