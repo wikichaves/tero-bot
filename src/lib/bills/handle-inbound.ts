@@ -22,7 +22,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   buildBillBody,
   detectBillProvider,
@@ -49,6 +49,7 @@ type ProcessedAttachment = {
   name: string;
   isPdf: boolean;
   text: string | null;
+  documentHash: string | null;
 };
 
 /** Which Postmark `To` aliases route to this handler. The router uses
@@ -91,6 +92,9 @@ async function uploadAttachments(
       const path = `${folder}/${safeName}`;
       const buf = Buffer.from(att.Content, "base64");
       const isPdf = /pdf$/i.test(att.ContentType ?? safeName);
+      const documentHash = isPdf
+        ? createHash("sha256").update(buf).digest("hex")
+        : null;
 
       // WIK-332: 1 retry de la extracción si el primer intento vuelve vacío.
       // En cold start de Vercel el primer import+parse de pdf-parse puede
@@ -134,7 +138,7 @@ async function uploadAttachments(
           `[inbound bills] PDF sin texto extraíble tras retry: ${att.Name} — factura quedará sin monto/fecha`,
         );
       }
-      return { path, name: att.Name, isPdf, text };
+      return { path, name: att.Name, isPdf, text, documentHash };
     } catch (err) {
       console.error("[inbound bills] attachment processing threw", err);
       return null;
@@ -175,15 +179,42 @@ type BillInsertFields = {
   invoice_number: string | null;
   inbound_email_id: string | null;
   pdf_path: string | null;
+  document_hash: string | null;
+};
+
+type ExistingBill = {
+  id: string;
+  amount: number | null;
+  currency: string | null;
+  period_from: string | null;
+  period_to: string | null;
+  issue_date: string | null;
+  due_date: string | null;
+  kwh_billed: number | null;
+  m3_billed: number | null;
+  account_number: string | null;
+  invoice_number: string | null;
+  pdf_path: string | null;
+  document_hash: string | null;
 };
 
 const BILL_SELECT =
-  "id, amount, currency, period_from, issue_date, due_date, kwh_billed, m3_billed, account_number, invoice_number, pdf_path";
+  "id, amount, currency, period_from, period_to, issue_date, due_date, kwh_billed, m3_billed, account_number, invoice_number, pdf_path, document_hash";
 
 async function findExistingBill(
   admin: SupabaseClient,
   fields: BillInsertFields,
-) {
+): Promise<ExistingBill | null> {
+  if (fields.document_hash) {
+    const { data } = await admin
+      .from("utility_bills")
+      .select(BILL_SELECT)
+      .eq("property_id", fields.property_id)
+      .eq("document_hash", fields.document_hash)
+      .maybeSingle();
+    if (data) return data as ExistingBill;
+  }
+
   const base = () =>
     admin
       .from("utility_bills")
@@ -196,7 +227,7 @@ async function findExistingBill(
     const { data } = await base()
       .eq("invoice_number", fields.invoice_number)
       .maybeSingle();
-    return data;
+    return data as ExistingBill | null;
   }
 
   if (fields.period_to) {
@@ -205,7 +236,7 @@ async function findExistingBill(
       ? query.eq("account_number", fields.account_number)
       : query.is("account_number", null);
     const { data } = await query.maybeSingle();
-    return data;
+    return data as ExistingBill | null;
   }
 
   // Providers that omit the billing period still produce a stable identity:
@@ -229,7 +260,37 @@ async function findExistingBill(
     : query.is("issue_date", null).eq("due_date", fingerprintDate);
 
   const { data } = await query.maybeSingle();
-  return data;
+  return data as ExistingBill | null;
+}
+
+async function mergeIntoExistingBill(
+  admin: SupabaseClient,
+  existing: ExistingBill,
+  fields: BillInsertFields,
+): Promise<{ id: string | null; action: "updated" | "error"; error?: string }> {
+  const merged = {
+    amount: fields.amount ?? existing.amount,
+    currency: fields.currency ?? existing.currency,
+    period_from: fields.period_from ?? existing.period_from,
+    period_to: fields.period_to ?? existing.period_to,
+    issue_date: fields.issue_date ?? existing.issue_date,
+    due_date: fields.due_date ?? existing.due_date,
+    kwh_billed: fields.kwh_billed ?? existing.kwh_billed,
+    m3_billed: fields.m3_billed ?? existing.m3_billed,
+    account_number: fields.account_number ?? existing.account_number,
+    invoice_number: fields.invoice_number ?? existing.invoice_number,
+    pdf_path: fields.pdf_path ?? existing.pdf_path,
+    document_hash: fields.document_hash ?? existing.document_hash,
+    inbound_email_id: fields.inbound_email_id,
+  };
+  const { error } = await admin
+    .from("utility_bills")
+    .update(merged)
+    .eq("id", existing.id);
+  if (error) {
+    return { id: existing.id, action: "error", error: error.message };
+  }
+  return { id: existing.id, action: "updated" };
 }
 
 async function upsertBill(
@@ -242,36 +303,19 @@ async function upsertBill(
 }> {
   const existing = await findExistingBill(admin, fields);
   if (existing) {
-      // Coalesce-style merge: new value wins when present, existing
-      // value wins when the new parse returned null. The inbound_email_id
-      // is overwritten to the latest one so traceability stays current.
-      const merged = {
-        amount: fields.amount ?? existing.amount,
-        currency: fields.currency ?? existing.currency,
-        period_from: fields.period_from ?? existing.period_from,
-        issue_date: fields.issue_date ?? existing.issue_date,
-        due_date: fields.due_date ?? existing.due_date,
-        kwh_billed: fields.kwh_billed ?? existing.kwh_billed,
-        m3_billed: fields.m3_billed ?? existing.m3_billed,
-        account_number: fields.account_number ?? existing.account_number,
-        invoice_number: fields.invoice_number ?? existing.invoice_number,
-        pdf_path: fields.pdf_path ?? existing.pdf_path,
-        inbound_email_id: fields.inbound_email_id,
-      };
-      const { error } = await admin
-        .from("utility_bills")
-        .update(merged)
-        .eq("id", existing.id);
-      if (error) {
-        return { id: existing.id, action: "error", error: error.message };
-      }
-      return { id: existing.id, action: "updated" };
+    return mergeIntoExistingBill(admin, existing, fields);
   }
   const { data, error } = await admin
     .from("utility_bills")
     .insert({ ...fields, status: "pending" })
     .select("id")
     .single();
+  if (error?.code === "23505") {
+    const concurrentExisting = await findExistingBill(admin, fields);
+    if (concurrentExisting) {
+      return mergeIntoExistingBill(admin, concurrentExisting, fields);
+    }
+  }
   if (error) return { id: null, action: "error", error: error.message };
   return { id: data?.id ?? null, action: "inserted" };
 }
@@ -491,6 +535,7 @@ export async function handleBillInbound(
     invoice_number: parsed.invoice_number,
     inbound_email_id: inboundRowId,
     pdf_path: firstPdf,
+    document_hash: pdfs[0]?.documentHash ?? null,
   });
   if (upsertResult.action === "error") {
     console.error("[inbound bills] upsert utility_bills failed:", upsertResult.error);
@@ -647,6 +692,7 @@ async function handleMultiPdfBatch(args: {
       invoice_number: parsed.invoice_number,
       inbound_email_id: inboundRowId,
       pdf_path: pdf.path,
+      document_hash: pdf.documentHash,
     });
     if (upsertResult.action === "error") {
       console.error(
