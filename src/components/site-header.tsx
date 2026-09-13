@@ -6,12 +6,17 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { UserDropdown } from "@/components/user-dropdown";
 import { PullToRefresh } from "@/components/pull-to-refresh";
 import { createClient } from "@/lib/supabase/server";
@@ -20,23 +25,10 @@ import { getActiveCountry } from "@/lib/country";
 import { CountrySwitcher } from "@/components/country-switcher";
 
 /**
- * Estructura del header (WIK-72):
- *
- *   [Admin] ───  Tareas ▾   Facturas   Energía   WhatsApp   Configuración ▾   …
- *                 ├ Todas las tareas (con badge)               ├ Propiedades
- *                 └ Mis tareas (con badge)                     ├ Usuarios
- *                                                              ├ Tuya devices
- *                                                              └ Cerraduras
- *
- *   - "Admin" (logo) navega al home (= /dashboard para staff admin/gestor,
- *     /my-tasks para limpieza/mantenimiento). Ya NO existe un item
- *     "Dashboard" en el nav: el logo cumple esa función.
- *   - "Tareas" pasó a ser un dropdown que agrupa /tasks y /my-tasks con
- *     sus badges respectivos — antes ocupaban 2 items separados en la barra.
- *   - "Configuración" reemplaza la fila plana de Propiedades / Usuarios /
- *     Tuya / Cerraduras (solo para admin).
- *   - En mobile la jerarquía se aplana dentro del hamburger con separators
- *     y labels para que se entienda el agrupamiento.
+ * Navegación primaria: Tareas, Ambientes, Reservas y Cámaras quedan como
+ * leaves; Dinero y Comercial agrupan destinos relacionados. Admin abre un
+ * índice descriptivo de superficies de baja frecuencia. En mobile se conserva
+ * la misma jerarquía dentro de un Sheet.
  */
 
 type NavLeaf = {
@@ -49,8 +41,6 @@ type NavLeaf = {
 type NavGroup = {
   label: string;
   items: NavLeaf[];
-  /** Cuando se muestra como item plano (mobile/staff), `flatBadge` opcional
-   *  fuerza badge agregado en el row principal. Hoy lo derivamos de items. */
 };
 
 export async function SiteHeader({ profile }: { profile: Profile }) {
@@ -132,11 +122,8 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
           // (mantenimiento ya lo tiene en `staffLeaves`). Badge =
           // tareas asignadas a mí — admin con 0 asignadas no ve badge.
           //
-          // WIK-162: orden actualizado a Tasks → Rooms → Energy →
-          // Bills. Refleja la frecuencia de uso diaria: las tareas son
-          // first-touch, los rooms (sensores T/H) se chequean varias
-          // veces por día con sus alarmas, energy y bills son
-          // overview semanal/mensual.
+          // WIK-162: las superficies de uso más frecuente quedan como
+          // leaves directos, en este orden.
           {
             href: "/tasks",
             label: t("tasks"),
@@ -149,39 +136,37 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
             badge: alarmsActive,
             urgent: alarmsActive > 0,
           },
-          { href: "/energy", label: t("energy") },
-          { href: "/bills", label: t("bills") },
-          { href: "/expenses", label: "Gastos" },
-          { href: "/earnings", label: "Ganancias" },
           { href: "/reservations", label: t("reservations") },
-          { href: "/leads", label: "Leads" },
-          // WIK-108: WhatsApp se movió al submenú Configuración (definido
-          // abajo) — antes vivía como leaf operacional para admin.
+          { href: "/cameras", label: t("cameras") },
         ]
       : [];
 
-  const configGroup: NavGroup | null =
+  const navGroups: NavGroup[] =
+    profile.role === "admin" || profile.role === "gestor"
+      ? [
+          {
+            label: t("money"),
+            items: [
+              { href: "/energy", label: t("energy") },
+              { href: "/bills", label: t("bills") },
+              { href: "/expenses", label: t("expenses") },
+              { href: "/earnings", label: t("earnings") },
+            ],
+          },
+          {
+            label: t("commercial"),
+            items: [
+              { href: "/leads", label: t("leads") },
+              { href: "/whatsapp", label: t("whatsappInbox") },
+            ],
+          },
+        ]
+      : [];
+
+  const adminLeaf: NavLeaf | null =
     profile.role === "admin"
-      ? {
-          label: t("config"),
-          items: [
-            { href: "/cameras", label: t("cameras") },
-            { href: "/admin/users", label: t("users") },
-            { href: "/admin/tuya/lock", label: t("locks") },
-            { href: "/admin/alarms", label: t("alarms") },
-            { href: "/admin/properties", label: t("properties") },
-            { href: "/admin/tuya", label: t("tuyaDevices") },
-            // WIK-108: WhatsApp inbox movido acá. Antes era un leaf
-            // del nav principal — el admin usa /whatsapp con poca
-            // frecuencia comparado con Energía/Ambientes, ubicación
-            // en submenu refleja mejor la frecuencia de uso.
-            { href: "/whatsapp", label: t("whatsappInbox") },
-            { href: "/admin/whatsapp", label: t("whatsappTemplates") },
-          ],
-        }
-      : profile.role === "gestor"
-        ? { label: t("config"), items: [{ href: "/cameras", label: t("cameras") }] }
-        : null;
+      ? { href: "/admin", label: t("admin") }
+      : null;
 
   return (
     <>
@@ -199,10 +184,9 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
           0px (fallback), así que el padding queda en el py-4 de siempre. */}
       <header className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-border/60 bg-background/80 px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] backdrop-blur-md supports-[backdrop-filter]:bg-background/60 sm:px-8">
       <div className="flex min-w-0 items-center gap-3 sm:gap-6">
-        {/* Mobile hamburger — versión aplanada de los mismos items. Visible
-            hasta md; en md+ se usa el nav inline. */}
-        <DropdownMenu>
-          <DropdownMenuTrigger
+        {/* Mobile sheet con la misma jerarquía del nav desktop. */}
+        <Sheet>
+          <SheetTrigger
             render={
               <Button
                 variant="ghost"
@@ -213,44 +197,35 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
             }
           >
             <Menu className="h-5 w-5" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-60">
-            {/* WIK-110: link "Inicio" como primer item del menú.
-                WIK-115: sin icono — solo texto. */}
-            <DropdownMenuItem render={<Link href={homeHref} />}>
-              <span className="flex-1">{t("home")}</span>
-            </DropdownMenuItem>
-            {staffLeaves.map((it) => (
-              <DropdownMenuItem key={it.href} render={<Link href={it.href} />}>
-                <NavRow {...it} />
-              </DropdownMenuItem>
-            ))}
-            {/* WIK-109: el dropdown "Tareas" desapareció — ahora es
-                un leaf directo en operationalLeaves (más abajo). */}
-            {operationalLeaves.length > 0 && <DropdownMenuSeparator />}
-            {operationalLeaves.map((it) => (
-              <DropdownMenuItem key={it.href} render={<Link href={it.href} />}>
-                <NavRow {...it} />
-              </DropdownMenuItem>
-            ))}
-            {configGroup && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel>{configGroup.label}</DropdownMenuLabel>
-                  {configGroup.items.map((it) => (
-                    <DropdownMenuItem
-                      key={it.href}
-                      render={<Link href={it.href} />}
-                    >
-                      <NavRow {...it} />
-                    </DropdownMenuItem>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-80 max-w-[85vw] overflow-y-auto">
+            <SheetHeader className="pt-[calc(1rem+env(safe-area-inset-top,0px))]">
+              <SheetTitle>{t("openMenu")}</SheetTitle>
+            </SheetHeader>
+            <nav className="flex flex-col gap-5 px-4 pb-6">
+              <div className="flex flex-col gap-1">
+                {[...staffLeaves, ...operationalLeaves].map((it) => (
+                  <MobileNavLink key={it.href} item={it} />
+                ))}
+              </div>
+              {navGroups.map((group) => (
+                <div key={group.label} className="flex flex-col gap-1">
+                  <p className="px-3 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    {group.label}
+                  </p>
+                  {group.items.map((it) => (
+                    <MobileNavLink key={it.href} item={it} />
                   ))}
-                </DropdownMenuGroup>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                </div>
+              ))}
+              {adminLeaf && (
+                <div className="border-t border-border/60 pt-4">
+                  <MobileNavLink item={adminLeaf} />
+                </div>
+              )}
+            </nav>
+          </SheetContent>
+        </Sheet>
 
         {/* WIK-114: bird icon a la izquierda del título. Mismo color
             que el texto para que se sienta una sola unidad. */}
@@ -264,22 +239,16 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
 
         {/* Desktop inline nav. */}
         <nav className="hidden min-w-0 items-center gap-5 overflow-x-auto text-sm font-medium text-muted-foreground md:flex">
-          {/* WIK-110: Inicio como primer item del nav.
-              WIK-115: sin icono Home, solo el texto. */}
-          <Link
-            href={homeHref}
-            className="hover:text-foreground"
-            aria-label={t("home")}
-          >
-            {t("home")}
-          </Link>
           {staffLeaves.map((it) => (
             <NavLink key={it.href} {...it} overdueTooltip={t("overdueTooltip")} />
           ))}
           {operationalLeaves.map((it) => (
             <NavLink key={it.href} {...it} overdueTooltip={t("overdueTooltip")} />
           ))}
-          {configGroup && <NavDropdown group={configGroup} />}
+          {navGroups.map((group) => (
+            <NavDropdown key={group.label} group={group} />
+          ))}
+          {adminLeaf && <NavLink {...adminLeaf} />}
         </nav>
       </div>
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
@@ -292,6 +261,21 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
       </div>
     </header>
     </>
+  );
+}
+
+function MobileNavLink({ item }: { item: NavLeaf }) {
+  return (
+    <SheetClose
+      render={
+        <Link
+          href={item.href}
+          className="flex min-h-10 items-center rounded-lg px-3 py-2 text-sm font-medium hover:bg-muted"
+        />
+      }
+    >
+      <NavRow {...item} />
+    </SheetClose>
   );
 }
 
@@ -360,7 +344,7 @@ function NavLink({
   );
 }
 
-/** Dropdown agrupador (Tareas / Configuración). El trigger es un botón
+/** Dropdown agrupador (Dinero / Comercial). El trigger es un botón
  *  con look de link de nav (text-muted-foreground + hover) y un chevron.
  *  Si CUALQUIER sub-item está urgent, el chevron del padre también va rojo
  *  para no esconder el aviso detrás del menú cerrado. */

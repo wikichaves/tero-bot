@@ -24,6 +24,12 @@
     "tasks": "Tasks",
     "bills": "Bills",
     "energy": "Energy",
+    "expenses": "Expenses",
+    "earnings": "Earnings",
+    "leads": "Leads",
+    "money": "Money",
+    "commercial": "Commercial",
+    "admin": "Admin",
     "rooms": "Rooms",
     "config": "Settings",
     "cameras": "Cameras",
@@ -36,6 +42,41 @@
     "whatsappTemplates": "WhatsApp Templates",
     "overdueTooltip": "There are overdue tasks",
     "reservations": "Reservations"
+  },
+  "adminPage": {
+    "title": "Administration",
+    "description": "Manage settings for people, places, and devices.",
+    "sections": {
+      "peoplePlaces": "People and places",
+      "devices": "Devices",
+      "whatsapp": "WhatsApp"
+    },
+    "cards": {
+      "users": {
+        "title": "Users",
+        "description": "Manage access, roles, and assigned properties."
+      },
+      "properties": {
+        "title": "Properties",
+        "description": "Configure properties and their operational details."
+      },
+      "tuya": {
+        "title": "Tuya devices",
+        "description": "Connect and manage linked devices."
+      },
+      "locks": {
+        "title": "Locks",
+        "description": "Manage locks and access codes."
+      },
+      "alarms": {
+        "title": "Alarms",
+        "description": "Define rules and thresholds for alerts."
+      },
+      "whatsapp": {
+        "title": "WhatsApp templates",
+        "description": "Manage templates for automated messages."
+      }
+    }
   },
   "user": {
     "displayFallback": "User",
