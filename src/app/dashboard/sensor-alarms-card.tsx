@@ -32,7 +32,11 @@ const UNIT: Record<"temperature_c" | "humidity_pct", string> = {
   humidity_pct: "%",
 };
 
-export async function SensorAlarmsCard() {
+export async function SensorAlarmsCard({
+  countryPropertyIds,
+}: {
+  countryPropertyIds: string[];
+}) {
   // WIK-94: scope por property en el widget — gestor solo ve alarmas
   // y sensores de sus properties asignadas.
   const profile = await requireProfile();
@@ -69,6 +73,7 @@ export async function SensorAlarmsCard() {
       "id, fired_at, trigger_value, rule:alarm_rules(metric, operator, threshold), property_device:property_devices!inner(property_id, tuya_device_name, property:properties(name), room:rooms(name))",
     )
     .is("resolved_at", null)
+    .in("property_device.property_id", countryPropertyIds)
     .order("fired_at", { ascending: false });
   if (allowedIds !== null) {
     eventsQ = eventsQ.in("property_device.property_id", allowedIds);
@@ -76,18 +81,25 @@ export async function SensorAlarmsCard() {
   let sensorsQ = supabase
     .from("property_devices")
     .select("id, room_id, property_id, property:properties(id, name)")
-    .eq("device_kind", "sensor");
+    .eq("device_kind", "sensor")
+    .in("property_id", countryPropertyIds);
   if (allowedIds !== null) {
     sensorsQ = sensorsQ.in("property_id", allowedIds);
   }
   // WIK-117: incluir temperature_c + humidity_pct para mostrar
   // promedios por property en el dashboard.
-  const snapsQ = supabase
+  let snapsQ = supabase
     .from("sensor_snapshots")
-    .select("property_device_id, taken_at, temperature_c, humidity_pct")
+    .select(
+      "property_device_id, taken_at, temperature_c, humidity_pct, property_device:property_devices!inner(property_id)",
+    )
     .gte("taken_at", since)
+    .in("property_device.property_id", countryPropertyIds)
     .order("taken_at", { ascending: false })
     .limit(100_000);
+  if (allowedIds !== null) {
+    snapsQ = snapsQ.in("property_device.property_id", allowedIds);
+  }
 
   const [activeEventsRes, sensorsRes, recentSnapsRes] = await Promise.all([
     eventsQ.returns<ActiveEvent[]>(),
