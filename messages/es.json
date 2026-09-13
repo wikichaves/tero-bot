@@ -600,7 +600,9 @@
       "created": "Creada"
     },
     "badge": {
-      "configured": "configurada"
+      "configured": "configurada",
+      "rental": "Alquiler",
+      "notRental": "No se alquila"
     }
   },
   "adminPropertyForm": {
@@ -619,7 +621,9 @@
       "airbnbListingIdHintAfter": "Permite matchear automáticamente las confirmaciones por email a esta propiedad.",
       "country": "País",
       "tariffPerKwh": "Tarifa por kWh (opcional)",
-      "tariffPerKwhHint": "Si lo dejás vacío, /energy usa el fallback global."
+      "tariffPerKwhHint": "Si lo dejás vacío, /energy usa el fallback global.",
+      "isRental": "Se alquila",
+      "isRentalHint": "Habilita nuevas reservas. Al desmarcar, se conservan el historial, los consumos y el control remoto."
     },
     "placeholders": {
       "airbnbListingId": "ej. 1526467",
@@ -1292,6 +1296,7 @@
     "empty": "No hay reservas para estos filtros.",
     "previous": "Anterior",
     "next": "Siguiente",
-    "historyHelp": "Incluye todo el historial guardado. Airbnb actualiza fechas por calendario y datos por correo; las reservas antiguas que ya no están en el calendario requieren sus correos o una carga manual."
+    "historyHelp": "Incluye todo el historial guardado. Airbnb actualiza fechas por calendario y datos por correo; las reservas antiguas que ya no están en el calendario requieren sus correos o una carga manual.",
+    "notRental": "Esta propiedad no está habilitada para alquiler."
   }
 }

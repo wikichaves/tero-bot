@@ -72,6 +72,7 @@ export default async function PropertiesPage() {
                   />
                   <div className="flex min-w-0 flex-col gap-1">
                     <Link href={`/admin/properties/${p.id}`} className="font-medium hover:underline">{p.name}</Link>
+                    <Badge variant="outline">{t(p.is_rental ? "badge.rental" : "badge.notRental")}</Badge>
                     <div className="flex flex-wrap items-center gap-1.5">
                       {p.airbnb_ical_url ? (
                         <Badge variant="default">{t("badge.configured")}</Badge>
@@ -138,6 +139,7 @@ export default async function PropertiesPage() {
                           alt={p.name}
                         />
                         <Link href={`/admin/properties/${p.id}`} className="hover:underline">{p.name}</Link>
+                    <Badge variant="outline">{t(p.is_rental ? "badge.rental" : "badge.notRental")}</Badge>
                       </div>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">

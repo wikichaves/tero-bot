@@ -123,6 +123,7 @@ function PropertyForm({
 }) {
   const t = useTranslations("adminPropertyForm");
   const [pending, startTransition] = useTransition();
+  const [isRental, setIsRental] = useState(property?.is_rental ?? true);
   const [name, setName] = useState(property?.name ?? "");
   const [airbnbUrl, setAirbnbUrl] = useState(property?.airbnb_ical_url ?? "");
   // Booking iCal: held in state so submit can round-trip the existing
@@ -211,6 +212,7 @@ function PropertyForm({
         booking_ical_url: bookingUrl,
         currency,
         country,
+        is_rental: isRental,
         padron: padron.trim(),
         tariff_per_kwh: tariffNum,
         airbnb_listing_id: airbnbListingId.trim(),
@@ -324,6 +326,13 @@ function PropertyForm({
             required
             autoFocus
           />
+        </div>
+        <div className="space-y-2 rounded-lg border p-3">
+          <label className="flex items-center gap-3 text-sm font-medium">
+            <input type="checkbox" checked={isRental} onChange={(event) => setIsRental(event.target.checked)} disabled={pending} className="size-4" />
+            {t("fields.isRental")}
+          </label>
+          <p className="text-xs text-muted-foreground">{t("fields.isRentalHint")}</p>
         </div>
         <div className="grid gap-2">
           <Label htmlFor="airbnb_ical_url">{t("fields.airbnbIcalUrl")}</Label>

@@ -26,6 +26,7 @@ const upsertSchema = z.object({
     .string()
     .regex(/^[A-Z]{3}$/, "Moneda inválida (usá ISO 4217: UYU, ARS, USD, ...)")
     .default("UYU"),
+  is_rental: z.boolean().optional(),
   country: z.enum(["UY", "AR"]).default("UY"),
   padron: z.string().max(80).optional().or(z.literal("")) .transform((v) => v ? v : null),
   tariff_per_kwh: z
@@ -67,6 +68,7 @@ export async function upsertProperty(input: {
   booking_ical_url: string;
   currency: string;
   country?: "UY" | "AR";
+  is_rental?: boolean;
   padron?: string;
   tariff_per_kwh: number | null;
   airbnb_listing_id?: string;
@@ -84,6 +86,7 @@ export async function upsertProperty(input: {
   const supabase = await createClient();
   const payload = {
     name: parsed.data.name,
+    ...(parsed.data.is_rental !== undefined ? { is_rental: parsed.data.is_rental } : {}),
     airbnb_ical_url: parsed.data.airbnb_ical_url,
     booking_ical_url: parsed.data.booking_ical_url,
     currency: parsed.data.currency,
@@ -124,6 +127,7 @@ export async function upsertProperty(input: {
     if (error) return { error: error.message };
     id = data?.id ?? null;
   }
+  revalidatePath("/reservations");
   revalidatePath("/admin/properties");
   revalidatePath("/dashboard");
   return { ok: true, id };

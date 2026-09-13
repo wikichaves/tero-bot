@@ -15,12 +15,12 @@ export default async function ReservationsPage({ searchParams }: { searchParams:
   const allowed = await getAllowedPropertyIds(profile);
   const country = await getActiveCountry(allowed);
   const db = await createClient();
-  let propertyQuery = db.from("properties").select("id,name,country").order("name");
+  let propertyQuery = db.from("properties").select("id,name,country,is_rental").order("name");
   if (allowed !== null) propertyQuery = propertyQuery.in("id", allowed);
   if (country !== "ALL") propertyQuery = propertyQuery.eq("country", country);
   const { data: propertyData, error: propertyError } = await propertyQuery;
   if (propertyError) throw new Error(t("loadError"));
-  const properties = (propertyData ?? []) as PropertyOption[];
+  const properties = (propertyData ?? []) as (PropertyOption & { is_rental: boolean })[];
   // Discard a previous country's property filter after switching the header.
   const selectedProperty = properties.some(p => p.id === params.property) ? String(params.property) : "";
   const period = typeof params.period === "string" && ["past", "current", "future", "cancelled"].includes(params.period) ? params.period : "all";
@@ -46,7 +46,7 @@ export default async function ReservationsPage({ searchParams }: { searchParams:
   }
   return <div className="space-y-6">
     <div><h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1><p className="text-sm text-muted-foreground">{t("description")}</p></div>
-    <CreateReservationForm key={`${country}:${selectedProperty}`} properties={properties} selectedProperty={selectedProperty} />
+    <CreateReservationForm key={`${country}:${selectedProperty}`} properties={properties.filter(p => p.is_rental)} selectedProperty={selectedProperty} />
     <form className="flex flex-wrap items-end gap-3" action="/reservations">
       <input type="hidden" name="period" value={period} />
       <label className="space-y-2 text-sm"><span className="block">{t("property")}</span><select key={`${country}:${selectedProperty}`} name="property" defaultValue={selectedProperty} className="h-9 max-w-full rounded-md border bg-background px-3"><option value="">{t("allProperties")}</option>{properties.map(p => <option key={p.id} value={p.id}>{p.name} · {p.country}</option>)}</select></label>

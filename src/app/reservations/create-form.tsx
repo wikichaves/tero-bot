@@ -42,7 +42,7 @@ export function CreateReservationForm({ properties, selectedProperty }: { proper
       <h2 className="text-lg font-semibold">{t("create")}</h2>
       <p className="text-sm text-muted-foreground">{t("manualHelp")}</p>
       <fieldset disabled={pending} className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-2 text-sm"><span>{t("property")}</span><select name="property_id" required defaultValue={selectedProperty || properties[0]?.id} className={selectClass}>{properties.map(p => <option key={p.id} value={p.id}>{p.name} · {p.country}</option>)}</select></label>
+        <label className="space-y-2 text-sm"><span>{t("property")}</span><select name="property_id" required defaultValue={properties.some(p => p.id === selectedProperty) ? selectedProperty : properties[0]?.id} className={selectClass}>{properties.map(p => <option key={p.id} value={p.id}>{p.name} · {p.country}</option>)}</select></label>
         <label className="space-y-2 text-sm"><span>{t("guest")}</span><Input name="guest_name" required maxLength={200} autoComplete="name" /></label>
         <label className="space-y-2 text-sm"><span>{t("checkIn")}</span><Input name="check_in" type="date" required /></label>
         <label className="space-y-2 text-sm"><span>{t("checkOut")}</span><Input name="check_out" type="date" required /></label>
