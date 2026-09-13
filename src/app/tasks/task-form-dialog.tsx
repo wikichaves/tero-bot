@@ -61,7 +61,7 @@ export function NewTaskDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button />}>{tForm("newTitle")}</DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-2xl">
         <TaskForm
           properties={properties}
           assignees={assignees}
@@ -90,7 +90,7 @@ export function EditTaskDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-2xl">
         {/* key={task.id} re-mounts the form when switching between tasks,
             so we can derive initial state from props in useState() instead
             of syncing it inside a useEffect. */}
