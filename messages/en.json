@@ -485,6 +485,25 @@
       "actions": "Actions"
     }
   },
+  "earningsPage": {
+    "title": "Earnings",
+    "description": "Available reservation payout history by property.",
+    "noProperty": "No property",
+    "cards": {
+      "total": "All-time earnings",
+      "paidStays": "Paid bookings",
+      "missingPayout": "Missing payout data"
+    },
+    "byProperty": {
+      "title": "By property",
+      "stays": "{count, plural, one {# stay} other {# stays}}",
+      "empty": "No payouts have been recorded yet."
+    },
+    "monthlyHistory": {
+      "title": "Monthly history",
+      "empty": "No earnings history available."
+    }
+  },
   "usersPage": {
     "title": "Users",
     "subtitle": "{n, plural, one {# user} other {# users}} in the system.",

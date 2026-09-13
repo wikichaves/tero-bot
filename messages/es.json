@@ -485,6 +485,25 @@
       "actions": "Acciones"
     }
   },
+  "earningsPage": {
+    "title": "Ganancias",
+    "description": "Historial disponible de pagos de reservas por propiedad.",
+    "noProperty": "Sin propiedad",
+    "cards": {
+      "total": "Total histórico",
+      "paidStays": "Estadías con pago",
+      "missingPayout": "Sin dato de pago"
+    },
+    "byProperty": {
+      "title": "Por propiedad",
+      "stays": "{count} estadías",
+      "empty": "Todavía no hay pagos cargados."
+    },
+    "monthlyHistory": {
+      "title": "Historial mensual",
+      "empty": "No hay historial disponible."
+    }
+  },
   "usersPage": {
     "title": "Usuarios",
     "subtitle": "{n, plural, one {# usuario} other {# usuarios}} en el sistema.",
