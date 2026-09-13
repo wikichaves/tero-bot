@@ -429,6 +429,9 @@ export function parseAirbnbEmail(input: {
   // Always parse against text + stripped HTML. Airbnb's TextBody is often
   // nearly empty; the HTML carries everything.
   const body = [text, stripHtml(html)].filter(Boolean).join("\n");
+  if (/we sent a payout|te enviamos un cobro|was sent today|hoy te enviamos/i.test(subject + "\n" + body)) {
+    return { kind: "unknown", reason: "Payout notice: handled by the payout ledger" };
+  }
   if (!subject && !body) {
     return { kind: "unknown", reason: "empty subject and body" };
   }
@@ -659,7 +662,7 @@ function extractTimeAfter(
  * Very crude HTML → text. Postmark gives us TextBody usually; this is the
  * primary source for Airbnb whose TextBody is intentionally minimal.
  */
-function stripHtml(html: string): string {
+export function stripHtml(html: string): string {
   if (!html) return "";
   return html
     .replace(/<style[\s\S]*?<\/style>/gi, " ")

@@ -21,6 +21,7 @@
  * retries don't fix parser bugs and we have raw in DB for replay.
  */
 
+import { payoutFromEmail, recordPayout } from "./process-payout";
 import { NextResponse } from "next/server";
 import { parseAirbnbEmail } from "@/lib/airbnb/parse-email";
 import type { ParsedAirbnbEmail, Property } from "@/lib/types";
@@ -66,10 +67,20 @@ export async function handleAirbnbInbound(
   if (messageId) {
     const { data: existing } = await admin
       .from("airbnb_inbound_emails")
-      .select("id")
+      .select("id, parsed_kind")
       .eq("message_id", messageId)
       .maybeSingle();
     if (existing) {
+      try {
+        const payout = payoutFromEmail(body);
+        if (payout) {
+          const result = await recordPayout(admin, payout, existing.id);
+          return NextResponse.json({ ok: true, kind: "payout", ...result });
+        }
+      } catch (error) {
+        console.error("[inbound airbnb] payout retry failed", (error as Error).message);
+        return NextResponse.json({ ok: false, kind: "payout" }, { status: 500 });
+      }
       console.log(
         `[inbound airbnb] dedup: ${messageId} already processed`,
       );
@@ -114,6 +125,18 @@ export async function handleAirbnbInbound(
     }
   } catch (err) {
     console.error("[inbound airbnb] persist threw", err);
+  }
+
+  try {
+    const payout = payoutFromEmail(body);
+    if (payout) {
+      if (!inboundRowId) throw new Error("Payout audit row not persisted");
+      const result = await recordPayout(admin, payout, inboundRowId);
+      return NextResponse.json({ ok: true, kind: "payout", ...result });
+    }
+  } catch (error) {
+    console.error("[inbound airbnb] payout failed", (error as Error).message);
+    return NextResponse.json({ ok: false, kind: "payout" }, { status: 500 });
   }
 
   if (parsed.kind === "unknown") {
