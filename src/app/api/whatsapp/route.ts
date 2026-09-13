@@ -18,7 +18,11 @@ import {
   type PropertyChoiceIntent,
 } from "@/lib/whatsapp/create-task";
 import { handlePreCheckinResponse } from "@/lib/pre-checkin/handle-response";
-import { getAdminChatId, sendTelegramMessage } from "@/lib/telegram";
+import {
+  getAdminChatId,
+  getOpsBotToken,
+  sendTelegramMessage,
+} from "@/lib/telegram";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { APP_NAME } from "@/lib/brand";
 import { createExpenseFromWhatsApp, looksLikeCreateExpenseCommand } from "@/lib/expenses/whatsapp";
@@ -428,7 +432,11 @@ async function notifyAdminDeliveryFailure(opts: {
     opts.details ? `Detalle: ${opts.details}` : null,
     `wamid: ${opts.wamid}`,
   ].filter(Boolean);
-  await sendTelegramMessage({ chatId, text: lines.join("\n") });
+  await sendTelegramMessage({
+    chatId,
+    text: lines.join("\n"),
+    token: getOpsBotToken(),
+  });
 }
 
 async function sendAndPersist(opts: {
