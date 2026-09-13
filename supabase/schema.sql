@@ -1247,3 +1247,78 @@ insert into storage.buckets (id, name, public)
 drop policy if exists camera_snapshots_read on storage.objects;
 create policy camera_snapshots_read on storage.objects
   for select using (bucket_id = 'camera-snapshots');
+
+-- ────────────────────────────────────────────────────────────────────────
+-- Airbnb payout ledger: actual installments, idempotent across forwards.
+create table if not exists public.airbnb_payouts (
+  payout_key text primary key,
+  paid_on date not null,
+  deposit_amount numeric(14,2) not null,
+  deposit_currency text not null check (deposit_currency ~ '^[A-Z]{3}$'),
+  payload jsonb not null,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.airbnb_payout_items (
+  payout_key text not null references public.airbnb_payouts(payout_key),
+  reservation_id uuid not null references public.reservations(id),
+  amount numeric(14,2) not null,
+  currency text not null check (currency ~ '^[A-Z]{3}$'),
+  primary key (payout_key, reservation_id)
+);
+alter table public.airbnb_payouts enable row level security;
+alter table public.airbnb_payout_items enable row level security;
+-- Financial ledger is service-role only; existing reservation RLS governs dashboard reads.
+create or replace function public.protect_airbnb_actual_payout()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare total numeric; curr text; currencies integer;
+begin
+  select sum(amount), min(currency), count(distinct currency) into total, curr, currencies
+  from public.airbnb_payout_items where reservation_id = new.id;
+  if currencies > 1 then raise exception 'Mixed earning currencies require review'; end if;
+  if currencies = 1 then new.payout_amount := total; new.payout_currency := curr; end if;
+  return new;
+end $$;
+drop trigger if exists protect_airbnb_actual_payout on public.reservations;
+create trigger protect_airbnb_actual_payout before update on public.reservations
+for each row execute function public.protect_airbnb_actual_payout();
+
+create or replace function public.record_airbnb_payout(p jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare entry jsonb; prop uuid; rid uuid; result_ids uuid[] := '{}'; old_payload jsonb; n integer;
+begin
+  -- Serializes payout replays and concurrent notices, including different installments.
+  perform pg_advisory_xact_lock(728419205);
+  select payload into old_payload from public.airbnb_payouts where payout_key = p->>'key';
+  if found then
+    if old_payload <> p then raise exception 'Payout identity conflict requires review'; end if;
+    return jsonb_build_object('deduped', true);
+  end if;
+  if jsonb_array_length(p->'items') = 0 then raise exception 'Empty payout'; end if;
+  insert into public.airbnb_payouts values (p->>'key', (p->>'paid_on')::date,
+    (p->>'deposit_amount')::numeric, p->>'deposit_currency', p, now());
+  for entry in select value from jsonb_array_elements(p->'items') loop
+    select count(*), min(id::text)::uuid into n, prop from public.properties where airbnb_listing_id = entry->>'listing_id';
+    if n <> 1 then raise exception 'Unknown or ambiguous listing'; end if;
+    select count(*), min(id::text)::uuid into n, rid from public.reservations
+      where source = 'airbnb' and reservation_code = entry->>'reservation_code';
+    if n > 1 then raise exception 'Ambiguous reservation'; end if;
+    if rid is null then
+      insert into public.reservations(property_id, source, external_id, reservation_code, guest_name, check_in, check_out)
+      values(prop, 'airbnb', entry->>'reservation_code', entry->>'reservation_code', entry->>'guest_name',
+        (entry->>'check_in')::date, (entry->>'check_out')::date) returning id into rid;
+    elsif not exists(select 1 from public.reservations where id = rid and property_id = prop) then
+      raise exception 'Reservation property mismatch';
+    end if;
+    if exists(select 1 from public.airbnb_payout_items where reservation_id = rid and currency <> entry->>'currency') then
+      raise exception 'Mixed earning currencies require review';
+    end if;
+    insert into public.airbnb_payout_items values(p->>'key', rid, (entry->>'amount')::numeric, entry->>'currency')
+      on conflict(payout_key, reservation_id) do update set amount = public.airbnb_payout_items.amount + excluded.amount;
+    result_ids := array_append(result_ids, rid);
+  end loop;
+  -- The trigger derives net earnings from ledger, never adds a confirmation estimate.
+  update public.reservations set payout_amount = payout_amount where id = any(result_ids);
+  return jsonb_build_object('deduped', false, 'reservation_ids', to_jsonb(result_ids));
+end $$;
+revoke all on function public.record_airbnb_payout(jsonb) from public, anon, authenticated;
+grant execute on function public.record_airbnb_payout(jsonb) to service_role;
