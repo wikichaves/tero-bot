@@ -80,7 +80,7 @@ export async function EnergySummaryCard() {
       <CardHeader>
         <CardTitle className="flex items-center justify-between text-base">
           <span className="flex items-center gap-2">
-            <Zap className="h-4 w-4 text-orange-500" />
+            <Zap className="h-4 w-4 text-status-degraded" />
             {t("title")}
           </span>
           <Link

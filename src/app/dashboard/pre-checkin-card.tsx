@@ -156,7 +156,13 @@ export async function PreCheckinCard() {
                 </p>
                 <p className="text-xs">
                   Temp actual:{" "}
-                  <span className={inRange ? "text-emerald-600" : "text-amber-600"}>
+                  <span
+                    className={
+                      inRange
+                        ? "text-status-ok"
+                        : "text-status-warning"
+                    }
+                  >
                     {currentTemp != null ? `${currentTemp}°C` : "—"}
                   </span>
                   <span className="text-muted-foreground">

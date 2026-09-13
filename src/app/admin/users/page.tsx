@@ -102,7 +102,7 @@ export default async function UsersPage() {
                     {p.role !== "admin" && (
                       <span className="mt-0.5 text-xs text-muted-foreground">
                         {scopedNames.length === 0 ? (
-                          <span className="text-amber-700 dark:text-amber-300">
+                          <span className="text-status-warning">
                             {t("scope.unassigned")}
                           </span>
                         ) : (
@@ -170,7 +170,7 @@ export default async function UsersPage() {
                           {t("scope.all")}
                         </span>
                       ) : scopedNames.length === 0 ? (
-                        <span className="text-amber-700 dark:text-amber-300">
+                        <span className="text-status-warning">
                           {t("scope.unassigned")}
                         </span>
                       ) : (

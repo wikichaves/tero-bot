@@ -41,6 +41,18 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  /* UI refactor Fase 1a: expone los estados semánticos que reemplazan
+     82 utilities de color hardcodeadas en las pantallas operativas. */
+  --color-status-ok: var(--status-ok);
+  --color-status-ok-foreground: var(--status-ok-foreground);
+  --color-status-warning: var(--status-warning);
+  --color-status-warning-foreground: var(--status-warning-foreground);
+  --color-status-critical: var(--status-critical);
+  --color-status-critical-foreground: var(--status-critical-foreground);
+  --color-status-degraded: var(--status-degraded);
+  --color-status-degraded-foreground: var(--status-degraded-foreground);
+  --color-status-info: var(--status-info);
+  --color-status-info-foreground: var(--status-info-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -107,6 +119,19 @@
   --accent-foreground: rgb(20, 20, 20);
   --destructive: rgb(245, 74, 136);
   --destructive-foreground: rgb(255, 255, 255);
+  /* UI refactor Fase 1a: estados apagados para convivir con los accents
+     neutros de WIK-196 y el fondo cream de WIK-199. Reemplazan emerald,
+     amber, red, orange y blue/sky hardcodeados sin competir con acciones. */
+  --status-ok: rgb(47, 107, 80);
+  --status-ok-foreground: rgb(255, 255, 255);
+  --status-warning: rgb(126, 86, 12);
+  --status-warning-foreground: rgb(255, 255, 255);
+  --status-critical: rgb(151, 55, 60);
+  --status-critical-foreground: rgb(255, 255, 255);
+  --status-degraded: rgb(166, 70, 25);
+  --status-degraded-foreground: rgb(255, 255, 255);
+  --status-info: rgb(54, 91, 128);
+  --status-info-foreground: rgb(255, 255, 255);
   /* WIK-131: borders pulled into the same warm-grey family. */
   --border: rgb(228, 224, 215);
   --input: rgb(235, 232, 224);
@@ -184,6 +209,18 @@
   --accent-foreground: rgb(245, 245, 245);
   --destructive: rgb(255, 120, 165);
   --destructive-foreground: rgb(255, 255, 255);
+  /* UI refactor Fase 1a: en dark los mismos estados suben luminosidad
+     para sostener AA sobre el fondo WIK-213 sin volverse neón. */
+  --status-ok: rgb(112, 190, 145);
+  --status-ok-foreground: rgb(20, 20, 20);
+  --status-warning: rgb(218, 178, 91);
+  --status-warning-foreground: rgb(20, 20, 20);
+  --status-critical: rgb(222, 125, 126);
+  --status-critical-foreground: rgb(20, 20, 20);
+  --status-degraded: rgb(220, 145, 88);
+  --status-degraded-foreground: rgb(20, 20, 20);
+  --status-info: rgb(124, 165, 203);
+  --status-info-foreground: rgb(20, 20, 20);
   --border: rgb(70, 70, 70);
   --input: rgb(80, 80, 80);
   /* WIK-196: ring también a blanco — focus/selection con el mismo

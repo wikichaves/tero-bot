@@ -279,7 +279,7 @@ async function TodayTasksCard({
       <CardContent>
         {tasks.length === 0 ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />
+            <CheckCircle2 className="h-4 w-4 text-status-ok" />
             {t("tasksAllClear")}
           </p>
         ) : (
@@ -466,7 +466,7 @@ async function ReservationRow({
               className="inline-flex items-center gap-1 text-xs text-muted-foreground"
               title={t("verifiedTooltip")}
             >
-              <BadgeCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500" />
+              <BadgeCheck className="h-3.5 w-3.5 text-status-ok" />
               {t("verifiedLabel")}
             </span>
           )}

@@ -307,7 +307,7 @@ export default async function RoomDetailPage({
       ) : (
         <>
           {hasIncompleteHistory && firstSnapshotTs && (
-            <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
+            <div className="flex items-start gap-2 rounded-md border border-status-warning/30 bg-status-warning/10 p-3 text-xs text-status-warning">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <div>
                 <p className="font-medium">{t("partialTitle")}</p>

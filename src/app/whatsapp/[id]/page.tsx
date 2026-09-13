@@ -149,8 +149,8 @@ export default async function ConversationPage({
       </div>
 
       {!within24h && (
-        <Card className="m-4 mx-auto max-w-2xl border-amber-500/50 bg-amber-500/10">
-          <CardContent className="pt-4 text-sm text-amber-900 dark:text-amber-200">
+        <Card className="m-4 mx-auto max-w-2xl border-status-warning/50 bg-status-warning/10">
+          <CardContent className="pt-4 text-sm text-status-warning">
             <strong>{t("window.title")}</strong> {t("window.body")}
           </CardContent>
         </Card>

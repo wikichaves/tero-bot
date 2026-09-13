@@ -236,7 +236,7 @@ export default async function AlarmasPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <CheckCircle2 className="h-4 w-4 text-status-ok" />
               {t("resolved.title")}
             </CardTitle>
             <CardDescription>

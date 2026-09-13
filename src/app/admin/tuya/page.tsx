@@ -317,7 +317,7 @@ async function HomeCard({
                 </>
               )}{" "}
               {unassignedCount > 0 && (
-                <span className="text-amber-700 dark:text-amber-300">
+                <span className="text-status-warning">
                   {t("homeCard.unassignedCount", { count: unassignedCount })}
                 </span>
               )}

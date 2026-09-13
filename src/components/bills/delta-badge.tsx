@@ -45,10 +45,10 @@ export function DeltaBadge({
   const sign = deltaPct > 0 ? "+" : "";
   const className =
     level === "ok"
-      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+      ? "border-status-ok/40 bg-status-ok/10 text-status-ok"
       : level === "warn"
-        ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-        : "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-400";
+        ? "border-status-warning/40 bg-status-warning/10 text-status-warning"
+        : "border-status-critical/40 bg-status-critical/10 text-status-critical";
   return (
     <span
       className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium ${className}`}
