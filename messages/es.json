@@ -24,6 +24,12 @@
     "tasks": "Tareas",
     "bills": "Facturas",
     "energy": "Energía",
+    "expenses": "Gastos",
+    "earnings": "Ganancias",
+    "leads": "Leads",
+    "money": "Dinero",
+    "commercial": "Comercial",
+    "admin": "Admin",
     "rooms": "Ambientes",
     "config": "Configuración",
     "cameras": "Cámaras",
@@ -36,6 +42,41 @@
     "whatsappTemplates": "WhatsApp Templates",
     "overdueTooltip": "Hay tareas vencidas",
     "reservations": "Reservas"
+  },
+  "adminPage": {
+    "title": "Administración",
+    "description": "Gestioná la configuración de personas, lugares y dispositivos.",
+    "sections": {
+      "peoplePlaces": "Personas y lugares",
+      "devices": "Dispositivos",
+      "whatsapp": "WhatsApp"
+    },
+    "cards": {
+      "users": {
+        "title": "Usuarios",
+        "description": "Gestioná accesos, roles y propiedades asignadas."
+      },
+      "properties": {
+        "title": "Propiedades",
+        "description": "Configurá las casas y sus datos operativos."
+      },
+      "tuya": {
+        "title": "Dispositivos Tuya",
+        "description": "Vinculá y administrá los dispositivos conectados."
+      },
+      "locks": {
+        "title": "Cerraduras",
+        "description": "Gestioná cerraduras y códigos de acceso."
+      },
+      "alarms": {
+        "title": "Alarmas",
+        "description": "Definí reglas y umbrales para las alertas."
+      },
+      "whatsapp": {
+        "title": "Plantillas de WhatsApp",
+        "description": "Administrá las plantillas de mensajes automáticos."
+      }
+    }
   },
   "user": {
     "displayFallback": "Usuario",
