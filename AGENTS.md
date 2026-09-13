@@ -42,6 +42,14 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4 + shadcn/ui · 
 
 **Webhooks** (`/api/whatsapp`, `/api/telegram`, `/api/inbound`) — verify signature/secret first, dispatch to handler in `src/lib/<domain>/`.
 
+**UI primitives — Base UI, NOT Radix** — `src/components/ui/` is built on `@base-ui/react`, with the shadcn `base-nova` style (see `components.json`). This is not the shadcn+Radix stack most examples assume, and the difference is easy to miss:
+
+- Never install or import `@radix-ui/*`. Never use the `asChild` prop — the Base UI equivalent is **`render={...}`** (e.g. `<DialogTrigger render={<Button />}>`).
+- Adding a component: pull it with the `base-nova` style already configured, or hand-write it on `@base-ui/react/*`. If `npx shadcn add <x>` produces Radix imports, discard it and write it by hand.
+- Available today: `badge` `button` `card` `dialog` `dropdown-menu` `input` `label` `select` `separator` `sheet` `skeleton` `sonner` `table` `tabs`.
+- `DialogContent` already handles mobile (`max-h-[90dvh]`, internal scroll, viewport-safe centering) and takes a `mobileSheet` prop to enter from the bottom on small screens. Don't reimplement any of that.
+- Colors come from the theme tokens in `globals.css` — including `--status-ok` / `-warning` / `-critical` / `-degraded` / `-info`, which already resolve light and dark. Don't hardcode Tailwind palette colors (`text-amber-700`, `bg-emerald-500/10`) and don't write `dark:` variants for them.
+
 **i18n** — strings live in `messages/{en,es}.json`. Don't hardcode UI text in components. `useTranslations` (client) / `getTranslations` (server).
 
 **Supabase** — never write standalone migration files. Edit `supabase/schema.sql` → `npm run db:check` (preview diff) → `npm run db:apply`. RLS policies are part of `schema.sql`.
@@ -53,6 +61,7 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4 + shadcn/ui · 
 ## Don'ts
 
 - Don't add a dependency without a clear reason — the stack is intentionally lean.
+- Don't reach for Radix or `asChild` — this repo is Base UI (see **UI primitives** above).
 - Don't write SQL migrations as standalone files — edit `supabase/schema.sql`.
 - Don't bypass `cron-log` in cron handlers (kills observability).
 - Don't bypass the `CRON_SECRET` check on cron routes.
