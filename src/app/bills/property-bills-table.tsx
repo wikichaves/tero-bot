@@ -94,9 +94,11 @@ function firstMonthsCount(bills: BillRowDerived[], n: number): number {
 export function PropertyBillsTable({
   bills,
   allProperties,
+  allocationCount,
 }: {
   bills: BillRowDerived[];
   allProperties: Pick<Property, "id" | "name" | "currency">[];
+  allocationCount: number;
 }) {
   const t = useTranslations("billsPage.table");
   const [expanded, setExpanded] = useState(false);
@@ -171,11 +173,16 @@ export function PropertyBillsTable({
                       {b.period_inferred ? `≈ ${periodLabel}` : periodLabel}
                     </TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
-                      {b.amount != null
-                        ? formatMoney(b.amount, b.currency ?? "UYU", {
-                            alwaysDecimals: true,
-                          })
-                        : "—"}
+                      {b.amount != null ? (
+                        <div>
+                          <div>{formatMoney(b.amount, b.currency ?? "UYU", { alwaysDecimals: true })}</div>
+                          {allocationCount > 1 && (
+                            <div className="text-[11px] text-muted-foreground">
+                              {formatMoney(b.amount / allocationCount, b.currency ?? "UYU", { alwaysDecimals: true })} c/u
+                            </div>
+                          )}
+                        </div>
+                      ) : "—"}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       {formatDate(b.due_date)}

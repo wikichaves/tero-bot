@@ -13,10 +13,34 @@
     "syncStatus": "última captura: {capture} · última sincronización: {sync}",
     "edit": "Editar",
     "delete": "Eliminar",
-    "relative": { "justNow": "recién", "minutesAgo": "hace {minutes} min", "hoursAgo": "hace {hours} h", "daysAgo": "hace {days} d" },
-    "preview": { "alt": "Última foto de {name}", "update": "Actualizar", "updating": "Actualizando…", "requestCapture": "Pedir captura", "captureRequested": "Pedido — se toma en el próximo ciclo, hasta 5 min", "captureError": "No se pudo pedir la captura. Volvé a intentar." },
+    "relative": {
+      "justNow": "recién",
+      "minutesAgo": "hace {minutes} min",
+      "hoursAgo": "hace {hours} h",
+      "daysAgo": "hace {days} d"
+    },
+    "preview": {
+      "alt": "Última foto de {name}",
+      "update": "Actualizar",
+      "updating": "Actualizando…",
+      "requestCapture": "Pedir captura",
+      "captureRequested": "Pedido — se toma en el próximo ciclo, hasta 5 min",
+      "captureError": "No se pudo pedir la captura. Volvé a intentar."
+    },
     "fields": {
-      "property": "Propiedad", "chooseProperty": "Elegir propiedad", "name": "Nombre", "location": "Ubicación", "locationPlaceholder": "Entrada, portón, jardín…", "provider": "Proveedor", "accessLink": "Link de acceso", "technicalOptions": "Opciones técnicas (para cámaras compatibles)", "streamUrl": "URL de stream", "snapshotUrl": "URL de snapshot", "notes": "Notas", "notesPlaceholder": "Qué cubre, instrucciones o incidencias.", "active": "Activa"
+      "property": "Propiedad",
+      "chooseProperty": "Elegir propiedad",
+      "name": "Nombre",
+      "location": "Ubicación",
+      "locationPlaceholder": "Entrada, portón, jardín…",
+      "provider": "Proveedor",
+      "accessLink": "Link de acceso",
+      "technicalOptions": "Opciones técnicas (para cámaras compatibles)",
+      "streamUrl": "URL de stream",
+      "snapshotUrl": "URL de snapshot",
+      "notes": "Notas",
+      "notesPlaceholder": "Qué cubre, instrucciones o incidencias.",
+      "active": "Activa"
     }
   },
   "cameraForm": {
@@ -496,6 +520,7 @@
     "emptyPre": "Reenviá el primer email de UTE / OSE / Antel / Edenor / AySA / Personal Flow / Prosegur a ",
     "emptyPost": " y vas a verla acá. Mientras, podés usar «Nueva factura».",
     "noProperty": "Sin propiedad asignada",
+    "sharedAccount": "Cuenta compartida entre {n} propiedades",
     "billsCount": "{n, plural, one {# factura} other {# facturas}}",
     "table": {
       "type": "Tipo",

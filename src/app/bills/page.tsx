@@ -17,9 +17,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { Property } from "@/lib/types";
 import { BillFormDialog } from "./bill-form-dialog";
 import { PropertyBillsTable } from "./property-bills-table";
+import { billDeduplicationKey, getBillingGroup, type BillingGroup, type BillingProperty } from "@/lib/bills/billing-groups";
 
 /**
  * /bills — listado de facturas de servicios (luz, agua, internet, alarma)
@@ -59,7 +59,7 @@ export default async function FacturasPage() {
 
   let propsQuery = supabase
     .from("properties")
-    .select("id, name, currency")
+    .select("id, name, currency, provider_accounts")
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
   propsQuery = propsQuery.in("id", countryPropertyIds);
@@ -67,10 +67,7 @@ export default async function FacturasPage() {
   const [billsRes, propertiesRes] = await Promise.all([billsQuery, propsQuery]);
 
   const rawBills = (billsRes.data ?? []) as BillRow[];
-  const properties = (propertiesRes.data ?? []) as Pick<
-    Property,
-    "id" | "name" | "currency"
-  >[];
+  const properties = (propertiesRes.data ?? []) as BillingProperty[];
 
   // Derive `effective_period_from / _to` for bills whose parser didn't
   // surface a period. Heuristic (from user spec): the bill covers the
@@ -93,13 +90,17 @@ export default async function FacturasPage() {
     b.effective_period_to ?? b.due_date ?? b.created_at.slice(0, 10);
   bills.sort((a, b) => billDateKey(b).localeCompare(billDateKey(a)));
 
-  // Group bills by property. We iterate `properties` (sort_order asc) so
-  // the sections render in the order the admin set in /admin/properties.
-  const billsByProperty = new Map<string, BillRowDerived[]>();
+  // Group by padrón (or shared internet connection). A shared invoice is
+  // kept once, while the table receives the number of properties to divide
+  // the amount by for the per-property view.
+  const billsByGroup = new Map<string, { group: BillingGroup; bills: BillRowDerived[] }>();
   for (const b of bills) {
-    const list = billsByProperty.get(b.property_id) ?? [];
-    list.push(b);
-    billsByProperty.set(b.property_id, list);
+    const group = getBillingGroup(b, properties);
+    const entry = billsByGroup.get(group.key) ?? { group, bills: [] };
+    if (!entry.bills.some((existing) => billDeduplicationKey(existing) === billDeduplicationKey(b))) {
+      entry.bills.push(b);
+    }
+    billsByGroup.set(group.key, entry);
   }
 
   const inboundCode = INBOUND_DOMAIN
@@ -138,33 +139,14 @@ export default async function FacturasPage() {
         </Card>
       ) : (
         <div className="flex flex-col gap-4">
-          {properties.map((property) => {
-            const propBills = billsByProperty.get(property.id) ?? [];
-            if (propBills.length === 0) return null;
-            return (
-              <PropertyBillsCard
-                key={property.id}
-                property={property}
-                bills={propBills}
-                allProperties={properties}
-              />
-            );
-          })}
-          {/* Defensive: bills whose property_id doesn't match any known property
-              (deleted property, stale FK) end up in their own catch-all card. */}
-          {(() => {
-            const knownIds = new Set(properties.map((p) => p.id));
-            const orphans = bills.filter((b) => !knownIds.has(b.property_id));
-            if (orphans.length === 0) return null;
-            return (
-              <PropertyBillsCard
-                key="orphans"
-                property={null}
-                bills={orphans}
-                allProperties={properties}
-              />
-            );
-          })()}
+          {[...billsByGroup.values()].map(({ group, bills: groupBills }) => (
+            <PropertyBillsCard
+              key={group.key}
+              group={group}
+              bills={groupBills}
+              allProperties={properties}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -172,30 +154,33 @@ export default async function FacturasPage() {
 }
 
 async function PropertyBillsCard({
-  property,
+  group,
   bills,
   allProperties,
 }: {
-  property: Pick<Property, "id" | "name" | "currency"> | null;
+  group: BillingGroup;
   bills: BillRowDerived[];
-  allProperties: Pick<Property, "id" | "name" | "currency">[];
+  allProperties: BillingProperty[];
 }) {
   const t = await getTranslations("billsPage");
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">
-          {property?.name ?? t("noProperty")}
+          {group.properties.length > 0
+            ? group.properties.map((property) => property.name).join(" · ")
+            : t("noProperty")}
         </CardTitle>
         <CardDescription>
           {t("billsCount", { n: bills.length })}
-          {property?.currency ? ` · ${property.currency}` : ""}
+          {group.allocationCount > 1 ? " · " + t("sharedAccount", { n: group.allocationCount }) : ""}
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0 sm:px-6">
         <PropertyBillsTable
           bills={bills}
           allProperties={allProperties}
+          allocationCount={group.allocationCount}
         />
       </CardContent>
     </Card>

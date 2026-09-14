@@ -13,10 +13,34 @@
     "syncStatus": "latest capture: {capture} · latest synchronization: {sync}",
     "edit": "Edit",
     "delete": "Delete",
-    "relative": { "justNow": "just now", "minutesAgo": "{minutes} min ago", "hoursAgo": "{hours} h ago", "daysAgo": "{days} d ago" },
-    "preview": { "alt": "Latest photo from {name}", "update": "Update", "updating": "Updating…", "requestCapture": "Request capture", "captureRequested": "Requested — it will be taken in the next cycle, within 5 min", "captureError": "Could not request the capture. Try again." },
+    "relative": {
+      "justNow": "just now",
+      "minutesAgo": "{minutes} min ago",
+      "hoursAgo": "{hours} h ago",
+      "daysAgo": "{days} d ago"
+    },
+    "preview": {
+      "alt": "Latest photo from {name}",
+      "update": "Update",
+      "updating": "Updating…",
+      "requestCapture": "Request capture",
+      "captureRequested": "Requested — it will be taken in the next cycle, within 5 min",
+      "captureError": "Could not request the capture. Try again."
+    },
     "fields": {
-      "property": "Property", "chooseProperty": "Choose property", "name": "Name", "location": "Location", "locationPlaceholder": "Entrance, gate, garden…", "provider": "Provider", "accessLink": "Access link", "technicalOptions": "Technical options (for compatible cameras)", "streamUrl": "Stream URL", "snapshotUrl": "Snapshot URL", "notes": "Notes", "notesPlaceholder": "Coverage, instructions, or incidents.", "active": "Active"
+      "property": "Property",
+      "chooseProperty": "Choose property",
+      "name": "Name",
+      "location": "Location",
+      "locationPlaceholder": "Entrance, gate, garden…",
+      "provider": "Provider",
+      "accessLink": "Access link",
+      "technicalOptions": "Technical options (for compatible cameras)",
+      "streamUrl": "Stream URL",
+      "snapshotUrl": "Snapshot URL",
+      "notes": "Notes",
+      "notesPlaceholder": "Coverage, instructions, or incidents.",
+      "active": "Active"
     }
   },
   "cameraForm": {
@@ -496,6 +520,7 @@
     "emptyPre": "Forward the first email from UTE / OSE / Antel / Edenor / AySA / Personal Flow / Prosegur to ",
     "emptyPost": " and you'll see it here. Meanwhile, you can use «New bill».",
     "noProperty": "No property assigned",
+    "sharedAccount": "Account shared across {n} properties",
     "billsCount": "{n, plural, one {# bill} other {# bills}}",
     "table": {
       "type": "Type",
