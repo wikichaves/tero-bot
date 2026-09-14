@@ -1335,3 +1335,11 @@ alter table public.properties
 -- ─── Camera synchronization status ───
 alter table public.property_cameras
   add column if not exists last_synced_at timestamptz;
+
+-- ─── Camera auto-reload ───
+-- La integración Meari se traba sola cada varias horas: responde, pero deja de
+-- producir imágenes nuevas. El proceso de sync recarga su config entry cuando
+-- detecta la captura congelada; `last_reload_at` es el cooldown, para que una
+-- cámara irrecuperable no recargue la integración en cada ciclo.
+alter table public.property_cameras
+  add column if not exists last_reload_at timestamptz;
