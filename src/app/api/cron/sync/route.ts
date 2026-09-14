@@ -4,6 +4,8 @@ import { syncAirbnb, type SyncResult } from "@/lib/airbnb/sync";
 import { runSyncRooms, type SyncRoomsResult } from "@/lib/tuya/sync-rooms";
 import { withCronAlerts } from "@/lib/util/cron-alert";
 
+export const maxDuration = 60;
+
 /**
  * Daily sync (Vercel cron). Hace:
  *   1. Pull de iCal de Airbnb por cada property (reservas)
