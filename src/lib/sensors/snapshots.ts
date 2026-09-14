@@ -1,6 +1,10 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { mapWithConcurrency, withRetry } from "@/lib/util/concurrent";
+import {
+  isTransientError,
+  mapWithConcurrency,
+  withRetry,
+} from "@/lib/util/concurrent";
 import { getDeviceStatus } from "@/lib/tuya/energy";
 import { parseSensorReading, type SensorReading } from "@/lib/tuya/sensors";
 import {
@@ -89,26 +93,41 @@ export async function snapshotAllSensors(): Promise<{
   const admin = createAdminClient();
   // Cargamos todos los sensores + context (property + room) en una sola
   // query para que la evaluación de alarmas no haga lookups extra.
-  const { data: devices, error } = await admin
-    .from("property_devices")
-    .select(
-      "id, tuya_device_id, tuya_device_name, property_id, room_id, property:properties(name), room:rooms(name)",
-    )
-    .eq("device_kind", "sensor")
-    .overrideTypes<
-      Array<{
-        id: string;
-        tuya_device_id: string;
-        tuya_device_name: string | null;
-        property_id: string;
-        room_id: string | null;
-        property: { name: string } | null;
-        room: { name: string } | null;
-      }>
-    >();
-  if (error) {
-    throw new Error(`property_devices read failed: ${error.message}`);
-  }
+  const devices = await withRetry(
+    async () => {
+      const { data, error } = await admin
+        .from("property_devices")
+        .select(
+          "id, tuya_device_id, tuya_device_name, property_id, room_id, property:properties(name), room:rooms(name)",
+        )
+        .eq("device_kind", "sensor")
+        .abortSignal(AbortSignal.timeout(8000))
+        .overrideTypes<
+          Array<{
+            id: string;
+            tuya_device_id: string;
+            tuya_device_name: string | null;
+            property_id: string;
+            room_id: string | null;
+            property: { name: string } | null;
+            room: { name: string } | null;
+          }>
+        >();
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    { shouldRetry: (retryError) => isTransientError(retryError) },
+  ).catch((cause: unknown) => {
+    const message = String((cause as Error)?.message ?? cause);
+    const readError = new Error(`property_devices read failed: ${message}`);
+    if (isTransientError(cause)) {
+      Object.assign(readError, {
+        dependency: "supabase.property_devices",
+        transient: true,
+      });
+    }
+    throw readError;
+  });
 
   // Reglas activas (una sola query para todo el batch).
   const rules = await loadEnabledRules(admin);

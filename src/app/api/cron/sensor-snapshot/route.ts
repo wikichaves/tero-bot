@@ -3,6 +3,8 @@ import { snapshotAllSensors } from "@/lib/sensors/snapshots";
 import { logCronSnapshot } from "@/lib/util/cron-log";
 import { withCronAlerts } from "@/lib/util/cron-alert";
 
+export const maxDuration = 60;
+
 /**
  * Hourly cron — captures one snapshot per Tuya T/H sensor (devices marked
  * `device_kind='sensor'` in `property_devices`). Configured in
@@ -41,14 +43,36 @@ export const GET = withCronAlerts("sensor-snapshot", async (request: Request) =>
     return NextResponse.json(result);
   } catch (e) {
     const msg = (e as Error).message;
+    const transient =
+      typeof e === "object" &&
+      e !== null &&
+      "transient" in e &&
+      e.transient === true &&
+      "dependency" in e &&
+      e.dependency === "supabase.property_devices";
     console.log(
       JSON.stringify({
         event: "cron.snapshot.sensor.failed",
         ranAt: new Date().toISOString(),
         totalMs: Date.now() - start,
         error: msg.slice(0, 500),
+        ...(transient
+          ? {
+              dependency: "supabase.property_devices",
+              transient: true,
+            }
+          : {}),
       }),
     );
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json(
+      transient
+        ? {
+            error: msg,
+            dependency: "supabase.property_devices",
+            transient: true,
+          }
+        : { error: msg },
+      { status: transient ? 503 : 500 },
+    );
   }
 });
