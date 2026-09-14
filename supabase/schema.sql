@@ -1211,6 +1211,9 @@ create policy expenses_admin_gestor_write on public.expenses for all using (publ
 
 -- ─── País operativo y contactos comerciales ────────────────────────────
 alter table public.properties add column if not exists country text not null default 'UY' check (country in ('AR', 'UY'));
+-- `padron` es el padrón catastral que usan las facturas de servicios.
+-- Los valores son datos operativos: se cargan desde /admin/properties y no
+-- se versionan acá. Este archivo define la columna, no su contenido.
 alter table public.properties add column if not exists padron text;
 update public.properties set country = 'AR' where lower(name) = '14 de julio';
 alter table public.expenses

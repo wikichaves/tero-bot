@@ -1,4 +1,23 @@
 {
+  "camerasPage": {
+    "title": "Cámaras",
+    "description": "Accesos operativos por propiedad. Preparado para video o snapshots cuando una cámara los permita.",
+    "addCamera": "Agregar cámara",
+    "saveCamera": "Guardar cámara",
+    "empty": "Todavía no hay cámaras cargadas para este país.",
+    "open": "Abrir",
+    "photo": "foto",
+    "streamConfigured": "stream configurado",
+    "appAccess": "acceso por app/link",
+    "stale": "Captura desactualizada",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "relative": { "justNow": "recién", "minutesAgo": "hace {minutes} min", "hoursAgo": "hace {hours} h", "daysAgo": "hace {days} d" },
+    "preview": { "alt": "Última foto de {name}", "update": "Actualizar", "updating": "Actualizando…" },
+    "fields": {
+      "property": "Propiedad", "chooseProperty": "Elegir propiedad", "name": "Nombre", "location": "Ubicación", "locationPlaceholder": "Entrada, portón, jardín…", "provider": "Proveedor", "accessLink": "Link de acceso", "technicalOptions": "Opciones técnicas (para cámaras compatibles)", "streamUrl": "URL de stream", "snapshotUrl": "URL de snapshot", "notes": "Notas", "notesPlaceholder": "Qué cubre, instrucciones o incidencias.", "active": "Activa"
+    }
+  },
   "cameraForm": {
     "save": "Guardar cambios",
     "saving": "Guardando…",
