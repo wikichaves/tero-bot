@@ -473,6 +473,18 @@ function extractAccountNumber(body: string, subject: string): string | null {
     /\bcuenta\s+(?:contrato|cliente|n[uú]mero)?\s*[:#°ºn.\-]*\s*((?:\d[ \t]*){5,18})/i,
     // "Nº de cuenta: 12345" / "N° de cuenta 12345"
     /n[ºo°.]?\s*de\s+cuenta\s*:?\s*((?:\d[ \t]*){5,18})/i,
+    // AySA: "Cuenta: 000002303011". El patrón de arriba pide un espacio
+    // después de "cuenta" y acá los dos puntos van pegados, así que no
+    // matcheaba. Va como patrón propio en vez de aflojar el anterior, para
+    // no arriesgar los cinco proveedores que ya andan.
+    /\bcuenta\s*:\s*((?:\d[ \t]*){5,18})/i,
+    // Personal Flow: el número va en la línea siguiente al label, sin nada
+    // más en esa línea — misma forma que INCENDIO de OSE. El label cambió de
+    // "Referente de pago" a "Referencia de pago" entre 2025 y 2026, así que
+    // aceptamos las dos redacciones.
+    // Es el identificador estable de la cuenta, no una referencia por
+    // factura: coincide con provider_accounts entre períodos distintos.
+    /referen(?:te|cia)\s+de\s+pago\s*:?\s*\n+\s*((?:\d[ \t]*){5,18})/i,
     // "NRO CLIENTE: 3317403" / "Nro Cliente 12345" / "N° de cliente 12345"
     /(?:nro\.?|n[ºo°.]?)\s*(?:de\s+)?cliente\s*:?\s*((?:\d[ \t]*){5,18})/i,
     // UTE (formato sin label explícito — usado por algunas variantes
