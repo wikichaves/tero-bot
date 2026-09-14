@@ -448,7 +448,11 @@ function extractInvoiceNumber(body: string): string | null {
   return null;
 }
 
-function extractAccountNumber(body: string, subject: string): string | null {
+function extractAccountNumber(
+  body: string,
+  subject: string,
+  provider: BillProvider,
+): string | null {
   // Variantes vistas (en orden de prioridad de match):
   //   "Cuenta n° 4131911000"           (UTE)
   //   "Cuenta nº 25006163000108"       (Antel subject)
@@ -510,6 +514,21 @@ function extractAccountNumber(body: string, subject: string): string | null {
       if (normalized.length >= 5) return normalized;
     }
   }
+
+  // Edenor, último recurso: sus PDFs no dejan texto extraíble — el
+  // `pdf_text_extract` termina siendo solo la línea del nombre de archivo —,
+  // pero Edenor pone la cuenta al principio de ese nombre:
+  //   --- 2259142078_08_2026_Factura_23_08_2026-09_11_24.pdf ---
+  //
+  // Va acotado a Edenor a propósito. Prosegur también nombra sus PDFs con
+  // dígitos al principio (214535370019_101_A2161308.pdf) y ese número NO es su
+  // cuenta, así que un patrón genérico de nombre de archivo le asignaría una
+  // cuenta inexistente y la sacaría de su grupo, sin error visible.
+  if (provider === "Edenor") {
+    const fromFilename = /^-{2,}\s*(\d{8,12})_/m.exec(haystack);
+    if (fromFilename) return fromFilename[1];
+  }
+
   return null;
 }
 
@@ -629,7 +648,11 @@ export function extractBillFields(
   const due_date = extractDueDate(normalizedBody);
   const issue_date = extractIssueDate(normalizedBody);
   const invoice_number = extractInvoiceNumber(normalizedBody);
-  const account_number = extractAccountNumber(normalizedBody, normalizedSubject);
+  const account_number = extractAccountNumber(
+    normalizedBody,
+    normalizedSubject,
+    rule.provider,
+  );
   const period_to = extractPeriodTo(normalizedBody);
   const period_from = extractPeriodFrom(normalizedBody);
   const kwh_billed = rule.utility_type === "luz" ? extractKwh(normalizedBody) : null;
