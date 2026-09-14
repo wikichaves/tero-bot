@@ -7,6 +7,21 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 const HA_URL = process.env.HA_URL || "http://127.0.0.1:8123";
 
+// Auto-reload de cámaras congeladas. La integración Meari se traba sola cada
+// varias horas: sigue respondiendo, pero deja de producir imágenes nuevas.
+// `reload_config_entry` la destraba (update_entity NO: devuelve 200 y no hace
+// nada), así que lo disparamos solos cuando la captura quedó vieja.
+//
+// Los umbrales son deliberadamente conservadores. Son cámaras a batería que
+// duermen, y con la integración sana se vieron huecos de cerca de una hora
+// entre capturas: un umbral corto pelearía contra el comportamiento normal y
+// recargaría de más. Dos horas apunta a los bloqueos largos que se vieron en
+// producción (8-10 h), no al sueño de la cámara.
+const STALE_AFTER_MINUTES = 120;
+// Sin cooldown, una cámara realmente rota recargaría su integración en cada
+// ciclo — cada 5 minutos, todo el día, contra Cloud Plus.
+const RELOAD_COOLDOWN_MINUTES = 60;
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // Raíz del repo: dos niveles arriba de scripts/cam-sync/. Antes era una ruta
 // absoluta hardcodeada, que ataba el script a una máquina concreta.
@@ -109,7 +124,7 @@ async function upload(path, buf) {
 const db = new Client({ connectionString: DB_URL });
 await db.connect();
 const { rows } = await db.query(
-  "select id, name, ha_entity_id, snapshot_url, last_snapshot_at, last_synced_at, to_jsonb(property_cameras)->>'capture_requested_at' as capture_requested_at from public.property_cameras where ha_entity_id is not null and is_active order by name",
+  "select id, name, ha_entity_id, snapshot_url, last_snapshot_at, last_synced_at, to_jsonb(property_cameras)->>'capture_requested_at' as capture_requested_at, to_jsonb(property_cameras)->>'last_reload_at' as last_reload_at from public.property_cameras where ha_entity_id is not null and is_active order by name",
 );
 let ok = 0;
 for (const cam of rows) {
@@ -118,8 +133,32 @@ for (const cam of rows) {
   // comparación invalidaba en silencio cualquier pedido que no se consumiera
   // en el ciclo inmediato, dejándolo huérfano para siempre.
   const capturePending = Boolean(cam.capture_requested_at);
+
+  // Congelada = la última captura quedó vieja. El cooldown se mide contra el
+  // último reload automático, no contra el pedido manual: son dos caminos
+  // distintos y el del usuario no debe quedar bloqueado por este.
+  const minutesSince = (iso) => (iso ? (Date.now() - new Date(iso).getTime()) / 60000 : Infinity);
+  const frozen = minutesSince(cam.last_snapshot_at) > STALE_AFTER_MINUTES;
+  const cooledDown = minutesSince(cam.last_reload_at) > RELOAD_COOLDOWN_MINUTES;
+  const autoReload = !capturePending && frozen && cooledDown;
+
   let reachedCamera = false;
   try {
+    if (autoReload) {
+      log("stale", cam.name, `captura de hace ${Math.round(minutesSince(cam.last_snapshot_at))} min — recargo la integración`);
+      await db.query("update public.property_cameras set last_reload_at=now() where id=$1", [cam.id]);
+      const previousState = await haState(cam.ha_entity_id);
+      reachedCamera = true;
+      await reloadCamera(cam.ha_entity_id);
+      // A diferencia del pedido manual, acá NO tiramos si no avanza: el ciclo
+      // sigue y sube lo que haya. Un reload que no destraba no es motivo para
+      // perder la corrida entera.
+      await waitForImageUpdate(
+        cam.ha_entity_id,
+        previousState.attributes.image_updated_at,
+        () => { reachedCamera = true; },
+      );
+    }
     if (capturePending) {
       const previousState = await haState(cam.ha_entity_id);
       reachedCamera = true;

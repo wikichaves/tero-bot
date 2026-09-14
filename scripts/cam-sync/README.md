@@ -38,6 +38,28 @@ reflects receipt, not capture — recording that would make a hours-old frame lo
 fresh. A `FAIL … event thumbnail has no verified capture time` line in the log is
 this guard working, not a bug.
 
+## Auto-reload when an image freezes
+
+The Meari integration wedges itself every few hours: it keeps answering, but
+stops producing new images. The script watches for that and reloads the config
+entry on its own.
+
+- A camera counts as frozen when its last capture is older than
+  `STALE_AFTER_MINUTES` (120).
+- After an automatic reload it will not try again for `RELOAD_COOLDOWN_MINUTES`
+  (60), recorded in `last_reload_at`. Without that, a camera that cannot be
+  recovered would reload its integration every five minutes, all day, against
+  Cloud Plus.
+- The thresholds are deliberately slack. These are battery cameras that sleep,
+  and gaps close to an hour show up even when the integration is healthy — a
+  short threshold would fight normal behaviour rather than a fault.
+- Unlike a manual capture request, a failed auto-reload does not abort the
+  cycle. The run continues and uploads whatever is available.
+
+Expect a `FAIL … event thumbnail` on the cycle right after a reload, and
+sometimes the one after that: the camera needs a moment to serve a live frame
+again. Recovery within two or three cycles is normal, not a fault.
+
 ## Capture requests
 
 Setting `property_cameras.capture_requested_at` queues a capture. On its next
