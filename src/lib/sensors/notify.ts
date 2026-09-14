@@ -321,6 +321,7 @@ export async function notifyAlarmEvent(ev: EvaluatedEvent): Promise<boolean> {
           `<a href="https://${APP_HOST}/rooms">Ver ambientes</a>`,
         parseMode: "HTML",
         disableWebPagePreview: true,
+        token: getOpsBotToken(),
       });
       telegramSent = res != null;
       if (telegramSent) {

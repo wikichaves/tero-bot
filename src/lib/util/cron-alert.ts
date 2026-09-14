@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import {
   escapeHtml,
   getAdminChatId,
+  getOpsBotToken,
   sendTelegramMessage,
 } from "@/lib/telegram";
 
@@ -118,5 +119,6 @@ async function notifyAdminCronFailure(opts: {
     text: lines.join("\n"),
     parseMode: "HTML",
     disableWebPagePreview: true,
+    token: getOpsBotToken(),
   });
 }
