@@ -1,6 +1,10 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { mapWithConcurrency, withRetry } from "@/lib/util/concurrent";
+import {
+  isTransientError,
+  mapWithConcurrency,
+  withRetry,
+} from "@/lib/util/concurrent";
 import { getDeviceStatus, parseEnergyReading } from "./energy";
 
 /**
@@ -36,12 +40,27 @@ export async function snapshotAllDevices(): Promise<{
   results: SnapshotResult[];
 }> {
   const admin = createAdminClient();
-  const { data: devices, error } = await admin
-    .from("property_devices")
-    .select("id, tuya_device_id, tuya_device_name, device_kind");
-  if (error) {
-    throw new Error(`property_devices read failed: ${error.message}`);
-  }
+  const devices = await withRetry(
+    async () => {
+      const { data, error } = await admin
+        .from("property_devices")
+        .select("id, tuya_device_id, tuya_device_name, device_kind")
+        .abortSignal(AbortSignal.timeout(8000));
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    { shouldRetry: (retryError) => isTransientError(retryError) },
+  ).catch((cause: unknown) => {
+    const message = String((cause as Error)?.message ?? cause);
+    const readError = new Error(`property_devices read failed: ${message}`);
+    if (isTransientError(cause)) {
+      Object.assign(readError, {
+        dependency: "supabase.property_devices",
+        transient: true,
+      });
+    }
+    throw readError;
+  });
 
   const results: SnapshotResult[] = await mapWithConcurrency(
     devices ?? [],

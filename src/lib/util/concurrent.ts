@@ -52,7 +52,7 @@ export type RetryOptions = {
   shouldRetry?: (err: unknown, attempt: number) => boolean;
 };
 
-const DEFAULT_SHOULD_RETRY = (err: unknown): boolean => {
+export const isTransientError = (err: unknown): boolean => {
   const msg = String((err as Error)?.message ?? err).toLowerCase();
   // Tuya devuelve códigos custom — buscamos los patterns más comunes:
   if (msg.includes("429") || msg.includes("too many requests")) return true;
@@ -77,7 +77,7 @@ export async function withRetry<R>(
   const attempts = options.attempts ?? 3;
   const baseDelayMs = options.baseDelayMs ?? 500;
   const maxDelayMs = options.maxDelayMs ?? 5000;
-  const shouldRetry = options.shouldRetry ?? DEFAULT_SHOULD_RETRY;
+  const shouldRetry = options.shouldRetry ?? isTransientError;
 
   let lastErr: unknown = null;
   for (let attempt = 1; attempt <= attempts; attempt++) {
