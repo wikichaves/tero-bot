@@ -52,7 +52,15 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4 + shadcn/ui · 
 
 **i18n** — strings live in `messages/{en,es}.json`. Don't hardcode UI text in components. `useTranslations` (client) / `getTranslations` (server).
 
-**Supabase** — never write standalone migration files. Edit `supabase/schema.sql` → `npm run db:check` (preview diff) → `npm run db:apply`. RLS policies are part of `schema.sql`.
+**Supabase** — never write standalone migration files. Edit `supabase/schema.sql`, then apply. `schema.sql` defines *structure*: one-off data fixes belong in `scripts/`, because `db:apply` replays the whole file and would redo them on every run. RLS policies are part of `schema.sql`.
+
+To apply an incremental change, run only its section rather than the whole file — sections are the commented `-- ─── Heading ───` headers:
+
+```bash
+npm run db:apply -- --section "WIK-124"
+```
+
+Note that `db:check` does **not** diff anything: it runs `SELECT current_database(), current_user` and is a connection test only. There is no built-in schema diff — verify a change by reading the data back, or by applying its section and checking the result.
 
 **Modules are siloed** — `src/lib/<domain>/` modules don't reach across each other. Cross-domain orchestration happens at the route / action / cron layer, not inside `lib/`.
 
@@ -76,8 +84,9 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4 + shadcn/ui · 
 npm run dev                    # local dev (auto-regen landing stats)
 npm run build                  # prod build
 npm run lint                   # eslint
-npm run db:check               # preview schema diff vs Supabase
-npm run db:apply               # apply schema.sql
+npm run db:check               # connection test only — does NOT diff
+npm run db:apply               # apply all of schema.sql
+npm run db:apply -- --section "<heading>"   # apply one section (incremental)
 npm run wa:templates:status    # check WhatsApp template approval state
 npm run wa:templates:submit:dry
 npm run airbnb:status          # recent Airbnb iCal sync state

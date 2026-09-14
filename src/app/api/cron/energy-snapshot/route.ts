@@ -3,6 +3,8 @@ import { snapshotAllDevices } from "@/lib/tuya/snapshots";
 import { logCronSnapshot } from "@/lib/util/cron-log";
 import { withCronAlerts } from "@/lib/util/cron-alert";
 
+export const maxDuration = 60;
+
 /**
  * Hourly cron — captures one snapshot per energy-capable property_device.
  * Configured in vercel.json. Vercel sends the CRON_SECRET as a Bearer token.
@@ -33,14 +35,36 @@ export const GET = withCronAlerts("energy-snapshot", async (request: Request) =>
     return NextResponse.json(result);
   } catch (e) {
     const msg = (e as Error).message;
+    const transient =
+      typeof e === "object" &&
+      e !== null &&
+      "transient" in e &&
+      e.transient === true &&
+      "dependency" in e &&
+      e.dependency === "supabase.property_devices";
     console.log(
       JSON.stringify({
         event: "cron.snapshot.energy.failed",
         ranAt: new Date().toISOString(),
         totalMs: Date.now() - start,
         error: msg.slice(0, 500),
+        ...(transient
+          ? {
+              dependency: "supabase.property_devices",
+              transient: true,
+            }
+          : {}),
       }),
     );
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json(
+      transient
+        ? {
+            error: msg,
+            dependency: "supabase.property_devices",
+            transient: true,
+          }
+        : { error: msg },
+      { status: transient ? 503 : 500 },
+    );
   }
 });
