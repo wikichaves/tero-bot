@@ -6,11 +6,11 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { requestCameraCapture } from "./actions";
 
-export function CameraPreview({ cameraId, url, name, lastSnapshotAt, lastSyncedAt, captureRequestedAt }: { cameraId: string; url: string; name: string; lastSnapshotAt: string | null; lastSyncedAt: string | null; captureRequestedAt: string | null }) {
+export function CameraPreview({ cameraId, url, name, lastSnapshotAt, captureRequestedAt }: { cameraId: string; url: string; name: string; lastSnapshotAt: string | null; captureRequestedAt: string | null }) {
   const t = useTranslations("camerasPage.preview");
   const [version, setVersion] = useState(lastSnapshotAt ?? "initial");
   const [loading, setLoading] = useState(false);
-  const [capturePending, setCapturePending] = useState(() => Boolean(captureRequestedAt && (!lastSyncedAt || new Date(captureRequestedAt) > new Date(lastSyncedAt))));
+  const [capturePending, setCapturePending] = useState(() => Boolean(captureRequestedAt));
   const [captureError, setCaptureError] = useState(false);
   const src = url + (url.includes("?") ? "&" : "?") + "v=" + encodeURIComponent(version);
   async function handleCaptureRequest() {
