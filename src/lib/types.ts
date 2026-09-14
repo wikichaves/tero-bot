@@ -262,6 +262,7 @@ export type PropertyCamera = {
   snapshot_url: string | null;
   ha_entity_id: string | null;
   last_snapshot_at: string | null;
+  last_synced_at: string | null;
   notes: string | null;
   is_active: boolean;
   sort_order: number;
