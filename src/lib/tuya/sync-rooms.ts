@@ -1,6 +1,7 @@
 import { tuyaFetch } from "@/lib/tuya/client";
 import { listDevicesGroupedByHome } from "@/lib/tuya/devices";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isTransientError, withRetry } from "@/lib/util/concurrent";
 
 /**
  * Sincroniza rooms desde Tuya Smart Life hacia la tabla `rooms`
@@ -81,12 +82,27 @@ export async function runSyncRooms(): Promise<SyncRoomsResult> {
     throw new Error("no Tuya app user linked");
   }
 
-  const { data: properties, error: propsErr } = await admin
-    .from("properties")
-    .select("id, name");
-  if (propsErr) {
-    throw new Error(`properties read failed: ${propsErr.message}`);
-  }
+  const properties = await withRetry(
+    async () => {
+      const { data, error } = await admin
+        .from("properties")
+        .select("id, name")
+        .abortSignal(AbortSignal.timeout(8000));
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    { shouldRetry: (retryError) => isTransientError(retryError) },
+  ).catch((cause: unknown) => {
+    const message = String((cause as Error)?.message ?? cause);
+    const readError = new Error(`properties read failed: ${message}`);
+    if (isTransientError(cause)) {
+      Object.assign(readError, {
+        dependency: "supabase.properties",
+        transient: true,
+      });
+    }
+    throw readError;
+  });
   const propList = properties ?? [];
 
   // WIK-95: overrides manuales home → property.
