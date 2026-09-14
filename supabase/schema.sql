@@ -1172,6 +1172,8 @@ create table if not exists public.property_cameras (
   check (stream_url is null or stream_url ~ '^(https?|rtsp)://'),
   check (snapshot_url is null or snapshot_url ~ '^https?://')
 );
+alter table public.property_cameras
+  add column if not exists capture_requested_at timestamptz;
 create index if not exists property_cameras_property_idx
   on public.property_cameras(property_id, sort_order, name);
 alter table public.property_cameras enable row level security;

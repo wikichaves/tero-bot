@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { requireRole } from "@/lib/auth";
 import { getAllowedPropertyIds } from "@/lib/auth/scope";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -51,4 +52,31 @@ export async function deleteCamera(formData: FormData) {
   const { error } = await createAdminClient().from("property_cameras").delete().eq("id", id).eq("property_id", propertyId);
   if (error) throw new Error("No se pudo eliminar la cámara.");
   revalidatePath("/cameras");
+}
+
+const captureRequestSchema = z.object({
+  cameraId: z.string().uuid(),
+});
+
+export async function requestCameraCapture(input: unknown) {
+  const parsed = captureRequestSchema.safeParse(input);
+  if (!parsed.success) return { error: "Cámara inválida." };
+
+  const db = createAdminClient();
+  const { data: camera, error: cameraError } = await db
+    .from("property_cameras")
+    .select("property_id")
+    .eq("id", parsed.data.cameraId)
+    .single();
+  if (cameraError || !camera) return { error: "No se encontró la cámara." };
+
+  await allowedProperty(camera.property_id);
+  const { error } = await db
+    .from("property_cameras")
+    .update({ capture_requested_at: new Date().toISOString() })
+    .eq("id", parsed.data.cameraId);
+  if (error) return { error: "No se pudo pedir la captura." };
+
+  revalidatePath("/cameras");
+  return { ok: true };
 }
