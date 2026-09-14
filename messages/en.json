@@ -1,4 +1,23 @@
 {
+  "camerasPage": {
+    "title": "Cameras",
+    "description": "Operational access by property. Ready for video or snapshots when supported by a camera.",
+    "addCamera": "Add camera",
+    "saveCamera": "Save camera",
+    "empty": "There are no cameras for this country yet.",
+    "open": "Open",
+    "photo": "photo",
+    "streamConfigured": "stream configured",
+    "appAccess": "app/link access",
+    "stale": "Outdated capture",
+    "edit": "Edit",
+    "delete": "Delete",
+    "relative": { "justNow": "just now", "minutesAgo": "{minutes} min ago", "hoursAgo": "{hours} h ago", "daysAgo": "{days} d ago" },
+    "preview": { "alt": "Latest photo from {name}", "update": "Update", "updating": "Updating…" },
+    "fields": {
+      "property": "Property", "chooseProperty": "Choose property", "name": "Name", "location": "Location", "locationPlaceholder": "Entrance, gate, garden…", "provider": "Provider", "accessLink": "Access link", "technicalOptions": "Technical options (for compatible cameras)", "streamUrl": "Stream URL", "snapshotUrl": "Snapshot URL", "notes": "Notes", "notesPlaceholder": "Coverage, instructions, or incidents.", "active": "Active"
+    }
+  },
   "cameraForm": {
     "save": "Save changes",
     "saving": "Saving…",
