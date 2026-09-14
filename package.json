@@ -22,6 +22,7 @@
     "airbnb:reprocess:dry": "tsx scripts/airbnb-reprocess.ts --dry-run",
     "bills:reassign": "tsx scripts/backfill-bill-ownership.ts",
     "bills:reassign:dry": "tsx scripts/backfill-bill-ownership.ts --dry-run",
+    "cam:sync": "node scripts/cam-sync/sync.mjs",
     "bills:duplicates:audit": "tsx scripts/audit-bill-dedupe.ts",
     "db:check": "tsx scripts/db-apply.ts --check",
     "db:apply": "tsx scripts/db-apply.ts",
