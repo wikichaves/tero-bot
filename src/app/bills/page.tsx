@@ -51,7 +51,7 @@ export default async function FacturasPage() {
 
   let billsQuery = supabase
     .from("utility_bills")
-    .select("*, property:properties(id, name, currency, padron)")
+    .select("*, property:properties(id, name, currency)")
     .order("due_date", { ascending: false, nullsFirst: false })
     .order("period_to", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
@@ -59,7 +59,7 @@ export default async function FacturasPage() {
 
   let propsQuery = supabase
     .from("properties")
-    .select("id, name, currency, padron")
+    .select("id, name, currency, provider_accounts")
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
   propsQuery = propsQuery.in("id", countryPropertyIds);
@@ -95,8 +95,7 @@ export default async function FacturasPage() {
   // the amount by for the per-property view.
   const billsByGroup = new Map<string, { group: BillingGroup; bills: BillRowDerived[] }>();
   for (const b of bills) {
-    const property = properties.find((p) => p.id === b.property_id) ?? null;
-    const group = getBillingGroup(property, properties, b.utility_type);
+    const group = getBillingGroup(b, properties);
     const entry = billsByGroup.get(group.key) ?? { group, bills: [] };
     if (!entry.bills.some((existing) => billDeduplicationKey(existing) === billDeduplicationKey(b))) {
       entry.bills.push(b);
@@ -168,12 +167,13 @@ async function PropertyBillsCard({
     <Card>
       <CardHeader>
         <CardTitle className="text-base">
-          {group.label}
+          {group.properties.length > 0
+            ? group.properties.map((property) => property.name).join(" · ")
+            : t("noProperty")}
         </CardTitle>
         <CardDescription>
           {t("billsCount", { n: bills.length })}
-          {group.properties.length > 0 ? " · " + group.properties.map((property) => property.name).join(" + ") : " · " + t("noProperty")}
-          {group.allocationCount > 1 ? " · dividido entre " + group.allocationCount : ""}
+          {group.allocationCount > 1 ? " · " + t("sharedAccount", { n: group.allocationCount }) : ""}
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0 sm:px-6">
