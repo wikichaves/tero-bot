@@ -149,7 +149,12 @@ export function PropertyBillsTable({
                     </tr>
                   )}
                   <TableRow>
-                    <TableCell>{UTILITY_LABEL[b.utility_type]}</TableCell>
+                    <TableCell>
+                      <div>{UTILITY_LABEL[b.utility_type]}</div>
+                      <div className="text-xs text-muted-foreground sm:hidden">
+                        {b.provider}
+                      </div>
+                    </TableCell>
                     <TableCell className="hidden sm:table-cell">{b.provider}</TableCell>
                     <TableCell
                       className={`hidden md:table-cell ${
