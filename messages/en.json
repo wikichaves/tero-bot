@@ -14,7 +14,7 @@
     "edit": "Edit",
     "delete": "Delete",
     "relative": { "justNow": "just now", "minutesAgo": "{minutes} min ago", "hoursAgo": "{hours} h ago", "daysAgo": "{days} d ago" },
-    "preview": { "alt": "Latest photo from {name}", "update": "Update", "updating": "Updating…" },
+    "preview": { "alt": "Latest photo from {name}", "update": "Update", "updating": "Updating…", "requestCapture": "Request capture", "captureRequested": "Requested — it will be taken in the next cycle, within 5 min", "captureError": "Could not request the capture. Try again." },
     "fields": {
       "property": "Property", "chooseProperty": "Choose property", "name": "Name", "location": "Location", "locationPlaceholder": "Entrance, gate, garden…", "provider": "Provider", "accessLink": "Access link", "technicalOptions": "Technical options (for compatible cameras)", "streamUrl": "Stream URL", "snapshotUrl": "Snapshot URL", "notes": "Notes", "notesPlaceholder": "Coverage, instructions, or incidents.", "active": "Active"
     }
