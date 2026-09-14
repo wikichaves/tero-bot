@@ -1327,7 +1327,7 @@ grant execute on function public.record_airbnb_payout(jsonb) to service_role;
 alter table public.properties
   add column if not exists is_rental boolean not null default true;
 
--- ─── Padrones y titularidad histórica de facturas ───
+-- ─── Padrones catastrales ───
 -- Asocia cada propiedad con el padrón catastral que usan las facturas de
 -- servicios. Las facturas compartidas siguen siendo un registro único y se
 -- muestran con importe por propiedad.
@@ -1341,40 +1341,3 @@ set padron = case
   else padron
 end
 where lower(name) in ('casa merced', '852 frente', '852 fondo', '853 frente', '853 fondo', 'pantone', '14 de julio');
-
--- Reasigna facturas históricas a la primera propiedad dueña de la cuenta del
--- proveedor, corrigiendo la titularidad accidental de Merced.
---
--- OJO al re-aplicar: `db:apply` corre este archivo entero. La sentencia es
--- idempotente frente a su propio efecto (el guard `property_id <> target` la
--- vuelve no-op), pero si alguien reasigna una factura A MANO desde la UI y el
--- mapeo de `provider_accounts` sigue apuntando a otra propiedad, la próxima
--- corrida deshace esa corrección manual.
-with ranked_matches as (
-  select
-    b.id,
-    p.id as target_property_id,
-    row_number() over (partition by b.id order by p.sort_order, p.name) as rn
-  from public.utility_bills b
-  join public.properties p
-    on p.provider_accounts ->> b.provider = b.account_number
-  where b.account_number is not null
-), chosen as (
-  select id, target_property_id
-  from ranked_matches
-  where rn = 1
-)
-update public.utility_bills b
-set property_id = chosen.target_property_id
-from chosen
-where b.id = chosen.id
-  and b.property_id <> chosen.target_property_id
-  and not exists (
-    select 1
-    from public.utility_bills conflict
-    where conflict.id <> b.id
-      and conflict.property_id = chosen.target_property_id
-      and conflict.provider = b.provider
-      and conflict.account_number = b.account_number
-      and conflict.period_to is not distinct from b.period_to
-  );

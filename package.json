@@ -20,6 +20,8 @@
     "airbnb:status": "tsx scripts/airbnb-inbound-status.ts",
     "airbnb:reprocess": "tsx scripts/airbnb-reprocess.ts",
     "airbnb:reprocess:dry": "tsx scripts/airbnb-reprocess.ts --dry-run",
+    "bills:reassign": "tsx scripts/backfill-bill-ownership.ts",
+    "bills:reassign:dry": "tsx scripts/backfill-bill-ownership.ts --dry-run",
     "bills:duplicates:audit": "tsx scripts/audit-bill-dedupe.ts",
     "db:check": "tsx scripts/db-apply.ts --check",
     "db:apply": "tsx scripts/db-apply.ts",
