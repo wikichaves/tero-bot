@@ -1211,6 +1211,9 @@ create policy expenses_admin_gestor_write on public.expenses for all using (publ
 
 -- ─── País operativo y contactos comerciales ────────────────────────────
 alter table public.properties add column if not exists country text not null default 'UY' check (country in ('AR', 'UY'));
+-- `padron` es el padrón catastral que usan las facturas de servicios.
+-- Los valores son datos operativos: se cargan desde /admin/properties y no
+-- se versionan acá. Este archivo define la columna, no su contenido.
 alter table public.properties add column if not exists padron text;
 update public.properties set country = 'AR' where lower(name) = '14 de julio';
 alter table public.expenses
@@ -1326,18 +1329,3 @@ grant execute on function public.record_airbnb_payout(jsonb) to service_role;
 -- ─── Property rental eligibility ───
 alter table public.properties
   add column if not exists is_rental boolean not null default true;
-
--- ─── Padrones catastrales ───
--- Asocia cada propiedad con el padrón catastral que usan las facturas de
--- servicios. Las facturas compartidas siguen siendo un registro único y se
--- muestran con importe por propiedad.
-update public.properties
-set padron = case
-  when lower(name) = 'casa merced' then '17287'
-  when lower(name) in ('852 frente', '852 fondo') then '852'
-  when lower(name) in ('853 frente', '853 fondo') then '853'
-  when lower(name) = 'pantone' then '854'
-  when lower(name) = '14 de julio' then '14 de Julio'
-  else padron
-end
-where lower(name) in ('casa merced', '852 frente', '852 fondo', '853 frente', '853 fondo', 'pantone', '14 de julio');
