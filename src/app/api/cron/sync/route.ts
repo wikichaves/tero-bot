@@ -14,8 +14,6 @@ type SyncFailure = {
   transient?: true;
 };
 
-export const maxDuration = 60;
-
 /**
  * Daily sync (Vercel cron). Hace:
  *   1. Pull de iCal de Airbnb por cada property (reservas)
