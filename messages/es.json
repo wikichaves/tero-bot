@@ -10,6 +10,7 @@
     "streamConfigured": "stream configurado",
     "appAccess": "acceso por app/link",
     "stale": "Captura desactualizada",
+    "syncStatus": "última captura: {capture} · última sincronización: {sync}",
     "edit": "Editar",
     "delete": "Eliminar",
     "relative": { "justNow": "recién", "minutesAgo": "hace {minutes} min", "hoursAgo": "hace {hours} h", "daysAgo": "hace {days} d" },
