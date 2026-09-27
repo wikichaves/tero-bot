@@ -28,9 +28,22 @@ export const GET = withCronAlerts("inbound-purge", async (request: Request) => {
   const { error, count } = await admin
     .from("airbnb_inbound_emails")
     .delete({ count: "exact" })
-    .lt("received_at", cutoff);
+    .lt("received_at", cutoff)
+    .not("processing_completed_at", "is", null);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  // Reuse the existing daily watchdog; never silently purge interrupted work.
+  const pendingBefore = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const pending: Record<string, number> = {};
+  for (const table of ["airbnb_inbound_emails", "bill_inbound_emails"]) {
+    const result = await admin.from(table).select("id", { count: "exact", head: true })
+      .is("processing_completed_at", null).lt("received_at", pendingBefore);
+    if (result.error) return NextResponse.json({ error: "inbound health query failed" }, { status: 503 });
+    pending[table] = result.count ?? 0;
+  }
+  if (Object.values(pending).some((count) => count > 0)) {
+    return NextResponse.json({ error: "Inbound emails need recovery", pending }, { status: 503 });
   }
   return NextResponse.json({
     ok: true,

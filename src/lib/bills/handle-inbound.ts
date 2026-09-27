@@ -125,7 +125,7 @@ async function uploadAttachments(
           `[inbound bills] attachment upload failed (${safeName}):`,
           uploadRes.error.message,
         );
-        return null;
+        throw new Error("Bill attachment upload failed");
       }
       if (isPdf && text) {
         console.log(
@@ -141,7 +141,7 @@ async function uploadAttachments(
       return { path, name: att.Name, isPdf, text, documentHash };
     } catch (err) {
       console.error("[inbound bills] attachment processing threw", err);
-      return null;
+      throw err;
     }
   });
 
@@ -211,7 +211,7 @@ async function findExistingBill(
       .select(BILL_SELECT)
       .eq("property_id", fields.property_id)
       .eq("document_hash", fields.document_hash)
-      .maybeSingle();
+      .maybeSingle().throwOnError();
     if (data) return data as ExistingBill;
   }
 
@@ -226,7 +226,7 @@ async function findExistingBill(
   if (fields.invoice_number) {
     const { data } = await base()
       .eq("invoice_number", fields.invoice_number)
-      .maybeSingle();
+      .maybeSingle().throwOnError();
     return data as ExistingBill | null;
   }
 
@@ -235,7 +235,7 @@ async function findExistingBill(
     query = fields.account_number
       ? query.eq("account_number", fields.account_number)
       : query.is("account_number", null);
-    const { data } = await query.maybeSingle();
+    const { data } = await query.maybeSingle().throwOnError();
     return data as ExistingBill | null;
   }
 
@@ -259,7 +259,7 @@ async function findExistingBill(
     ? query.eq("issue_date", fingerprintDate)
     : query.is("issue_date", null).eq("due_date", fingerprintDate);
 
-  const { data } = await query.maybeSingle();
+  const { data } = await query.maybeSingle().throwOnError();
   return data as ExistingBill | null;
 }
 
@@ -351,7 +351,7 @@ async function resolveProperty(
       .from("properties")
       .select("id, name, sort_order")
       .filter(`provider_accounts->>${provider}`, "eq", accountNumber)
-      .order("sort_order", { ascending: true });
+      .order("sort_order", { ascending: true }).throwOnError();
     const rows = (data ?? []) as Array<Pick<Property, "id" | "name">>;
     if (rows.length >= 1) {
       if (rows.length > 1) {
@@ -371,7 +371,7 @@ async function resolveProperty(
     .from("properties")
     .select("id, name, currency, sort_order")
     .eq("currency", currencyHint)
-    .order("sort_order", { ascending: true });
+    .order("sort_order", { ascending: true }).throwOnError();
   const rows = (data ?? []) as Array<
     Pick<Property, "id" | "name"> & { currency: string }
   >;
@@ -392,15 +392,31 @@ export async function handleBillInbound(
   admin: SupabaseClient,
   recipientLocal: string | null,
 ): Promise<NextResponse> {
+  const response = await processBillInbound(body, admin, recipientLocal);
+  if (response.ok && body.MessageID) {
+    // Received is not processed. Leave NULL on failures so Postmark can retry.
+    const { error } = await admin.from("bill_inbound_emails")
+      .update({ processing_completed_at: new Date().toISOString() })
+      .eq("message_id", body.MessageID).is("processing_completed_at", null);
+    if (error) throw new Error("Cannot record inbound completion");
+  }
+  return response;
+}
+
+async function processBillInbound(
+  body: PostmarkInbound,
+  admin: SupabaseClient,
+  recipientLocal: string | null,
+): Promise<NextResponse> {
   const messageId = body.MessageID ?? null;
 
   if (messageId) {
     const { data: existing } = await admin
       .from("bill_inbound_emails")
-      .select("id")
+      .select("id, processing_completed_at")
       .eq("message_id", messageId)
-      .maybeSingle();
-    if (existing) {
+      .maybeSingle().throwOnError();
+    if (existing?.processing_completed_at) {
       console.log(`[inbound bills] dedup: ${messageId} already processed`);
       return NextResponse.json({ ok: true, deduped: true });
     }
@@ -539,7 +555,7 @@ export async function handleBillInbound(
   });
   if (upsertResult.action === "error") {
     console.error("[inbound bills] upsert utility_bills failed:", upsertResult.error);
-    return NextResponse.json({ ok: true, kind: parsed.kind, error: upsertResult.error });
+    throw new Error("Bill write failed; retry required");
   }
 
   console.log(
@@ -699,7 +715,7 @@ async function handleMultiPdfBatch(args: {
         `[inbound bills] multi-pdf upsert failed for ${pdf.name}:`,
         upsertResult.error,
       );
-      continue;
+      throw new Error("Partial bill batch write failed; retry required");
     }
     if (upsertResult.action === "inserted") inserted++;
     if (upsertResult.action === "updated") updated++;
@@ -751,7 +767,8 @@ async function insertInboundRow(
   try {
     const { data, error } = await admin
       .from("bill_inbound_emails")
-      .insert({
+      .upsert({
+        processing_completed_at: null,
         message_id: args.messageId,
         parsed_kind: args.parsedKind,
         provider_hint: args.providerHint,
@@ -761,16 +778,17 @@ async function insertInboundRow(
         raw: args.rawBody,
         attachment_paths: args.attachmentPaths,
         pdf_text_extract: args.pdfTextExtract,
-      })
+      }, { onConflict: "message_id" })
       .select("id")
       .single();
     if (error) {
       console.error("[inbound bills] persist failed", error.message);
-      return null;
+      throw new Error("Bill inbound persistence failed");
     }
-    return data?.id ?? null;
+    if (!data?.id) throw new Error("Bill inbound persistence returned no id");
+    return data.id;
   } catch (err) {
     console.error("[inbound bills] persist threw", err);
-    return null;
+    throw err;
   }
 }
