@@ -61,16 +61,31 @@ export async function handleAirbnbInbound(
   body: PostmarkInbound,
   admin: SupabaseClient,
 ): Promise<NextResponse> {
+  const response = await processAirbnbInbound(body, admin);
+  if (response.ok && body.MessageID) {
+    // Received is not processed. Leave NULL on failures so Postmark can retry.
+    const { error } = await admin.from("airbnb_inbound_emails")
+      .update({ processing_completed_at: new Date().toISOString() })
+      .eq("message_id", body.MessageID).is("processing_completed_at", null);
+    if (error) throw new Error("Cannot record inbound completion");
+  }
+  return response;
+}
+
+async function processAirbnbInbound(
+  body: PostmarkInbound,
+  admin: SupabaseClient,
+): Promise<NextResponse> {
   const messageId = body.MessageID ?? null;
 
   // Idempotency check.
   if (messageId) {
     const { data: existing } = await admin
       .from("airbnb_inbound_emails")
-      .select("id, parsed_kind")
+      .select("id, parsed_kind, processing_completed_at")
       .eq("message_id", messageId)
-      .maybeSingle();
-    if (existing) {
+      .maybeSingle().throwOnError();
+    if (existing?.processing_completed_at) {
       try {
         const payout = payoutFromEmail(body);
         if (payout) {
@@ -110,12 +125,13 @@ export async function handleAirbnbInbound(
   try {
     const { data, error } = await admin
       .from("airbnb_inbound_emails")
-      .insert({
+      .upsert({
+        processing_completed_at: null,
         message_id: messageId,
         parsed_kind: parsed.kind,
         parsed,
         raw: body,
-      })
+      }, { onConflict: "message_id" })
       .select("id")
       .single();
     if (error) {
@@ -125,6 +141,10 @@ export async function handleAirbnbInbound(
     }
   } catch (err) {
     console.error("[inbound airbnb] persist threw", err);
+  }
+
+  if (!inboundRowId) {
+    return NextResponse.json({ ok: false, error: "inbound persistence failed" }, { status: 503 });
   }
 
   try {
@@ -162,7 +182,7 @@ export async function handleAirbnbInbound(
   const { data: propsRows } = await admin
     .from("properties")
     .select("id, name, airbnb_listing_id")
-    .order("name");
+    .order("name").throwOnError();
   const propsAll = (propsRows ?? []) as Array<
     Pick<Property, "id" | "name"> & { airbnb_listing_id: string | null }
   >;
@@ -193,7 +213,7 @@ export async function handleAirbnbInbound(
     .select("*")
     .eq("source", "airbnb")
     .eq("reservation_code", code)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
 
   if (parsed.kind === "cancellation") {
     if (!existingReservation) {
@@ -209,7 +229,7 @@ export async function handleAirbnbInbound(
     await admin
       .from("reservations")
       .update({ status: "cancelled" })
-      .eq("id", existingReservation.id);
+      .eq("id", existingReservation.id).throwOnError();
 
     await admin
       .from("tasks")
@@ -217,19 +237,19 @@ export async function handleAirbnbInbound(
       .eq("property_id", existingReservation.property_id)
       .eq("kind", "limpieza")
       .eq("due_date", existingReservation.check_out)
-      .eq("status", "pending");
+      .eq("status", "pending").throwOnError();
 
     await admin
       .from("lock_passwords")
       .update({ status: "revoked" })
       .eq("reservation_id", existingReservation.id)
-      .eq("status", "active");
+      .eq("status", "active").throwOnError();
 
     if (inboundRowId) {
       await admin
         .from("airbnb_inbound_emails")
         .update({ reservation_id: existingReservation.id })
-        .eq("id", inboundRowId);
+        .eq("id", inboundRowId).throwOnError();
     }
     console.log(`[inbound airbnb] cancelled ${code}`);
     return NextResponse.json({ ok: true, kind: "cancellation" });
@@ -265,7 +285,7 @@ export async function handleAirbnbInbound(
     await admin
       .from("reservations")
       .update(fields)
-      .eq("id", existingReservation.id);
+      .eq("id", existingReservation.id).throwOnError();
   } else if (propertyHit && parsed.check_in && parsed.check_out) {
     const { data, error } = await admin
       .from("reservations")
@@ -280,9 +300,7 @@ export async function handleAirbnbInbound(
       .select("id")
       .single();
     if (error) {
-      console.error(
-        `[inbound airbnb] placeholder insert failed for ${code}: ${error.message}`,
-      );
+      throw new Error(`Reservation write failed: ${error.message}`);
     } else {
       reservationId = data?.id ?? null;
       console.log(`[inbound airbnb] placeholder created for ${code}`);
@@ -297,7 +315,7 @@ export async function handleAirbnbInbound(
     await admin
       .from("airbnb_inbound_emails")
       .update({ reservation_id: reservationId })
-      .eq("id", inboundRowId);
+      .eq("id", inboundRowId).throwOnError();
   }
 
   return NextResponse.json({

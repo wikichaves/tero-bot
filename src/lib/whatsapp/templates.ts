@@ -803,7 +803,22 @@ export const staffWelcomeV3En: WhatsAppTemplate = {
  * o se le pide que escriba al WA antes del check-in. La info ya está
  * en su email de confirmación de Airbnb de todas formas.
  */
+export const taskStatusUpdate: WhatsAppTemplate = {
+  name: "staff_task_status_update_v1", language: "es", category: "UTILITY",
+  description: "Actualización de una tarea reportada. Variables: título, propiedad, estado, enlace.",
+  components: [{ type: "BODY", text: "Actualización de tu reporte:\n\nTarea: {{1}}\nPropiedad: {{2}}\nEstado: {{3}}\n\nDetalles: {{4}}\nGracias por tu reporte.",
+    example: { body_text: [["Reparar canilla", "Casa Bosque", "Hecha", `https://${BRAND_HOST}/tasks`]] } }],
+};
+export const dailyEnergyReport: WhatsAppTemplate = {
+  name: "daily_energy_report_v1", language: "es", category: "UTILITY",
+  description: "Reporte operativo diario solicitado por el administrador. Variables: resumen, enlace.",
+  components: [{ type: "BODY", text: "Tu reporte diario de energía:\n\n{{1}}\n\nReporte completo: {{2}}\nDatos de tus propiedades administradas.",
+    example: { body_text: [["Consumo de ayer: 18 kWh", `https://${BRAND_HOST}/energy`]] } }],
+};
+
 export const allTemplates: WhatsAppTemplate[] = [
+  taskStatusUpdate,
+  dailyEnergyReport,
   // guestCheckinCode → DESHABILITADO, ver nota arriba.
   // ES variants (originales).
   guestCheckoutReminder,

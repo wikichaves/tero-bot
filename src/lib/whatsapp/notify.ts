@@ -3,7 +3,7 @@ import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { APP_HOST } from "@/lib/brand";
-import { persistMessage, sendKapsoText, upsertConversation } from "./index";
+import { persistMessage, sendKapsoTemplate, upsertConversation } from "./index";
 
 /**
  * Best-effort WhatsApp notification helpers.
@@ -13,7 +13,8 @@ import { persistMessage, sendKapsoText, upsertConversation } from "./index";
  * triggered them (e.g. saving a task). Errors go to console.error so they're
  * visible in Vercel logs but the caller continues.
  *
- * Sandbox caveat: Kapso/Meta only allows free-form text within the 24h
+ * Proactive task notifications use templates (approval required before rollout).
+ * WhatsApp rule (also in production): Kapso/Meta only allows free-form text within the 24h
  * conversation window. If the staff member hasn't messaged us recently, the
  * send will fail — that's expected and logged. To reach them outside that
  * window we need pre-approved templates (see WIK-44).
@@ -121,14 +122,23 @@ export async function notifyTaskAssigned(taskId: string): Promise<void> {
     });
 
     try {
-      const { messageId } = await sendKapsoText(phoneNumberId, peer, text);
+      const { messageId } = await sendKapsoTemplate({
+        phoneNumberId,
+        to: peer,
+        templateName: "staff_task_assigned_v2",
+        languageCode: "es",
+        bodyVariables: [task.title, task.property?.name ?? "Sin propiedad", KIND_LABEL[task.kind],
+          task.due_date ?? "Sin fecha", task.description ?? `Ver ${APP_HOST}/tasks/${task.id}`]
+          .map((value) => value.replace(/\s+/g, " ").trim().slice(0, 900)),
+      });
       await persistMessage({
         conversation_id: conversationId,
         external_id: messageId ?? null,
         direction: "outbound",
-        type: "text",
+        type: "template",
+        template_name: "staff_task_assigned_v2",
         body: text,
-        status: "sent",
+        status: "accepted",
       });
       console.log(
         `[notifyTaskAssigned] sent task=${taskId} to=${peer} msg=${messageId ?? "?"}`,
@@ -235,14 +245,19 @@ export async function notifyTaskStatusChanged(
     });
 
     try {
-      const { messageId } = await sendKapsoText(phoneNumberId, peer, text);
+      const { messageId } = await sendKapsoTemplate({
+        phoneNumberId, to: peer, templateName: "staff_task_status_update_v1", languageCode: "es",
+        bodyVariables: [task.title, task.property?.name ?? "Sin propiedad", STATUS_VERB[newStatus],
+          `https://${APP_HOST}/tasks/${task.id}`].map((value) => value.replace(/\s+/g, " ").trim().slice(0, 900)),
+      });
       await persistMessage({
         conversation_id: conversationId,
         external_id: messageId ?? null,
         direction: "outbound",
-        type: "text",
+        type: "template",
+        template_name: "staff_task_status_update_v1",
         body: text,
-        status: "sent",
+        status: "accepted",
       });
       console.log(
         `[notifyTaskStatusChanged] sent task=${taskId} to=${peer} status=${newStatus}`,

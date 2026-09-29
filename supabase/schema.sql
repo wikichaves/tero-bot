@@ -1343,3 +1343,11 @@ alter table public.property_cameras
 -- cámara irrecuperable no recargue la integración en cada ciclo.
 alter table public.property_cameras
   add column if not exists last_reload_at timestamptz;
+
+-- ─── Inbound processing completion ──────────────────────────────────────────
+-- Historical rows retain legacy completed semantics; new handlers insert NULL
+-- until domain writes succeed. Apply this section before deploying handlers.
+alter table public.airbnb_inbound_emails
+  add column if not exists processing_completed_at timestamptz default now();
+alter table public.bill_inbound_emails
+  add column if not exists processing_completed_at timestamptz default now();

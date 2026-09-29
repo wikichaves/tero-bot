@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildConsumptionReport } from "@/lib/energy/reports";
-import { sendKapsoText, persistMessage, upsertConversation } from "@/lib/whatsapp";
+import { sendKapsoTemplate, persistMessage, upsertConversation } from "@/lib/whatsapp";
+import { APP_HOST } from "@/lib/brand";
 import { withCronAlerts } from "@/lib/util/cron-alert";
 
 /**
@@ -10,10 +11,7 @@ import { withCronAlerts } from "@/lib/util/cron-alert";
  *
  * Configured in vercel.json (`0 11 * * *` = 8 AM UY/AR / 11 AM UTC).
  *
- * Sandbox limitation: Kapso/Meta only allow free-form outbound text within
- * 24h of the recipient's last inbound message. If the admin hasn't written
- * to the bot in the last day, the send fails silently. When we move to
- * production with an approved template, switch to that.
+ * Uses a utility template; verify Meta approval before enabling this version.
  */
 
 type Recipient = {
@@ -82,18 +80,20 @@ export const GET = withCronAlerts("daily-energy-report", async (request: Request
           phone_number: r.whatsapp,
           display_name: r.full_name ?? null,
         });
-        const { messageId } = await sendKapsoText(
-          phoneNumberId,
-          r.whatsapp,
-          reportText,
-        );
+        const summary = reportText.replace(/\s+/g, " ").trim();
+        const { messageId } = await sendKapsoTemplate({
+          phoneNumberId, to: r.whatsapp, templateName: "daily_energy_report_v1", languageCode: "es",
+          bodyVariables: [summary.length > 850 ? `${summary.slice(0, 847)}...` : summary,
+            `https://${APP_HOST}/energy`],
+        });
         await persistMessage({
           conversation_id: conversationId,
           external_id: messageId ?? null,
           direction: "outbound",
-          type: "text",
+          type: "template",
+          template_name: "daily_energy_report_v1",
           body: reportText,
-          status: "sent",
+          status: "accepted",
         });
         return { profile_id: r.id, ok: true };
       } catch (e) {
@@ -111,5 +111,5 @@ export const GET = withCronAlerts("daily-energy-report", async (request: Request
     sent: results.filter((r) => r.ok).length,
     failed: results.filter((r) => !r.ok).length,
     results,
-  });
+  }, { status: results.some((r) => !r.ok) ? 503 : 200 });
 });

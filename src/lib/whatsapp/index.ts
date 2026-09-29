@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { WhatsAppDirection } from "@/lib/types";
+import { decodeSendResponse, mayFallbackLanguage, serviceWindowOpen, inboundEventTime } from "./send-policy";
 import type { Locale } from "@/i18n/locales";
 
 /**
@@ -269,6 +270,7 @@ export async function sendTypingIndicator(
   if (!apiKey) throw new Error("KAPSO_API_KEY is not set.");
   const url = `${KAPSO_BASE}/${phoneNumberId}/messages`;
   const res = await fetch(url, {
+    signal: AbortSignal.timeout(15_000),
     method: "POST",
     headers: {
       "X-API-Key": apiKey,
@@ -316,17 +318,37 @@ export async function sendKapsoImage(
   });
 }
 
+/** Fail closed when we cannot establish the customer's last inbound message. */
+export async function assertServiceWindow(to: string): Promise<void> {
+  const phone = normalizePhone(to);
+  if (!phone) throw new Error("Invalid WhatsApp recipient");
+  const admin = createAdminClient();
+  const { data: conversation, error } = await admin.from("whatsapp_conversations")
+    .select("id").eq("phone_number", phone).maybeSingle();
+  if (error) throw new Error("Cannot verify WhatsApp service window");
+  if (!conversation) throw new Error("WhatsApp template required: no inbound conversation");
+  const { data: inbound, error: inboundError } = await admin.from("whatsapp_messages")
+    .select("raw").eq("conversation_id", conversation.id).eq("direction", "inbound")
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (inboundError) throw new Error("Cannot verify WhatsApp service window");
+  if (!serviceWindowOpen(inboundEventTime(inbound?.raw))) {
+    throw new Error("WhatsApp template required: customer service window closed");
+  }
+}
+
 async function sendKapsoMessage(
   phoneNumberId: string,
   to: string,
   content: { type: "text"; text: { body: string } } | { type: "image"; image: { link: string; caption: string } },
 ): Promise<{ messageId?: string; raw: unknown }> {
+  await assertServiceWindow(to);
   const apiKey = process.env.KAPSO_API_KEY;
   if (!apiKey) {
     throw new Error("KAPSO_API_KEY is not set.");
   }
   const url = `${KAPSO_BASE}/${phoneNumberId}/messages`;
   const res = await fetch(url, {
+    signal: AbortSignal.timeout(15_000),
     method: "POST",
     headers: {
       "X-API-Key": apiKey,
@@ -338,21 +360,7 @@ async function sendKapsoMessage(
       ...content,
     }),
   });
-  const responseText = await res.text();
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(responseText);
-  } catch {
-    parsed = responseText;
-  }
-  if (!res.ok) {
-    throw new Error(
-      `Kapso send failed: HTTP ${res.status} ${responseText.slice(0, 300)}`,
-    );
-  }
-  const messageId =
-    (parsed as { messages?: { id?: string }[] })?.messages?.[0]?.id;
-  return { messageId, raw: parsed };
+  return decodeSendResponse(res);
 }
 
 /**
@@ -379,6 +387,7 @@ export async function sendKapsoTemplate(input: {
   }
   const url = `${KAPSO_BASE}/${input.phoneNumberId}/messages`;
   const res = await fetch(url, {
+    signal: AbortSignal.timeout(15_000),
     method: "POST",
     headers: {
       "X-API-Key": apiKey,
@@ -403,21 +412,7 @@ export async function sendKapsoTemplate(input: {
       },
     }),
   });
-  const responseText = await res.text();
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(responseText);
-  } catch {
-    parsed = responseText;
-  }
-  if (!res.ok) {
-    throw new Error(
-      `Kapso template send failed (${input.templateName}): HTTP ${res.status} ${responseText.slice(0, 300)}`,
-    );
-  }
-  const messageId =
-    (parsed as { messages?: { id?: string }[] })?.messages?.[0]?.id;
-  return { messageId, raw: parsed };
+  return decodeSendResponse(res);
 }
 
 /**
@@ -430,8 +425,8 @@ export async function sendKapsoTemplate(input: {
  *
  * To keep operational messages flowing during that window, this helper:
  *  1. Tries the recipient's preferred language (en/es).
- *  2. On any Meta/Kapso failure, retries with `"es"` (always approved
- *     since Meta first-pass) and logs that we fell back.
+ *  2. Only on an explicit missing-template/language rejection, tries ES.
+ *     Ambiguous network failures never trigger a second send.
  *  3. If the fallback was already ES, just re-throws — the caller can
  *     decide whether to retry on a future cron tick.
  *
@@ -460,7 +455,7 @@ export async function sendKapsoTemplateWithFallback(input: {
     });
     return { ...result, languageUsed: preferredLanguage, fellBack: false };
   } catch (err) {
-    if (preferredLanguage === "es") {
+    if (preferredLanguage === "es" || !mayFallbackLanguage(err)) {
       // No fallback available — propagate the original error.
       throw err;
     }

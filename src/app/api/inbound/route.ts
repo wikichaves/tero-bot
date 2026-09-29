@@ -79,11 +79,7 @@ export async function POST(req: NextRequest) {
   const recipient = extractRecipient(body);
   const alias = localPart(recipient);
 
-  // Wrap the dispatch in a top-level try/catch so internal bugs (a regex
-  // backtrack, a transient DB error, a malformed attachment) never bubble
-  // up as a 5xx — Postmark would retry forever on those, even though the
-  // retry can't fix the underlying problem. We always ack with 200 and
-  // rely on logs + DB rows for triage.
+  // Unexpected failures must remain retryable; never acknowledge lost work.
   try {
     if (alias === "airbnb") {
       return await handleAirbnbInbound(body, admin);
@@ -123,11 +119,10 @@ export async function POST(req: NextRequest) {
     );
     return NextResponse.json(
       {
-        ok: true,
-        internal_error: true,
-        message: (err as Error).message,
+        ok: false,
+        error: "inbound processing failed",
       },
-      { status: 200 },
+      { status: 503 },
     );
   }
 
