@@ -6,6 +6,7 @@ import {
   handleBillInbound,
 } from "@/lib/bills/handle-inbound";
 import { inferUtilityFromSender } from "@/lib/bills/parse-email";
+import { handleWikibotInbound } from "@/lib/portal-bosque/handle-inbound";
 import {
   extractRecipient,
   localPart,
@@ -54,6 +55,7 @@ export const maxDuration = 60;
  * handler:
  *
  *   airbnb@                              → handleAirbnbInbound
+ *   wikibot@                              → Portal Bosque / Gmail verification
  *   bills@ / facturas@ / luz@ / agua@ /  → handleBillInbound
  *     internet@ / alarma@
  *
@@ -83,6 +85,9 @@ export async function POST(req: NextRequest) {
   try {
     if (alias === "airbnb") {
       return await handleAirbnbInbound(body, admin);
+    }
+    if (alias === "wikibot") {
+      return await handleWikibotInbound(body);
     }
     if (alias && BILL_ROUTE_ALIASES.has(alias)) {
       return await handleBillInbound(body, admin, alias);
