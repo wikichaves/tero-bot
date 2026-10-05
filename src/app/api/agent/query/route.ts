@@ -20,12 +20,15 @@ const schema = z.object({
     "energy_consumption",
     "reservations",
     "earnings",
+    "wikibot_inbox",
   ]),
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   property: z.string().trim().min(1).optional(),
   utility: z.enum(["luz", "agua", "internet", "alarma", "otro"]).optional(),
   date_basis: z.enum(["service_period", "issue_date", "due_date"]).optional(),
+  limit: z.number().int().min(1).max(50).default(20),
+  message_id: z.string().trim().min(1).optional(),
 });
 type Query = z.infer<typeof schema>;
 type PropertySummary = Pick<Property, "id" | "name" | "currency">;
@@ -39,6 +42,19 @@ type ReservationQueryRow = {
   payout_amount: number | string | null;
   payout_currency: string | null;
   property: PropertySummary | PropertySummary[] | null;
+};
+type WikibotInboxRow = {
+  id: string;
+  message_id: string;
+  from_email: string | null;
+  from_name: string | null;
+  to_email: string;
+  subject: string | null;
+  text_body: string | null;
+  html_body?: string | null;
+  headers?: unknown;
+  attachment_metadata: unknown;
+  received_at: string;
 };
 
 function reply(body: unknown, status = 200) {
@@ -104,6 +120,41 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const admin = createAdminClient();
+  if (query.action === "wikibot_inbox") {
+    const columns = query.message_id
+      ? "id, message_id, from_email, from_name, to_email, subject, text_body, html_body, headers, attachment_metadata, received_at"
+      : "id, message_id, from_email, from_name, to_email, subject, text_body, attachment_metadata, received_at";
+    let inboxQuery = admin
+      .from("wikibot_inbound_emails")
+      .select(columns)
+      .order("received_at", { ascending: false });
+
+    if (query.message_id) {
+      inboxQuery = inboxQuery.eq("message_id", query.message_id).limit(1);
+    } else {
+      inboxQuery = inboxQuery.limit(query.limit);
+    }
+    const { data, error } = await inboxQuery;
+    if (error) return reply({ error: "Could not load wikibot inbox" }, 500);
+
+    const rows = (data ?? []) as unknown as WikibotInboxRow[];
+    const emails = rows.map((email) => query.message_id
+      ? email
+      : {
+          ...email,
+          text_body: typeof email.text_body === "string"
+            ? email.text_body.slice(0, 4_000)
+            : email.text_body,
+        });
+    return reply({
+      action: query.action,
+      count: emails.length,
+      truncated: !query.message_id,
+      emails,
+    });
+  }
+
   const defaults = query.action === "earnings"
     ? { from: "2000-01-01", to: new Date().toISOString().slice(0, 10) }
     : monthRange();
@@ -119,7 +170,6 @@ export async function POST(request: NextRequest) {
     return reply({ error: `Date range must be between 0 and ${maxDays} days` }, 400);
   }
 
-  const admin = createAdminClient();
   const { data: propertyRows, error: propertyError } = await admin
     .from("properties")
     .select("id, name, currency")
