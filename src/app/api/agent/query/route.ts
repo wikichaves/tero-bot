@@ -21,6 +21,8 @@ const schema = z.object({
     "reservations",
     "earnings",
     "wikibot_inbox",
+    "wikibot_inbox_claim",
+    "wikibot_inbox_ack",
   ]),
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -29,6 +31,8 @@ const schema = z.object({
   date_basis: z.enum(["service_period", "issue_date", "due_date"]).optional(),
   limit: z.number().int().min(1).max(50).default(20),
   message_id: z.string().trim().min(1).optional(),
+  claim_token: z.string().uuid().optional(),
+  lease_seconds: z.number().int().min(60).max(3600).default(300),
 });
 type Query = z.infer<typeof schema>;
 type PropertySummary = Pick<Property, "id" | "name" | "currency">;
@@ -121,6 +125,32 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient();
+  if (query.action === "wikibot_inbox_claim") {
+    const { data, error } = await admin.rpc("claim_wikibot_inbound_emails", {
+      p_limit: Math.min(query.limit, 10),
+      p_lease_seconds: query.lease_seconds,
+    });
+    if (error) return reply({ error: "Could not claim wikibot inbox" }, 500);
+    return reply({
+      action: query.action,
+      count: data?.length ?? 0,
+      emails: data ?? [],
+    });
+  }
+
+  if (query.action === "wikibot_inbox_ack") {
+    if (!query.message_id || !query.claim_token) {
+      return reply({ error: "message_id and claim_token are required" }, 400);
+    }
+    const { data, error } = await admin.rpc("ack_wikibot_inbound_email", {
+      p_message_id: query.message_id,
+      p_claim_token: query.claim_token,
+    });
+    if (error) return reply({ error: "Could not acknowledge wikibot email" }, 500);
+    if (!data) return reply({ error: "Claim not found or expired" }, 409);
+    return reply({ action: query.action, acknowledged: true, message_id: query.message_id });
+  }
+
   if (query.action === "wikibot_inbox") {
     const columns = query.message_id
       ? "id, message_id, from_email, from_name, to_email, subject, text_body, html_body, headers, attachment_metadata, received_at"
