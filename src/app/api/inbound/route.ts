@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
       return await handleAirbnbInbound(body, admin);
     }
     if (alias === "wikibot") {
-      return await handleWikibotInbound(body);
+      return await handleWikibotInbound(body, admin);
     }
     if (alias && BILL_ROUTE_ALIASES.has(alias)) {
       return await handleBillInbound(body, admin, alias);

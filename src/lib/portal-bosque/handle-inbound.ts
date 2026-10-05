@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PostmarkInbound } from "@/lib/inbound/postmark";
 import {
   getAdminChatId,
@@ -6,12 +7,17 @@ import {
   sendTelegramMessage,
 } from "@/lib/telegram";
 import { parseWikibotInbound } from "./parse-inbound";
+import { storeWikibotInbound } from "./store-inbound";
 
-export async function handleWikibotInbound(body: PostmarkInbound): Promise<NextResponse> {
+export async function handleWikibotInbound(
+  body: PostmarkInbound,
+  admin: SupabaseClient,
+): Promise<NextResponse> {
+  const messageId = await storeWikibotInbound(admin, body);
   const parsed = parseWikibotInbound(body);
   if (parsed.kind === "unknown") {
-    console.warn("[inbound wikibot] ignored unrecognized message");
-    return NextResponse.json({ ok: true, ignored: true });
+    console.log(`[inbound wikibot] stored message_id="${messageId}"`);
+    return NextResponse.json({ ok: true, stored: true, message_id: messageId });
   }
 
   const chatId = getAdminChatId();
@@ -37,5 +43,5 @@ export async function handleWikibotInbound(body: PostmarkInbound): Promise<NextR
   if (!sent) {
     return NextResponse.json({ ok: false, error: "delivery failed" }, { status: 503 });
   }
-  return NextResponse.json({ ok: true, kind: parsed.kind });
+  return NextResponse.json({ ok: true, stored: true, message_id: messageId, kind: parsed.kind });
 }
