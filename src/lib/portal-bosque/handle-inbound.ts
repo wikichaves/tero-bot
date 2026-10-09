@@ -20,6 +20,18 @@ export async function handleWikibotInbound(
     return NextResponse.json({ ok: true, stored: true, message_id: messageId });
   }
 
+  if (parsed.kind === "portal_bosque") {
+    console.log(
+      `[inbound wikibot] stored Portal Bosque message_id="${messageId}" without Telegram alert`,
+    );
+    return NextResponse.json({
+      ok: true,
+      stored: true,
+      message_id: messageId,
+      kind: parsed.kind,
+    });
+  }
+
   const chatId = getAdminChatId();
   const token = getOpsBotToken();
   if (!chatId || !token) {
@@ -27,16 +39,13 @@ export async function handleWikibotInbound(
     return NextResponse.json({ ok: false, error: "delivery unavailable" }, { status: 503 });
   }
 
-  const isPortal = parsed.kind === "portal_bosque";
   const sent = await sendTelegramMessage({
     chatId,
     token,
-    text: isPortal
-      ? "Llegó un correo de Portal Bosque para confirmar asistencia."
-      : "Llegó la verificación de reenvío de Gmail para wikibot@tero.bot.",
+    text: "Llegó la verificación de reenvío de Gmail para wikibot@tero.bot.",
     disableWebPagePreview: true,
     inlineKeyboard: parsed.actionUrl
-      ? [[{ text: isPortal ? "Abrir Portal Bosque" : "Verificar reenvío", url: parsed.actionUrl }]]
+      ? [[{ text: "Verificar reenvío", url: parsed.actionUrl }]]
       : undefined,
   });
 
