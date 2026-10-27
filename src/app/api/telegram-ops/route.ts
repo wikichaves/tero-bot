@@ -8,6 +8,9 @@ import {
   timingSafeEqual,
   type TelegramUpdate,
 } from "@/lib/telegram";
+import { telegramExpenseInput } from "@/lib/expenses/telegram-input";
+import { createExpenseFromTelegram } from "@/lib/expenses/telegram";
+import { downloadTelegramReceipt, MAX_RECEIPT_BYTES } from "@/lib/telegram/download";
 import { resolveOpsProfile, opsLocaleOf } from "@/lib/ops-bot/auth";
 import {
   parseOpsCommand,
@@ -36,7 +39,7 @@ import {
  *   5. Registrar telegram_chat_id de cada profile (admin/gestor).
  *      Bootstrap: si un user no está registrado, el bot le dice su chat_id.
  *
- * Siempre devolvemos 200 salvo mal-setup (evita retry loops de Telegram).
+ * Expense failures return 503 for retry; source_message_id prevents duplicates.
  */
 
 export async function POST(req: NextRequest) {
@@ -110,7 +113,47 @@ export async function POST(req: NextRequest) {
 
   const locale = opsLocaleOf(profile);
 
-  // 4. Dispatch.
+  // 4. Expense intake before text dispatch: photos carry captions, not text.
+  const expense = telegramExpenseInput(msg);
+  if (expense) {
+    // Editing an old message must never create another financial record.
+    if (!update.message) return NextResponse.json({ ok: true });
+    let reply: string;
+    if (expense.unsupported) {
+      reply = locale === "en" ? "Send a JPEG/PNG photo or PDF (max 10 MB)." : "Mandá una foto JPEG/PNG o un PDF (máximo 10 MB).";
+    } else if (!expense.text && !expense.attachment) {
+      reply = locale === "en"
+        ? "Send gasto Hardware USD 120, optionally with a receipt. A photo alone is saved as a draft."
+        : "Mandá gasto Ferretería UYU 1500, con la foto del ticket si tenés. Una foto sola se guarda como borrador; no leo el importe de la imagen.";
+    } else if ((expense.attachment?.size ?? 0) > MAX_RECEIPT_BYTES) {
+      reply = locale === "en" ? "Receipt too large (max 10 MB)." : "El comprobante supera el máximo de 10 MB.";
+    } else {
+      try {
+        const receipt = expense.attachment ? {
+          bytes: await downloadTelegramReceipt(token, expense.attachment.fileId),
+          mime: expense.attachment.mime,
+        } : null;
+        const result = await createExpenseFromTelegram({ profile, text: expense.text, sourceMessageId: expense.sourceMessageId, receipt });
+        reply = result.duplicate
+          ? locale === "en" ? "This expense was already saved." : "Este gasto ya estaba guardado."
+          : result.draft
+            ? locale === "en" ? "Receipt saved as a draft. Complete the vendor and amount on tero.bot/expenses."
+              : "Gasto guardado como borrador. Completá comercio e importe en tero.bot/expenses. No leo el importe de la imagen."
+            : locale === "en" ? "Expense saved, pending review." : "Gasto registrado, pendiente de revisión.";
+        reply += "\nhttps://tero.bot/expenses";
+      } catch {
+        // Do not log Telegram URLs, tokens or receipt contents.
+        console.error("[ops-bot] expense intake failed");
+        await sendTelegramMessage({ token, chatId, replyToMessageId: msg.message_id,
+          text: locale === "en" ? "Couldn't save the expense right now. Please retry." : "No pude guardar el gasto ahora. Probá de nuevo." });
+        return new NextResponse("Expense intake failed", { status: 503 });
+      }
+    }
+    await sendTelegramMessage({ token, chatId, text: reply, replyToMessageId: msg.message_id, disableWebPagePreview: true });
+    return NextResponse.json({ ok: true });
+  }
+
+  // 5. Other operations.
   if (!msg.text) {
     await sendTelegramMessage({
       token,

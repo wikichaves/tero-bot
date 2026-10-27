@@ -58,6 +58,7 @@ export function opsHelpText(locale: Locale): string {
       "/estado — current temp/humidity/power of the houses\n" +
       "/camaras [name] — latest camera photos (all, or one by name)\n" +
       "/incidente &lt;text&gt; — report a problem (creates a maintenance task)\n" +
+      "/gasto vendor UYU 1500 — save an expense, optionally with a receipt\n" +
       "/tareas — list pending tasks\n" +
       "/help — this list\n\n" +
       "<i>Alarms arrive automatically. No code commands here.</i>"
@@ -68,6 +69,7 @@ export function opsHelpText(locale: Locale): string {
     "/estado — temp/humedad/luz actual de las casas\n" +
     "/camaras [nombre] — últimas fotos de las cámaras (todas, o una por nombre)\n" +
     "/incidente &lt;texto&gt; — reportar un problema (crea tarea de mantenimiento)\n" +
+    "/gasto comercio UYU 1500 — cargar gasto, con foto opcional del ticket\n" +
     "/tareas — listar tareas pendientes\n" +
     "/help — esta lista\n\n" +
     "<i>Las alarmas llegan solas. Acá no hay comandos de código.</i>"

@@ -52,7 +52,10 @@ export async function createExpense(formData: FormData) {
 
 export async function updateExpense(id: string, formData: FormData) {
   await requireRole(["admin", "gestor"]);
-  const { error } = await createAdminClient().from("expenses").update({ ...expenseValues(formData), country: await countryForExpense(formData) }).eq("id", id);
+  const values: Partial<ReturnType<typeof expenseValues>> = expenseValues(formData);
+  // The edit form has no receipt field: completing a draft must keep its ticket.
+  if (!formData.has("receipt_url")) delete values.receipt_url;
+  const { error } = await createAdminClient().from("expenses").update({ ...values, country: await countryForExpense(formData) }).eq("id", id);
   if (error) throw new Error("No se pudo actualizar el gasto.");
   revalidatePath("/expenses");
 }
