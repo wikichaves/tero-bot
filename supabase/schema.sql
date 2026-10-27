@@ -1458,3 +1458,14 @@ revoke all on function public.claim_wikibot_inbound_emails(integer, integer) fro
 revoke all on function public.ack_wikibot_inbound_email(text, uuid) from public, anon, authenticated;
 grant execute on function public.claim_wikibot_inbound_emails(integer, integer) to service_role;
 grant execute on function public.ack_wikibot_inbound_email(text, uuid) to service_role;
+
+-- ─── Telegram expense receipts ──────────────────────────────────────────
+alter table public.expenses drop constraint if exists expenses_source_check;
+alter table public.expenses add constraint expenses_source_check
+  check (source in ('whatsapp', 'telegram', 'manual', 'import'));
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('expense-receipts', 'expense-receipts', false, 10485760,
+    array['image/jpeg', 'image/png', 'application/pdf'])
+  on conflict (id) do update set public = false,
+    file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+-- Access only via the service role and authenticated receipt route; no public policy.

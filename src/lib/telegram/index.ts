@@ -76,6 +76,9 @@ export type TelegramMessage = {
   chat: TelegramChat;
   date: number;
   text?: string;
+  caption?: string;
+  photo?: { file_id: string; width: number; height: number; file_size?: number }[];
+  document?: { file_id: string; mime_type?: string; file_size?: number };
 };
 
 /**
