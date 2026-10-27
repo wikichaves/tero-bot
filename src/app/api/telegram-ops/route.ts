@@ -8,7 +8,7 @@ import {
   timingSafeEqual,
   type TelegramUpdate,
 } from "@/lib/telegram";
-import { telegramExpenseInput } from "@/lib/expenses/telegram-input";
+import { telegramExpenseInput, receiptMatchesMime } from "@/lib/expenses/telegram-input";
 import { createExpenseFromTelegram } from "@/lib/expenses/telegram";
 import { downloadTelegramReceipt, MAX_RECEIPT_BYTES } from "@/lib/telegram/download";
 import { resolveOpsProfile, opsLocaleOf } from "@/lib/ops-bot/auth";
@@ -133,6 +133,12 @@ export async function POST(req: NextRequest) {
           bytes: await downloadTelegramReceipt(token, expense.attachment.fileId),
           mime: expense.attachment.mime,
         } : null;
+        if (receipt && !receiptMatchesMime(receipt.bytes, receipt.mime)) {
+          await sendTelegramMessage({ token, chatId, replyToMessageId: msg.message_id,
+            text: locale === "en" ? "The file is not a valid JPEG, PNG or PDF. Send the original receipt again."
+              : "El archivo no corresponde a una foto JPEG/PNG o PDF. Mandá de nuevo el comprobante original." });
+          return NextResponse.json({ ok: true });
+        }
         const result = await createExpenseFromTelegram({ profile, text: expense.text, sourceMessageId: expense.sourceMessageId, receipt });
         reply = result.duplicate
           ? locale === "en" ? "This expense was already saved." : "Este gasto ya estaba guardado."

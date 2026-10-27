@@ -36,3 +36,11 @@ Ops bot only; the dev bot is unchanged. Existing sender-profile authorization
 
 Local tests cover parsing/routing only, not live DB/storage or Telegram delivery.
 No DB mocks. A production expense has not been created by these tests.
+
+## Failed inserts after upload
+
+The deterministic object key is retained when a DB write fails, so a retry can
+recover it safely. Do not delete immediately on a failed insert: a concurrent
+delivery may have committed a row referencing it. If an update is permanently
+abandoned, an operator should remove its unreferenced object after checking
+`expenses.source_message_id`. Automatic orphan cleanup is not implemented.
