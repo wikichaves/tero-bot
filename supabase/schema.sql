@@ -1594,6 +1594,50 @@ end $$;
 revoke all on function public.replace_availability_import(uuid,jsonb,text) from public,anon,authenticated;
 grant execute on function public.replace_availability_import(uuid,jsonb,text) to service_role;
 
+create or replace function public.reconcile_airbnb_import(
+  p_property uuid, p_reservations jsonb, p_events jsonb, p_source_hash text
+) returns jsonb language plpgsql security definer set search_path=public as $$
+declare rec record; out_rows jsonb := '[]'::jsonb;
+begin
+  perform pg_advisory_xact_lock(hashtextextended(p_property::text,781));
+  if exists(select 1 from jsonb_to_recordset(p_events) as x(uid text,start_date date,end_date date,kind text)
+    where x.uid is null or x.start_date is null or x.end_date is null or x.start_date >= x.end_date
+      or x.kind not in ('reservation','block')) then raise exception 'invalid availability snapshot'; end if;
+  if exists(select 1 from jsonb_to_recordset(p_reservations) as x(uid text,check_in date,check_out date,notes text,reservation_code text)
+    where x.uid is null or x.check_in is null or x.check_out is null or x.check_in >= x.check_out) then raise exception 'invalid reservation snapshot'; end if;
+  if exists(select 1 from jsonb_to_recordset(p_reservations) as x(uid text,check_in date,check_out date,notes text,reservation_code text)
+    join reservations r on r.source='airbnb' and r.external_id=x.uid and r.property_id<>p_property) then raise exception 'airbnb UID belongs to another property'; end if;
+  if exists(select 1 from jsonb_to_recordset(p_reservations) as x(uid text,check_in date,check_out date,notes text,reservation_code text)
+    join reservations r on r.source='airbnb' and r.reservation_code=x.reservation_code and r.property_id<>p_property
+    where x.reservation_code is not null) then raise exception 'airbnb reservation code belongs to another property'; end if;
+  update reservations rr set status='cancelled'
+  where rr.property_id=p_property and rr.source='airbnb'
+    and exists(select 1 from availability_imports old where old.property_id=p_property and old.uid=rr.external_id)
+    and not exists(select 1 from jsonb_array_elements(p_events) e where e->>'uid'=rr.external_id);
+  for rec in select * from jsonb_to_recordset(p_reservations)
+    as x(uid text, check_in date, check_out date, notes text, reservation_code text) loop
+    update reservations set external_id=rec.uid
+      where property_id=p_property and source='airbnb' and reservation_code=rec.reservation_code
+        and rec.reservation_code is not null and external_id<>rec.uid;
+    insert into reservations(property_id,source,external_id,check_in,check_out,notes,reservation_code)
+      values(p_property,'airbnb',rec.uid,rec.check_in,rec.check_out,rec.notes,rec.reservation_code)
+    on conflict(source,external_id) do update set property_id=excluded.property_id,
+      check_in=excluded.check_in, check_out=excluded.check_out, notes=excluded.notes,
+      reservation_code=excluded.reservation_code, status='confirmed';
+    out_rows := out_rows || jsonb_build_array((select jsonb_build_object('uid',rec.uid,'id',id,'check_out',check_out)
+      from reservations where source='airbnb' and external_id=rec.uid));
+  end loop;
+  delete from availability_imports where property_id=p_property;
+  insert into availability_imports(property_id,uid,start_date,end_date,kind)
+    select p_property,x.uid,x.start_date,x.end_date,x.kind
+    from jsonb_to_recordset(p_events) as x(uid text,start_date date,end_date date,kind text);
+  insert into availability_sync(property_id,last_success_at,failed,source_hash) values(p_property,now(),false,p_source_hash)
+    on conflict(property_id) do update set last_success_at=excluded.last_success_at,failed=false,source_hash=excluded.source_hash;
+  return out_rows;
+end $$;
+revoke all on function public.reconcile_airbnb_import(uuid,jsonb,jsonb,text) from public,anon,authenticated;
+grant execute on function public.reconcile_airbnb_import(uuid,jsonb,jsonb,text) to service_role;
+
 create or replace function public.set_agency_access(p_profile uuid,p_properties uuid[],p_active boolean)
 returns void language plpgsql set search_path=public as $$ begin
   perform 1 from agencies where profile_id=p_profile for update;

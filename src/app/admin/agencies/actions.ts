@@ -22,7 +22,7 @@ export async function agencyCommand(form: FormData): Promise<{ error?:string; ok
       const { data, error } = await db.auth.admin.createUser({ email:v.email,password:v.password,email_confirm:true,ban_duration:"876000h",user_metadata:{full_name:v.name} });
       if (error || !data.user) return fail();
       const id=data.user.id;
-      const profile = await db.from("profiles").update({role:"agency",full_name:v.name}).eq("id",id).select("id").single();
+      const profile = await db.from("profiles").update({role:"agency",full_name:v.name,whatsapp:v.phone}).eq("id",id).select("id").single();
       const agency = profile.error ? profile : await db.from("agencies").insert({profile_id:id,name:v.name,email:v.email,phone:v.phone});
       const access = agency.error ? agency : await db.rpc("set_agency_access", {p_profile:id,p_properties:ids,p_active:true});
       if (access.error) { await db.auth.admin.deleteUser(id); return fail(); }

@@ -64,6 +64,8 @@ async function syncAirbnbInternal(
   result.fetched = vevents.length;
 
   const admin = createAdminClient();
+  const reservations: Array<{uid:string; check_in:string; check_out:string; notes:string|null; reservation_code:string|null}> = [];
+  const snapshotByUid = new Map(snapshot.map((event) => [event.uid, event]));
 
   for (const vevent of vevents) {
     try {
@@ -71,6 +73,8 @@ async function syncAirbnbInternal(
       const summary = event.summary ?? "";
       const uid = event.uid;
       if (!uid) continue;
+      const snapshotEvent = snapshotByUid.get(uid);
+      if (!snapshotEvent || snapshotEvent.kind !== "reservation") continue;
 
       // Skip manual blocks — they aren't reservations.
       if (
@@ -84,8 +88,8 @@ async function syncAirbnbInternal(
         continue;
       }
 
-      const checkIn = toIsoDate(event.startDate.toJSDate());
-      const checkOut = toIsoDate(event.endDate.toJSDate());
+      const checkIn = snapshotEvent.start_date;
+      const checkOut = snapshotEvent.end_date;
 
       const description = event.description ?? "";
       // HM code regex stays loose — Airbnb has used HM*, HMS*, HMP*.
@@ -95,80 +99,30 @@ async function syncAirbnbInternal(
         ? `Airbnb reservation: ${reservationCode}`
         : null;
 
-      // Race fix: if the inbound-email webhook (Postmark) created a
-      // placeholder row using the HM code as external_id, rewrite that
-      // row's external_id to the canonical UID so the upsert key works
-      // for future syncs.
-      if (reservationCode) {
-        const { data: placeholder } = await admin
-          .from("reservations")
-          .select("id, external_id")
-          .eq("source", "airbnb")
-          .eq("reservation_code", reservationCode)
-          .neq("external_id", uid)
-          .maybeSingle();
-        if (placeholder) {
-          await admin
-            .from("reservations")
-            .update({ external_id: uid })
-            .eq("id", placeholder.id);
-        }
-      }
-
-      const { data: upserted, error } = await admin
-        .from("reservations")
-        .upsert(
-          {
-            property_id: propertyId,
-            source: "airbnb",
-            external_id: uid,
-            check_in: checkIn,
-            check_out: checkOut,
-            notes,
-            reservation_code: reservationCode,
-          },
-          { onConflict: "source,external_id" },
-        )
-        .select("id, check_out")
-        .single();
-      if (error) throw new Error(error.message);
+      reservations.push({ uid, check_in: checkIn, check_out: checkOut, notes, reservation_code: reservationCode });
       result.reservations++;
 
-      // Auto-generate access code for upcoming reservations only.
-      // generateCodeForReservation is idempotent — no-op if a code already
-      // exists, no-op if no primary lock is configured.
-      const today = new Date().toISOString().slice(0, 10);
-      if (upserted?.id && upserted.check_out >= today) {
-        const codeResult = await generateCodeForReservation(upserted.id);
-        if (codeResult.ok && !codeResult.already_existed) {
-          result.codes_generated++;
-        } else if (
-          !codeResult.ok &&
-          codeResult.reason_code !== "no_primary_lock" &&
-          codeResult.reason_code !== "already_expired"
-        ) {
-          // Surface unexpected failures (e.g. Tuya API down) but ignore the
-          // boring "no lock configured" case to keep sync output clean.
-          result.errors.push(`code:${uid}: ${codeResult.reason}`);
-        }
-
-        // Auto-create a cleaning task for the check-out date. Idempotent —
-        // skips if a limpieza task already exists for this (property, date).
-        const created = await ensureCheckoutCleaningTask(
-          admin,
-          propertyId,
-          checkOut,
-        );
-        if (created) result.cleaning_tasks_created++;
-      }
     } catch (e) {
       result.errors.push((e as Error).message);
     }
   }
 
   if (result.errors.length) throw new Error("Incomplete calendar sync");
-  const { error: snapshotError } = await admin.rpc("replace_availability_import", { p_property: propertyId, p_events: snapshot, p_source_hash: createHash("sha256").update(icalUrl).digest("hex") });
-  if (snapshotError) throw new Error("Availability snapshot failed");
+  const { data: committed, error: snapshotError } = await admin.rpc("reconcile_airbnb_import", { p_property: propertyId, p_reservations: reservations, p_events: snapshot, p_source_hash: createHash("sha256").update(icalUrl).digest("hex") });
+  if (snapshotError) throw new Error(`Availability reconciliation failed: ${snapshotError.message}`);
+  const today = new Date().toISOString().slice(0, 10);
+  for (const row of (committed ?? []) as Array<{uid:string; id:string; check_out:string}>) {
+    const item = reservations.find((r) => r.uid === row.uid);
+    if (!item || row.check_out < today) continue;
+    try {
+        const code = await generateCodeForReservation(row.id);
+        if (code.ok && !code.already_existed) result.codes_generated++;
+        if (!code.ok && code.reason_code !== "no_primary_lock" && code.reason_code !== "already_expired") result.errors.push(`code:${item.uid}: ${code.reason}`);
+      } catch (e) { result.errors.push(`code:${item.uid}: ${(e as Error).message}`); }
+      try {
+        if (await ensureCheckoutCleaningTask(admin, propertyId, row.check_out)) result.cleaning_tasks_created++;
+      } catch (e) { result.errors.push(`task:${item.uid}: ${(e as Error).message}`); }
+  }
   return result;
 }
 
@@ -179,10 +133,6 @@ export async function syncAirbnb(propertyId: string, icalUrl: string): Promise<S
     if (stateError) console.error("availability.sync.state_failed");
     throw error;
   }
-}
-
-function toIsoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
 }
 
 /**

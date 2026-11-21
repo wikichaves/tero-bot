@@ -58,10 +58,13 @@ explicit safe projection. Do not use profile_properties for agency grants.
 - Next build passed **with test-only substituted font CSS and placeholder Supabase
   environment**. Normal build is blocked downloading Google Fonts. No application
   files/fonts were altered for this workaround; not a production-ready build.
-- No DB mocking. A real isolated PostgreSQL/Supabase environment is not available;
-  Docker is not running and npm registry access for an embedded test engine is 403.
-- Authenticated mobile/desktop interaction, DB policies, concurrent writes and
-  end-to-end Airbnb imports/exports remain **unverified**. No production DB used.
+- Real SQL regression suite: `tests/sql/run-agency-sql.sh` passes against the
+  prepared `tero-agency-tests` PostgreSQL container, including rollback of
+  reservations/placeholders, successful replacement, idempotency, cancelled and
+  local UID filtering, cross-property UID collision rejection, and concurrency.
+  This is a bootstrap-minimal database test, not an end-to-end Supabase test.
+- Authenticated mobile/desktop interaction and end-to-end Airbnb imports/exports
+  remain **unverified**. No production DB used.
 
 ## Required before activation
 
