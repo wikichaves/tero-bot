@@ -22,6 +22,7 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   gestor: "Manager",
   mantenimiento: "Staff",
   guest: "Guest",
+  agency: "Agency",
 };
 
 /** Orden canónico de roles en dropdowns y validators. */

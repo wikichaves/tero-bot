@@ -1,5 +1,7 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import ICAL from "ical.js";
+import { parseAvailability } from "@/lib/availability/core";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateCodeForReservation } from "@/lib/tuya/auto-code";
 
@@ -25,7 +27,7 @@ export type SyncResult = {
  *  - No guest PII is exposed — only dates + UID + a reservation code in
  *    DESCRIPTION (e.g. "Reservation URL: .../HMABC123").
  */
-export async function syncAirbnb(
+async function syncAirbnbInternal(
   propertyId: string,
   icalUrl: string,
 ): Promise<SyncResult> {
@@ -57,6 +59,7 @@ export async function syncAirbnb(
     throw new Error(`Parsing iCal failed: ${(e as Error).message}`);
   }
 
+  const snapshot = parseAvailability(ics);
   const vevents = comp.getAllSubcomponents("vevent");
   result.fetched = vevents.length;
 
@@ -163,7 +166,19 @@ export async function syncAirbnb(
     }
   }
 
+  if (result.errors.length) throw new Error("Incomplete calendar sync");
+  const { error: snapshotError } = await admin.rpc("replace_availability_import", { p_property: propertyId, p_events: snapshot, p_source_hash: createHash("sha256").update(icalUrl).digest("hex") });
+  if (snapshotError) throw new Error("Availability snapshot failed");
   return result;
+}
+
+export async function syncAirbnb(propertyId: string, icalUrl: string): Promise<SyncResult> {
+  try { return await syncAirbnbInternal(propertyId, icalUrl); }
+  catch (error) {
+    const { error: stateError } = await createAdminClient().from("availability_sync").upsert({ property_id: propertyId, failed: true }, { onConflict: "property_id" });
+    if (stateError) console.error("availability.sync.state_failed");
+    throw error;
+  }
 }
 
 function toIsoDate(d: Date): string {

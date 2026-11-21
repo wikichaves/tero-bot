@@ -1469,3 +1469,139 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
   on conflict (id) do update set public = false,
     file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 -- Access only via the service role and authenticated receipt route; no public policy.
+
+-- ─── Agency availability ───
+-- Enum comparisons below use ::text so this section can run in one transaction.
+alter type public.user_role add value if not exists 'agency';
+create table if not exists public.agencies (
+  profile_id uuid primary key references public.profiles(id) on delete cascade,
+  name text not null, email text not null, phone text not null,
+  active boolean not null default true
+);
+create table if not exists public.agency_properties (
+  profile_id uuid references public.agencies(profile_id) on delete cascade,
+  property_id uuid references public.properties(id) on delete cascade,
+  primary key(profile_id, property_id)
+);
+create table if not exists public.seasonal_rates (
+  id uuid primary key default gen_random_uuid(),
+  property_id uuid not null references public.properties(id) on delete cascade,
+  start_date date not null, end_date date not null,
+  amount numeric(12,2) not null check(amount > 0),
+  currency text not null check(currency in ('USD','UYU','ARS')),
+  check(start_date < end_date)
+);
+create table if not exists public.availability_blocks (
+  id uuid primary key default gen_random_uuid(),
+  property_id uuid not null references public.properties(id) on delete cascade,
+  start_date date not null, end_date date not null,
+  check(start_date < end_date)
+);
+create table if not exists public.availability_imports (
+  property_id uuid references public.properties(id) on delete cascade,
+  uid text not null, start_date date not null, end_date date not null,
+  kind text not null check(kind in ('reservation','block')),
+  primary key(property_id,uid), check(start_date < end_date)
+);
+create table if not exists public.availability_sync (
+  property_id uuid primary key references public.properties(id) on delete cascade,
+  last_success_at timestamptz, source_hash text, failed boolean not null default true
+);
+create table if not exists public.availability_feeds (
+  property_id uuid primary key references public.properties(id) on delete cascade,
+  token_hash text not null unique
+);
+-- Service-role-only domain. The portal returns an explicit non-PII projection.
+do $$ declare tab text; begin
+  foreach tab in array array['agencies','agency_properties','seasonal_rates','availability_blocks','availability_imports','availability_sync','availability_feeds'] loop
+    execute format('alter table public.%I enable row level security', tab);
+    execute format('revoke all on public.%I from anon, authenticated', tab);
+    execute format('grant all on public.%I to service_role', tab);
+  end loop;
+end $$;
+-- Restrictive policies override existing permissive policies. No operational
+-- table (including tables with broad authenticated access) admits an agency.
+do $$ declare tab record; begin
+  for tab in select tablename from pg_tables where schemaname='public' and tablename <> 'profiles' loop
+    execute format('alter table public.%I enable row level security',tab.tablename);
+    execute format('drop policy if exists agency_isolation on public.%I',tab.tablename);
+    execute format('create policy agency_isolation on public.%I as restrictive for all to authenticated using (coalesce(public.current_role()::text, '''') <> ''agency'') with check (coalesce(public.current_role()::text, '''') <> ''agency'')',tab.tablename);
+  end loop;
+end $$;
+drop policy if exists agency_profile_read on public.profiles;
+create policy agency_profile_read on public.profiles as restrictive for select to authenticated
+using (public.current_role()::text <> 'agency' or id=auth.uid());
+do $$ declare op text; begin
+  foreach op in array array['insert','update','delete'] loop
+    execute format('drop policy if exists agency_profile_%s on public.profiles',op);
+    if op='insert' then
+      execute 'create policy agency_profile_insert on public.profiles as restrictive for insert to authenticated with check (public.current_role()::text <> ''agency'')';
+    elsif op='update' then
+      execute 'create policy agency_profile_update on public.profiles as restrictive for update to authenticated using (public.current_role()::text <> ''agency'') with check (public.current_role()::text <> ''agency'')';
+    else
+      execute 'create policy agency_profile_delete on public.profiles as restrictive for delete to authenticated using (public.current_role()::text <> ''agency'')';
+    end if;
+  end loop;
+end $$;
+drop policy if exists agency_storage_isolation on storage.objects;
+create policy agency_storage_isolation on storage.objects as restrictive for all to authenticated
+using (coalesce(public.current_role()::text,'') <> 'agency') with check (coalesce(public.current_role()::text,'') <> 'agency');
+
+-- Serialize local reservations and blocks per property, including writes from
+-- other app surfaces. Imported stays remain authoritative and may conflict.
+create or replace function public.guard_availability_interval()
+returns trigger language plpgsql security definer set search_path=public as $$
+declare s date; e date; begin
+  perform pg_advisory_xact_lock(hashtextextended(new.property_id::text, 781));
+  if tg_table_name='seasonal_rates' then
+    if exists(select 1 from seasonal_rates where property_id=new.property_id and id<>new.id and start_date<new.end_date and end_date>new.start_date) then raise exception 'overlap' using errcode='23P01'; end if;
+    return new;
+  end if;
+  if tg_table_name='reservations' then
+    if new.source::text <> 'manual' or new.status='cancelled' then return new; end if;
+    s:=new.check_in; e:=new.check_out;
+  else s:=new.start_date; e:=new.end_date; end if;
+  if not exists(select 1 from properties where id=new.property_id and is_rental) then raise exception 'not rental'; end if;
+  if exists(select 1 from availability_blocks where property_id=new.property_id and id<>new.id and start_date<e and end_date>s)
+    or exists(select 1 from reservations where property_id=new.property_id and id<>new.id and status<>'cancelled' and check_in<e and check_out>s)
+    or exists(select 1 from availability_imports where property_id=new.property_id and start_date<e and end_date>s)
+    then raise exception 'overlap' using errcode='23P01'; end if;
+  return new;
+end $$;
+drop trigger if exists guard_local_block on public.availability_blocks;
+create trigger guard_local_block before insert or update on public.availability_blocks for each row execute function public.guard_availability_interval();
+drop trigger if exists guard_local_reservation on public.reservations;
+create trigger guard_local_reservation before insert or update of property_id,check_in,check_out,status on public.reservations for each row execute function public.guard_availability_interval();
+drop trigger if exists guard_seasonal_rate on public.seasonal_rates;
+create trigger guard_seasonal_rate before insert or update on public.seasonal_rates for each row execute function public.guard_availability_interval();
+
+-- Atomic replacement: failed/partial feeds retain the previous snapshot.
+create or replace function public.replace_availability_import(p_property uuid, p_events jsonb, p_source_hash text)
+returns void language plpgsql set search_path=public as $$ begin
+  perform pg_advisory_xact_lock(hashtextextended(p_property::text,781));
+  -- Only reconcile events previously observed in a complete feed. Email-only
+  -- reservations not yet in iCal remain busy until their source confirms status.
+  update reservations r set status='cancelled'
+  where r.property_id=p_property and r.source::text='airbnb'
+    and exists(select 1 from availability_imports old where old.property_id=p_property and old.uid=r.external_id)
+    and not exists(select 1 from jsonb_array_elements(p_events) e where e->>'uid'=r.external_id);
+  delete from availability_imports where property_id=p_property;
+  insert into availability_imports(property_id,uid,start_date,end_date,kind)
+  select p_property,x.uid,x.start_date,x.end_date,x.kind from jsonb_to_recordset(p_events) as x(uid text,start_date date,end_date date,kind text);
+  insert into availability_sync(property_id,last_success_at,failed,source_hash) values(p_property,now(),false,p_source_hash)
+  on conflict(property_id) do update set last_success_at=excluded.last_success_at,failed=false,source_hash=excluded.source_hash;
+end $$;
+revoke all on function public.replace_availability_import(uuid,jsonb,text) from public,anon,authenticated;
+grant execute on function public.replace_availability_import(uuid,jsonb,text) to service_role;
+
+create or replace function public.set_agency_access(p_profile uuid,p_properties uuid[],p_active boolean)
+returns void language plpgsql set search_path=public as $$ begin
+  perform 1 from agencies where profile_id=p_profile for update;
+  if not found then raise exception 'unknown agency'; end if;
+  if exists(select 1 from unnest(p_properties) p where not exists(select 1 from properties where id=p and is_rental)) then raise exception 'not rental'; end if;
+  update agencies set active=p_active where profile_id=p_profile;
+  delete from agency_properties where profile_id=p_profile;
+  insert into agency_properties select p_profile,p from (select distinct unnest(p_properties) p) s;
+end $$;
+revoke all on function public.set_agency_access(uuid,uuid[],boolean) from public,anon,authenticated;
+grant execute on function public.set_agency_access(uuid,uuid[],boolean) to service_role;

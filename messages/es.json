@@ -119,6 +119,10 @@
       "whatsapp": {
         "title": "Plantillas de WhatsApp",
         "description": "Administrá las plantillas de mensajes automáticos."
+      },
+      "agencies": {
+        "title": "Inmobiliarias y tarifas",
+        "description": "Calendario y tarifas de las casas autorizadas. Acceso de solo consulta."
       }
     }
   },
@@ -1458,5 +1462,57 @@
     "next": "Siguiente",
     "historyHelp": "Incluye todo el historial guardado. Airbnb actualiza fechas por calendario y datos por correo; las reservas antiguas que ya no están en el calendario requieren sus correos o una carga manual.",
     "notRental": "Esta propiedad no está habilitada para alquiler."
+  },
+  "availability": {
+    "title": "Disponibilidad",
+    "description": "Calendario y tarifas de las casas autorizadas. Acceso de solo consulta.",
+    "manage": "Inmobiliarias y tarifas",
+    "signOut": "Cerrar sesión",
+    "month": "Mes",
+    "property": "Casa",
+    "all": "Todas las casas",
+    "filter": "Ver calendario",
+    "noAccess": "No tenés casas asignadas o tu acceso está desactivado.",
+    "mobileHint": "En celular mostramos una casa. Elegí otra en el filtro.",
+    "available": "Libre",
+    "reservation": "Reservada",
+    "block": "Bloqueada",
+    "unknown": "Sin confirmar",
+    "current": "Disponibilidad actualizada",
+    "uncertain": "Disponibilidad sin confirmar: falta una sincronización vigente o hay un calendario no compatible.",
+    "lastSync": "Última sincronización",
+    "rates": "Tarifas por temporada",
+    "perNight": "por noche",
+    "noRates": "Sin tarifa publicada para este mes.",
+    "icalHelp": "iCal no es instantáneo: Airbnb puede demorar unas 3 horas en importar cambios. No sincroniza precios. Las fechas sin confirmar requieren revisión antes de ofrecerlas.",
+    "saveError": "No se pudo guardar. Revisá los datos y reintentá.",
+    "overlap": "Las fechas se superponen con otro intervalo existente.",
+    "invalid": "Revisá los datos: fechas válidas, fin posterior al inicio y teléfono internacional (+598…).",
+    "saving": "Guardando…",
+    "saved": "Guardado.",
+    "feedHelp": "Copiá este enlace privado a Airbnb → Importar calendario. Se muestra una sola vez. Crear otro invalida el anterior.",
+    "loadError": "No se pudo cargar la disponibilidad.",
+    "properties": "Casas autorizadas",
+    "start": "Desde",
+    "end": "Hasta (exclusivo)",
+    "newAgency": "Nueva inmobiliaria",
+    "create": "Crear acceso",
+    "name": "Nombre",
+    "email": "Email",
+    "phone": "Teléfono internacional",
+    "password": "Contraseña (mínimo 12 caracteres)",
+    "credentialsHelp": "No se envía ninguna invitación automática. Compartí el acceso por un canal privado.",
+    "save": "Guardar acceso",
+    "active": "Acceso activo",
+    "addRate": "Agregar tarifa",
+    "amount": "Precio por noche",
+    "currency": "Moneda",
+    "blocks": "Bloqueos",
+    "addBlock": "Agregar bloqueo",
+    "exclusiveEnd": "La fecha final es exclusiva: ese día vuelve a estar disponible, salvo otra reserva o bloqueo. Para editar, eliminá el intervalo y crealo de nuevo.",
+    "remove": "Eliminar",
+    "feeds": "Calendarios para Airbnb",
+    "rotateFeed": "Crear / reemplazar enlace privado",
+    "revokeFeed": "Revocar enlace"
   }
 }

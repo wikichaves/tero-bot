@@ -38,6 +38,7 @@ export async function requireProfile(): Promise<Profile> {
     await supabase.auth.signOut();
     redirect("/login");
   }
+  if ((data as Profile).role === "agency") redirect("/availability");
   return data as Profile;
 }
 
