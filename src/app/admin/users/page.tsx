@@ -50,7 +50,7 @@ export default async function UsersPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-6">
       <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-end">
         <div>
           <h1 className="text-4xl">{t("title")}</h1>
@@ -132,13 +132,13 @@ export default async function UsersPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="sticky left-0 z-10 w-32 bg-card">{t("menu.edit")}</TableHead>
                 <TableHead>{t("table.email")}</TableHead>
                 <TableHead>{t("table.name")}</TableHead>
                 <TableHead>{t("table.role")}</TableHead>
                 <TableHead className="hidden md:table-cell">{t("table.properties")}</TableHead>
                 <TableHead className="hidden lg:table-cell">{t("table.whatsapp")}</TableHead>
                 <TableHead className="hidden lg:table-cell">{t("table.created")}</TableHead>
-                <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -159,12 +159,21 @@ export default async function UsersPage() {
                     .map((prop) => prop.name);
                   return (
                   <TableRow key={p.id}>
+                    <TableCell className="sticky left-0 z-10 bg-card">
+                      <UserActions
+                        profile={p}
+                        isSelf={p.id === me.id}
+                        allProperties={allProperties}
+                        scopedPropertyIds={scopedIds}
+                        botWhatsappNumber={botWhatsappNumber}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium break-all">{p.email}</TableCell>
                     <TableCell>{p.full_name ?? "—"}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{ROLE_LABEL[p.role]}</Badge>
                     </TableCell>
-                    <TableCell className="hidden text-xs md:table-cell">
+                    <TableCell className="hidden max-w-64 text-xs md:table-cell md:whitespace-normal">
                       {p.role === "admin" ? (
                         <span className="text-muted-foreground italic">
                           {t("scope.all")}
@@ -185,15 +194,7 @@ export default async function UsersPage() {
                         locale: es,
                       })}
                     </TableCell>
-                    <TableCell>
-                      <UserActions
-                        profile={p}
-                        isSelf={p.id === me.id}
-                        allProperties={allProperties}
-                        scopedPropertyIds={scopedIds}
-                        botWhatsappNumber={botWhatsappNumber}
-                      />
-                    </TableCell>
+
                   </TableRow>
                   );
                 })

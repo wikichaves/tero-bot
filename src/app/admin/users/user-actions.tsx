@@ -111,7 +111,10 @@ export function UserActions({
   }
 
   return (
-    <>
+    <div className="flex items-center gap-1">
+      <Button variant="outline" size="sm" disabled={pending} onClick={() => setEditOpen(true)}>
+        {t("menu.edit")}
+      </Button>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={<Button variant="ghost" size="icon" disabled={pending} />}
@@ -175,6 +178,6 @@ export function UserActions({
           onOpenChange={setResetPwdOpen}
         />
       )}
-    </>
+    </div>
   );
 }

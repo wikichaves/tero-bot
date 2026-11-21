@@ -119,6 +119,10 @@
       "whatsapp": {
         "title": "WhatsApp templates",
         "description": "Manage templates for automated messages."
+      },
+      "agencies": {
+        "title": "Agencies and rates",
+        "description": "Calendar and rates for authorized homes. Read-only access."
       }
     }
   },
@@ -1458,5 +1462,57 @@
     "next": "Next",
     "historyHelp": "Includes all saved history. Airbnb updates dates through calendars and details through emails; older bookings no longer in its calendar require their emails or manual entry.",
     "notRental": "This property is not enabled for rentals."
+  },
+  "availability": {
+    "title": "Availability",
+    "description": "Calendar and rates for authorized homes. Read-only access.",
+    "manage": "Agencies and rates",
+    "signOut": "Sign out",
+    "month": "Month",
+    "property": "Home",
+    "all": "All homes",
+    "filter": "View calendar",
+    "noAccess": "No homes assigned, or your access is disabled.",
+    "mobileHint": "On mobile we show one home. Choose another using the filter.",
+    "available": "Available",
+    "reservation": "Reserved",
+    "block": "Blocked",
+    "unknown": "Unconfirmed",
+    "current": "Availability up to date",
+    "uncertain": "Availability unconfirmed: no current sync or an unsupported calendar.",
+    "lastSync": "Last synced",
+    "rates": "Seasonal rates",
+    "perNight": "per night",
+    "noRates": "No published rates for this month.",
+    "icalHelp": "iCal is not instant: Airbnb may take around 3 hours to import changes. Prices are not synchronized. Unconfirmed dates must be checked before offering them.",
+    "saveError": "Could not save. Check the values and try again.",
+    "overlap": "Dates overlap an existing interval.",
+    "invalid": "Check dates, end after start, and international phone (+598…).",
+    "saving": "Saving…",
+    "saved": "Saved.",
+    "feedHelp": "Copy this private URL to Airbnb → Import calendar. It is shown only once. Creating another revokes the previous link.",
+    "loadError": "Could not load availability.",
+    "properties": "Authorized homes",
+    "start": "From",
+    "end": "Until (exclusive)",
+    "newAgency": "New agency",
+    "create": "Create access",
+    "name": "Name",
+    "email": "Email",
+    "phone": "International phone",
+    "password": "Password (at least 12 characters)",
+    "credentialsHelp": "No invitation is sent automatically. Share access through a private channel.",
+    "save": "Save access",
+    "active": "Access enabled",
+    "addRate": "Add rate",
+    "amount": "Nightly price",
+    "currency": "Currency",
+    "blocks": "Blocks",
+    "addBlock": "Add block",
+    "exclusiveEnd": "The end date is exclusive: that day becomes available unless another booking or block applies. To edit, remove the interval and create it again.",
+    "remove": "Remove",
+    "feeds": "Airbnb calendars",
+    "rotateFeed": "Create / replace private link",
+    "revokeFeed": "Revoke link"
   }
 }

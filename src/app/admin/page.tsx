@@ -13,6 +13,7 @@ const sections = [
     key: "peoplePlaces",
     cards: [
       { key: "users", href: "/admin/users" },
+      { key: "agencies", href: "/admin/agencies" },
       { key: "properties", href: "/admin/properties" },
     ],
   },
