@@ -43,7 +43,7 @@ export function AvailabilityFilters({ month, selected, properties, count }: {
     </select></label>
     <label className="min-w-0 text-sm">{t("property")}<select className={style} value={selected} disabled={pending} onChange={e => change(month, e.target.value)}><option value="">{t("all")}</option>{properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
     <label className="text-sm">{t("showMonths")}<select className={style} value={count} disabled={pending} onChange={e => change(month, selected, Number(e.target.value))}>
-      {[1,2,3,4,5].map(n => <option key={n} value={n}>{t("monthCount", {count:n})}</option>)}
+      {Array.from({length: 12}, (_, i) => i + 1).map(n => <option key={n} value={n}>{t("monthCount", {count:n})}</option>)}
     </select></label>
     {pending && <span role="status" className="text-sm text-muted-foreground">{t("updating")}</span>}
   </div>;

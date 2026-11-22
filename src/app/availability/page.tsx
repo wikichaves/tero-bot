@@ -10,7 +10,7 @@ export default async function AvailabilityPage({searchParams}:{searchParams:Prom
   const today=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Montevideo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
   let month=typeof params.month==="string"?params.month:today.slice(0,7);
   try { monthDays(month); } catch { month=today.slice(0,7); }
-  const count = typeof params.months === "string" && /^[1-5]$/.test(params.months) ? Number(params.months) : 1;
+  const count = typeof params.months === "string" && /^(?:[1-9]|1[0-2])$/.test(params.months) ? Number(params.months) : 1;
   const months = Array.from({length:count},(_,i)=>{const d=new Date(`${month}-01T00:00:00Z`);d.setUTCMonth(d.getUTCMonth()+i);return d.toISOString().slice(0,7);}).filter(m=>m<="2200-12");
   const calendars = await Promise.all(months.map(loadAvailability));
   const {viewer}=calendars[0];
