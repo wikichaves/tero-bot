@@ -18,6 +18,7 @@ select update_user_profile_admin('00000000-0000-0000-0000-0000000000a1','{"full_
 do $$ begin if (select active from agencies where profile_id='00000000-0000-0000-0000-0000000000a1') then raise exception 'revocation lost'; end if; end $$;
 select update_user_profile_admin('00000000-0000-0000-0000-0000000000a1','{"role":"gestor"}',array['00000000-0000-0000-0000-0000000000f1'::uuid]);
 do $$ begin if (select role::text from profiles where id='00000000-0000-0000-0000-0000000000a1')<>'gestor' then raise exception 'role not updated'; end if; end $$;
+do $$ begin if exists(select 1 from agency_properties where profile_id='00000000-0000-0000-0000-0000000000a1') then raise exception 'stale agency grants'; end if; end $$;
 reset role;
 set role authenticated;
 do $$ begin

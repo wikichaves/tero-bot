@@ -1684,6 +1684,7 @@ begin
     end if;
   elsif target.role::text='agency' then
     update agencies set active=false where profile_id=p_id;
+    delete from agency_properties where profile_id=p_id;
   end if;
   if p_properties is not null then
     delete from profile_properties where profile_id=p_id;

@@ -10,7 +10,8 @@ export const availabilityHelp = "Consultá /disponibilidad para todas tus casas,
 export async function availabilityReply(profileId: string, text: string): Promise<string> {
   const db = createAdminClient();
   const {data: profile, error: pe} = await db.from("profiles").select("role").eq("id",profileId).single();
-  if (pe || !profile || !["admin","gestor","agency"].includes(profile.role)) return "No tenés acceso a consultas de inmobiliaria.";
+  if (pe) throw new Error("Unable to verify profile");
+  if (!profile || !["admin","gestor","agency"].includes(profile.role)) return "No tenés acceso a consultas de inmobiliaria.";
   let ids: string[] | null = null;
   if (profile.role === "agency") {
     const {data: agency,error} = await db.from("agencies").select("active").eq("profile_id",profileId).maybeSingle();
