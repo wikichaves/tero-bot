@@ -70,6 +70,7 @@ export function EditUserDialog({
       const result = await updateProfile({
         id: profile.id,
         full_name: String(formData.get("full_name") ?? ""),
+        email: String(formData.get("email") ?? ""),
         whatsapp: String(formData.get("whatsapp") ?? ""),
         language: String(formData.get("language") ?? ""),
         telegram_chat_id,
@@ -105,6 +106,17 @@ export function EditUserDialog({
                 defaultValue={profile.full_name ?? ""}
                 required
                 autoFocus
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">{t("fields.emailEdit")}</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                defaultValue={profile.email}
+                required
+                disabled={pending}
               />
             </div>
             <div className="grid gap-2">

@@ -595,6 +595,7 @@
       "name": "Name",
       "phone": "Phone (WhatsApp)",
       "phoneHintCreate": "Required. Used for login and bot messages.",
+      "emailEdit": "Email",
       "phoneOptional": "WhatsApp (optional)",
       "email": "Email (optional)",
       "emailHint": "If left empty, the user can only sign in with their phone.",

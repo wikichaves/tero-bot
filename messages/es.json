@@ -595,6 +595,7 @@
       "name": "Nombre",
       "phone": "Teléfono (WhatsApp)",
       "phoneHintCreate": "Obligatorio. Usado para login y para mensajes del bot.",
+      "emailEdit": "Email",
       "phoneOptional": "WhatsApp (opcional)",
       "email": "Email (opcional)",
       "emailHint": "Si no lo cargás, el usuario solo va a poder loguearse con teléfono.",
