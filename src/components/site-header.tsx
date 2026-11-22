@@ -24,12 +24,9 @@ import type { Profile } from "@/lib/types";
 import { getActiveCountry, getAllowedCountries } from "@/lib/country";
 import { CountrySwitcher } from "@/components/country-switcher";
 
-/**
- * Navegación primaria: Tareas, Ambientes, Reservas y Cámaras quedan como
- * leaves; Dinero y Comercial agrupan destinos relacionados. Admin abre un
- * índice descriptivo de superficies de baja frecuencia. En mobile se conserva
- * la misma jerarquía dentro de un Sheet.
- */
+/** Navegación agrupada por rol, con la misma jerarquía en desktop y móvil.
+ * Los permisos existentes deciden los destinos; un grupo con un solo destino
+ * se presenta como link directo. */
 
 type NavLeaf = {
   href: string;
@@ -113,41 +110,28 @@ export async function SiteHeader({ profile, countryScope }: { profile: Profile; 
       ]
     : [];
 
-  // El dropdown "Tareas" desaparece — admin/gestor también usan un
-  // leaf directo. (El JSX que lo renderizaba se eliminó abajo.)
-
-  const operationalLeaves: NavLeaf[] =
-    profile.role === "admin" || profile.role === "gestor"
-      ? [
-          // WIK-109: leaf "Tareas" para admin y gestor también
-          // (mantenimiento ya lo tiene en `staffLeaves`). Badge =
-          // tareas asignadas a mí — admin con 0 asignadas no ve badge.
-          //
-          // WIK-162: las superficies de uso más frecuente quedan como
-          // leaves directos, en este orden.
-          {
-            href: "/tasks",
-            label: t("tasks"),
-            badge: myOpen,
-            urgent: myOverdue > 0,
-          },
-          {
-            href: "/rooms",
-            label: t("rooms"),
-            badge: alarmsActive,
-            urgent: alarmsActive > 0,
-          },
-          { href: "/reservations", label: t("reservations") },
-          { href: "/availability", label: t("availability") },
-          { href: "/cameras", label: t("cameras") },
-        ]
-      : [];
-
-  if (profile.role === "agency") operationalLeaves.push({ href: "/availability", label: t("availability") });
+  const operationalLeaves: NavLeaf[] = profile.role === "agency"
+    ? [{ href: "/availability", label: t("availability") }]
+    : [];
 
   const navGroups: NavGroup[] =
     profile.role === "admin" || profile.role === "gestor"
       ? [
+          {
+            label: t("operations"),
+            items: [
+              { href: "/tasks", label: t("tasks"), badge: myOpen, urgent: myOverdue > 0 },
+              { href: "/rooms", label: t("rooms"), badge: alarmsActive, urgent: alarmsActive > 0 },
+              { href: "/cameras", label: t("cameras") },
+            ],
+          },
+          {
+            label: t("rentals"),
+            items: [
+              { href: "/reservations", label: t("reservations") },
+              { href: "/availability", label: t("availability") },
+            ],
+          },
           {
             label: t("money"),
             items: [
@@ -195,7 +179,7 @@ export async function SiteHeader({ profile, countryScope }: { profile: Profile; 
               <Button
                 variant="ghost"
                 size="icon"
-                className="md:hidden"
+                className="lg:hidden"
                 aria-label={t("openMenu")}
               />
             }
@@ -212,7 +196,9 @@ export async function SiteHeader({ profile, countryScope }: { profile: Profile; 
                   <MobileNavLink key={it.href} item={it} />
                 ))}
               </div>
-              {navGroups.map((group) => (
+              {navGroups.filter(group => group.items.length > 0).map((group) => group.items.length === 1 ? (
+                <MobileNavLink key={group.label} item={group.items[0]} />
+              ) : (
                 <div key={group.label} className="flex flex-col gap-1">
                   <p className="px-3 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     {group.label}
@@ -242,14 +228,16 @@ export async function SiteHeader({ profile, countryScope }: { profile: Profile; 
         </Link>
 
         {/* Desktop inline nav. */}
-        <nav className="hidden min-w-0 items-center gap-5 overflow-x-auto text-sm font-medium text-muted-foreground md:flex">
+        <nav className="hidden min-w-0 items-center gap-4 whitespace-nowrap text-sm font-medium text-muted-foreground lg:flex">
           {staffLeaves.map((it) => (
             <NavLink key={it.href} {...it} overdueTooltip={t("overdueTooltip")} />
           ))}
           {operationalLeaves.map((it) => (
             <NavLink key={it.href} {...it} overdueTooltip={t("overdueTooltip")} />
           ))}
-          {navGroups.map((group) => (
+          {navGroups.filter(group => group.items.length > 0).map((group) => group.items.length === 1 ? (
+            <NavLink key={group.label} {...group.items[0]} overdueTooltip={t("overdueTooltip")} />
+          ) : (
             <NavDropdown key={group.label} group={group} />
           ))}
           {adminLeaf && <NavLink {...adminLeaf} />}
