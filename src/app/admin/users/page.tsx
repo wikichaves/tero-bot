@@ -2,6 +2,7 @@ import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
 import {
   Card,
@@ -47,6 +48,15 @@ export default async function UsersPage() {
     const list = scopedByProfile.get(row.profile_id) ?? [];
     list.push(row.property_id);
     scopedByProfile.set(row.profile_id, list);
+  }
+
+  // Agency scope has its own authoritative grants, not legacy staff assignments.
+  const agencyScopes = await createAdminClient().from("agency_properties").select("profile_id,property_id");
+  if (agencyScopes.error) throw new Error("Unable to load agency access");
+  for (const profile of profiles.filter(p=>p.role==="agency")) scopedByProfile.set(profile.id,[]);
+  for (const row of agencyScopes.data ?? []) {
+    const profile=profiles.find(p=>p.id===row.profile_id);
+    if (profile?.role==="agency") scopedByProfile.get(row.profile_id)!.push(row.property_id);
   }
 
   return (

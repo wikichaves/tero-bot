@@ -54,7 +54,7 @@ async function helpTextGuest(locale: Locale): Promise<string> {
 async function helpForRole(profile: Profile): Promise<string> {
   const locale = profileLocale(profile);
   if (profile.role === "admin" || profile.role === "gestor") {
-    return await helpTextFull(locale);
+    return (await helpTextFull(locale)) + "\n/disponibilidad [casa] — " + (locale === "en" ? "availability of your assigned houses" : "disponibilidad de tus casas asignadas");
   }
   if (profile.role === "guest") {
     return await helpTextGuest(locale);

@@ -129,7 +129,7 @@ export function EditUserDialog({
                 disabled={isSelf}
                 className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {ALL_ROLES.map((r) => (
+                {([...ALL_ROLES, "agency"] as UserRole[]).map((r) => (
                   <option key={r} value={r}>
                     {ROLE_LABEL[r]}
                   </option>

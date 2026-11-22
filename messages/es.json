@@ -1513,6 +1513,12 @@
     "remove": "Eliminar",
     "feeds": "Calendarios para Airbnb",
     "rotateFeed": "Crear / reemplazar enlace privado",
-    "revokeFeed": "Revocar enlace"
+    "revokeFeed": "Revocar enlace",
+    "previousMonth": "Mes anterior",
+    "nextMonth": "Mes siguiente",
+    "year": "Año",
+    "updating": "Actualizando…",
+    "showMonths": "Mostrar",
+    "monthCount": "{count, plural, one {1 mes} other {# meses}}"
   }
 }

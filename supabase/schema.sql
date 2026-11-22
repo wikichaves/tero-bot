@@ -1649,3 +1649,47 @@ returns void language plpgsql set search_path=public as $$ begin
 end $$;
 revoke all on function public.set_agency_access(uuid,uuid[],boolean) from public,anon,authenticated;
 grant execute on function public.set_agency_access(uuid,uuid[],boolean) to service_role;
+
+-- ─── Property guest capacity ───
+alter table public.properties add column if not exists max_guests integer check (max_guests between 1 and 100);
+
+-- ─── Unified user agency editing ───
+create or replace function public.update_user_profile_admin(p_id uuid,p_patch jsonb,p_properties uuid[] default null)
+returns void language plpgsql set search_path=public as $$
+declare target public.profiles; next_role text;
+begin
+  select * into target from profiles where id=p_id for update;
+  if not found then raise exception 'unknown profile'; end if;
+  next_role=coalesce(p_patch->>'role',target.role::text);
+  if next_role not in ('admin','gestor','mantenimiento','guest','agency') then raise exception 'invalid role'; end if;
+  if next_role='agency' then
+    if coalesce(p_patch->>'whatsapp',target.whatsapp,'')='' then raise exception 'agency phone required'; end if;
+    if p_properties is not null and exists(select 1 from unnest(p_properties) p where not exists(select 1 from properties where id=p and is_rental)) then raise exception 'agency requires rental properties'; end if;
+  end if;
+  update profiles set
+    full_name=case when p_patch ? 'full_name' then p_patch->>'full_name' else full_name end,
+    whatsapp=case when p_patch ? 'whatsapp' then p_patch->>'whatsapp' else whatsapp end,
+    role=next_role::public.user_role,
+    language=case when p_patch ? 'language' then p_patch->>'language' else language end,
+    telegram_chat_id=case when p_patch ? 'telegram_chat_id' then (p_patch->>'telegram_chat_id')::bigint else telegram_chat_id end
+  where id=p_id;
+  if next_role='agency' then
+    insert into agencies(profile_id,name,email,phone)
+      select id,full_name,email,whatsapp from profiles where id=p_id
+    on conflict(profile_id) do update set name=excluded.name,email=excluded.email,phone=excluded.phone;
+    if p_properties is not null then
+      perform set_agency_access(p_id,p_properties,(select active from agencies where profile_id=p_id));
+    elsif target.role::text<>'agency' then
+      perform set_agency_access(p_id,array(select pp.property_id from profile_properties pp join properties p on p.id=pp.property_id where pp.profile_id=p_id and p.is_rental),(select active from agencies where profile_id=p_id));
+    end if;
+  elsif target.role::text='agency' then
+    update agencies set active=false where profile_id=p_id;
+    delete from agency_properties where profile_id=p_id;
+  end if;
+  if p_properties is not null then
+    delete from profile_properties where profile_id=p_id;
+    insert into profile_properties(profile_id,property_id) select p_id,p from (select distinct unnest(p_properties) p) s;
+  end if;
+end $$;
+revoke all on function public.update_user_profile_admin(uuid,jsonb,uuid[]) from public,anon,authenticated;
+grant execute on function public.update_user_profile_admin(uuid,jsonb,uuid[]) to service_role;

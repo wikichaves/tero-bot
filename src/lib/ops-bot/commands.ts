@@ -56,6 +56,7 @@ export function opsHelpText(locale: Locale): string {
     return (
       "<b>Tero Ops</b> — house operations\n\n" +
       "/estado — current temp/humidity/power of the houses\n" +
+      "/disponibilidad [house] — availability of your assigned houses\n" +
       "/camaras [name] — latest camera photos (all, or one by name)\n" +
       "/incidente &lt;text&gt; — report a problem (creates a maintenance task)\n" +
       "/gasto vendor UYU 1500 — save an expense, optionally with a receipt\n" +
@@ -67,6 +68,7 @@ export function opsHelpText(locale: Locale): string {
   return (
     "<b>Tero Ops</b> — operación de las casas\n\n" +
     "/estado — temp/humedad/luz actual de las casas\n" +
+    "/disponibilidad [casa] — disponibilidad de tus casas asignadas\n" +
     "/camaras [nombre] — últimas fotos de las cámaras (todas, o una por nombre)\n" +
     "/incidente &lt;texto&gt; — reportar un problema (crea tarea de mantenimiento)\n" +
     "/gasto comercio UYU 1500 — cargar gasto, con foto opcional del ticket\n" +
