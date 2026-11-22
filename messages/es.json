@@ -1467,6 +1467,7 @@
     "notRental": "Esta propiedad no está habilitada para alquiler."
   },
   "availability": {
+    "refresh": "Actualizar",
     "title": "Disponibilidad",
     "description": "Calendario y tarifas de las casas autorizadas. Acceso de solo consulta.",
     "manage": "Inmobiliarias y tarifas",

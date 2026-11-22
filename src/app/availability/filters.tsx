@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
@@ -45,6 +47,9 @@ export function AvailabilityFilters({ month, selected, properties, count }: {
     <label className="text-sm"><span className="sr-only">{t("showMonths")}</span><select className={style} value={count} disabled={pending} onChange={e => change(month, selected, Number(e.target.value))}>
       {Array.from({length: 12}, (_, i) => i + 1).map(n => <option key={n} value={n}>{t("monthCount", {count:n})}</option>)}
     </select></label>
-    {pending && <span role="status" className="text-sm text-muted-foreground">{t("updating")}</span>}
+    <div className="ml-auto flex items-center gap-3">
+      {pending && <span role="status" className="text-sm text-muted-foreground">{t("updating")}</span>}
+      <Button type="button" variant="outline" disabled={pending} onClick={() => startTransition(() => router.refresh())}><RefreshCw aria-hidden="true" className={pending ? "animate-spin" : ""} />{t("refresh")}</Button>
+    </div>
   </div>;
 }
