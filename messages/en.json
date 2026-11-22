@@ -1467,6 +1467,7 @@
     "notRental": "This property is not enabled for rentals."
   },
   "availability": {
+    "refresh": "Refresh",
     "title": "Availability",
     "description": "Calendar and rates for authorized homes. Read-only access.",
     "manage": "Agencies and rates",

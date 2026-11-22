@@ -1,3 +1,4 @@
+import { PropertyThumb } from "@/components/property-thumb";
 import { getActiveCountry } from "@/lib/country";
 import { getLocale, getTranslations } from "next-intl/server";
 import { loadAvailability } from "@/lib/availability/data";
@@ -27,7 +28,7 @@ export default async function AvailabilityPage({searchParams}:{searchParams:Prom
     {calendars.map(({days,busy,rates},index)=><div key={months[index]} className="space-y-4">
     <h2 className="text-2xl capitalize">{new Intl.DateTimeFormat(locale,{month:"long",year:"numeric",timeZone:"UTC"}).format(new Date(`${months[index]}-01T00:00:00Z`))}</h2>
     {(selected?properties.filter(p=>p.id===selected):properties).map(p=><section key={p.id} className={`space-y-4 rounded-xl border bg-card p-4 ${p.id!==mobileProperty?"hidden md:block":""}`}>
-      <div><h2 className="text-2xl">{p.name}</h2><p className={`text-xs ${p.known?"text-muted-foreground":"text-status-warning"}`}>{p.known?t("current"):t("uncertain")}{p.lastSync && <> · {t("lastSync")}: {new Intl.DateTimeFormat(locale,{dateStyle:"short",timeStyle:"short",timeZone:p.country==="AR"?"America/Argentina/Buenos_Aires":"America/Montevideo"}).format(new Date(p.lastSync))}</>}</p></div>
+      <div className="flex items-center gap-3"><PropertyThumb propertyId={p.id} size="md" /><div className="min-w-0"><h2 className="text-2xl break-words">{p.name}</h2><p className={`text-xs ${p.known?"text-muted-foreground":"text-status-warning"}`}>{p.known?t("current"):t("uncertain")}{p.lastSync && <> · {t("lastSync")}: {new Intl.DateTimeFormat(locale,{dateStyle:"short",timeStyle:"short",timeZone:p.country==="AR"?"America/Argentina/Buenos_Aires":"America/Montevideo"}).format(new Date(p.lastSync))}</>}</p></div></div>
       <div className="grid grid-cols-7 gap-1" aria-label={`${p.name} ${months[index]}`}>
         {Array.from({length:7},(_,i)=><span key={`weekday-${i}`} className="text-center text-xs text-muted-foreground">{new Intl.DateTimeFormat(locale,{weekday:"short",timeZone:"UTC"}).format(new Date(Date.UTC(2026,10,16+i)))}</span>)}
         {Array.from({length:(new Date(`${days[0]}T00:00:00Z`).getUTCDay()+6)%7},(_,i)=><div key={`spacer-${i}`}/>)}
