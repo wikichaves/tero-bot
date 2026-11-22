@@ -257,6 +257,9 @@ export async function updateProfile(input: {
     p_properties: ids?.success ? ids.data : null,
   });
   if (error) return {error:error.message};
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/agencies");
+  revalidatePath("/availability");
   // Auth owns login credentials; keep the profile lookup used by phone login
   // synchronized. Never report a failed email change as a successful save.
   if (parsed.data.email !== undefined) {
@@ -288,9 +291,6 @@ export async function updateProfile(input: {
       return { error: "Perfil guardado, pero no se pudo sincronizar el email. Reintentá." };
     }
   }
-  revalidatePath("/admin/users");
-  revalidatePath("/admin/agencies");
-  revalidatePath("/availability");
   return { ok: true };
 }
 
