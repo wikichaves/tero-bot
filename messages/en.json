@@ -64,6 +64,8 @@
     "back": "Back"
   },
   "nav": {
+    "operations": "Operations",
+    "rentals": "Rentals",
     "openMenu": "Open menu",
     "home": "Home",
     "tasks": "Tasks",

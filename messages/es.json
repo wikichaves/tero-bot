@@ -64,6 +64,8 @@
     "back": "Volver"
   },
   "nav": {
+    "operations": "Operación",
+    "rentals": "Alquileres",
     "openMenu": "Abrir menú",
     "home": "Inicio",
     "tasks": "Tareas",
