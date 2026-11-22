@@ -50,6 +50,7 @@
     "error": "Could not save the camera. Your changes are still in the form; please try again."
   },
   "common": {
+    "close": "Close",
     "appName": "tero.bot",
     "tagline": "Operations for short-term rentals.",
     "signIn": "Sign in",

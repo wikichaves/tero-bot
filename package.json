@@ -52,7 +52,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
+    "@tailwindcss/postcss": "^4.3.5",
     "@types/node": "^20",
     "@types/pdf-parse": "^1.1.5",
     "@types/pg": "^8.20.0",
@@ -62,8 +62,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.2",
     "pg": "^8.21.0",
-    "shadcn": "^4.5.0",
-    "tailwindcss": "^4",
+    "shadcn": "^4.23.0",
+    "tailwindcss": "^4.3.5",
     "tsx": "^4.22.0",
     "typescript": "^5"
   }

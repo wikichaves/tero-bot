@@ -50,6 +50,7 @@
     "error": "No se pudo guardar la cámara. Tus cambios siguen en el formulario; volvé a intentar."
   },
   "common": {
+    "close": "Cerrar",
     "appName": "tero.bot",
     "tagline": "Operativa para alquileres temporarios.",
     "signIn": "Iniciar sesión",
