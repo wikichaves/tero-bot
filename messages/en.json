@@ -85,7 +85,8 @@
     "whatsappInbox": "WhatsApp Inbox",
     "whatsappTemplates": "WhatsApp Templates",
     "overdueTooltip": "There are overdue tasks",
-    "reservations": "Reservations"
+    "reservations": "Reservations",
+    "availability": "Availability"
   },
   "adminPage": {
     "title": "Administration",
@@ -1520,6 +1521,7 @@
     "year": "Year",
     "updating": "Updating…",
     "showMonths": "Show",
-    "monthCount": "{count, plural, one {1 month} other {# months}}"
+    "monthCount": "{count, plural, one {1 month} other {# months}}",
+    "loadMore": "Load more"
   }
 }
