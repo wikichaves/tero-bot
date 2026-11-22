@@ -21,7 +21,7 @@ import { UserDropdown } from "@/components/user-dropdown";
 import { PullToRefresh } from "@/components/pull-to-refresh";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
-import { getActiveCountry } from "@/lib/country";
+import { getActiveCountry, getAllowedCountries } from "@/lib/country";
 import { CountrySwitcher } from "@/components/country-switcher";
 
 /**
@@ -51,6 +51,7 @@ export async function SiteHeader({ profile, countryScope }: { profile: Profile; 
   const homeHref = profile.role === "agency" ? "/availability" : isStaff ? "/my-tasks" : "/dashboard";
   const allowedCountryIds = countryScope === undefined ? await getAllowedPropertyIds(profile) : countryScope;
   const activeCountry = await getActiveCountry(allowedCountryIds);
+  const allowedCountries = await getAllowedCountries(allowedCountryIds);
 
   // Counts for the nav badges. We track overdue separately so we can color
   // the badge red when something needs urgent attention.
@@ -255,7 +256,7 @@ export async function SiteHeader({ profile, countryScope }: { profile: Profile; 
         </nav>
       </div>
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-        {!isStaff && <CountrySwitcher country={activeCountry} />}
+        {!isStaff && <CountrySwitcher country={activeCountry} countries={allowedCountries} />}
         {/* WIK-151: ModeToggle se movió al footer global (junto con
             LanguageSelector). Acá queda solo el user dropdown. */}
         {/* WIK-112: el span con email + form Salir se reemplazó por un

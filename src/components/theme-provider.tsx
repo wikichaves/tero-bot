@@ -1,7 +1,21 @@
 "use client";
 
-import { ThemeProvider as NextThemesProvider } from "next-themes";
-import type { ComponentProps } from "react";
+import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes";
+import { useEffect, type ComponentProps } from "react";
+
+function ThemeShortcut() {
+  const { resolvedTheme, setTheme } = useTheme();
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== "KeyL" || !event.altKey || !event.shiftKey || event.ctrlKey || event.metaKey || event.repeat || event.isComposing) return;
+      event.preventDefault();
+      setTheme(resolvedTheme === "dark" ? "light" : "dark");
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [resolvedTheme, setTheme]);
+  return null;
+}
 
 /**
  * Thin wrapper around `next-themes`. Lives in a client component so the
@@ -13,5 +27,5 @@ export function ThemeProvider({
   children,
   ...props
 }: ComponentProps<typeof NextThemesProvider>) {
-  return <NextThemesProvider {...props}>{children}</NextThemesProvider>;
+  return <NextThemesProvider {...props}><ThemeShortcut />{children}</NextThemesProvider>;
 }
