@@ -85,7 +85,8 @@
     "whatsappInbox": "WhatsApp Inbox",
     "whatsappTemplates": "WhatsApp Templates",
     "overdueTooltip": "Hay tareas vencidas",
-    "reservations": "Reservas"
+    "reservations": "Reservas",
+    "availability": "Disponibilidad"
   },
   "adminPage": {
     "title": "Administración",

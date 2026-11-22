@@ -43,13 +43,13 @@ type NavGroup = {
   items: NavLeaf[];
 };
 
-export async function SiteHeader({ profile }: { profile: Profile }) {
+export async function SiteHeader({ profile, countryScope }: { profile: Profile; countryScope?: string[] | null }) {
   const t = await getTranslations("nav");
   // WIK-74: "limpieza" se unificó en "mantenimiento". Antes el chequeo
   // era `role === "limpieza" || role === "mantenimiento"`.
   const isStaff = profile.role === "mantenimiento";
-  const homeHref = isStaff ? "/my-tasks" : "/dashboard";
-  const allowedCountryIds = await getAllowedPropertyIds(profile);
+  const homeHref = profile.role === "agency" ? "/availability" : isStaff ? "/my-tasks" : "/dashboard";
+  const allowedCountryIds = countryScope === undefined ? await getAllowedPropertyIds(profile) : countryScope;
   const activeCountry = await getActiveCountry(allowedCountryIds);
 
   // Counts for the nav badges. We track overdue separately so we can color
@@ -137,9 +137,12 @@ export async function SiteHeader({ profile }: { profile: Profile }) {
             urgent: alarmsActive > 0,
           },
           { href: "/reservations", label: t("reservations") },
+          { href: "/availability", label: t("availability") },
           { href: "/cameras", label: t("cameras") },
         ]
       : [];
+
+  if (profile.role === "agency") operationalLeaves.push({ href: "/availability", label: t("availability") });
 
   const navGroups: NavGroup[] =
     profile.role === "admin" || profile.role === "gestor"

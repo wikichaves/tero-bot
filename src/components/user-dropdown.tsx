@@ -63,10 +63,10 @@ export function UserDropdown({ profile }: { profile: Profile }) {
             )}
           </div>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setEditOpen(true)}>
+          {profile.role !== "agency" && <DropdownMenuItem onClick={() => setEditOpen(true)}>
             <Pencil className="mr-2 h-4 w-4" />
             {t("edit")}
-          </DropdownMenuItem>
+          </DropdownMenuItem>}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             render={
