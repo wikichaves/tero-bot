@@ -724,6 +724,15 @@
       "help": "Arrastrá el agarre para cambiar el orden. Con teclado, usá las flechas arriba y abajo.",
       "saved": "Orden guardado",
       "failed": "No se pudo guardar el orden. Actualizá e intentá de nuevo."
+    },
+    "sync": {
+      "label": "Sincronizar",
+      "pending": "Sincronizando {done}/{total}…",
+      "hint": "Actualizar los calendarios iCal de Airbnb",
+      "empty": "No hay calendarios iCal configurados",
+      "success": "Calendarios sincronizados: {count}.",
+      "partial": "Sincronizados: {success} de {total}. Revisar: {names}.",
+      "failed": "No se pudieron sincronizar los calendarios. Revisar: {names}."
     }
   },
   "adminPropertyForm": {

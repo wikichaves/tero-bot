@@ -724,6 +724,15 @@
       "help": "Drag the handle to reorder. With a keyboard, use the up and down arrow keys.",
       "saved": "Order saved",
       "failed": "Could not save the order. Refresh and try again."
+    },
+    "sync": {
+      "label": "Sync",
+      "pending": "Syncing {done}/{total}…",
+      "hint": "Refresh Airbnb iCal calendars",
+      "empty": "No iCal calendars configured",
+      "success": "Calendars synced: {count}.",
+      "partial": "Synced: {success} of {total}. Check: {names}.",
+      "failed": "Could not sync calendars. Check: {names}."
     }
   },
   "adminPropertyForm": {

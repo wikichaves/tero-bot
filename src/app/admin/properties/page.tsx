@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { NewPropertyDialog } from "./property-form-dialog";
+import { SyncPropertiesButton } from "./sync-properties-button";
 import { PropertiesTable } from "./properties-table";
 import type { Property } from "@/lib/types";
 
@@ -26,7 +27,10 @@ export default async function PropertiesPage() {
             {t("countInSystem", { count: properties.length })}
           </p>
         </div>
-        <NewPropertyDialog />
+        <div className="flex flex-wrap items-center gap-2">
+          <SyncPropertiesButton properties={properties.filter((property) => property.airbnb_ical_url).map(({ id, name }) => ({ id, name }))} />
+          <NewPropertyDialog />
+        </div>
       </div>
 
       {error && (
