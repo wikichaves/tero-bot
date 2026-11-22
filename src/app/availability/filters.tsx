@@ -20,7 +20,7 @@ export function MonthNavigation({ month, selected, count }: { month: string; sel
   }
   return <nav className="flex justify-between gap-3" aria-label={t("month")}>
     {month > "2000-01" ? <Link className="rounded-md border px-3 py-2 text-sm" href={destination(adjacent(-1), selected, count)} scroll={false}>← {t("previousMonth")}</Link> : <span />}
-    {month < "2200-12" && <Link className="rounded-md border px-3 py-2 text-sm" href={destination(adjacent(1), selected, count)} scroll={false}>{t("nextMonth")} →</Link>}
+    {count < 12 && adjacent(count) <= "2200-12" && <Link className="rounded-md border px-3 py-2 text-sm" href={destination(month, selected, count + 1)} scroll={false}>{t("loadMore")}</Link>}
   </nav>;
 }
 

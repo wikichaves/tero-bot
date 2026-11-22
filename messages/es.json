@@ -1521,6 +1521,7 @@
     "year": "Año",
     "updating": "Actualizando…",
     "showMonths": "Mostrar",
-    "monthCount": "{count, plural, one {1 mes} other {# meses}}"
+    "monthCount": "{count, plural, one {1 mes} other {# meses}}",
+    "loadMore": "Cargar más"
   }
 }
