@@ -420,3 +420,27 @@
     @apply inline-block h-px w-8 bg-current opacity-60;
   }
 }
+
+/* Native single selects share an inset chevron. Keep this outside Tailwind
+   layers so px-* utilities cannot consume the space reserved for the icon.
+   Exclude listboxes and Base UI's hidden form controls. */
+select:not([multiple]):not([size]):not([aria-hidden="true"]),
+select[size="1"]:not([multiple]):not([aria-hidden="true"]) {
+  appearance: none;
+  padding-right: 2.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23787469' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 0.75rem center;
+  background-size: 1rem 1rem;
+  background-repeat: no-repeat;
+}
+.dark select:not([multiple]):not([size]):not([aria-hidden="true"]),
+.dark select[size="1"]:not([multiple]):not([aria-hidden="true"]) {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23aaaaaa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+@media (forced-colors: active) {
+  select:not([multiple]):not([size]):not([aria-hidden="true"]),
+  select[size="1"]:not([multiple]):not([aria-hidden="true"]) {
+    appearance: auto;
+    background-image: none;
+  }
+}
