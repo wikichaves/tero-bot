@@ -191,6 +191,7 @@ export async function createUser(formData: FormData) {
 
 const updateProfileSchema = z.object({
   id: z.string().uuid(),
+  email: z.string().trim().toLowerCase().email("Email inválido.").optional(),
   full_name: z.string().min(1, "Falta el nombre.").max(100),
   whatsapp: z
     .string()
@@ -212,6 +213,7 @@ const updateProfileSchema = z.object({
 
 export async function updateProfile(input: {
   id: string;
+  email?: string;
   full_name: string;
   whatsapp: string;
   language?: string;
@@ -255,6 +257,37 @@ export async function updateProfile(input: {
     p_properties: ids?.success ? ids.data : null,
   });
   if (error) return {error:error.message};
+  // Auth owns login credentials; keep the profile lookup used by phone login
+  // synchronized. Never report a failed email change as a successful save.
+  if (parsed.data.email !== undefined) {
+    const { data, error: lookupError } = await admin.auth.admin.getUserById(parsed.data.id);
+    if (lookupError || !data.user?.email) {
+      return { error: "Perfil guardado, pero no se pudo consultar el email de acceso. Reintentá." };
+    }
+    const previousEmail = data.user.email;
+    const emailChanged = previousEmail !== parsed.data.email;
+    if (emailChanged) {
+      const { error: authError } = await admin.auth.admin.updateUserById(parsed.data.id, {
+        email: parsed.data.email,
+        email_confirm: true,
+      });
+      if (authError) return { error: `Perfil guardado, pero no se pudo cambiar el email: ${authError.message}` };
+    }
+    const { data: updatedProfile, error: emailError } = await admin.from("profiles")
+      .update({ email: parsed.data.email }).eq("id", parsed.data.id).select("id").single();
+    if (emailError || !updatedProfile) {
+      if (emailChanged) {
+        const { error: rollbackError } = await admin.auth.admin.updateUserById(parsed.data.id, {
+          email: previousEmail,
+          email_confirm: true,
+        });
+        if (rollbackError) {
+          return { error: "No se pudo sincronizar ni restaurar el email de acceso. Revisá el usuario antes de continuar." };
+        }
+      }
+      return { error: "Perfil guardado, pero no se pudo sincronizar el email. Reintentá." };
+    }
+  }
   revalidatePath("/admin/users");
   revalidatePath("/admin/agencies");
   revalidatePath("/availability");
