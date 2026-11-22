@@ -1,3 +1,5 @@
+import { availabilityHelp, availabilityReply } from "@/lib/availability/bot";
+import { isAvailabilityQuery } from "@/lib/availability/query";
 import { NextRequest, NextResponse } from "next/server";
 import {
   getOpsBotToken,
@@ -112,6 +114,22 @@ export async function POST(req: NextRequest) {
   }
 
   const locale = opsLocaleOf(profile);
+
+  // Agency requests are handled before any operational command or attachment.
+  if (profile.role === "agency" || isAvailabilityQuery(msg.text ?? "")) {
+    // Never expose an agency's private portfolio in a shared group.
+    if (chatId !== fromId) {
+      await sendTelegramMessage({token, chatId, text:"Consultá disponibilidad por privado con el bot."});
+      return NextResponse.json({ok:true});
+    }
+    try {
+      const text = isAvailabilityQuery(msg.text ?? "") ? await availabilityReply(profile.id, msg.text!) : availabilityHelp;
+      await sendTelegramMessage({token, chatId, text, disableWebPagePreview:true});
+    } catch {
+      await sendTelegramMessage({token, chatId, text:"No pude verificar la disponibilidad. Probá de nuevo en un momento."});
+    }
+    return NextResponse.json({ok:true});
+  }
 
   // 4. Expense intake before text dispatch: photos carry captions, not text.
   const expense = telegramExpenseInput(msg);

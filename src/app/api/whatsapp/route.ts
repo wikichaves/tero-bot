@@ -1,3 +1,5 @@
+import { availabilityHelp, availabilityReply } from "@/lib/availability/bot";
+import { isAvailabilityQuery } from "@/lib/availability/query";
 import { NextRequest, NextResponse, after } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { getTranslations } from "next-intl/server";
@@ -551,6 +553,23 @@ async function autoReply(opts: {
     const lang = p?.language;
     return lang && isLocale(lang) ? lang : DEFAULT_LOCALE;
   };
+
+  // Fail closed for agencies before tasks, expenses, climate or cameras.
+  const availabilityProfile = await getProfile();
+  if (availabilityProfile?.role === "agency" || isAvailabilityQuery(opts.messageBody ?? "")) {
+    let text = "No tenés acceso a consultas de inmobiliaria.";
+    if (availabilityProfile) {
+      try {
+        text = isAvailabilityQuery(opts.messageBody ?? "")
+          ? await availabilityReply(availabilityProfile.id, opts.messageBody ?? "")
+          : availabilityHelp;
+      } catch {
+        text = "No pude verificar la disponibilidad. Probá de nuevo en un momento.";
+      }
+    }
+    await sendAndPersist({phoneNumberId:opts.phoneNumberId,peer:opts.peer,conversationId:opts.conversationId,text});
+    return;
+  }
 
   // 0) Numbered selection reply — if user previously got a "qué propiedad?"
   // prompt, a short reply like "1" / "2" / "0" picks (or cancels) that

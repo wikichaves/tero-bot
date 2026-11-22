@@ -49,6 +49,6 @@ export async function loadAvailability(month: string) {
     const state = sync.data?.find(s => s.property_id===p.id);
     const fresh = !!state?.last_success_at && Date.now()-Date.parse(state.last_success_at)<6*3600000;
     const hashMatches = p.airbnb_ical_url && state?.source_hash === createHash("sha256").update(p.airbnb_ical_url).digest("hex");
-    return { id:p.id as string, name:p.name as string, country:p.country as string, lastSync:state?.last_success_at as string | null, known: !p.booking_ical_url && (!p.airbnb_ical_url || (!!fresh && !!hashMatches && !state?.failed)) };
+    return { id:p.id as string, name:p.name as string, country:p.country as string, lastSync:state?.last_success_at as string | null, known: !p.booking_ical_url && !!p.airbnb_ical_url && !!fresh && !!hashMatches && !state?.failed };
   }) };
 }

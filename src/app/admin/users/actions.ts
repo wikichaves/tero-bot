@@ -207,7 +207,7 @@ const updateProfileSchema = z.object({
     ),
   // WIK-248: el rol se edita dentro del modal (antes era un dropdown
   // aparte en el row). Opcional — si no viene, no se toca.
-  role: z.enum(ROLES).optional(),
+  role: z.enum([...ROLES, "agency"]).optional(),
 });
 
 export async function updateProfile(input: {
@@ -239,40 +239,25 @@ export async function updateProfile(input: {
   ) {
     return { error: "No podés quitarte el rol de admin a vos mismo." };
   }
+  const ids = input.propertyIds === undefined ? null : z.array(z.string().uuid()).safeParse(input.propertyIds);
+  if (ids && !ids.success) return {error:"Propiedades inválidas."};
+  if (input.telegram_chat_id != null && !Number.isSafeInteger(input.telegram_chat_id)) return {error:"Chat ID inválido."};
   const admin = createAdminClient();
-  const { error } = await admin
-    .from("profiles")
-    .update({
-      full_name: parsed.data.full_name,
-      whatsapp: normalizePhone(parsed.data.whatsapp),
-      ...(parsed.data.language ? { language: parsed.data.language } : {}),
-      ...(parsed.data.role ? { role: parsed.data.role } : {}),
-      // WIK-311: `undefined` = no tocar; `null` = limpiar; número = setear.
-      ...(input.telegram_chat_id !== undefined
-        ? { telegram_chat_id: input.telegram_chat_id }
-        : {}),
-    })
-    .eq("id", parsed.data.id);
-  if (error) return { error: error.message };
-
-  // WIK-242: reemplazar el scope completo (delete + insert) si vino el
-  // array. `undefined` (admin) no toca nada.
-  if (input.propertyIds !== undefined) {
-    const ids = input.propertyIds.filter((v) => /^[0-9a-f-]{36}$/i.test(v));
-    const { error: delErr } = await admin
-      .from("profile_properties")
-      .delete()
-      .eq("profile_id", parsed.data.id);
-    if (delErr) return { error: `scope delete falló: ${delErr.message}` };
-    if (ids.length > 0) {
-      const { error: insErr } = await admin
-        .from("profile_properties")
-        .insert(ids.map((pid) => ({ profile_id: parsed.data.id, property_id: pid })));
-      if (insErr) return { error: `scope insert falló: ${insErr.message}` };
-    }
-  }
-
+  const {error} = await admin.rpc("update_user_profile_admin", {
+    p_id: parsed.data.id,
+    p_patch: {
+      full_name:parsed.data.full_name,
+      whatsapp:normalizePhone(parsed.data.whatsapp),
+      ...(parsed.data.language ? {language:parsed.data.language} : {}),
+      ...(parsed.data.role ? {role:parsed.data.role} : {}),
+      ...(input.telegram_chat_id !== undefined ? {telegram_chat_id:input.telegram_chat_id} : {}),
+    },
+    p_properties: ids?.success ? ids.data : null,
+  });
+  if (error) return {error:error.message};
   revalidatePath("/admin/users");
+  revalidatePath("/admin/agencies");
+  revalidatePath("/availability");
   return { ok: true };
 }
 

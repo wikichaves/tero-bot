@@ -28,7 +28,7 @@ export type OpsProfile = {
   telegram_chat_id: number | null;
 };
 
-const AUTHORIZED_ROLES = ["admin", "gestor"] as const;
+const AUTHORIZED_ROLES = ["admin", "gestor", "agency"] as const;
 
 export function opsLocaleOf(p: OpsProfile | null): Locale {
   const raw = p?.language;

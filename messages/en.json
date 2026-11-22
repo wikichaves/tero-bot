@@ -1513,6 +1513,12 @@
     "remove": "Remove",
     "feeds": "Airbnb calendars",
     "rotateFeed": "Create / replace private link",
-    "revokeFeed": "Revoke link"
+    "revokeFeed": "Revoke link",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "year": "Year",
+    "updating": "Updating…",
+    "showMonths": "Show",
+    "monthCount": "{count, plural, one {1 month} other {# months}}"
   }
 }
