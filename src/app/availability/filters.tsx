@@ -33,16 +33,16 @@ export function AvailabilityFilters({ month, selected, properties, count }: {
   const [pending, startTransition] = useTransition();
   const [year, number] = month.split("-");
   const change = (nextMonth: string, property = selected, nextCount = count) => startTransition(() => router.push(destination(nextMonth, property, nextCount), { scroll: false }));
-  const style = "mt-2 block max-w-full rounded-md border bg-background p-2 disabled:opacity-50";
+  const style = "block max-w-full rounded-md border bg-background p-2 disabled:opacity-50";
   return <div className="flex flex-wrap items-end gap-3" aria-busy={pending}>
-    <label className="text-sm">{t("month")}<select className={style} value={number} disabled={pending} onChange={e => change(`${year}-${e.target.value}`)}>
+    <label className="text-sm"><span className="sr-only">{t("month")}</span><select className={style} value={number} disabled={pending} onChange={e => change(`${year}-${e.target.value}`)}>
       {Array.from({length: 12}, (_, i) => <option key={i} value={String(i + 1).padStart(2, "0")}>{new Intl.DateTimeFormat(locale, {month: "long", timeZone: "UTC"}).format(new Date(Date.UTC(2026, i, 1)))}</option>)}
     </select></label>
-    <label className="text-sm">{t("year")}<select className={style} value={year} disabled={pending} onChange={e => change(`${e.target.value}-${number}`)}>
+    <label className="text-sm"><span className="sr-only">{t("year")}</span><select className={style} value={year} disabled={pending} onChange={e => change(`${e.target.value}-${number}`)}>
       {Array.from({length: 201}, (_, i) => <option key={2000 + i}>{2000 + i}</option>)}
     </select></label>
-    <label className="min-w-0 text-sm">{t("property")}<select className={style} value={selected} disabled={pending} onChange={e => change(month, e.target.value)}><option value="">{t("all")}</option>{properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
-    <label className="text-sm">{t("showMonths")}<select className={style} value={count} disabled={pending} onChange={e => change(month, selected, Number(e.target.value))}>
+    <label className="min-w-0 text-sm"><span className="sr-only">{t("property")}</span><select className={style} value={selected} disabled={pending} onChange={e => change(month, e.target.value)}><option value="">{t("all")}</option>{properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+    <label className="text-sm"><span className="sr-only">{t("showMonths")}</span><select className={style} value={count} disabled={pending} onChange={e => change(month, selected, Number(e.target.value))}>
       {Array.from({length: 12}, (_, i) => i + 1).map(n => <option key={n} value={n}>{t("monthCount", {count:n})}</option>)}
     </select></label>
     {pending && <span role="status" className="text-sm text-muted-foreground">{t("updating")}</span>}
