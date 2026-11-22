@@ -12,8 +12,13 @@ export async function availabilityViewer() {
   const { data: profile, error } = await db.from("profiles").select("id,role").eq("id", user.id).single();
   if (error || !profile) throw new Error("Unable to verify access");
   if (profile.role === "admin") return { admin: true, ids: null };
-  if (profile.role !== "agency") redirect("/dashboard");
   const service = createAdminClient();
+  if (profile.role === "gestor") {
+    const {data, error: scopeError} = await service.from("profile_properties").select("property_id").eq("profile_id",user.id);
+    if (scopeError) throw new Error("Unable to verify access");
+    return {admin:false, ids:(data ?? []).map(p=>p.property_id as string)};
+  }
+  if (profile.role !== "agency") redirect("/dashboard");
   const { data: agency, error: ae } = await service.from("agencies").select("active").eq("profile_id", user.id).maybeSingle();
   if (ae) throw new Error("Unable to verify access");
   if (!agency?.active) return { admin: false, ids: [] as string[] };
