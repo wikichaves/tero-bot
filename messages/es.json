@@ -718,6 +718,12 @@
       "configured": "configurada",
       "rental": "Alquiler",
       "notRental": "No se alquila"
+    },
+    "sort": {
+      "handle": "Reordenar {name}",
+      "help": "Arrastrá el agarre para cambiar el orden. Con teclado, usá las flechas arriba y abajo.",
+      "saved": "Orden guardado",
+      "failed": "No se pudo guardar el orden. Actualizá e intentá de nuevo."
     }
   },
   "adminPropertyForm": {

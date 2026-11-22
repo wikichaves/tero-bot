@@ -718,6 +718,12 @@
       "configured": "configured",
       "rental": "Rental",
       "notRental": "Not a rental"
+    },
+    "sort": {
+      "handle": "Reorder {name}",
+      "help": "Drag the handle to reorder. With a keyboard, use the up and down arrow keys.",
+      "saved": "Order saved",
+      "failed": "Could not save the order. Refresh and try again."
     }
   },
   "adminPropertyForm": {

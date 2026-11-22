@@ -325,3 +325,18 @@ export async function syncProperty(id: string): Promise<
     return { error: (e as Error).message };
   }
 }
+
+/** Save the complete manual order in one database transaction. */
+export async function reorderProperties(ids: string[]) {
+  await requireRole(["admin"]);
+  const parsed = z.array(z.string().uuid()).min(1).max(1000).safeParse(ids);
+  if (!parsed.success || new Set(ids).size !== ids.length) return { error: "Invalid property order" };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("reorder_properties", { ordered_ids: parsed.data });
+  if (error) return { error: error.message };
+  revalidatePath("/admin/properties");
+  revalidatePath("/dashboard");
+  revalidatePath("/availability");
+  revalidatePath("/reservations");
+  return { ok: true };
+}

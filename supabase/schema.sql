@@ -1693,3 +1693,26 @@ begin
 end $$;
 revoke all on function public.update_user_profile_admin(uuid,jsonb,uuid[]) from public,anon,authenticated;
 grant execute on function public.update_user_profile_admin(uuid,jsonb,uuid[]) to service_role;
+
+-- ─── Admin property drag order ───
+-- SECURITY INVOKER preserves RLS. Validate the full set to reject stale clients.
+create or replace function public.reorder_properties(ordered_ids uuid[])
+returns void language plpgsql security invoker set search_path = public as $$
+begin
+  if not exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
+    raise exception 'Admin required' using errcode = '42501';
+  end if;
+  lock table public.properties in share row exclusive mode;
+  if ordered_ids is null or cardinality(ordered_ids) = 0
+     or cardinality(ordered_ids) <> (select count(*) from public.properties)
+     or cardinality(ordered_ids) <> (select count(distinct id) from unnest(ordered_ids) as ids(id))
+     or exists (select 1 from unnest(ordered_ids) as ids(id) where not exists (select 1 from public.properties p where p.id = ids.id)) then
+    raise exception 'Property list changed; refresh and retry';
+  end if;
+  update public.properties p set sort_order = (ids.position - 1)::integer
+    from unnest(ordered_ids) with ordinality as ids(id, position)
+    where p.id = ids.id;
+end;
+$$;
+revoke all on function public.reorder_properties(uuid[]) from public, anon;
+grant execute on function public.reorder_properties(uuid[]) to authenticated;
