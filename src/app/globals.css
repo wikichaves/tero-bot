@@ -12,10 +12,10 @@
  * normalizar a Tailwind/shadcn vars y agregar las shadcn-specific vars
  * (sidebar, chart-1..5) que el ticket no listaba todas.
  *
- * Fonts (Geist registradas en src/app/layout.tsx via next/font/google):
+ * Fonts (Geist registradas en src/app/layout.tsx via next/font/local):
  *   - Geist Sans → --font-sans (default UI) — WIK-128
- *   - Times New Roman → --font-serif & --font-heading (all h1..h3),
- *     system font seteado en :root abajo
+ *   - Geist Serif → --font-serif & --font-heading (all h1..h3),
+ *     self-hosted via next/font/local
  *   - Geist Mono → --font-mono (códigos, IDs) — WIK-128
  *
  * WIK-131: bumped the muted/border tones from neutral grey into the
@@ -77,7 +77,7 @@
   --font-serif: var(--font-serif);
   --font-mono: var(--font-mono);
   /* WIK-131: heading utility class + base `<h1..h3>` now use the
-     serif (Times New Roman). Body / button / input / nav stay sans. */
+     serif (Geist Serif). Body / button / input / nav stay sans. */
   --font-heading: var(--font-serif);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -93,9 +93,9 @@
 }
 
 :root {
-  /* Times New Roman como font serif del theme — system font, sin fetch
+  /* Geist Serif como font serif del theme — self-hosted, sin fetch
      remoto. Se aplica a headings via --font-heading. */
-  --font-serif: "Times New Roman", Times, serif;
+  --font-serif: var(--font-geist-serif), Georgia, serif;
   /* WIK-199: Light Theme "Craftsmanship" — bg cream premium (#F8F7F5)
      que pega con el walnut wood de los assets. Antes era 252,250,245
      (cream tenue) — el ticket pide ligeramente más cuerpo para que el
@@ -356,7 +356,7 @@
      `.display` ahí usa line-height 0.96 + letter-spacing -0.03em. Acá lo
      aplicamos a h1 y aflojamos progresivo en h2/h3 para que los tamaños
      chicos no se sientan pegoteados. WIK-187: bumped la escala base 2
-     steps (3xl→4xl, 2xl→3xl, xl→2xl) porque Times New Roman lee chico al
+     steps (3xl→4xl, 2xl→3xl, xl→2xl) porque Times New Roman leía chico al
      mismo tamaño en pt que sans, y los page headings se sentían poco
      jerárquicos. */
   /* WIK-199/200: headings usan `--heading-color` (bronze cálido en

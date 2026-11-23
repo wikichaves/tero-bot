@@ -718,6 +718,21 @@
       "configured": "configurada",
       "rental": "Alquiler",
       "notRental": "No se alquila"
+    },
+    "sort": {
+      "handle": "Reordenar {name}",
+      "help": "Arrastrá el agarre para cambiar el orden. Con teclado, usá las flechas arriba y abajo.",
+      "saved": "Orden guardado",
+      "failed": "No se pudo guardar el orden. Actualizá e intentá de nuevo."
+    },
+    "sync": {
+      "label": "Sincronizar",
+      "pending": "Sincronizando {done}/{total}…",
+      "hint": "Actualizar los calendarios iCal de Airbnb",
+      "empty": "No hay calendarios iCal configurados",
+      "success": "Calendarios sincronizados: {count}.",
+      "partial": "Sincronizados: {success} de {total}. Revisar: {names}.",
+      "failed": "No se pudieron sincronizar los calendarios. Revisar: {names}."
     }
   },
   "adminPropertyForm": {
@@ -1484,12 +1499,14 @@
     "reservation": "Reservada",
     "block": "Bloqueada",
     "unknown": "Sin confirmar",
+    "past": "Pasado",
     "current": "Disponibilidad actualizada",
     "uncertain": "Disponibilidad sin confirmar: falta una sincronización vigente o hay un calendario no compatible.",
     "lastSync": "Última sincronización",
     "rates": "Tarifas por temporada",
     "perNight": "por noche",
     "noRates": "Sin tarifa publicada para este mes.",
+    "noRate": "Sin tarifa",
     "icalHelp": "iCal no es instantáneo: Airbnb puede demorar unas 3 horas en importar cambios. No sincroniza precios. Las fechas sin confirmar requieren revisión antes de ofrecerlas.",
     "saveError": "No se pudo guardar. Revisá los datos y reintentá.",
     "overlap": "Las fechas se superponen con otro intervalo existente.",
