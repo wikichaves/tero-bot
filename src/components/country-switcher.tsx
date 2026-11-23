@@ -7,7 +7,7 @@ export function CountrySwitcher({ country, countries }: { country: Country; coun
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const changeCountry = (value: string) => startTransition(async () => { await setActiveCountry(value); router.refresh(); });
-  const className = "h-8 rounded-md border border-border/70 bg-background px-2 text-xs font-medium text-foreground outline-none focus:ring-2 focus:ring-ring";
+  const className = "h-9 rounded-md border border-border/70 bg-background px-3 text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-ring";
   if (countries.length < 2) return null;
   return <>
     <select aria-label="País activo" value={country} disabled={pending} onChange={(event) => changeCountry(event.currentTarget.value)} className={className + " hidden sm:block"}>

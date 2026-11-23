@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,6 +37,7 @@ export function EditUserDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const t = useTranslations("usersPage");
+  const locale = useLocale();
   const tLang = useTranslations("lang");
   const [pending, startTransition] = useTransition();
   const defaultLanguage = isLocale(profile.language) ? profile.language : "en";
@@ -91,13 +92,13 @@ export function EditUserDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent mobileSheet className="sm:max-w-2xl">
-        <form onSubmit={onSubmit}>
-          <DialogHeader>
+      <DialogContent mobileSheet className="overflow-hidden p-0 sm:max-w-2xl sm:pb-0">
+        <form onSubmit={onSubmit} className="flex min-h-0 max-h-[90dvh] flex-col">
+          <DialogHeader className="shrink-0 border-b px-6 py-5 pr-12">
             <DialogTitle>{t("edit.title")}</DialogTitle>
             <DialogDescription>{profile.email}</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid min-h-0 gap-4 overflow-y-auto px-6 py-5 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="full_name">{t("fields.name")}</Label>
               <Input
@@ -156,9 +157,9 @@ export function EditUserDialog({
             {/* WIK-242: asignación de propiedades dentro del modal (solo
                 no-admin — admin tiene acceso global). */}
             {!isAdmin && (
-              <div className="grid gap-2">
+              <div className="grid gap-2 sm:col-span-2">
                 <Label>{t("fields.properties")}</Label>
-                <div className="grid gap-1.5">
+                <div className="grid gap-1.5 sm:grid-cols-2">
                   {allProperties.map((p) => (
                     <label
                       key={p.id}
@@ -212,7 +213,8 @@ export function EditUserDialog({
               </p>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="m-0 shrink-0 items-center">
+            <p className="mr-auto text-xs text-muted-foreground">{t("edit.created", { date: new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(profile.created_at)) })}</p>
             <Button type="submit" disabled={pending}>
               {pending ? t("edit.submitting") : t("edit.submit")}
             </Button>

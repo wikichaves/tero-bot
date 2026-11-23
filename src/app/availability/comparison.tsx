@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PropertyThumb } from "@/components/property-thumb";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { loadAvailability } from "@/lib/availability/data";
 import { overlaps } from "@/lib/availability/core";
@@ -20,9 +21,9 @@ export async function AvailabilityComparison({ calendars, properties, month, arr
     <div className="max-w-full overflow-x-auto overscroll-x-contain rounded-xl border focus-visible:outline-ring" tabIndex={0} role="region" aria-label={t("compare")}>
       <table className="w-max border-separate border-spacing-0 text-xs tabular-nums">
         <caption className="sr-only">{t("compare")}</caption>
-        <thead><tr><th scope="col" className="sticky left-0 z-20 w-24 min-w-24 border-r border-b bg-card p-2 text-left sm:w-36 sm:min-w-36">{t("property")}</th>{days.map(day => <th scope="col" key={day} className={`min-w-10 border-b px-1 py-2 text-center sm:min-w-14 ${arrival && day >= arrival && day < departure ? "bg-accent" : "bg-card"}`}><span className="block font-normal text-muted-foreground">{new Intl.DateTimeFormat(locale, {weekday:"short", timeZone:"UTC"}).format(new Date(`${day}T00:00:00Z`))}</span><span className="block">{Number(day.slice(-2))}</span>{(day.endsWith("-01") || day === days[0]) && <span className="block font-normal">{day.slice(5,7)}</span>}</th>)}</tr></thead>
+        <thead><tr><th scope="col" className="sticky left-0 z-20 w-32 min-w-32 border-r border-b bg-card p-2 text-left sm:w-44 sm:min-w-44">{t("property")}</th>{days.map(day => <th scope="col" key={day} className={`min-w-10 border-b px-1 py-2 text-center sm:min-w-14 ${arrival && day >= arrival && day < departure ? "bg-accent" : "bg-card"}`}><span className="block font-normal text-muted-foreground">{new Intl.DateTimeFormat(locale, {weekday:"short", timeZone:"UTC"}).format(new Date(`${day}T00:00:00Z`))}</span><span className="block">{Number(day.slice(-2))}</span>{(day.endsWith("-01") || day === days[0]) && <span className="block font-normal">{day.slice(5,7)}</span>}</th>)}</tr></thead>
         <tbody>{properties.map(p => <tr key={p.id}>
-          <th scope="row" className="sticky left-0 z-10 border-r border-b bg-card p-2 text-left"><Link href={`/availability?month=${month}&property=${p.id}&view=calendar&months=${calendars.length}`} className="flex min-h-14 w-20 flex-col justify-center gap-1 break-words focus-visible:outline-ring sm:w-32"><span>{p.name}</span>{!p.known && <span className="text-[10px] font-normal text-status-warning">{t("unknown")}</span>}</Link></th>
+          <th scope="row" className="sticky left-0 z-10 border-r border-b bg-card p-2 text-left"><Link href={`/availability?month=${month}&property=${p.id}&view=calendar&months=${calendars.length}`} className="flex min-h-14 w-28 items-center gap-2 break-words focus-visible:outline-ring sm:w-40"><PropertyThumb propertyId={p.id} size="xs" /><span className="min-w-0"><span>{p.name}</span>{!p.known && <span className="text-[10px] font-normal text-status-warning">{t("unknown")}</span>}</span></Link></th>
           {days.map((day, i) => {
             const statusFor = (d: string) => busy.find(e => e.property_id === p.id && overlaps(e.start_date, e.end_date, d))?.kind ?? (p.known ? "available" : "unknown");
             const status = statusFor(day);

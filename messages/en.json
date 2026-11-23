@@ -568,8 +568,9 @@
       "name": "Name",
       "role": "Role",
       "properties": "Properties",
-      "whatsapp": "WhatsApp",
-      "created": "Created"
+      "whatsapp": "Phone",
+      "created": "Created",
+      "actions": "Actions"
     },
     "scope": {
       "all": "all",
@@ -593,7 +594,8 @@
     "edit": {
       "title": "Edit user",
       "submit": "Save",
-      "submitting": "Saving…"
+      "submitting": "Saving…",
+      "created": "Created {date}"
     },
     "fields": {
       "name": "Name",
@@ -617,6 +619,39 @@
       "updated": "User updated.",
       "deleted": "User deleted.",
       "activationLinkCopied": "Activation link copied"
+    },
+    "permissions": {
+      "title": "Role permissions",
+      "subtitle": "Summary of current access. Staff and Agency have different responsibilities: ordering does not imply that each role includes every permission below it.",
+      "role": "Role",
+      "scope": "Properties",
+      "can": "Can view and do",
+      "cannot": "Cannot view or do",
+      "admin": {
+        "scope": "All",
+        "can": "Manage users, properties and settings; manage operations, rentals, finances and WhatsApp messages.",
+        "cannot": "No role-based restrictions."
+      },
+      "gestor": {
+        "scope": "Assigned",
+        "can": "Manage team tasks, reservations, availability, rooms, cameras, energy, bills, expenses and earnings; access leads.",
+        "cannot": "Manage users or properties, global settings or the WhatsApp inbox."
+      },
+      "mantenimiento": {
+        "scope": "Assigned",
+        "can": "View own tasks, report tasks and update the status of own tasks.",
+        "cannot": "View others’ tasks, reservations, availability, finances, cameras or administration."
+      },
+      "agency": {
+        "scope": "Granted to the active agency",
+        "can": "View availability and rates; search stays.",
+        "cannot": "Change reservations or rates; access tasks, finances, cameras, guest details or administration."
+      },
+      "guest": {
+        "scope": "Assigned for the bot",
+        "can": "Ask about rooms and get help through WhatsApp.",
+        "cannot": "Access the web dashboard or manage properties."
+      }
     }
   },
   "whatsapp": {
@@ -1559,6 +1594,11 @@
     "updating": "Updating…",
     "showMonths": "Show",
     "monthCount": "{count, plural, one {1 month} other {# months}}",
-    "loadMore": "Load more"
+    "loadMore": "Load more",
+    "choosePeriod": "Choose your check-in day, then your check-out day.",
+    "chooseArrival": "Choose check-in",
+    "chooseDeparture": "Choose check-out",
+    "previousPeriod": "Previous period",
+    "nextPeriod": "Next period"
   }
 }

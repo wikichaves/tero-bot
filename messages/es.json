@@ -568,8 +568,9 @@
       "name": "Nombre",
       "role": "Rol",
       "properties": "Propiedades",
-      "whatsapp": "WhatsApp",
-      "created": "Creado"
+      "whatsapp": "Teléfono",
+      "created": "Creado",
+      "actions": "Acciones"
     },
     "scope": {
       "all": "todas",
@@ -593,7 +594,8 @@
     "edit": {
       "title": "Editar usuario",
       "submit": "Guardar",
-      "submitting": "Guardando…"
+      "submitting": "Guardando…",
+      "created": "Creado el {date}"
     },
     "fields": {
       "name": "Nombre",
@@ -617,6 +619,39 @@
       "updated": "Usuario actualizado.",
       "deleted": "Usuario eliminado.",
       "activationLinkCopied": "Link de activación copiado"
+    },
+    "permissions": {
+      "title": "Permisos por rol",
+      "subtitle": "Resumen del acceso actual. Staff y Agency tienen funciones distintas: el orden no implica que un rol incluya todos los permisos del siguiente.",
+      "role": "Rol",
+      "scope": "Propiedades",
+      "can": "Qué puede ver y hacer",
+      "cannot": "Qué no puede ver o hacer",
+      "admin": {
+        "scope": "Todas",
+        "can": "Administrar usuarios, propiedades y configuración; gestionar operación, alquileres, finanzas y mensajes de WhatsApp.",
+        "cannot": "Sin restricciones por rol."
+      },
+      "gestor": {
+        "scope": "Asignadas",
+        "can": "Gestionar tareas de su equipo, reservas, disponibilidad, ambientes, cámaras, energía, facturas, gastos e ingresos; acceder a leads.",
+        "cannot": "Administrar usuarios o propiedades, configuración global ni bandeja de WhatsApp."
+      },
+      "mantenimiento": {
+        "scope": "Asignadas",
+        "can": "Ver sus tareas, reportar tareas y actualizar el estado de las propias.",
+        "cannot": "Ver tareas de otros, reservas, disponibilidad, finanzas, cámaras o administración."
+      },
+      "agency": {
+        "scope": "Habilitadas para la agencia activa",
+        "can": "Consultar disponibilidad y tarifas; buscar estadías.",
+        "cannot": "Modificar reservas o tarifas; acceder a tareas, finanzas, cámaras, datos de huéspedes o administración."
+      },
+      "guest": {
+        "scope": "Asignadas para el bot",
+        "can": "Consultar ambientes y ayuda por WhatsApp.",
+        "cannot": "Entrar al panel web ni administrar propiedades."
+      }
     }
   },
   "whatsapp": {
@@ -1559,6 +1594,11 @@
     "updating": "Actualizando…",
     "showMonths": "Mostrar",
     "monthCount": "{count, plural, one {1 mes} other {# meses}}",
-    "loadMore": "Cargar más"
+    "loadMore": "Cargar más",
+    "choosePeriod": "Elegí el día de entrada y después el de salida.",
+    "chooseArrival": "Seleccioná la entrada",
+    "chooseDeparture": "Seleccioná la salida",
+    "previousPeriod": "Período anterior",
+    "nextPeriod": "Período siguiente"
   }
 }

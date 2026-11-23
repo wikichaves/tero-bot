@@ -111,13 +111,10 @@ export function UserActions({
   }
 
   return (
-    <div className="flex items-center gap-1">
-      <Button variant="outline" size="sm" disabled={pending} onClick={() => setEditOpen(true)}>
-        {t("menu.edit")}
-      </Button>
+    <div className="flex items-center justify-end gap-1">
       <DropdownMenu>
         <DropdownMenuTrigger
-          render={<Button variant="ghost" size="icon" disabled={pending} />}
+          render={<Button variant="ghost" size="icon" disabled={pending} aria-label={t("table.actions")} />}
         >
           <MoreHorizontal className="h-4 w-4" />
         </DropdownMenuTrigger>
@@ -162,14 +159,14 @@ export function UserActions({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      <EditUserDialog
+      {editOpen && <EditUserDialog
         profile={profile}
         isSelf={isSelf}
         allProperties={allProperties}
         scopedPropertyIds={scopedPropertyIds}
         open={editOpen}
         onOpenChange={setEditOpen}
-      />
+      />}
       {resetPwdOpen && (
         <ResetPasswordDialog
           userId={profile.id}
