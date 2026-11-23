@@ -1716,3 +1716,9 @@ end;
 $$;
 revoke all on function public.reorder_properties(uuid[]) from public, anon;
 grant execute on function public.reorder_properties(uuid[]) to authenticated;
+
+-- ─── Property accommodation details ───
+-- Unknown values remain NULL until explicitly entered; no guessed defaults.
+alter table public.properties add column if not exists bedrooms integer check (bedrooms between 0 and 100);
+alter table public.properties add column if not exists pets_allowed boolean;
+alter table public.properties add column if not exists floors integer check (floors in (1, 2));
