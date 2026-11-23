@@ -47,10 +47,10 @@ export async function AvailabilityComparison({ calendars, properties, month, arr
         </tr>)}</tbody>
       </table>
     </div>}
-    <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-xs text-muted-foreground">
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs text-muted-foreground">
       <div className="flex flex-wrap gap-x-4 gap-y-2">{(["available", "reservation", "unknown"] as const).map(status => <span key={status} className="flex items-center gap-1.5"><span className={`size-3 rounded-sm ${status === "available" ? "bg-status-ok/30" : status === "reservation" ? "bg-foreground" : "border border-dashed border-status-warning"}`} />{status === "reservation" ? `${t("reservation")} / ${t("block")}` : t(status)}</span>)}</div>
       <p>{t("gridRates", {currencies: [...new Set(rates.map(r => r.currency))].join(" / ") || "—"})}</p>
-      <p className="flex basis-full items-start gap-2 pt-1"><PawPrint className="mt-0.5 size-4 shrink-0" aria-hidden="true" /><span>{t("petPolicy")}</span></p>
+      <p className="flex basis-full items-start gap-2 border-t pt-2"><PawPrint className="mt-0.5 size-4 shrink-0" aria-hidden="true" /><span>{t("petPolicy")}</span></p>
     </div>
     {arrival && departure && <div className="space-y-3 pt-3"><h2 className="text-xl">{t("stayResults")}</h2><p className="text-sm text-muted-foreground">{arrival} → {departure} · {t("nights", {count: Math.round((Date.parse(departure)-Date.parse(arrival))/86400000)})}</p>
       {!summaries.some(s => s.summary?.status === "available") && <p className="text-sm">{t("noStay")}</p>}
