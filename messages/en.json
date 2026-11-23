@@ -1611,6 +1611,7 @@
     "previousPeriod": "Previous period",
     "nextPeriod": "Next period",
     "propertyDetails": {
+      "guestsCompact": "{count, plural, one {# guest} other {# guests}}",
       "guests": "Max. {count, plural, one {# guest} other {# guests}}",
       "bedrooms": "{count, plural, one {# bedroom} other {# bedrooms}}",
       "oneFloor": "One floor",
