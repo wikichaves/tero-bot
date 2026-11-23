@@ -1,0 +1,47 @@
+import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
+import type { loadAvailability } from "@/lib/availability/data";
+import { overlaps } from "@/lib/availability/core";
+import { staySummary } from "./stay";
+
+type Calendar = Awaited<ReturnType<typeof loadAvailability>>;
+export async function AvailabilityComparison({ calendars, properties, month, arrival, departure }: {
+  calendars: Calendar[]; properties: Calendar["properties"]; month: string; arrival: string; departure: string;
+}) {
+  const [t, locale] = await Promise.all([getTranslations("availability"), getLocale()]);
+  const days = calendars.flatMap(c => c.days);
+  const busy = calendars.flatMap(c => c.busy);
+  const rates = [...new Map(calendars.flatMap(c => c.rates).map(r => [r.id, r])).values()];
+  const multipleCurrencies = new Set(rates.map(r => r.currency)).size > 1;
+  const money = (amount: number, currency: string) => new Intl.NumberFormat(locale, { style: "currency", currency, maximumFractionDigits: 2 }).format(amount);
+  const summaries = properties.map(p => ({ p, summary: arrival && departure ? staySummary(p, days, busy, rates, arrival, departure) : null }));
+  return <section className="min-w-0 space-y-3">
+    <p className="text-xs text-muted-foreground">{t("swipeHint")}</p>
+    <div className="max-w-full overflow-x-auto overscroll-x-contain rounded-xl border focus-visible:outline-ring" tabIndex={0} role="region" aria-label={t("compare")}>
+      <table className="w-max border-separate border-spacing-0 text-xs tabular-nums">
+        <caption className="sr-only">{t("compare")}</caption>
+        <thead><tr><th scope="col" className="sticky left-0 z-20 w-24 min-w-24 border-r border-b bg-card p-2 text-left sm:w-36 sm:min-w-36">{t("property")}</th>{days.map(day => <th scope="col" key={day} className={`min-w-10 border-b px-1 py-2 text-center sm:min-w-14 ${arrival && day >= arrival && day < departure ? "bg-accent" : "bg-card"}`}><span className="block font-normal text-muted-foreground">{new Intl.DateTimeFormat(locale, {weekday:"short", timeZone:"UTC"}).format(new Date(`${day}T00:00:00Z`))}</span><span className="block">{Number(day.slice(-2))}</span>{(day.endsWith("-01") || day === days[0]) && <span className="block font-normal">{day.slice(5,7)}</span>}</th>)}</tr></thead>
+        <tbody>{properties.map(p => <tr key={p.id}>
+          <th scope="row" className="sticky left-0 z-10 border-r border-b bg-card p-2 text-left"><Link href={`/availability?month=${month}&property=${p.id}&view=calendar&months=${calendars.length}`} className="flex min-h-14 w-20 flex-col justify-center gap-1 break-words focus-visible:outline-ring sm:w-32"><span>{p.name}</span>{!p.known && <span className="text-[10px] font-normal text-status-warning">{t("unknown")}</span>}</Link></th>
+          {days.map((day, i) => {
+            const statusFor = (d: string) => busy.find(e => e.property_id === p.id && overlaps(e.start_date, e.end_date, d))?.kind ?? (p.known ? "available" : "unknown");
+            const status = statusFor(day);
+            const occupied = status === "reservation" || status === "block";
+            const previous = i > 0 && statusFor(days[i-1]) === status;
+            const next = i < days.length-1 && statusFor(days[i+1]) === status;
+            const rate = rates.find(r => r.property_id === p.id && overlaps(r.start_date, r.end_date, day));
+            const label = `${p.name} · ${day}: ${t(status)}${rate ? ` · ${money(Number(rate.amount),rate.currency)}` : ""}`;
+            return <td key={day} aria-label={label} title={label} className={`h-20 border-b py-3 text-center ${arrival && day >= arrival && day < departure ? "bg-accent/40" : ""}`}><div className={`flex h-10 items-center justify-center px-0.5 ${occupied ? `${status === "reservation" ? "bg-foreground text-background" : "border-y border-dashed border-foreground/50 bg-muted text-muted-foreground"} ${!previous ? "ml-0.5 rounded-l-md border-l" : ""} ${!next ? "mr-0.5 rounded-r-md border-r" : ""}` : status === "available" ? "mx-0.5 rounded-md bg-status-ok/15 text-foreground" : "mx-0.5 rounded-md border border-dashed border-status-warning/50 text-status-warning"}`}><span aria-hidden="true">{occupied ? (!previous ? (status === "block" ? "×" : "—") : "") : status === "unknown" ? "?" : rate ? <span>{Number(rate.amount).toLocaleString(locale)}{multipleCurrencies && <span className="block text-[9px]">{rate.currency}</span>}</span> : "·"}</span></div></td>;
+          })}
+        </tr>)}</tbody>
+      </table>
+    </div>
+    <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">{(["available", "reservation", "block", "unknown"] as const).map(status => <span key={status} className="flex items-center gap-1.5"><span className={`size-3 rounded-sm ${status === "available" ? "bg-status-ok/30" : status === "reservation" ? "bg-foreground" : status === "block" ? "border border-dashed border-foreground/50 bg-muted" : "border border-dashed border-status-warning"}`} />{t(status)}</span>)}</div>
+    <p className="text-xs text-muted-foreground">{t("gridRates", {currencies: [...new Set(rates.map(r => r.currency))].join(" / ") || "—"})}</p>
+    {arrival && departure && <div className="space-y-3 pt-3"><h2 className="text-xl">{t("stayResults")}</h2><p className="text-sm text-muted-foreground">{arrival} → {departure} · {t("nights", {count: Math.round((Date.parse(departure)-Date.parse(arrival))/86400000)})}</p>
+      {!summaries.some(s => s.summary?.status === "available") && <p className="text-sm">{t("noStay")}</p>}
+      {summaries.map(({p,summary}) => <div key={p.id} className="flex flex-wrap justify-between gap-2 rounded-lg border p-3 text-sm"><span className="font-medium">{p.name}</span><span>{t(summary!.status)}{summary!.status === "available" && <> · {summary!.total !== null ? `${money(summary!.total, summary!.currency!)} ${t("stayTotal")}` : t("incompleteRates")}</>}</span></div>)}
+      <p className="text-xs text-muted-foreground">{t("totalNote")}</p>
+    </div>}
+  </section>;
+}
