@@ -1594,6 +1594,11 @@
     "updating": "Actualizando…",
     "showMonths": "Mostrar",
     "monthCount": "{count, plural, one {1 mes} other {# meses}}",
-    "loadMore": "Cargar más"
+    "loadMore": "Cargar más",
+    "choosePeriod": "Elegí el día de entrada y después el de salida.",
+    "chooseArrival": "Seleccioná la entrada",
+    "chooseDeparture": "Seleccioná la salida",
+    "previousPeriod": "Período anterior",
+    "nextPeriod": "Período siguiente"
   }
 }

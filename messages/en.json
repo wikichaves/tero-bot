@@ -1594,6 +1594,11 @@
     "updating": "Updating…",
     "showMonths": "Show",
     "monthCount": "{count, plural, one {1 month} other {# months}}",
-    "loadMore": "Load more"
+    "loadMore": "Load more",
+    "choosePeriod": "Choose your check-in day, then your check-out day.",
+    "chooseArrival": "Choose check-in",
+    "chooseDeparture": "Choose check-out",
+    "previousPeriod": "Previous period",
+    "nextPeriod": "Next period"
   }
 }

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { StayPicker } from "./stay-picker";
+
 import { AvailabilityComparison } from "./comparison";
 import { validStay, stayMonthCount } from "./stay";
 import { PropertyThumb } from "@/components/property-thumb";
@@ -11,17 +13,17 @@ import { AvailabilityFilters, MonthNavigation } from "./filters";
 export const dynamic = "force-dynamic";
 export default async function AvailabilityPage({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}) {
   const [params,t,locale]=await Promise.all([searchParams,getTranslations("availability"),getLocale()]);
-  const today=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Montevideo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
-  let month=typeof params.month==="string"?params.month:today.slice(0,7);
-  try { monthDays(month); } catch { month=today.slice(0,7); }
-  let count = typeof params.months === "string" && /^(?:[1-9]|1[0-2])$/.test(params.months) ? Number(params.months) : 1;
+  const defaultMonth = "2026-12";
+  let month=typeof params.month==="string"?params.month:defaultMonth;
+  try { monthDays(month); } catch { month=defaultMonth; }
+  let count = typeof params.months === "string" && /^(?:1|3|6|9|12)$/.test(params.months) ? Number(params.months) : 3;
   const arrival = typeof params.arrival === "string" ? params.arrival : "";
   const departure = typeof params.departure === "string" ? params.departure : "";
   const hasStay = validStay(arrival, departure);
   const invalidStay = !!(arrival || departure) && !hasStay;
   if (hasStay) {
     month = arrival.slice(0,7);
-    count = stayMonthCount(arrival, departure);
+    count = [1, 3, 6, 9, 12].find(n => n >= Math.max(count, stayMonthCount(arrival, departure))) ?? 12;
   }
   const months = Array.from({length:count},(_,i)=>{const d=new Date(`${month}-01T00:00:00Z`);d.setUTCMonth(d.getUTCMonth()+i);return d.toISOString().slice(0,7);}).filter(m=>m<="2200-12");
   const calendars = await Promise.all(months.map(loadAvailability));
@@ -32,20 +34,15 @@ export default async function AvailabilityPage({searchParams}:{searchParams:Prom
   const compare = params.view === "compare" || (!selected && params.view !== "calendar");
   const date=(value:string)=>new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeZone:"UTC"}).format(new Date(`${value}T00:00:00Z`));
   const money=(amount:number|string,currency:string)=>new Intl.NumberFormat(locale,{style:"currency",currency,maximumFractionDigits:2}).format(Number(amount));
-  return <main className="mx-auto w-full max-w-6xl flex-1 min-w-0 space-y-4 p-4 sm:space-y-6 sm:p-6">
-    <header><h1 className="text-4xl">{t("title")}</h1><p className="mt-2 text-sm text-muted-foreground">{t("description")}</p></header>
+  return <main className="mx-auto w-full max-w-6xl flex-1 min-w-0 space-y-3 p-4 sm:p-6">
+    <header><h1 className="text-3xl">{t("title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t("description")}</p></header>
+    <div className="flex flex-wrap items-center gap-2">
     <AvailabilityFilters month={month} selected={selected} properties={properties} count={count} view={compare ? "compare" : "calendar"} />
-    <nav className="flex gap-1 rounded-lg bg-muted p-1 w-fit" aria-label={t("view")}>
+    <nav className="ml-auto flex gap-1 rounded-lg bg-muted p-1 w-fit" aria-label={t("view")}>
       {(["compare", "calendar"] as const).map(view => <Link key={view} scroll={false} aria-current={(compare ? "compare" : "calendar") === view ? "page" : undefined} className={`rounded-md px-4 py-2 text-sm ${(compare ? "compare" : "calendar") === view ? "bg-background shadow-sm" : "text-muted-foreground"}`} href={`/availability?${new URLSearchParams({month, months:String(count), view, ...(selected ? {property:selected} : {}), ...(hasStay ? {arrival,departure} : {})})}`}>{t(view)}</Link>)}
     </nav>
-    {compare && <form action="/availability" className="grid grid-cols-2 items-end gap-2 sm:flex sm:flex-wrap">
-      <input type="hidden" name="view" value="compare" />
-      {selected && <input type="hidden" name="property" value={selected} />}
-      <label className="min-w-0 space-y-1 text-xs"><span>{t("checkIn")}</span><input type="date" name="arrival" required defaultValue={arrival} min="2000-01-01" max="2200-12-30" className="block min-h-10 w-full min-w-0 rounded-md border bg-background px-2 text-sm" /></label>
-      <label className="min-w-0 space-y-1 text-xs"><span>{t("checkOut")}</span><input type="date" name="departure" required defaultValue={departure} min="2000-01-02" max="2200-12-31" className="block min-h-10 w-full min-w-0 rounded-md border bg-background px-2 text-sm" /></label>
-      <button className="min-h-10 rounded-md bg-primary px-3 text-sm text-primary-foreground">{t("searchStay")}</button>
-      {(arrival || departure) && <Link className="px-3 py-2 text-sm" href={`/availability?month=${month}&view=compare`}>{t("clearStay")}</Link>}
-    </form>}
+    </div>
+    {compare && <StayPicker month={month} count={count} selected={selected} arrival={hasStay ? arrival : ""} departure={hasStay ? departure : ""} />}
     {invalidStay && <p role="alert" className="text-sm text-status-warning">{t("invalidStay")}</p>}
     {!properties.length && <p className="rounded-xl border p-6">{t("noAccess")}</p>}
     {compare && properties.length > 0 && <AvailabilityComparison calendars={calendars} properties={selected ? properties.filter(p => p.id === selected) : properties} month={month} arrival={hasStay ? arrival : ""} departure={hasStay ? departure : ""} />}
