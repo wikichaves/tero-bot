@@ -124,6 +124,10 @@ function PropertyForm({
   const t = useTranslations("adminPropertyForm");
   const [pending, startTransition] = useTransition();
   const [isRental, setIsRental] = useState(property?.is_rental ?? true);
+  const [bedrooms, setBedrooms] = useState(String(property?.bedrooms ?? ""));
+  const [maxGuests, setMaxGuests] = useState(String(property?.max_guests ?? ""));
+  const [petsAllowed, setPetsAllowed] = useState(property?.pets_allowed == null ? "" : String(property.pets_allowed));
+  const [floors, setFloors] = useState(String(property?.floors ?? ""));
   const [name, setName] = useState(property?.name ?? "");
   const [airbnbUrl, setAirbnbUrl] = useState(property?.airbnb_ical_url ?? "");
   // Booking iCal: held in state so submit can round-trip the existing
@@ -213,6 +217,10 @@ function PropertyForm({
         currency,
         country,
         is_rental: isRental,
+        bedrooms: bedrooms === "" ? null : Number(bedrooms),
+        max_guests: maxGuests === "" ? null : Number(maxGuests),
+        pets_allowed: petsAllowed === "" ? null : petsAllowed === "true",
+        floors: floors === "" ? null : floors === "1" ? 1 : 2,
         padron: padron.trim(),
         tariff_per_kwh: tariffNum,
         airbnb_listing_id: airbnbListingId.trim(),
@@ -326,6 +334,32 @@ function PropertyForm({
             required
             autoFocus
           />
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid gap-2">
+            <Label htmlFor="bedrooms">{t("fields.bedrooms")}</Label>
+            <Input id="bedrooms" type="number" min="0" max="100" step="1" value={bedrooms} onChange={e => setBedrooms(e.target.value)} disabled={pending} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="max_guests">{t("fields.maxGuests")}</Label>
+            <Input id="max_guests" type="number" min="1" max="100" step="1" value={maxGuests} onChange={e => setMaxGuests(e.target.value)} disabled={pending} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="pets_allowed">{t("fields.petsAllowed")}</Label>
+            <select id="pets_allowed" value={petsAllowed} onChange={e => setPetsAllowed(e.target.value)} disabled={pending} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs">
+              <option value="">{t("fields.notSpecified")}</option>
+              <option value="true">{t("fields.yes")}</option>
+              <option value="false">{t("fields.no")}</option>
+            </select>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="floors">{t("fields.floors")}</Label>
+            <select id="floors" value={floors} onChange={e => setFloors(e.target.value)} disabled={pending} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs">
+              <option value="">{t("fields.notSpecified")}</option>
+              <option value="1">{t("fields.oneFloor")}</option>
+              <option value="2">{t("fields.twoFloors")}</option>
+            </select>
+          </div>
         </div>
         <div className="space-y-2 rounded-lg border p-3">
           <label className="flex items-center gap-3 text-sm font-medium">

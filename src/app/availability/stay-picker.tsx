@@ -21,6 +21,7 @@ export function StayPicker({month, count, selected, arrival, departure}: {month:
   const days = monthDays(visibleMonth);
   const padding = (new Date(`${days[0]}T00:00:00Z`).getUTCDay() + 6) % 7;
   const format = (day: string) => new Intl.DateTimeFormat(locale, {day:"numeric",month:"short",year:"numeric",timeZone:"UTC"}).format(new Date(`${day}T00:00:00Z`));
+  const compactRange = arrival && departure ? new Intl.DateTimeFormat(locale, {day:"numeric",month:"short",year:"numeric",timeZone:"UTC"}).formatRange(new Date(arrival + "T00:00:00Z"), new Date(departure + "T00:00:00Z")) : "";
   function navigate(clear = false) {
     const query = new URLSearchParams({month, months:String(count), view:"compare"});
     if (selected) query.set("property",selected);
@@ -34,7 +35,7 @@ export function StayPicker({month, count, selected, arrival, departure}: {month:
   }
   return <div className="flex min-w-0 flex-wrap items-center gap-2">
     <Dialog open={open} onOpenChange={value => {setOpen(value); if(value) {setStart(arrival);setEnd(departure);setVisibleMonth(arrival.slice(0,7) || month);} }}>
-      <DialogTrigger render={<Button variant="outline" size="lg" className="font-sans text-sm font-medium" />}>{arrival && departure ? `${format(arrival)} → ${format(departure)}` : t("searchStay")}</DialogTrigger>
+      <DialogTrigger render={<Button variant="outline" size="lg" className="whitespace-nowrap px-3 font-sans text-sm font-medium" />}>{compactRange || t("searchStay")}</DialogTrigger>
       <DialogContent className="gap-3 p-4 sm:p-6">
         <DialogTitle>{t("searchStay")}</DialogTitle>
         <DialogDescription>{t("choosePeriod")}</DialogDescription>
@@ -56,6 +57,5 @@ export function StayPicker({month, count, selected, arrival, departure}: {month:
         </div>
       </DialogContent>
     </Dialog>
-    {(arrival || departure) && <Button variant="ghost" onClick={()=>navigate(true)}>{t("clearStay")}</Button>}
   </div>;
 }

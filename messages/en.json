@@ -788,7 +788,16 @@
       "tariffPerKwh": "Tariff per kWh (optional)",
       "tariffPerKwhHint": "If left empty, /energy uses the global fallback.",
       "isRental": "Rental property",
-      "isRentalHint": "Allows new reservations. Turning this off keeps history, energy usage and remote controls."
+      "isRentalHint": "Allows new reservations. Turning this off keeps history, energy usage and remote controls.",
+      "bedrooms": "Number of bedrooms",
+      "maxGuests": "Maximum guests",
+      "petsAllowed": "Pets allowed",
+      "floors": "Floors",
+      "notSpecified": "Not specified",
+      "yes": "Yes",
+      "no": "No",
+      "oneFloor": "One floor",
+      "twoFloors": "Two floors"
     },
     "placeholders": {
       "airbnbListingId": "e.g. 1526467",
@@ -1523,7 +1532,7 @@
     "calendar": "Calendar",
     "view": "Availability view",
     "swipeHint": "Swipe through dates to compare. Tap a house to open its calendar.",
-    "gridRates": "Nightly rates ({currencies}). · No rate. ? Unconfirmed.",
+    "gridRates": "Nightly rates ({currencies}).",
     "stayResults": "Availability for your stay",
     "nights": "{count, plural, one {# night} other {# nights}}",
     "noStay": "No houses have confirmed availability for the entire stay.",
@@ -1600,6 +1609,15 @@
     "chooseArrival": "Choose check-in",
     "chooseDeparture": "Choose check-out",
     "previousPeriod": "Previous period",
-    "nextPeriod": "Next period"
+    "nextPeriod": "Next period",
+    "propertyDetails": {
+      "guests": "Max. {count, plural, one {# guest} other {# guests}}",
+      "bedrooms": "{count, plural, one {# bedroom} other {# bedrooms}}",
+      "oneFloor": "One floor",
+      "twoFloors": "Two floors",
+      "petsAllowed": "Pets allowed",
+      "noPets": "No pets allowed"
+    },
+    "petPolicy": "A maximum of one pet per family is allowed at an extra cost of $10 USD per night"
   }
 }

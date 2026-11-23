@@ -27,6 +27,10 @@ const upsertSchema = z.object({
     .regex(/^[A-Z]{3}$/, "Moneda inválida (usá ISO 4217: UYU, ARS, USD, ...)")
     .default("UYU"),
   is_rental: z.boolean().optional(),
+  bedrooms: z.number().int().min(0).max(100).nullable().optional(),
+  max_guests: z.number().int().min(1).max(100).nullable().optional(),
+  pets_allowed: z.boolean().nullable().optional(),
+  floors: z.union([z.literal(1), z.literal(2)]).nullable().optional(),
   country: z.enum(["UY", "AR"]).default("UY"),
   padron: z.string().max(80).optional().or(z.literal("")) .transform((v) => v ? v : null),
   tariff_per_kwh: z
@@ -69,6 +73,10 @@ export async function upsertProperty(input: {
   currency: string;
   country?: "UY" | "AR";
   is_rental?: boolean;
+  bedrooms?: number | null;
+  max_guests?: number | null;
+  pets_allowed?: boolean | null;
+  floors?: 1 | 2 | null;
   padron?: string;
   tariff_per_kwh: number | null;
   airbnb_listing_id?: string;
@@ -86,6 +94,10 @@ export async function upsertProperty(input: {
   const supabase = await createClient();
   const payload = {
     name: parsed.data.name,
+    ...(parsed.data.bedrooms !== undefined ? { bedrooms: parsed.data.bedrooms } : {}),
+    ...(parsed.data.max_guests !== undefined ? { max_guests: parsed.data.max_guests } : {}),
+    ...(parsed.data.pets_allowed !== undefined ? { pets_allowed: parsed.data.pets_allowed } : {}),
+    ...(parsed.data.floors !== undefined ? { floors: parsed.data.floors } : {}),
     ...(parsed.data.is_rental !== undefined ? { is_rental: parsed.data.is_rental } : {}),
     airbnb_ical_url: parsed.data.airbnb_ical_url,
     booking_ical_url: parsed.data.booking_ical_url,

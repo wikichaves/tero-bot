@@ -27,6 +27,10 @@ export type Profile = {
 };
 
 export type Property = {
+  bedrooms?: number | null;
+  max_guests?: number | null;
+  pets_allowed?: boolean | null;
+  floors?: 1 | 2 | null;
   is_rental: boolean;
   id: string;
   name: string;

@@ -788,7 +788,16 @@
       "tariffPerKwh": "Tarifa por kWh (opcional)",
       "tariffPerKwhHint": "Si lo dejás vacío, /energy usa el fallback global.",
       "isRental": "Se alquila",
-      "isRentalHint": "Habilita nuevas reservas. Al desmarcar, se conservan el historial, los consumos y el control remoto."
+      "isRentalHint": "Habilita nuevas reservas. Al desmarcar, se conservan el historial, los consumos y el control remoto.",
+      "bedrooms": "Cantidad de cuartos",
+      "maxGuests": "Máximo de personas",
+      "petsAllowed": "Se admiten mascotas",
+      "floors": "Plantas",
+      "notSpecified": "Sin especificar",
+      "yes": "Sí",
+      "no": "No",
+      "oneFloor": "Una planta",
+      "twoFloors": "Dos plantas"
     },
     "placeholders": {
       "airbnbListingId": "ej. 1526467",
@@ -1523,7 +1532,7 @@
     "calendar": "Calendario",
     "view": "Vista de disponibilidad",
     "swipeHint": "Deslizá las fechas para comparar. Tocá una casa para ver su calendario.",
-    "gridRates": "Tarifas por noche ({currencies}). · Sin tarifa. ? Sin confirmar.",
+    "gridRates": "Tarifas por noche ({currencies}).",
     "stayResults": "Disponibilidad para tu estadía",
     "nights": "{count, plural, one {# noche} other {# noches}}",
     "noStay": "No hay casas con disponibilidad confirmada para toda la estadía.",
@@ -1600,6 +1609,15 @@
     "chooseArrival": "Seleccioná la entrada",
     "chooseDeparture": "Seleccioná la salida",
     "previousPeriod": "Período anterior",
-    "nextPeriod": "Período siguiente"
+    "nextPeriod": "Período siguiente",
+    "propertyDetails": {
+      "guests": "Máx. {count, plural, one {# persona} other {# personas}}",
+      "bedrooms": "{count, plural, one {# cuarto} other {# cuartos}}",
+      "oneFloor": "Una planta",
+      "twoFloors": "Dos plantas",
+      "petsAllowed": "Se admiten mascotas",
+      "noPets": "No se admiten mascotas"
+    },
+    "petPolicy": "Se admite máximo una mascota por familia a un costo extra de $10 USD por noche"
   }
 }
