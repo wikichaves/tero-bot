@@ -191,13 +191,9 @@ export async function createUser(formData: FormData) {
 
 const updateProfileSchema = z.object({
   id: z.string().uuid(),
-  email: z.string().trim().toLowerCase().email("Email inválido.").optional(),
+  email: z.string().trim().toLowerCase().pipe(z.string().email("Email inválido.").or(z.literal(""))).optional(),
   full_name: z.string().min(1, "Falta el nombre.").max(100),
-  whatsapp: z
-    .string()
-    .optional()
-    .or(z.literal(""))
-    .transform((v) => (v ? v : null)),
+  whatsapp: z.string().trim().min(1, "El teléfono es obligatorio."),
   // WIK-155: idioma preferido. Opcional — si no viene, no se toca.
   language: z
     .string()
@@ -232,6 +228,10 @@ export async function updateProfile(input: {
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
   }
+  const whatsapp = normalizePhone(parsed.data.whatsapp);
+  if (!whatsapp) {
+    return { error: "Teléfono inválido. Usá formato +598... o 099..." };
+  }
   // WIK-248: mismo guard que tenía `updateRole` — un admin no puede
   // quitarse a sí mismo el rol de admin (se quedaría sin acceso).
   if (
@@ -249,7 +249,7 @@ export async function updateProfile(input: {
     p_id: parsed.data.id,
     p_patch: {
       full_name:parsed.data.full_name,
-      whatsapp:normalizePhone(parsed.data.whatsapp),
+      whatsapp,
       ...(parsed.data.language ? {language:parsed.data.language} : {}),
       ...(parsed.data.role ? {role:parsed.data.role} : {}),
       ...(input.telegram_chat_id !== undefined ? {telegram_chat_id:input.telegram_chat_id} : {}),
@@ -263,21 +263,23 @@ export async function updateProfile(input: {
   // Auth owns login credentials; keep the profile lookup used by phone login
   // synchronized. Never report a failed email change as a successful save.
   if (parsed.data.email !== undefined) {
+    // Blank means phone-only login, just like user creation.
+    const email = parsed.data.email || synthesizeEmail(whatsapp);
     const { data, error: lookupError } = await admin.auth.admin.getUserById(parsed.data.id);
     if (lookupError || !data.user?.email) {
       return { error: "Perfil guardado, pero no se pudo consultar el email de acceso. Reintentá." };
     }
     const previousEmail = data.user.email;
-    const emailChanged = previousEmail !== parsed.data.email;
+    const emailChanged = previousEmail !== email;
     if (emailChanged) {
       const { error: authError } = await admin.auth.admin.updateUserById(parsed.data.id, {
-        email: parsed.data.email,
+        email,
         email_confirm: true,
       });
       if (authError) return { error: `Perfil guardado, pero no se pudo cambiar el email: ${authError.message}` };
     }
     const { data: updatedProfile, error: emailError } = await admin.from("profiles")
-      .update({ email: parsed.data.email }).eq("id", parsed.data.id).select("id").single();
+      .update({ email }).eq("id", parsed.data.id).select("id").single();
     if (emailError || !updatedProfile) {
       if (emailChanged) {
         const { error: rollbackError } = await admin.auth.admin.updateUserById(parsed.data.id, {

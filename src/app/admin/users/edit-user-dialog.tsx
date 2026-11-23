@@ -49,6 +49,7 @@ export function EditUserDialog({
   // visibilidad del bloque de propiedades (solo aplica a no-admin).
   const [role, setRole] = useState<UserRole>(profile.role);
   const isAdmin = role === "admin";
+  const contactEmail = profile.email.endsWith("@phone.tero.local") ? "" : profile.email;
 
   function toggleProp(id: string) {
     setSelectedProps((prev) => {
@@ -96,7 +97,7 @@ export function EditUserDialog({
         <form onSubmit={onSubmit} className="flex min-h-0 max-h-[90dvh] flex-col">
           <DialogHeader className="shrink-0 border-b px-6 py-5 pr-12">
             <DialogTitle>{t("edit.title")}</DialogTitle>
-            <DialogDescription>{profile.email}</DialogDescription>
+            <DialogDescription>{contactEmail || profile.whatsapp}</DialogDescription>
           </DialogHeader>
           <div className="grid min-h-0 gap-4 overflow-y-auto px-6 py-5 sm:grid-cols-2">
             <div className="grid gap-2">
@@ -110,21 +111,22 @@ export function EditUserDialog({
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="email">{t("fields.emailEdit")}</Label>
+              <Label htmlFor="email">{t("fields.email")}</Label>
               <Input
                 id="email"
                 name="email"
                 type="email"
-                defaultValue={profile.email}
-                required
+                defaultValue={contactEmail}
                 disabled={pending}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="whatsapp">{t("fields.phoneOptional")}</Label>
+              <Label htmlFor="whatsapp">{t("fields.phone")}</Label>
               <Input
                 id="whatsapp"
                 name="whatsapp"
+                type="tel"
+                required
                 defaultValue={profile.whatsapp ?? ""}
                 placeholder="+598 99 123 456"
               />
