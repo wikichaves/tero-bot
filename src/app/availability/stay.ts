@@ -3,6 +3,11 @@ type Rate = {property_id: string; start_date: string; end_date: string; amount: 
 export function validStay(arrival: string, departure: string) {
   return daySchema.safeParse(arrival).success && daySchema.safeParse(departure).success && arrival < departure && arrival >= "2000-01-01" && departure <= "2200-12-31" && Date.parse(departure)-Date.parse(arrival) <= 330*86400000;
 }
+export function stayMonthCount(arrival: string, departure: string) {
+  const first = new Date(`${arrival}T00:00:00Z`);
+  const last = new Date(Date.parse(departure) - 86400000);
+  return (last.getUTCFullYear() - first.getUTCFullYear()) * 12 + last.getUTCMonth() - first.getUTCMonth() + 1;
+}
 export function staySummary(property: {id: string; known: boolean}, days: string[], busy: Busy[], rates: Rate[], arrival: string, departure: string) {
   const nights = days.filter(d => d >= arrival && d < departure);
   const occupied = busy.find(e => e.property_id === property.id && e.start_date < departure && e.end_date > arrival);

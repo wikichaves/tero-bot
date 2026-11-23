@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AvailabilityComparison } from "./comparison";
-import { validStay } from "./stay";
+import { validStay, stayMonthCount } from "./stay";
 import { PropertyThumb } from "@/components/property-thumb";
 import { getActiveCountry } from "@/lib/country";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -21,8 +21,7 @@ export default async function AvailabilityPage({searchParams}:{searchParams:Prom
   const invalidStay = !!(arrival || departure) && !hasStay;
   if (hasStay) {
     month = arrival.slice(0,7);
-    const lastNight = new Date(Date.parse(departure)-86400000);
-    count = (lastNight.getUTCFullYear()-Number(month.slice(0,4)))*12 + lastNight.getUTCMonth()-Number(month.slice(5,7))+2;
+    count = stayMonthCount(arrival, departure);
   }
   const months = Array.from({length:count},(_,i)=>{const d=new Date(`${month}-01T00:00:00Z`);d.setUTCMonth(d.getUTCMonth()+i);return d.toISOString().slice(0,7);}).filter(m=>m<="2200-12");
   const calendars = await Promise.all(months.map(loadAvailability));
