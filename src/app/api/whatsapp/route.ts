@@ -1,3 +1,5 @@
+import { createWhatsAppRecoveryLink } from "@/lib/auth/password-recovery";
+import { isPasswordRecoveryRequest } from "@/lib/auth/password-recovery-policy";
 import { availabilityHelp, availabilityReply } from "@/lib/availability/bot";
 import { isAvailabilityQuery } from "@/lib/availability/query";
 import { NextRequest, NextResponse, after } from "next/server";
@@ -303,7 +305,8 @@ async function processEvent(event: KapsoEvent, eventType: string | null) {
       media_url: extractMediaUrl(message),
       raw: event,
     });
-    await Promise.all([typingPromise, persistPromise]);
+    const [, persisted] = await Promise.all([typingPromise, persistPromise]);
+    if (persisted.deduped) return null;
     return {
       conversationId,
       peer,
@@ -537,7 +540,6 @@ async function autoReply(opts: {
   mediaUrl: string | null;
   sourceMessageId?: string | null;
 }) {
-  if (!isAutoReplyEnabled()) return;
 
   // WIK-151: resolver el locale del recipient antes que cualquier respuesta
   // free-form. Si no hay profile (guest/unknown), default `en`. Cacheamos
@@ -553,6 +555,31 @@ async function autoReply(opts: {
     const lang = p?.language;
     return lang && isLocale(lang) ? lang : DEFAULT_LOCALE;
   };
+
+  // Recovery precedes role-specific routing (including agencies). Only the
+  // verified envelope sender can receive a link for their own linked account.
+  if (opts.messageType === "text" && isPasswordRecoveryRequest(opts.messageBody)) {
+    if (!process.env.WHATSAPP_PHONE_NUMBER_ID || opts.phoneNumberId !== process.env.WHATSAPP_PHONE_NUMBER_ID) return;
+    const locale = await getLocale();
+    const phone = normalizePhone(opts.peer);
+    try {
+      const link = phone && opts.sourceMessageId ? await createWhatsAppRecoveryLink({
+        phone, conversationId: opts.conversationId, messageId: opts.sourceMessageId,
+      }) : null;
+      const text = await tr(locale, link ? "login.recovery.whatsappLink" : "login.recovery.whatsappUnavailable", link ? { link } : {});
+      // Never store bearer tokens in the operator-readable inbox or log raw responses.
+      const { messageId } = await sendKapsoText(opts.phoneNumberId, opts.peer, text);
+      await persistMessage({ conversation_id: opts.conversationId, external_id: messageId,
+        direction: "outbound", type: "text", status: "sent",
+        body: "[Password recovery reply — link omitted]" });
+    } catch {
+      console.error("[kapso recovery] request failed");
+      await sendKapsoText(opts.phoneNumberId, opts.peer, await tr(locale, "login.recovery.whatsappFailed"));
+    }
+    return;
+  }
+
+  if (!isAutoReplyEnabled()) return;
 
   // Fail closed for agencies before tasks, expenses, climate or cameras.
   const availabilityProfile = await getProfile();
@@ -896,9 +923,8 @@ export async function POST(req: NextRequest) {
       );
     }
   } else {
-    console.warn(
-      "[kapso webhook] KAPSO_WEBHOOK_SECRET not set — skipping signature verification",
-    );
+    console.error("[kapso webhook] signature verification unavailable");
+    return NextResponse.json({ error: "webhook unavailable" }, { status: 503 });
   }
 
   let body: KapsoWebhookBody | string;

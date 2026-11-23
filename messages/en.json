@@ -375,7 +375,30 @@
     },
     "privateNote": "tero.bot is a private operational engine, not a public SaaS — there is no open signup.",
     "selfHostNote": "The codebase is source-available — you can download, fork, and self-host your own instance.",
-    "viewCode": "View the code on GitHub →"
+    "viewCode": "View the code on GitHub →",
+    "recovery": {
+      "forgot": "Forgot password",
+      "title": "Recover password",
+      "instructions": "Open WhatsApp and send the message from the phone registered to your account. We will reply with a single-use link to choose a new password. No email needed.",
+      "openWhatsApp": "Recover via WhatsApp",
+      "noAccess": "If you no longer have access to that number, contact your administrator to update your phone.",
+      "back": "Back to login",
+      "resetTitle": "New password",
+      "passwordHint": "Use between 12 and 128 characters.",
+      "newPassword": "New password",
+      "confirmPassword": "Repeat password",
+      "saving": "Saving…",
+      "save": "Save password",
+      "success": "Password updated. Sign in with your phone and new password.",
+      "invalid": "Invalid link or password. Use between 12 and 128 characters.",
+      "expired": "This link has expired or was already used. Request a new one via WhatsApp.",
+      "failed": "Could not save your password. Request a new link and try again.",
+      "mismatch": "Passwords do not match.",
+      "requestAnother": "Request another link",
+      "whatsappLink": "To change your tero.bot password, open this single-use link:\n{link}\nDo not share it. If it expires, send “reset password” again.",
+      "whatsappUnavailable": "If this phone is linked to a tero.bot account, you can recover access. Wait 10 minutes before requesting another link; if none arrives, contact your administrator.",
+      "whatsappFailed": "Could not generate a recovery link. Send “reset password” again in a few minutes."
+    }
   },
   "rooms": {
     "title": "Rooms",

@@ -375,7 +375,30 @@
     },
     "privateNote": "tero.bot es un motor operativo privado, no un SaaS público: no hay registro abierto.",
     "selfHostNote": "El código es source-available — podés descargarlo, forkearlo y self-hostear tu propia instancia.",
-    "viewCode": "Ver el código en GitHub →"
+    "viewCode": "Ver el código en GitHub →",
+    "recovery": {
+      "forgot": "Olvidé mi contraseña",
+      "title": "Recuperar contraseña",
+      "instructions": "Abrí WhatsApp y enviá el mensaje desde el teléfono registrado en tu cuenta. Te responderemos con un enlace de un solo uso para elegir una contraseña nueva. No necesitás email.",
+      "openWhatsApp": "Recuperar por WhatsApp",
+      "noAccess": "Si ya no tenés acceso a ese número, contactá al administrador para actualizar tu teléfono.",
+      "back": "Volver al login",
+      "resetTitle": "Nueva contraseña",
+      "passwordHint": "Usá entre 12 y 128 caracteres.",
+      "newPassword": "Nueva contraseña",
+      "confirmPassword": "Repetir contraseña",
+      "saving": "Guardando…",
+      "save": "Guardar contraseña",
+      "success": "Contraseña actualizada. Ya podés ingresar con tu teléfono y la nueva contraseña.",
+      "invalid": "El enlace o la contraseña no son válidos. Usá entre 12 y 128 caracteres.",
+      "expired": "El enlace venció o ya fue utilizado. Pedí uno nuevo por WhatsApp.",
+      "failed": "No pudimos guardar la contraseña. Pedí un enlace nuevo e intentá otra vez.",
+      "mismatch": "Las contraseñas no coinciden.",
+      "requestAnother": "Pedir otro enlace",
+      "whatsappLink": "Para cambiar tu contraseña de tero.bot, abrí este enlace de un solo uso:\n{link}\nNo lo compartas. Si vence, enviá nuevamente «recuperar contraseña».",
+      "whatsappUnavailable": "Si este teléfono está asociado a una cuenta de tero.bot, podés recuperar tu acceso. Esperá 10 minutos antes de volver a pedir un enlace; si no lo recibís, contactá al administrador.",
+      "whatsappFailed": "No pudimos generar el enlace de recuperación. Volvé a enviar «recuperar contraseña» en unos minutos."
+    }
   },
   "rooms": {
     "title": "Ambientes",
