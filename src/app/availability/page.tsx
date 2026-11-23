@@ -37,12 +37,13 @@ export default async function AvailabilityPage({searchParams}:{searchParams:Prom
   return <main className="mx-auto w-full max-w-6xl flex-1 min-w-0 space-y-3 p-4 sm:p-6">
     <header><h1 className="text-3xl">{t("title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t("description")}</p></header>
     <div className="flex flex-wrap items-center gap-2">
-    <AvailabilityFilters month={month} selected={selected} properties={properties} count={count} view={compare ? "compare" : "calendar"} />
-    <nav className="ml-auto flex gap-1 rounded-lg bg-muted p-1 w-fit" aria-label={t("view")}>
-      {(["compare", "calendar"] as const).map(view => <Link key={view} scroll={false} aria-current={(compare ? "compare" : "calendar") === view ? "page" : undefined} className={`rounded-md px-4 py-2 text-sm ${(compare ? "compare" : "calendar") === view ? "bg-background shadow-sm" : "text-muted-foreground"}`} href={`/availability?${new URLSearchParams({month, months:String(count), view, ...(selected ? {property:selected} : {}), ...(hasStay ? {arrival,departure} : {})})}`}>{t(view)}</Link>)}
+    <AvailabilityFilters month={month} selected={selected} properties={properties} count={count} view={compare ? "compare" : "calendar"}>
+      {compare && <StayPicker month={month} count={count} selected={selected} arrival={hasStay ? arrival : ""} departure={hasStay ? departure : ""} />}
+    </AvailabilityFilters>
+    <nav className="ml-auto grid w-fit grid-cols-2 gap-1 rounded-lg border border-border bg-muted p-1" aria-label={t("view")}>
+      {(["compare", "calendar"] as const).map(view => <Link key={view} scroll={false} aria-current={(compare ? "compare" : "calendar") === view ? "page" : undefined} className={`rounded-md border px-4 py-2 text-center text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${(compare ? "compare" : "calendar") === view ? "border-border bg-background text-foreground shadow-sm" : "border-transparent text-muted-foreground hover:bg-background/60 hover:text-foreground"}`} href={`/availability?${new URLSearchParams({month, months:String(count), view, ...(selected ? {property:selected} : {}), ...(hasStay ? {arrival,departure} : {})})}`}>{t(view)}</Link>)}
     </nav>
     </div>
-    {compare && <StayPicker month={month} count={count} selected={selected} arrival={hasStay ? arrival : ""} departure={hasStay ? departure : ""} />}
     {invalidStay && <p role="alert" className="text-sm text-status-warning">{t("invalidStay")}</p>}
     {!properties.length && <p className="rounded-xl border p-6">{t("noAccess")}</p>}
     {compare && properties.length > 0 && <AvailabilityComparison calendars={calendars} properties={selected ? properties.filter(p => p.id === selected) : properties} month={month} arrival={hasStay ? arrival : ""} departure={hasStay ? departure : ""} />}

@@ -1540,6 +1540,7 @@
     "description": "Calendario y tarifas de las casas autorizadas. Acceso de solo consulta.",
     "manage": "Inmobiliarias y tarifas",
     "signOut": "Cerrar sesión",
+    "monthYear": "Mes y año",
     "month": "Mes",
     "property": "Casa",
     "all": "Todas las casas",

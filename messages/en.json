@@ -1540,6 +1540,7 @@
     "description": "Calendar and rates for authorized homes. Read-only access.",
     "manage": "Agencies and rates",
     "signOut": "Sign out",
+    "monthYear": "Month and year",
     "month": "Month",
     "property": "Home",
     "all": "All homes",

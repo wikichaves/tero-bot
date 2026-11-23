@@ -4,7 +4,7 @@ import Link from "next/link";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useTransition, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 function destination(month: string, property: string, count: number, view: string) {
@@ -26,30 +26,32 @@ export function MonthNavigation({ month, selected, count, view }: { month: strin
   </nav>;
 }
 
-export function AvailabilityFilters({ month, selected, properties, count, view }: {
-  month: string; selected: string; count: number; view: string; properties: { id: string; name: string; country: string }[];
+export function AvailabilityFilters({ month, selected, properties, count, view, children }: {
+  children?: ReactNode; month: string; selected: string; count: number; view: string; properties: { id: string; name: string; country: string }[];
 }) {
   const t = useTranslations("availability");
   const locale = useLocale();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [year, number] = month.split("-");
+  const monthFormat = new Intl.DateTimeFormat(locale, {month: "long", year: "numeric", timeZone: "UTC"});
   const change = (nextMonth: string, property = selected, nextCount = count) => startTransition(() => router.push(destination(nextMonth, property, nextCount, property !== selected ? (property ? "calendar" : "compare") : view), { scroll: false }));
   const style = "block min-h-10 w-full max-w-full rounded-md border bg-background p-2 disabled:opacity-50";
   return <div className="grid grid-cols-2 items-center gap-2 sm:flex sm:flex-wrap" aria-busy={pending}>
-    <label className="text-sm"><span className="sr-only">{t("month")}</span><select className={style} value={number} disabled={pending} onChange={e => change(`${year}-${e.target.value}`)}>
-      {Array.from({length: 12}, (_, i) => <option key={i} value={String(i + 1).padStart(2, "0")}>{new Intl.DateTimeFormat(locale, {month: "long", timeZone: "UTC"}).format(new Date(Date.UTC(2026, i, 1)))}</option>)}
-    </select></label>
-    <label className="text-sm"><span className="sr-only">{t("year")}</span><select className={style} value={year} disabled={pending} onChange={e => change(`${e.target.value}-${number}`)}>
-      {Array.from({length: 201}, (_, i) => <option key={2000 + i}>{2000 + i}</option>)}
+    <label className="min-w-0 text-sm"><span className="sr-only">{t("monthYear")}</span><select className={style} value={month} disabled={pending} onChange={e => change(e.target.value)}>
+      {Array.from({length: 12}, (_, i) => {
+        const date = new Date(Date.UTC(2026, 11 + i, 1));
+        const value = date.toISOString().slice(0, 7);
+        return <option key={value} value={value}>{monthFormat.format(date)}</option>;
+      })}
     </select></label>
     <label className="min-w-0 text-sm"><span className="sr-only">{t("property")}</span><select className={style} value={selected} disabled={pending} onChange={e => change(month, e.target.value)}><option value="">{t("all")}</option>{properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
     <label className="text-sm"><span className="sr-only">{t("showMonths")}</span><select className={style} value={count} disabled={pending} onChange={e => change(month, selected, Number(e.target.value))}>
       {[1, 3, 6, 9, 12].map(n => <option key={n} value={n}>{t("monthCount", {count:n})}</option>)}
     </select></label>
-    <div className="flex items-center gap-2">
+    <div className="col-span-2 flex min-w-0 flex-wrap items-center gap-2">
       {pending && <span role="status" className="text-sm text-muted-foreground">{t("updating")}</span>}
       <Button type="button" variant="outline" disabled={pending} onClick={() => startTransition(() => router.refresh())}><RefreshCw aria-hidden="true" className={pending ? "animate-spin" : ""} />{t("refresh")}</Button>
+      {children}
     </div>
   </div>;
 }
