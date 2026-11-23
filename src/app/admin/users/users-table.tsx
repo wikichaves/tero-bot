@@ -1,7 +1,5 @@
 "use client";
 
-import { format, parseISO } from "date-fns";
-import { es } from "date-fns/locale";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
@@ -20,12 +18,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { UserActions } from "./user-actions";
 import type { Profile, Property } from "@/lib/types";
-import { ROLE_LABEL } from "@/lib/roles";
-type SortKey = "name" | "email" | "role" | "properties" | "whatsapp" | "created";
+import { ROLE_LABEL, ROLE_PRIORITY } from "@/lib/roles";
+type SortKey = "name" | "email" | "role" | "properties" | "whatsapp";
 const columns: { key: SortKey; className?: string }[] = [
-  { key: "name", className: "w-[15%]" }, { key: "email", className: "w-[24%]" },
-  { key: "role", className: "w-24" }, { key: "properties", className: "hidden md:table-cell" },
-  { key: "whatsapp", className: "hidden w-[16%] lg:table-cell" }, { key: "created", className: "hidden w-32 lg:table-cell" },
+  { key: "name", className: "w-[16%]" },
+  { key: "role", className: "w-[11%]" },
+  { key: "whatsapp", className: "w-[17%]" },
+  { key: "email", className: "w-[25%]" },
+  { key: "properties", className: "w-[23%]" },
 ];
 export function UsersTable({ profiles, allProperties, scopedByProfile, selfId, botWhatsappNumber }: {
  profiles: Profile[]; allProperties: Pick<Property, "id" | "name">[];
@@ -33,7 +33,7 @@ export function UsersTable({ profiles, allProperties, scopedByProfile, selfId, b
 }) {
  const t = useTranslations("usersPage");
  const locale = useLocale();
- const [sort, setSort] = useState<{ key: SortKey; direction: 1 | -1 }>({ key: "name", direction: 1 });
+ const [sort, setSort] = useState<{ key: SortKey; direction: 1 | -1 }>({ key: "role", direction: 1 });
  const collator = new Intl.Collator(locale, { numeric: true, sensitivity: "base" });
  function value(p: Profile) {
    switch (sort.key) {
@@ -42,10 +42,10 @@ export function UsersTable({ profiles, allProperties, scopedByProfile, selfId, b
      case "role": return ROLE_LABEL[p.role];
      case "properties": return p.role === "admin" ? t("scope.all") : allProperties.filter(prop => (scopedByProfile[p.id] ?? []).includes(prop.id)).map(prop => prop.name).join(", ");
      case "whatsapp": return p.whatsapp ?? "";
-     case "created": return p.created_at;
    }
  }
  const sorted = [...profiles].sort((a, b) => {
+   if (sort.key === "role") return (ROLE_PRIORITY[a.role] - ROLE_PRIORITY[b.role]) * sort.direction || collator.compare(a.full_name ?? "", b.full_name ?? "") || a.id.localeCompare(b.id);
    const av = value(a), bv = value(b);
    if (!av || !bv) return av ? -1 : bv ? 1 : a.id.localeCompare(b.id);
    return collator.compare(av, bv) * sort.direction || a.id.localeCompare(b.id);
@@ -111,7 +111,7 @@ export function UsersTable({ profiles, allProperties, scopedByProfile, selfId, b
 
       <Card className="hidden min-w-0 md:block">
         <CardContent>
-          <Table className="table-fixed">
+          <Table className="min-w-[860px] table-fixed">
             <TableHeader>
               <TableRow>
                 {columns.map(({ key, className }) => (
@@ -122,14 +122,14 @@ export function UsersTable({ profiles, allProperties, scopedByProfile, selfId, b
                     </button>
                   </TableHead>
                 ))}
-                <TableHead className="w-36"><span className="sr-only">{t("menu.edit")}</span></TableHead>
+                <TableHead className="w-[8%] text-right">{t("table.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {profiles.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={6}
                     className="text-center text-muted-foreground"
                   >
                     {t("empty")}
@@ -144,30 +144,13 @@ export function UsersTable({ profiles, allProperties, scopedByProfile, selfId, b
                   return (
                   <TableRow key={p.id}>
                     <TableCell className="font-medium whitespace-normal">{p.full_name ?? "—"}</TableCell>
-                    <TableCell className="max-w-56 whitespace-normal break-all text-muted-foreground">{p.email}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{ROLE_LABEL[p.role]}</Badge>
-                    </TableCell>
-                    <TableCell className="hidden max-w-64 text-xs md:table-cell md:whitespace-normal">
-                      {p.role === "admin" ? (
-                        <span className="text-muted-foreground italic">
-                          {t("scope.all")}
-                        </span>
-                      ) : scopedNames.length === 0 ? (
-                        <span className="text-status-warning">
-                          {t("scope.unassigned")}
-                        </span>
-                      ) : (
-                        scopedNames.join(", ")
+                    <TableCell><Badge variant="secondary">{ROLE_LABEL[p.role]}</Badge></TableCell>
+                    <TableCell className="text-xs tabular-nums">{p.whatsapp ?? "—"}</TableCell>
+                    <TableCell className="text-muted-foreground md:whitespace-normal [overflow-wrap:anywhere]">{p.email}</TableCell>
+                    <TableCell className="text-xs md:whitespace-normal">
+                      {p.role === "admin" ? <span className="text-muted-foreground">{t("scope.all")}</span> : scopedNames.length === 0 ? <span className="text-status-warning">{t("scope.unassigned")}</span> : (
+                        <ul className="flex flex-wrap gap-1.5">{scopedNames.map(name => <li key={name} className="rounded-md bg-muted px-2 py-1">{name}</li>)}</ul>
                       )}
-                    </TableCell>
-                    <TableCell className="hidden break-all whitespace-normal text-xs tabular-nums lg:table-cell">
-                      {p.whatsapp ?? "—"}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      {format(parseISO(p.created_at), "d MMM yyyy", {
-                        locale: locale.startsWith("es") ? es : undefined,
-                      })}
                     </TableCell>
 
                     <TableCell className="text-right">

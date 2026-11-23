@@ -32,3 +32,8 @@ export const ALL_ROLES: readonly UserRole[] = [
   "mantenimiento",
   "guest",
 ] as const;
+
+/** Display order: broader operational access first; Agency is read-only. */
+export const ROLE_PRIORITY: Record<UserRole, number> = {
+  admin: 0, gestor: 1, mantenimiento: 2, agency: 3, guest: 4,
+};

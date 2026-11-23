@@ -40,15 +40,15 @@ export function UserDropdown({ profile }: { profile: Profile }) {
           render={
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className="gap-1.5"
+              className="h-9 gap-2 rounded-md border-border/70 bg-background px-3 text-sm font-medium shadow-none"
             />
           }
         >
           <UserIcon className="h-4 w-4" />
           <span className="hidden sm:inline">{displayName}</span>
-          <ChevronDown className="h-3 w-3 opacity-60" />
+          <ChevronDown className="h-4 w-4 opacity-60" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           <div className="px-2 py-1.5">
@@ -68,19 +68,10 @@ export function UserDropdown({ profile }: { profile: Profile }) {
             {t("edit")}
           </DropdownMenuItem>}
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            render={
-              <form action={signOut} className="w-full">
-                <button
-                  type="submit"
-                  className="flex w-full items-center text-left"
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  {t("signOut")}
-                </button>
-              </form>
-            }
-          />
+          <DropdownMenuItem onClick={() => { void signOut(); }}>
+            <LogOut className="h-4 w-4" />
+            {t("signOut")}
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       {editOpen && (

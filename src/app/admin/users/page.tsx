@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { NewUserDialog } from "./new-user-dialog";
+import { RolePermissions } from "./role-permissions";
 import { UsersTable } from "./users-table";
 import type { Profile, Property } from "@/lib/types";
 
@@ -65,6 +66,7 @@ export default async function UsersPage() {
       )}
 
       <UsersTable profiles={profiles} allProperties={allProperties} scopedByProfile={Object.fromEntries(scopedByProfile)} selfId={me.id} botWhatsappNumber={botWhatsappNumber} />
+      <RolePermissions />
     </div>
   );
 }
