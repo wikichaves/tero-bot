@@ -1523,7 +1523,7 @@
     "calendar": "Calendar",
     "view": "Availability view",
     "swipeHint": "Swipe through dates to compare. Tap a house to open its calendar.",
-    "gridRates": "Nightly rates ({currencies}). · No rate. ? Unconfirmed.",
+    "gridRates": "Nightly rates ({currencies}).",
     "stayResults": "Availability for your stay",
     "nights": "{count, plural, one {# night} other {# nights}}",
     "noStay": "No houses have confirmed availability for the entire stay.",

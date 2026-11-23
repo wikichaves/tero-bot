@@ -1523,7 +1523,7 @@
     "calendar": "Calendario",
     "view": "Vista de disponibilidad",
     "swipeHint": "Deslizá las fechas para comparar. Tocá una casa para ver su calendario.",
-    "gridRates": "Tarifas por noche ({currencies}). · Sin tarifa. ? Sin confirmar.",
+    "gridRates": "Tarifas por noche ({currencies}).",
     "stayResults": "Disponibilidad para tu estadía",
     "nights": "{count, plural, one {# noche} other {# noches}}",
     "noStay": "No hay casas con disponibilidad confirmada para toda la estadía.",
