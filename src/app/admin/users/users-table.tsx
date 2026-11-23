@@ -21,10 +21,10 @@ import type { Profile, Property } from "@/lib/types";
 import { ROLE_LABEL, ROLE_PRIORITY } from "@/lib/roles";
 type SortKey = "name" | "email" | "role" | "properties" | "whatsapp";
 const columns: { key: SortKey; className?: string }[] = [
-  { key: "name", className: "w-[16%]" },
+  { key: "name", className: "w-[15%]" },
   { key: "role", className: "w-[11%]" },
   { key: "whatsapp", className: "w-[17%]" },
-  { key: "email", className: "w-[25%]" },
+  { key: "email", className: "w-[24%]" },
   { key: "properties", className: "w-[23%]" },
 ];
 export function UsersTable({ profiles, allProperties, scopedByProfile, selfId, botWhatsappNumber }: {
@@ -122,7 +122,7 @@ export function UsersTable({ profiles, allProperties, scopedByProfile, selfId, b
                     </button>
                   </TableHead>
                 ))}
-                <TableHead className="w-[8%] text-right">{t("table.actions")}</TableHead>
+                <TableHead className="w-[10%] text-right">{t("table.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -143,7 +143,7 @@ export function UsersTable({ profiles, allProperties, scopedByProfile, selfId, b
                     .map((prop) => prop.name);
                   return (
                   <TableRow key={p.id}>
-                    <TableCell className="font-medium whitespace-normal">{p.full_name ?? "—"}</TableCell>
+                    <TableCell className="font-medium md:whitespace-normal [overflow-wrap:anywhere]">{p.full_name ?? "—"}</TableCell>
                     <TableCell><Badge variant="secondary">{ROLE_LABEL[p.role]}</Badge></TableCell>
                     <TableCell className="text-xs tabular-nums">{p.whatsapp ?? "—"}</TableCell>
                     <TableCell className="text-muted-foreground md:whitespace-normal [overflow-wrap:anywhere]">{p.email}</TableCell>

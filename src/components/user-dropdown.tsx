@@ -40,6 +40,7 @@ export function UserDropdown({ profile }: { profile: Profile }) {
           render={
             <Button
               type="button"
+              aria-label={displayName}
               variant="outline"
               size="sm"
               className="h-9 gap-2 rounded-md border-border/70 bg-background px-3 text-sm font-medium shadow-none"
