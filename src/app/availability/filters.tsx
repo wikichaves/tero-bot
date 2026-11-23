@@ -35,7 +35,7 @@ export function AvailabilityFilters({ month, selected, properties, count, view, 
   const [pending, startTransition] = useTransition();
   const monthFormat = new Intl.DateTimeFormat(locale, {month: "long", year: "numeric", timeZone: "UTC"});
   const change = (nextMonth: string, property = selected, nextCount = count) => startTransition(() => router.push(destination(nextMonth, property, nextCount, property !== selected ? (property ? "calendar" : "compare") : view), { scroll: false }));
-  const style = "block min-h-10 w-full max-w-full rounded-md border bg-background p-2 disabled:opacity-50";
+  const style = "block h-10 w-full max-w-full rounded-md border border-border bg-background px-3 py-0 font-sans text-sm font-medium disabled:opacity-50";
   return <div className="grid grid-cols-2 items-center gap-2 sm:flex sm:flex-wrap" aria-busy={pending}>
     <label className="min-w-0 text-sm"><span className="sr-only">{t("monthYear")}</span><select className={style} value={month} disabled={pending} onChange={e => change(e.target.value)}>
       {Array.from({length: 12}, (_, i) => {
@@ -50,7 +50,7 @@ export function AvailabilityFilters({ month, selected, properties, count, view, 
     </select></label>
     <div className="col-span-2 flex min-w-0 flex-wrap items-center gap-2">
       {pending && <span role="status" className="text-sm text-muted-foreground">{t("updating")}</span>}
-      <Button type="button" variant="outline" disabled={pending} onClick={() => startTransition(() => router.refresh())}><RefreshCw aria-hidden="true" className={pending ? "animate-spin" : ""} />{t("refresh")}</Button>
+      <Button type="button" variant="outline" size="icon-lg" aria-label={t("refresh")} title={t("refresh")} disabled={pending} onClick={() => startTransition(() => router.refresh())}><RefreshCw aria-hidden="true" className={pending ? "animate-spin" : ""} /></Button>
       {children}
     </div>
   </div>;

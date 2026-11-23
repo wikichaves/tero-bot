@@ -34,7 +34,7 @@ export function StayPicker({month, count, selected, arrival, departure}: {month:
   }
   return <div className="flex min-w-0 flex-wrap items-center gap-2">
     <Dialog open={open} onOpenChange={value => {setOpen(value); if(value) {setStart(arrival);setEnd(departure);setVisibleMonth(arrival.slice(0,7) || month);} }}>
-      <DialogTrigger render={<Button variant="outline" />}>{arrival && departure ? `${format(arrival)} → ${format(departure)}` : t("searchStay")}</DialogTrigger>
+      <DialogTrigger render={<Button variant="outline" size="lg" className="font-sans text-sm font-medium" />}>{arrival && departure ? `${format(arrival)} → ${format(departure)}` : t("searchStay")}</DialogTrigger>
       <DialogContent className="gap-3 p-4 sm:p-6">
         <DialogTitle>{t("searchStay")}</DialogTitle>
         <DialogDescription>{t("choosePeriod")}</DialogDescription>
