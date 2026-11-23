@@ -26,6 +26,16 @@ export function MonthNavigation({ month, selected, count, view }: { month: strin
   </nav>;
 }
 
+export function AvailabilityRefresh() {
+  const t = useTranslations("availability");
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  return <span className="shrink-0" aria-busy={pending}>
+    <Button type="button" variant="outline" size="icon-lg" aria-label={t("refresh")} title={t("refresh")} disabled={pending} onClick={() => startTransition(() => router.refresh())}><RefreshCw aria-hidden="true" className={pending ? "animate-spin" : ""} /></Button>
+    {pending && <span role="status" className="sr-only">{t("updating")}</span>}
+  </span>;
+}
+
 export function AvailabilityFilters({ month, selected, properties, count, view, children }: {
   children?: ReactNode; month: string; selected: string; count: number; view: string; properties: { id: string; name: string; country: string }[];
 }) {
@@ -50,7 +60,6 @@ export function AvailabilityFilters({ month, selected, properties, count, view, 
     <label className="min-w-0 text-sm"><span className="sr-only">{t("property")}</span><select className={style} value={selected} disabled={pending} onChange={e => change(month, e.target.value)}><option value="">{t("all")}</option>{properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
     <div className="col-span-2 flex min-w-0 flex-wrap items-center gap-2">
       {pending && <span role="status" className="text-sm text-muted-foreground">{t("updating")}</span>}
-      <Button type="button" variant="outline" size="icon-lg" aria-label={t("refresh")} title={t("refresh")} disabled={pending} onClick={() => startTransition(() => router.refresh())}><RefreshCw aria-hidden="true" className={pending ? "animate-spin" : ""} /></Button>
       {children}
     </div>
   </div>;

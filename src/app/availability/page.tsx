@@ -8,7 +8,7 @@ import { getActiveCountry } from "@/lib/country";
 import { getLocale, getTranslations } from "next-intl/server";
 import { loadAvailability } from "@/lib/availability/data";
 import { monthDays, overlaps } from "@/lib/availability/core";
-import { AvailabilityFilters, MonthNavigation } from "./filters";
+import { AvailabilityFilters, AvailabilityRefresh, MonthNavigation } from "./filters";
 
 export const dynamic = "force-dynamic";
 export default async function AvailabilityPage({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}) {
@@ -35,7 +35,7 @@ export default async function AvailabilityPage({searchParams}:{searchParams:Prom
   const date=(value:string)=>new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeZone:"UTC"}).format(new Date(`${value}T00:00:00Z`));
   const money=(amount:number|string,currency:string)=>new Intl.NumberFormat(locale,{style:"currency",currency,maximumFractionDigits:2}).format(Number(amount));
   return <main className="mx-auto w-full max-w-6xl flex-1 min-w-0 space-y-3 p-4 sm:p-6">
-    <header><h1 className="text-3xl">{t("title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t("description")}</p></header>
+    <header><div className="flex items-center gap-3"><h1 className="text-3xl">{t("title")}</h1><AvailabilityRefresh /></div><p className="mt-1 text-sm text-muted-foreground">{t("description")}</p></header>
     <div className="flex flex-wrap items-center gap-2">
     <AvailabilityFilters month={month} selected={selected} properties={properties} count={count} view={compare ? "compare" : "calendar"}>
       {compare && <StayPicker month={month} count={count} selected={selected} arrival={hasStay ? arrival : ""} departure={hasStay ? departure : ""} />}
