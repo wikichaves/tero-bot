@@ -5,34 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizePhone } from "@/lib/whatsapp";
 
-/**
- * Detecta si la entrada del user parece teléfono (vs email). Tolera
- * formatos varios — el helper `normalizePhone` después lo lleva a
- * forma canónica `+598...`. Cualquier string con al menos un dígito
- * y SIN `@` se considera phone candidate (más permisivo que parsear
- * estrictamente).
- */
-function looksLikePhone(value: string): boolean {
-  if (value.includes("@")) return false;
-  return /\d/.test(value);
-}
-
-/**
- * Login con teléfono (WIK-134, antes WIK-113 aceptaba ambos).
- *
- * El UI solo pide teléfono pero el server sigue aceptando email como
- * fallback defensivo — si un password manager autofill pone un email
- * o un usuario legacy intenta entrar con el suyo, no se rompe. La
- * detección se mantiene por presencia de `@`.
- *
- * Supabase auth tiene también `signInWithPhone` pero requiere SMS OTP
- * — el user pidió mantener el password, así que vamos por el lookup
- * de `profiles.whatsapp` → email asociado.
- */
 export async function signIn(input: {
   identifier: string;
   password: string;
 }) {
+  if (!input || typeof input.identifier !== "string" || typeof input.password !== "string" || !input.password || input.password.length > 1024 || input.identifier.length > 100) return { error: "errors.credentials" };
   const identifier = input.identifier.trim();
   if (!identifier) {
     // WIK-151: devolvemos error keys (no strings) para que el cliente
@@ -41,26 +18,15 @@ export async function signIn(input: {
     return { error: "errors.empty" };
   }
 
-  let email = identifier;
-
-  if (looksLikePhone(identifier)) {
-    const normalized = normalizePhone(identifier);
-    if (!normalized) {
-      return { error: "errors.invalidPhone" };
-    }
-    // Lookup del email asociado. Service role porque el user todavía
-    // no está autenticado y RLS bloquea read de profiles.
-    const admin = createAdminClient();
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("email")
-      .eq("whatsapp", normalized)
-      .maybeSingle();
-    if (!profile?.email) {
-      return { error: "errors.notFound" };
-    }
-    email = profile.email as string;
-  }
+  if (!/^[+\d\s().-]+$/.test(identifier)) return { error: "errors.invalidPhone" };
+  const normalized = normalizePhone(identifier);
+  if (!normalized || !/^\+[1-9]\d{7,14}$/.test(normalized)) return { error: "errors.invalidPhone" };
+  const admin = createAdminClient();
+  const { data: profile } = await admin.from("profiles").select("email")
+    .eq("whatsapp", normalized).maybeSingle();
+  // Same error as a wrong password; no account enumeration.
+  if (!profile?.email) return { error: "errors.credentials" };
+  const email = profile.email as string;
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -8,14 +9,6 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { signIn } from "./actions";
 
-/**
- * Form de login (WIK-113 → WIK-134): el UI solo pide teléfono.
- *
- * El server (`actions.ts`) mantiene el fallback de email como red de
- * seguridad para no romper logins legacy (cuentas sin `whatsapp`
- * configurado) — si un password manager autofill pone un email, sigue
- * funcionando. Pero el form solo muestra teléfono.
- */
 export function LoginForm() {
   const t = useTranslations("login");
   const [pending, startTransition] = useTransition();
@@ -71,6 +64,7 @@ export function LoginForm() {
       <Button type="submit" disabled={pending}>
         {pending ? t("submitPending") : t("submit")}
       </Button>
+      <Link href="/login/recover" className="text-center text-sm underline underline-offset-4">{t("recovery.forgot")}</Link>
     </form>
   );
 }
